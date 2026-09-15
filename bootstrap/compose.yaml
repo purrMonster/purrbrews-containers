@@ -1,0 +1,39 @@
+# purrbrews-bootstrap on roastery (Docker Desktop)
+#
+#   cd bootstrap
+#   docker compose up -d --build          # first time, and after editing init/
+#   docker compose logs bootstrap         # shows the TLS pin + the one-liner
+#
+name: purrbrews-bootstrap
+
+services:
+  bootstrap:
+    build:
+      context: ..
+      dockerfile: bootstrap/Dockerfile
+    image: purrbrews-bootstrap:local
+    container_name: purrbrews-bootstrap
+    restart: unless-stopped
+    ports:
+      - "${BOOTSTRAP_PORT:-8443}:8443"
+    environment:
+      BOOTSTRAP_PORT: ${BOOTSTRAP_PORT:-8443}
+    volumes:
+      # keys + fleet settings: edit on roastery, served live, never baked into the image
+      - ./data:/data:ro
+      # TLS key/cert: survives rebuilds, so the pin on every node stays valid
+      - certs:/certs
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /tmp
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETGID, SETUID, NET_BIND_SERVICE]
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: json-file
+      options: { max-size: "5m", max-file: "2" }
+
+volumes:
+  certs:

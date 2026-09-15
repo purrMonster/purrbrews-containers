@@ -1,0 +1,11 @@
+# Build context for bootstrap/Dockerfile is the repo root. Only what the image
+# needs goes in; secrets, keys and data never do.
+*
+!init/purrbrews-init.sh
+!init/purrbrews-mac.sh
+!init/purrbrews-init.env.example
+!init/lib/
+!bootstrap/Dockerfile
+!bootstrap/nginx.conf
+!bootstrap/entrypoint.sh
+!bootstrap/bootstrap.sh
