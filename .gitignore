@@ -1,0 +1,51 @@
+# --- Secrets & host-specific config (never committed) ------------------------
+# Real values live only on the node that generated them. Commit the matching
+# *.example / *.template file with REPLACE_ME placeholders instead.
+.env.local
+*.env.local
+secrets.env*
+!*.example
+*.key
+*.pem
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+ssh_authorized_keys.txt
+remote_url.txt
+init/purrbrews-init.env
+init/authorized_keys
+bootstrap/.env
+bootstrap/data/
+
+# Generated on each node by init/purrbrews-init.sh
+/.env
+
+# Rendered from *.template by render-configs.sh — regenerate, don't commit.
+# (List rendered files per app here as they appear.)
+
+# --- Runtime data -----------------------------------------------------------
+# App data belongs under DATA_DIR (/srv/data) on the node, never in the repo.
+data/
+volumes/
+*.sqlite
+*.sqlite3
+*.db
+*.log
+backups/
+*.tar
+*.tar.gz
+
+# --- Claude collaboration workspace -----------------------------------------
+claude/
+
+# --- Editors & OS -----------------------------------------------------------
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
