@@ -1,0 +1,94 @@
+# Paperless-ngx — scanned documents with OCR and search. Postgres and the
+# Valkey task broker (required by Paperless) are private to this project.
+# Image tags checked 2026-09-15.
+services:
+  paperless:
+    image: ghcr.io/paperless-ngx/paperless-ngx:3.1.3
+    container_name: paperless
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    environment:
+      TZ: ${TZ}
+      PAPERLESS_TIME_ZONE: ${TZ}
+      # Files in consume/ and export/ are owned by the ops user.
+      USERMAP_UID: ${PUID}
+      USERMAP_GID: ${PGID}
+      PAPERLESS_URL: https://paperless.${DOMAIN}
+      # Default is "::", which fails outright on a kernel with IPv6 disabled.
+      PAPERLESS_BIND_ADDR: 0.0.0.0
+      PAPERLESS_TRUSTED_PROXIES: ${PROXY_SUBNET}
+      PAPERLESS_USE_X_FORWARD_HOST: "true"
+      PAPERLESS_USE_X_FORWARD_PORT: "true"
+      PAPERLESS_PROXY_SSL_HEADER: '["HTTP_X_FORWARDED_PROTO", "https"]'
+      PAPERLESS_SECRET_KEY: ${PAPERLESS_SECRET_KEY}
+      PAPERLESS_DBENGINE: postgresql
+      PAPERLESS_DBHOST: paperless-postgres
+      PAPERLESS_DBNAME: paperless
+      PAPERLESS_DBUSER: paperless
+      PAPERLESS_DBPASS: ${PAPERLESS_DB_PASSWORD}
+      PAPERLESS_REDIS: redis://paperless-valkey:6379
+      PAPERLESS_OCR_LANGUAGE: ${PAPERLESS_OCR_LANGUAGE}
+      # First start only: creates the local admin (break-glass if SSO breaks).
+      PAPERLESS_ADMIN_USER: admin
+      PAPERLESS_ADMIN_PASSWORD: ${PAPERLESS_ADMIN_PASSWORD}
+      # Sign in with Authelia (django-allauth OpenID Connect provider).
+      PAPERLESS_APPS: allauth.socialaccount.providers.openid_connect
+      PAPERLESS_SOCIAL_AUTO_SIGNUP: "true"
+      PAPERLESS_SOCIALACCOUNT_PROVIDERS: >-
+        {"openid_connect":{"SCOPE":["openid","profile","email"],"OAUTH_PKCE_ENABLED":true,"APPS":[{"provider_id":"authelia","name":"Authelia","client_id":"paperless","secret":"${PAPERLESS_OIDC_CLIENT_SECRET}","settings":{"server_url":"https://authelia.${DOMAIN}","token_auth_method":"client_secret_basic"}}]}}
+    volumes:
+      - ${DATA_DIR}/paperless/data:/usr/src/paperless/data
+      - ${DATA_DIR}/paperless/media:/usr/src/paperless/media
+      - ${DATA_DIR}/paperless/export:/usr/src/paperless/export
+      - ${DATA_DIR}/paperless/consume:/usr/src/paperless/consume
+    networks:
+      - proxy
+      - default
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.paperless.rule=Host(`paperless.${DOMAIN}`)
+      - traefik.http.routers.paperless.entrypoints=websecure
+      - traefik.http.services.paperless.loadbalancer.server.port=8000
+
+  postgres:
+    image: postgres:18
+    container_name: paperless-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: paperless
+      POSTGRES_USER: paperless
+      POSTGRES_PASSWORD: ${PAPERLESS_DB_PASSWORD}
+    volumes:
+      # Postgres 18+ keeps data in a versioned subdirectory: mount the parent.
+      - ${DATA_DIR}/paperless/postgres:/var/lib/postgresql
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paperless -d paperless"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  valkey:
+    image: valkey/valkey:9.1.2-alpine
+    container_name: paperless-valkey
+    restart: unless-stopped
+    # The broker's queue survives restarts.
+    command: ["valkey-server", "--save", "60", "1"]
+    volumes:
+      - ${DATA_DIR}/paperless/valkey:/data
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  proxy:
+    external: true

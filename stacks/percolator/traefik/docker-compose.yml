@@ -1,0 +1,37 @@
+# Traefik — the only container with published ports on percolator.
+# Image tag checked 2026-09-15.
+services:
+  traefik:
+    image: traefik:v3.7.13
+    container_name: traefik
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    environment:
+      TZ: ${TZ}
+      CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./config/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./config/dynamic.yml:/etc/traefik/dynamic/dynamic.yml:ro
+      - ${DATA_DIR}/traefik/letsencrypt:/letsencrypt
+      - ${DATA_DIR}/traefik/logs:/var/log/traefik
+      - ${DATA_DIR}/traefik/plugins-local:/plugins-local:ro
+    networks:
+      proxy:
+        # Containers on `proxy` resolve Authelia's public name to Traefik
+        # itself, so OIDC discovery and token calls from apps work without
+        # LAN DNS and with a valid certificate.
+        aliases:
+          - authelia.${DOMAIN}
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  proxy:
+    external: true

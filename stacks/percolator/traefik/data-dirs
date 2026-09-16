@@ -1,0 +1,4 @@
+# <path under DATA_DIR> <uid>:<gid> [mode] — created by compose.sh before `up` (PUID/PGID = ops user)
+traefik/letsencrypt 0:0 700
+traefik/logs 0:0 755
+traefik/plugins-local 0:0 755

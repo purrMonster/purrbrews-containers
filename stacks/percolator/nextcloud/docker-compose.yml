@@ -1,0 +1,98 @@
+# Nextcloud — files, calendars, contacts. Postgres and Valkey are private to
+# this project; only the web container joins `proxy`.
+# Image tags checked 2026-09-15.
+services:
+  nextcloud:
+    image: nextcloud:34.0.4-apache
+    container_name: nextcloud
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    environment: &nextcloud-env
+      TZ: ${TZ}
+      # First start only: creates the admin account and installs.
+      NEXTCLOUD_ADMIN_USER: admin
+      NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD}
+      NEXTCLOUD_TRUSTED_DOMAINS: nextcloud.${DOMAIN}
+      POSTGRES_HOST: nextcloud-postgres
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD: ${NEXTCLOUD_DB_PASSWORD}
+      REDIS_HOST: nextcloud-valkey
+      REDIS_HOST_PORT: "6379"
+      # Behind Traefik: without these, logins bounce in a redirect loop.
+      TRUSTED_PROXIES: ${PROXY_SUBNET}
+      OVERWRITEPROTOCOL: https
+      OVERWRITEHOST: nextcloud.${DOMAIN}
+      OVERWRITECLIURL: https://nextcloud.${DOMAIN}
+      PHP_UPLOAD_LIMIT: 16G
+      PHP_MEMORY_LIMIT: 1G
+      APACHE_BODY_LIMIT: "0"
+    volumes:
+      - ${DATA_DIR}/nextcloud/html:/var/www/html
+    networks:
+      - proxy
+      - default
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.nextcloud.rule=Host(`nextcloud.${DOMAIN}`)
+      - traefik.http.routers.nextcloud.entrypoints=websecure
+      - traefik.http.routers.nextcloud.middlewares=nextcloud-dav
+      - traefik.http.services.nextcloud.loadbalancer.server.port=80
+      # Phones and DAV clients look for these well-known URLs.
+      - traefik.http.middlewares.nextcloud-dav.redirectregex.permanent=true
+      - traefik.http.middlewares.nextcloud-dav.redirectregex.regex=^https://(.*)/.well-known/(?:card|cal)dav
+      - traefik.http.middlewares.nextcloud-dav.redirectregex.replacement=https://$${1}/remote.php/dav/
+
+  # Background jobs every 5 minutes (set Administration → Basic settings →
+  # Background jobs to "Cron").
+  cron:
+    image: nextcloud:34.0.4-apache
+    container_name: nextcloud-cron
+    restart: unless-stopped
+    entrypoint: /cron.sh
+    depends_on:
+      - nextcloud
+    environment: *nextcloud-env
+    volumes:
+      - ${DATA_DIR}/nextcloud/html:/var/www/html
+    networks:
+      - default
+
+  postgres:
+    # Nextcloud supports PostgreSQL up to 17.
+    image: postgres:17
+    container_name: nextcloud-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD: ${NEXTCLOUD_DB_PASSWORD}
+    volumes:
+      - ${DATA_DIR}/nextcloud/postgres:/var/lib/postgresql/data
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nextcloud -d nextcloud"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  valkey:
+    image: valkey/valkey:9.1.2-alpine
+    container_name: nextcloud-valkey
+    restart: unless-stopped
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  proxy:
+    external: true

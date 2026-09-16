@@ -1,0 +1,51 @@
+# Rendered by ../../render-configs.sh — edit the .template.
+#
+# Shared middlewares plus the routes that have no container labels to hang
+# them on. App routes live in each app's docker-compose.yml labels.
+
+http:
+  middlewares:
+    # Authelia ForwardAuth over the shared `proxy` network. Other nodes' Traefik
+    # use Authelia's published port 9091 instead (see authelia/README.md).
+    authelia:
+      forwardAuth:
+        address: "http://authelia:9091/api/authz/forward-auth"
+        trustForwardHeader: true
+        maxResponseBodySize: 1048576
+        authResponseHeaders:
+          - Remote-User
+          - Remote-Groups
+          - Remote-Email
+          - Remote-Name
+
+    # Applied to every HTTPS request by the websecure entrypoint.
+    crowdsec:
+      plugin:
+        crowdsec-bouncer:
+          enabled: true
+          crowdsecMode: stream
+          crowdsecLapiScheme: http
+          crowdsecLapiHost: "crowdsec:8080"
+          crowdsecLapiKey: "${CROWDSEC_BOUNCER_KEY}"
+          updateIntervalSeconds: 60
+          # -1: if CrowdSec is down, keep serving with the last known
+          # decisions instead of blocking the whole household.
+          updateMaxFailure: -1
+          forwardedHeadersTrustedIPs:
+            - "${SIEVE_IP}/32"
+          # LAN clients are never blocked by the bouncer.
+          clientTrustedIPs:
+            - "${LAN_CIDR}"
+
+    security-headers:
+      headers:
+        stsSeconds: 31536000
+        contentTypeNosniff: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+
+  routers:
+    traefik-dashboard:
+      rule: "Host(`traefik.${DOMAIN}`)"
+      entryPoints: [websecure]
+      service: api@internal
+      middlewares: [authelia]

@@ -1,0 +1,79 @@
+# Rendered by ../../render-configs.sh — edit the .template.
+
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+  websecure:
+    address: ":443"
+    # sieve's cloudflared: trust its X-Forwarded-For so logs and CrowdSec
+    # see tunnel visitors' real addresses instead of sieve's.
+    forwardedHeaders:
+      trustedIPs:
+        - "${SIEVE_IP}/32"
+    transport:
+      respondingTimeouts:
+        # v3 defaults readTimeout to 60s, which cuts off large Immich and
+        # Nextcloud uploads mid-transfer.
+        readTimeout: 0s
+    http:
+      middlewares:
+        - crowdsec@file
+        - security-headers@file
+      tls:
+        certResolver: cloudflare
+        # One wildcard certificate: fewer ACME orders, and app hostnames
+        # don't appear one by one in public certificate-transparency logs.
+        domains:
+          - main: "${DOMAIN}"
+            sans:
+              - "*.${DOMAIN}"
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    network: proxy
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+
+certificatesResolvers:
+  cloudflare:
+    acme:
+      email: "${ACME_EMAIL}"
+      storage: /letsencrypt/acme.json
+      dnsChallenge:
+        provider: cloudflare
+        resolvers:
+          - "1.1.1.1:53"
+          - "1.0.0.1:53"
+
+# Loaded from disk (placed by ../prepare.sh), so Traefik starts without
+# reaching the plugin catalog.
+experimental:
+  localPlugins:
+    crowdsec-bouncer:
+      moduleName: github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin
+
+api:
+  dashboard: true
+
+ping: {}
+
+log:
+  level: INFO
+
+# JSON access log for CrowdSec (../../crowdsec/acquis.d/traefik.yaml).
+accessLog:
+  filePath: /var/log/traefik/access.log
+  format: json
+  bufferingSize: 100

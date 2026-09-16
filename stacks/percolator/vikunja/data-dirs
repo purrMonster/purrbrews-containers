@@ -1,0 +1,4 @@
+# <path under DATA_DIR> <uid>:<gid> [mode] — created by compose.sh before `up` (PUID/PGID = ops user)
+# The image runs as uid 1000, gid 0 and does not fix ownership itself.
+vikunja/db 1000:0 750
+vikunja/files 1000:0 750

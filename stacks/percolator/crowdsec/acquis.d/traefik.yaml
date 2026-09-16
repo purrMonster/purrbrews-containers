@@ -1,0 +1,5 @@
+# Traefik's JSON access log, shared read-only from traefik's data directory.
+filenames:
+  - /var/log/traefik/access.log
+labels:
+  type: traefik

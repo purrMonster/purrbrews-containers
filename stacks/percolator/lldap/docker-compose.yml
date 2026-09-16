@@ -1,0 +1,36 @@
+# LLDAP — the user directory. Authelia reads it over LDAP; people manage
+# accounts in its web UI at https://lldap.${DOMAIN}.
+# Image tag checked 2026-09-15.
+services:
+  lldap:
+    image: lldap/lldap:v0.6.3
+    container_name: lldap
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+      UID: ${PUID}
+      GID: ${PGID}
+      LLDAP_LDAP_BASE_DN: ${LDAP_BASE_DN}
+      LLDAP_JWT_SECRET: ${LLDAP_JWT_SECRET}
+      LLDAP_KEY_SEED: ${LLDAP_KEY_SEED}
+      # Only applied when the database is created. Changing it later does
+      # nothing: change the admin password in the UI, then update
+      # lldap/secrets.env.local and authelia/secrets.env.local to match.
+      LLDAP_LDAP_USER_PASS: ${LLDAP_ADMIN_PASSWORD}
+    volumes:
+      - ${DATA_DIR}/lldap:/data
+    ports:
+      # Loopback only: break-glass admin access over an SSH tunnel and
+      # lldap-bootstrap.sh, even when Traefik or Authelia is down.
+      - "127.0.0.1:17170:17170"
+    networks:
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.lldap.rule=Host(`lldap.${DOMAIN}`)
+      - traefik.http.routers.lldap.entrypoints=websecure
+      - traefik.http.services.lldap.loadbalancer.server.port=17170
+
+networks:
+  proxy:
+    external: true

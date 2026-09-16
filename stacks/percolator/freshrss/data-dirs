@@ -1,0 +1,3 @@
+# <path under DATA_DIR> <uid>:<gid> [mode] — created by compose.sh before `up` (PUID/PGID = ops user)
+freshrss/data 33:33 750
+freshrss/extensions 33:33 750

@@ -1,0 +1,3 @@
+# <path under DATA_DIR> <uid>:<gid> [mode] — created by compose.sh before `up` (PUID/PGID = ops user)
+authelia/data 0:0 700
+authelia/redis 999:1000 700

@@ -1,0 +1,36 @@
+# Homepage — the household's start page: one tile per app.
+# Behind Authelia ForwardAuth (household). No Docker socket, no API widgets:
+# nothing here holds a credential. Settings are tracked in ./dashboard.
+# Image tag checked 2026-09-16.
+services:
+  homepage:
+    image: ghcr.io/gethomepage/homepage:v2.3.0
+    container_name: homepage
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+      PUID: ${PUID}
+      PGID: ${PGID}
+      # Homepage refuses requests for any other Host header.
+      HOMEPAGE_ALLOWED_HOSTS: homepage.${DOMAIN}
+      # Read as {{HOMEPAGE_VAR_DOMAIN}} in dashboard/*.yaml, so no render step.
+      HOMEPAGE_VAR_DOMAIN: ${DOMAIN}
+      # Log to the container output instead of writing into /app/config.
+      LOG_TARGETS: stdout
+    volumes:
+      - ./dashboard/settings.yaml:/app/config/settings.yaml:ro
+      - ./dashboard/services.yaml:/app/config/services.yaml:ro
+      - ./dashboard/bookmarks.yaml:/app/config/bookmarks.yaml:ro
+      - ./dashboard/widgets.yaml:/app/config/widgets.yaml:ro
+    networks:
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.homepage.rule=Host(`homepage.${DOMAIN}`)
+      - traefik.http.routers.homepage.entrypoints=websecure
+      - traefik.http.routers.homepage.middlewares=authelia@file
+      - traefik.http.services.homepage.loadbalancer.server.port=3000
+
+networks:
+  proxy:
+    external: true

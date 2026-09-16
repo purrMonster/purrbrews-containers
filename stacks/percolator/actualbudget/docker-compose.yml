@@ -1,0 +1,29 @@
+# Actual Budget — envelope budgeting.
+# Image tag checked 2026-09-15.
+services:
+  actualbudget:
+    image: actualbudget/actual-server:26.9.0
+    container_name: actualbudget
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+      # Sign in with Authelia. The FIRST account to sign in becomes the
+      # server owner permanently — sign in as the intended owner first.
+      ACTUAL_OPENID_DISCOVERY_URL: https://authelia.${DOMAIN}
+      ACTUAL_OPENID_CLIENT_ID: actual-budget
+      ACTUAL_OPENID_CLIENT_SECRET: ${ACTUALBUDGET_OIDC_CLIENT_SECRET}
+      ACTUAL_OPENID_SERVER_HOSTNAME: https://actualbudget.${DOMAIN}
+      ACTUAL_USER_CREATION_MODE: login
+    volumes:
+      - ${DATA_DIR}/actualbudget:/data
+    networks:
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.actualbudget.rule=Host(`actualbudget.${DOMAIN}`)
+      - traefik.http.routers.actualbudget.entrypoints=websecure
+      - traefik.http.services.actualbudget.loadbalancer.server.port=5006
+
+networks:
+  proxy:
+    external: true

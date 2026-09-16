@@ -1,0 +1,40 @@
+# Vaultwarden — Bitwarden-compatible password manager.
+# Image tag checked 2026-09-15.
+services:
+  vaultwarden:
+    image: vaultwarden/server:1.37.2
+    container_name: vaultwarden
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+      DOMAIN: https://vault.${DOMAIN}
+      # Admin page at /admin. The password to type is
+      # VAULTWARDEN_ADMIN_PASSWORD; this is its Argon2id hash.
+      ADMIN_TOKEN: ${VAULTWARDEN_ADMIN_TOKEN}
+      SIGNUPS_ALLOWED: ${VAULTWARDEN_SIGNUPS_ALLOWED}
+      INVITATIONS_ALLOWED: "true"
+      SHOW_PASSWORD_HINT: "false"
+      IP_HEADER: X-Forwarded-For
+      # Sign in with Authelia. The master password still encrypts the vault;
+      # SSO only replaces the account login step.
+      SSO_ENABLED: "true"
+      SSO_ONLY: "false"
+      SSO_SIGNUPS_MATCH_EMAIL: "true"
+      SSO_AUTHORITY: https://authelia.${DOMAIN}
+      SSO_CLIENT_ID: vaultwarden
+      SSO_CLIENT_SECRET: ${VAULTWARDEN_OIDC_CLIENT_SECRET}
+      SSO_SCOPES: "email profile offline_access"
+      SSO_PKCE: "true"
+    volumes:
+      - ${DATA_DIR}/vaultwarden:/data
+    networks:
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.vaultwarden.rule=Host(`vault.${DOMAIN}`)
+      - traefik.http.routers.vaultwarden.entrypoints=websecure
+      - traefik.http.services.vaultwarden.loadbalancer.server.port=80
+
+networks:
+  proxy:
+    external: true

@@ -61,6 +61,10 @@ Nodes are named after coffee gear.
 | `grinder` | 192.168.0.14 | `02:93:3c:b4:86:e8` |
 
 Each node's role and app list live in its `stacks/<node>/README.md` as stacks are added.
+So far: [`sieve`](stacks/sieve/README.md) — Pi-hole (DNS + DHCP), Unbound, cloudflared,
+ntfy, Gatus, NetAlertX; [`percolator`](stacks/percolator/README.md) — Traefik, CrowdSec,
+LLDAP, Authelia, Vaultwarden, Nextcloud, Immich, Paperless-ngx, Mealie, Vikunja,
+Actual Budget, FreshRSS, Homepage.
 MACs are derived from the node name, so a reinstall or NIC swap never changes how the
 network sees a machine (see [`init/README.md`](init/README.md)).
 
@@ -71,7 +75,9 @@ bootstrap/                               workstation container that serves node 
 init/                                    fresh Debian → ready node: hardening, Docker, network, timers
 stacks/<node>/<app>/docker-compose.yml   one folder per app, grouped by the node it runs on
 stacks/<node>/compose.sh                 wrapper: loads the node's .env.local + the app's secrets.env.local
+stacks/<node>/setup-secrets.sh           one-command node prep: settings, data dirs, secrets
 stacks/<node>/generate-secrets.sh        creates each app's secrets locally, on the node
+stacks/<node>/firewall.sh                the node's UFW rules, as code
 stacks/<node>/local.env.example          node-specific settings template
 runbook.md                               dated design decisions: the why, not just the what
 ```
@@ -118,6 +124,9 @@ node's README.
 - **Changes that can't strand a headless box.** Network changes run detached and roll
   back within a minute if the gateway doesn't answer. SSH lock-down refuses to proceed
   until a key is installed.
+- **Small blast radius.** Every node runs its own Traefik for its own apps; only the
+  login (Authelia on percolator, reached on its firewalled port 9091) is shared. A
+  broken proxy or a dead node takes down that node's pages, not the fleet's.
 - **Least privilege.** Key-only SSH, no root login, and the ops user reaches root only
   through a password-gated `sudo`. The ops user is never in the `docker` group, which
   would be root without a password.

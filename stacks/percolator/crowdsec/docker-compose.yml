@@ -1,0 +1,33 @@
+# CrowdSec — reads Traefik's access log and serves ban decisions to the
+# Traefik bouncer plugin (traefik/config/dynamic.yml.template, `crowdsec`).
+# No published ports: the plugin reaches the API as crowdsec:8080 on `proxy`.
+# Image tag checked 2026-09-15.
+services:
+  crowdsec:
+    image: crowdsecurity/crowdsec:v1.7.8
+    container_name: crowdsec
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    environment:
+      TZ: ${TZ}
+      # linux brings crowdsecurity/whitelists (private ranges never banned).
+      COLLECTIONS: "crowdsecurity/linux crowdsecurity/traefik"
+      # Registers the Traefik plugin as a bouncer with a key made on this node.
+      BOUNCER_KEY_traefik: ${CROWDSEC_BOUNCER_KEY}
+    volumes:
+      - ${DATA_DIR}/crowdsec/data:/var/lib/crowdsec/data
+      - ${DATA_DIR}/crowdsec/config:/etc/crowdsec
+      - ./acquis.d:/etc/crowdsec/acquis.d:ro
+      - ${DATA_DIR}/traefik/logs:/var/log/traefik:ro
+    networks:
+      - proxy
+    healthcheck:
+      test: ["CMD", "cscli", "lapi", "status"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  proxy:
+    external: true
