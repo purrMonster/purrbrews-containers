@@ -1,24 +1,14 @@
 # Rendered by ../../render-configs.sh into config/dynamic.yml (gitignored).
-# Defines the shared ForwardAuth middleware every app's docker-compose.yml
-# labels reference as `authelia-forwardauth@file`. Nothing else lives here
-# for cellar -- every app on this node is bridge-networked
-# (network_mode: host isn't used by anything cellar runs), so routers and
-# services are all defined via Docker labels instead, auto-discovered by
-# the docker provider in traefik.yml.template.
 http:
   middlewares:
     authelia-forwardauth:
       forwardAuth:
-        # percolator's Authelia -- NOT sieve's. infrastructure.md §4 moved
-        # Authelia (and Traefik, LLDAP, CrowdSec) onto percolator in the
-        # post-restructure fleet; this is a different node than the
-        # pre-restructure build's Authelia location. Will error (502/504,
-        # not silently pass through) until percolator's own Authelia stack
-        # is migrated into this repo and actually running -- see
-        # README "Known gaps". That's fine: every router below still works
-        # on its direct host port with no middleware in the path at all
-        # (the backdoor), it's only the pretty *.${DOMAIN} hostname that
-        # depends on this.
+        # percolator's Authelia (infrastructure.md §4). cellar must be
+        # added to percolator's FORWARD_AUTH_CLIENTS/firewall.sh and to
+        # Authelia's admin_hosts list for this to actually work -- see
+        # README "Known gaps" if komodo.${DOMAIN}/scrutiny.${DOMAIN}
+        # 502/504. Every router below still works on its direct host port
+        # with no middleware in the path (the backdoor).
         address: "http://${PERCOLATOR_LAN_IP}:9091/api/authz/forward-auth"
         trustForwardHeader: true
         authResponseHeaders:

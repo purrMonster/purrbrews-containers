@@ -22,18 +22,29 @@ APP_DIR="${DIR}/${APP}"
 [[ -d "$APP_DIR" ]] || { echo "No such app: $APP (looked in $APP_DIR)" >&2; exit 1; }
 [[ -f "${APP_DIR}/docker-compose.yml" ]] || { echo "No docker-compose.yml in $APP_DIR" >&2; exit 1; }
 
+# barista is not in the docker group (infrastructure.md §6), so docker
+# runs through sudo unless we're already root. Same DOCKER=(...) pattern as
+# sieve's and percolator's compose.sh -- reused for BOTH docker calls below
+# (network + compose) so there's exactly one sudo elevation per invocation,
+# not one per command. Previously this script called bare `docker` with no
+# elevation at all, which either failed outright for barista (permission
+# denied on the socket) or forced wrapping the whole script in an external
+# `sudo ./compose.sh ...` — and since that external sudo doesn't cover a
+# *second*, separate `docker` call the same way a single internal one does,
+# it could still prompt more than once. Fixed to match sieve/percolator.
+DOCKER=(docker); [[ $EUID -eq 0 ]] || DOCKER=(sudo docker)
+
 # cellar_net — every containerized app on this stack joins it (Scrutiny,
-# Diun, Komodo's three services, Samba), same idempotent-create pattern as
-# every other node's compose.sh. Nothing on cellar routes through it yet
-# (no Traefik on this node — see README "Known gaps"), but it's cheap
-# insurance: an app that later needs to reach another app on cellar by
+# Diun, Komodo's three services, Samba, and now Traefik — added
+# 2026-09-16). Same idempotent-create pattern as every other node's
+# compose.sh. An app that needs to reach another app on cellar by
 # container name doesn't need a compose.sh change to get it, just a
 # `networks:` line in its own docker-compose.yml. restic and NFS are not
 # containers and never touch this network — see their own directories.
-docker network inspect cellar_net >/dev/null 2>&1 || docker network create cellar_net >/dev/null
+"${DOCKER[@]}" network inspect cellar_net >/dev/null 2>&1 || "${DOCKER[@]}" network create cellar_net >/dev/null
 
 ENV_ARGS=()
 [[ -f "${DIR}/.env.local" ]] && ENV_ARGS+=(--env-file "${DIR}/.env.local")
 [[ -f "${APP_DIR}/secrets.env.local" ]] && ENV_ARGS+=(--env-file "${APP_DIR}/secrets.env.local")
 
-exec docker compose --project-directory "$APP_DIR" -f "${APP_DIR}/docker-compose.yml" "${ENV_ARGS[@]}" "$@"
+exec "${DOCKER[@]}" compose --project-directory "$APP_DIR" -f "${APP_DIR}/docker-compose.yml" "${ENV_ARGS[@]}" "$@"

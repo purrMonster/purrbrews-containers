@@ -1,0 +1,47 @@
+# Komodo Periphery — standalone agent added 2026-09-16, best-effort on
+# Windows/Docker Desktop. Container management (start/stop/logs/redeploy
+# for immich-ml, docker compose actions in general) works the same way it
+# does on every Linux node, since Docker Desktop's containers are ordinary
+# Linux containers running inside its WSL2 VM and /var/run/docker.sock is
+# exposed into them the same way. See ../scrutiny-collector's absence
+# (deliberately not added — see that decision recorded in
+# ../local.env.example's own comment) for the one thing that does NOT
+# carry over from the Linux fleet.
+#
+# UNVERIFIED, same caveat as every other node's copy but more so here:
+# this has only been reasoned about, never actually brought up on Docker
+# Desktop for Windows. Confirm before relying on it:
+#   - PERIPHERY_ROOT_DIRECTORY (/etc/komodo below) is a path INSIDE the
+#     Linux container/WSL2 VM, not a Windows path — no drive-letter
+#     translation needed, but confirm the bind mount below actually
+#     persists across a `wsl --shutdown` / Docker Desktop restart the same
+#     way it does on native Linux (Docker Desktop's own volume/bind-mount
+#     backing store works differently under the hood).
+#   - PERIPHERY_CORE_PUBLIC_KEYS: unlike every other node, core.pub is NOT
+#     templated through .env.local here (PEM content doesn't round-trip
+#     through setup-secrets.ps1's single-line substitution) -- copy
+#     cellar's /srv/data/komodo/keys/core.pub by hand straight into
+#     .\keys\core.pub next to this file. See ../local.env.example's own
+#     comment on why.
+services:
+  komodo-periphery:
+    image: ghcr.io/moghtech/komodo-periphery:2.3.2
+    container_name: komodo-periphery
+    init: true
+    environment:
+      TZ: ${TZ}
+      PERIPHERY_CORE_ADDRESS: ws://${CELLAR_LAN_IP}:9120
+      PERIPHERY_CONNECT_AS: roastery
+      PERIPHERY_CORE_PUBLIC_KEYS: file:/config/keys/core.pub
+      PERIPHERY_ROOT_DIRECTORY: /etc/komodo
+      PERIPHERY_INCLUDE_DISK_MOUNTS: /etc/hostname
+    volumes:
+      - ./keys:/config/keys
+      - /var/run/docker.sock:/var/run/docker.sock
+      # No /proc bind mount here, unlike the Linux nodes' copies of this
+      # file -- Docker Desktop's WSL2 VM's /proc is not the same thing as
+      # a native Linux host's, and Periphery's use of it (process-level
+      # stats for the host it's managing) is meaningless for a Windows
+      # workstation anyway. Left out deliberately, not an oversight.
+      - /etc/komodo:/etc/komodo
+    restart: unless-stopped

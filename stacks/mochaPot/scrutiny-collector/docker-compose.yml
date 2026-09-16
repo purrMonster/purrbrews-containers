@@ -1,0 +1,22 @@
+# Scrutiny collector — standalone agent added 2026-09-16, same pattern as
+# stacks/sieve/scrutiny-collector/docker-compose.yml (see that file's own
+# header comment). mochaPot has one disk (infrastructure.md §3: 128 GB M.2
+# SATA, the only fleet slot besides sieve's that takes SATA — confirmed on
+# the x360; no HDD in this machine, it's the one that gets moved). VERIFY
+# MOCHAPOT_DISK_DEVICE in ../local.env.example against real hardware with
+# `lsblk -d -o NAME,TYPE,SIZE,MODEL` before first bring-up.
+services:
+  scrutiny-collector:
+    image: ghcr.io/analogj/scrutiny:v0.9.3-collector
+    container_name: scrutiny-collector
+    cap_add:
+      - SYS_RAWIO
+      - SYS_ADMIN
+    environment:
+      COLLECTOR_API_ENDPOINT: http://${CELLAR_LAN_IP}:8080
+      COLLECTOR_CRON_SCHEDULE: "0 */6 * * *"
+    volumes:
+      - /run/udev:/run/udev:ro
+    devices:
+      - ${MOCHAPOT_DISK_DEVICE}
+    restart: unless-stopped

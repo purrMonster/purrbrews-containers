@@ -19,6 +19,13 @@ APP_DIR="${DIR}/${APP}"
 [[ -d "$APP_DIR" ]] || { echo "No such app: $APP (looked in $APP_DIR)" >&2; exit 1; }
 [[ -f "${APP_DIR}/docker-compose.yml" ]] || { echo "No docker-compose.yml in $APP_DIR" >&2; exit 1; }
 
+# barista is not in the docker group (infrastructure.md §6), so docker
+# runs through sudo unless we're already root. Same DOCKER=(...) pattern as
+# sieve's and percolator's compose.sh -- reused for BOTH docker calls below
+# so there's exactly one sudo elevation per invocation, not one per
+# command (same fix as cellar's and mochaPot's compose.sh).
+DOCKER=(docker); [[ $EUID -eq 0 ]] || DOCKER=(sudo docker)
+
 # grinder_net -- n8n, the embedding worker, and postgres-vector join this
 # so n8n and the worker can reach Postgres by container name without
 # publishing its port to the LAN. openwebui, karakeep, fittrackee, traccar,
@@ -27,10 +34,10 @@ APP_DIR="${DIR}/${APP}"
 # esphome needs network_mode: host for mDNS discovery of ESP32 devices and
 # structurally can't join this network -- same exception as every other
 # node's host-networked apps.
-docker network inspect grinder_net >/dev/null 2>&1 || docker network create grinder_net >/dev/null
+"${DOCKER[@]}" network inspect grinder_net >/dev/null 2>&1 || "${DOCKER[@]}" network create grinder_net >/dev/null
 
 ENV_ARGS=()
 [[ -f "${DIR}/.env.local" ]] && ENV_ARGS+=(--env-file "${DIR}/.env.local")
 [[ -f "${APP_DIR}/secrets.env.local" ]] && ENV_ARGS+=(--env-file "${APP_DIR}/secrets.env.local")
 
-exec docker compose --project-directory "$APP_DIR" -f "${APP_DIR}/docker-compose.yml" "${ENV_ARGS[@]}" "$@"
+exec "${DOCKER[@]}" compose --project-directory "$APP_DIR" -f "${APP_DIR}/docker-compose.yml" "${ENV_ARGS[@]}" "$@"

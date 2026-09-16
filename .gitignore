@@ -24,6 +24,13 @@ bootstrap/data/
 # Rendered from *.template by render-configs.sh — regenerate, don't commit.
 # (List rendered files per app here as they appear.)
 
+# komodo-periphery/keys/core.pub — copied by hand from cellar on each node
+# (see stacks/sieve/komodo-periphery/docker-compose.yml's own comment).
+# Komodo's own public key isn't secret, but it's host-copied state, not
+# hand-tracked config — same "always regeneratable, never commit it"
+# treatment as everything else in this section.
+*/keys/*
+
 # --- Runtime data -----------------------------------------------------------
 # App data belongs under DATA_DIR (/srv/data) on the node, never in the repo.
 data/

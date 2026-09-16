@@ -5,3 +5,6 @@
 # Rendered by render-configs.sh from */config/*.template
 */config/*
 !*/config/*.template
+
+# komodo-periphery/keys/core.pub — copied by hand from cellar, not tracked.
+*/keys/*

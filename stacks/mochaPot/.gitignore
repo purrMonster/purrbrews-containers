@@ -7,6 +7,9 @@
 */config/*
 !*/config/*.template
 
+# komodo-periphery/keys/core.pub — copied by hand from cellar, not tracked.
+*/keys/*
+
 # kiosk/ autostart profile data (browser cache/session) if ever generated
 # under this repo instead of the OS user's own home dir -- see kiosk/README.md.
 kiosk/profile/

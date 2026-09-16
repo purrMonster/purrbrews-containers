@@ -1,0 +1,27 @@
+# Scrutiny collector — standalone agent added 2026-09-16, same pattern as
+# stacks/sieve/scrutiny-collector/docker-compose.yml (see that file's own
+# header comment). percolator differs from sieve in having TWO physical
+# disks to monitor (infrastructure.md §3: 1 TB NVMe + 256 GB SATA SSD,
+# physically separate — same OS/data-separation discipline as this node's
+# whole storage layout), so both PERCOLATOR_DISK_DEVICE_NVME and
+# PERCOLATOR_DISK_DEVICE_SATA go in ../local.env.example. VERIFY BOTH
+# against real hardware with `lsblk -d -o NAME,TYPE,SIZE,MODEL` before
+# first bring-up — use the NVMe controller node (/dev/nvme0), not the
+# namespace block device lsblk shows (/dev/nvme0n1), same convention as
+# cellar's own local.env.example.
+services:
+  scrutiny-collector:
+    image: ghcr.io/analogj/scrutiny:v0.9.3-collector
+    container_name: scrutiny-collector
+    cap_add:
+      - SYS_RAWIO
+      - SYS_ADMIN
+    environment:
+      COLLECTOR_API_ENDPOINT: http://${CELLAR_LAN_IP}:8080
+      COLLECTOR_CRON_SCHEDULE: "0 */6 * * *"
+    volumes:
+      - /run/udev:/run/udev:ro
+    devices:
+      - ${PERCOLATOR_DISK_DEVICE_NVME}
+      - ${PERCOLATOR_DISK_DEVICE_SATA}
+    restart: unless-stopped

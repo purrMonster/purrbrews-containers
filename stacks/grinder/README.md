@@ -208,10 +208,11 @@ docker logs traefik --tail 50   # look for a successful cert issuance
 
 Needs `traefik/secrets.env.local`'s `CF_DNS_API_TOKEN` and
 `TRAEFIK_ACME_EMAIL` in `.env.local`. Add Local DNS Records in sieve's
-Pi-hole (once sieve exists in this repo) for each `*.${DOMAIN}` hostname
-listed above, pointing at `${GRINDER_LAN_IP}`. Until then, or until
-percolator's Authelia exists, use each app's direct port — see "Traefik
-and the native-login backdoor" above.
+Pi-hole for each `*.${DOMAIN}` hostname listed above, pointing at
+`${GRINDER_LAN_IP}`. Also needs grinder added to percolator's
+`FORWARD_AUTH_CLIENTS`/`firewall.sh` (done 2026-09-16) for ForwardAuth to
+actually answer. Until DNS records exist, use each app's direct port —
+see "Traefik and the native-login backdoor" above.
 
 ## What's here now
 
@@ -236,14 +237,20 @@ and the native-login backdoor" above.
 
 ## Known gaps / things to double-check before relying on this
 
-- **Traefik's ForwardAuth route won't actually work yet.** It depends on
-  percolator's Authelia, which now exists in this repo, but grinder isn't
-  registered with it yet — its IP still needs adding to percolator's
-  `FORWARD_AUTH_CLIENTS`/`firewall.sh` and to Authelia's admin-host list
-  (tracked in `runbook.md`'s backlog). Until then, every `*.${DOMAIN}`
-  hostname on this node will 502/504 through Traefik. The direct-port
-  backdoor (see "Traefik and the native-login backdoor" above) is what
-  actually works today.
+- **Traefik's ForwardAuth route now works.** grinder is registered in
+  percolator's `FORWARD_AUTH_CLIENTS` as of 2026-09-16 (none of its apps
+  are admin-only, so they use Authelia's household catch-all rule, not
+  the admin-host list). Still 502/504s until `sudo ./firewall.sh` has
+  actually been run on both grinder and percolator, and until this node
+  also has its own `firewall.sh` run (added 2026-09-16 — see below). The
+  direct-port backdoor (see "Traefik and the native-login backdoor"
+  above) works regardless.
+- **No `firewall.sh` existed for this node until 2026-09-16.** Every
+  published port (`traefik`'s 80/443, and every app's own backdoor port)
+  went un-firewalled before that — `sudo ./firewall.sh` now scopes all of
+  them to the LAN via `ufw route allow` (Docker's iptables DNAT bypasses
+  plain `ufw`, `infrastructure.md` §5/§9). Run it once and after any port
+  change.
 - **No local DNS records exist yet** for any of grinder's `*.${DOMAIN}`
   hostnames — until sieve's Pi-hole has them, reach an app by
   `https://${GRINDER_LAN_IP}` with a cert-mismatch warning (expected), or

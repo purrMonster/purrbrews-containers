@@ -1,0 +1,62 @@
+# Komodo Periphery — standalone agent added 2026-09-16 so cellar's Komodo
+# Core (stacks/cellar/komodo/docker-compose.yml) can manage sieve's OWN
+# containers too, not just cellar's. cellar's own Periphery shares a host
+# directory with Core because they're on the same machine and Core writes
+# its public key straight into that shared volume; sieve is a different
+# physical host, so that trick doesn't work here. Copy cellar's own
+# /srv/data/komodo/keys/core.pub BY HAND into ./keys/core.pub next to this
+# file (create the keys/ directory first) before first bring-up — NOT
+# templated through .env.local/secrets.env.local the way most values in
+# this repo are: a multi-line PEM key doesn't round-trip safely through
+# envsubst (see render-configs.sh) or a single-line `read -r` prompt (see
+# generate-secrets.sh) the way a one-line secret does, so this one file is
+# a deliberate exception to that convention, not an oversight.
+#
+# Periphery is the one that DIALS OUT to Core (ws://, outbound only) — see
+# cellar/komodo/docker-compose.yml's own header comment for why. Nothing
+# on sieve needs an inbound port opened or a firewall rule added for this
+# agent; it only needs to reach cellar on port 9120 (already published —
+# see that file's own comment on why it can't be closed off with ufw).
+#
+# VERIFY BEFORE FIRST BRING-UP: confirm ghcr.io/moghtech/komodo-periphery
+# 2.3.2 is still current and matches cellar's Core's own version pin (see
+# that file's comment — Core and Periphery versions should track
+# together), and confirm the public-key-only auth flow below against
+# Komodo's own docs (komo.do/docs) — cellar's own local Periphery already
+# uses this mechanism, but only same-host; it hasn't been proven cross-host
+# yet. If it turns out Periphery also needs its own passkey/API key
+# generated on the Core side, add it as a REQUIRED (prompt_if_placeholder,
+# not set_if_absent) secret in generate-secrets.sh the same way
+# KOMODO_CORE_PUBLIC_KEY is, not a randomly generated one — same category
+# as every other cross-node credential in this fleet (Cloudflare tokens,
+# rclone's client ID/secret).
+services:
+  komodo-periphery:
+    image: ghcr.io/moghtech/komodo-periphery:2.3.2
+    container_name: komodo-periphery
+    init: true
+    environment:
+      TZ: ${TZ}
+      PERIPHERY_CORE_ADDRESS: ws://${CELLAR_LAN_IP}:9120
+      PERIPHERY_CONNECT_AS: sieve
+      PERIPHERY_CORE_PUBLIC_KEYS: file:/config/keys/core.pub
+      PERIPHERY_ROOT_DIRECTORY: /etc/komodo
+      PERIPHERY_INCLUDE_DISK_MOUNTS: /etc/hostname
+    volumes:
+      # ./keys/core.pub — copied by hand from cellar (see this file's own
+      # header comment). Never checked into git: add `komodo-periphery/keys/`
+      # to ../.gitignore before first bring-up, the same way every other
+      # node's generated/rendered files are excluded.
+      - ./keys:/config/keys
+      # The single biggest security consideration in this whole file —
+      # same caveat as cellar's own Periphery (see that file's own
+      # comment): unrestricted Docker socket access, i.e. root-equivalent
+      # control of sieve, for whoever controls cellar's Komodo Core web
+      # UI, JWT/webhook secrets, or admin account.
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /proc:/proc
+      # Must be the IDENTICAL path inside and outside the container — see
+      # cellar/komodo/docker-compose.yml's own comment (moghtech/komodo
+      # discussions/180).
+      - /etc/komodo:/etc/komodo
+    restart: unless-stopped

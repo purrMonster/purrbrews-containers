@@ -18,7 +18,7 @@ set -Eeuo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "${DIR}/../.." && pwd)"
-APPS=(unbound pihole ntfy cloudflared traefik gatus netalertx)
+APPS=(unbound pihole ntfy cloudflared traefik gatus netalertx komodo-periphery scrutiny-collector)
 
 die() { echo "compose.sh: $*" >&2; exit 1; }
 [[ $# -ge 2 ]] || die "usage: $0 <app|all> <docker compose args...>   apps: ${APPS[*]}"

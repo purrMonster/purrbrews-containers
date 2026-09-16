@@ -1,32 +1,30 @@
 services:
   traefik:
-    # Official image -- unlike cellar's old Caddy (dropped from this node,
-    # see README), Traefik's Cloudflare DNS-01 support is built in via its
-    # bundled lego library, no custom build/xcaddy step needed.
     image: traefik:v3.2
     container_name: traefik
     command:
       - --configFile=/etc/traefik/traefik.yml
     environment:
-      # lego (Traefik's ACME client) reads this from the process
-      # environment directly, not from traefik.yml -- no ${VAR}
-      # substitution needed for it in the static config.
       CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN}
     volumes:
       - ./config/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./config/dynamic.yml:/etc/traefik/dynamic.yml:ro
       - /srv/data/traefik/acme:/acme
+      # Needed for the docker provider to read labels off komodo-core and
+      # scrutiny at all -- both are bridge-networked (cellar_net), not
+      # network_mode: host like grinder's esphome, but the docker provider
+      # still reads the socket directly rather than the network.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     ports:
       - "80:80"
       - "443:443"
     restart: unless-stopped
-    # Every app this fronts stays reachable on its OWN direct port too
-    # (see each app's own docker-compose.yml -- none of their `ports:`
-    # blocks were removed). That's the deliberate backdoor: if
-    # percolator's Authelia is down, or Traefik itself is down, the
-    # household still reaches each app directly by LAN IP:port, using
-    # that app's own native login, no SSO in the path at all. Traefik is
-    # the nicer front door, not the only door.
+    # komodo and scrutiny keep their own direct host port published too --
+    # the deliberate backdoor, same as every other node's Traefik. Unlike
+    # grinder's/mochaPot's apps, Scrutiny has NO native login of its own
+    # (see ../scrutiny/docker-compose.yml's own note) -- Komodo does
+    # (local admin account). See README "Traefik and the native-login
+    # backdoor".
 
 networks:
   default:
