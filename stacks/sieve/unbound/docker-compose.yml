@@ -1,0 +1,36 @@
+# Unbound — recursive, DNSSEC-validating resolver. Pi-hole's only upstream.
+#
+# Image: klutchell/unbound:main. The project publishes no version tags (CI builds
+# tagged by branch/commit); `main` is its documented tag and is rebuilt as soon as
+# Unbound or the base image changes. For the resolver between the house and the
+# internet, freshness beats a frozen tag. Checked 2026-09-15 (pushed 2026-09-13).
+#
+# Networking: its own bridge network with a fixed address and NO published ports.
+# Pi-hole runs with host networking, so it reaches ${UNBOUND_IP} directly over the
+# bridge; nothing on the LAN can. That makes the resolver unreachable from outside
+# sieve by construction, rather than by firewall rule or port remap.
+services:
+  unbound:
+    image: klutchell/unbound:main
+    container_name: unbound
+    networks:
+      dns:
+        ipv4_address: ${UNBOUND_IP:?set UNBOUND_IP in .env.local}
+    volumes:
+      # Additive: merged into the image's default config (root hints, DNSSEC,
+      # caching, serve-expired). This file only narrows who may query.
+      - ./config:/etc/unbound/custom.conf.d:ro
+    # Not read_only: Unbound rewrites its DNSSEC trust anchor (root.key) as the root
+    # key rolls over (RFC 5011).
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE, SETUID, SETGID]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+
+networks:
+  dns:
+    name: sieve_dns
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${DNS_SUBNET:?set DNS_SUBNET in .env.local}

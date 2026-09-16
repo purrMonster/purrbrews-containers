@@ -1,0 +1,224 @@
+# Gatus — sieve's view of the fleet.
+#
+# ${VARS} come from the container environment (see ../docker-compose.yml).
+# Add an endpoint here when a stack lands on another node.
+#
+# Alert routing:
+#   ntfy    → self-hosted ntfy on sieve, topic NTFY_ALERT_TOPIC. Everyday alerts.
+#             (Straight to the container, not through Traefik, so a broken proxy
+#             can still report itself.)
+#   custom  → public ntfy.sh, topic NTFY_CRITICAL_TOPIC. For failures that stop the
+#             self-hosted path from reaching a phone: ntfy itself, the tunnel.
+#   Nothing on sieve can report sieve being down — healthchecks.io does that.
+
+storage:
+  type: sqlite
+  path: /data/gatus.db
+
+web:
+  port: 8080
+
+ui:
+  title: PurrBrews status
+  header: PurrBrews
+
+alerting:
+  ntfy:
+    url: http://ntfy:8080
+    topic: ${NTFY_ALERT_TOPIC}
+    token: ${GATUS_NTFY_TOKEN}
+    priority: 4
+    click: https://gatus.${DOMAIN}
+    default-alert:
+      failure-threshold: 3
+      success-threshold: 2
+      send-on-resolved: true
+  custom:
+    url: https://ntfy.sh/${NTFY_CRITICAL_TOPIC}
+    method: POST
+    headers:
+      Title: "PurrBrews [ALERT_TRIGGERED_OR_RESOLVED]: [ENDPOINT_NAME]"
+      Priority: "5"
+      Tags: rotating_light
+    body: "[ENDPOINT_GROUP]/[ENDPOINT_NAME]: [ALERT_DESCRIPTION] [RESULT_ERRORS]"
+    placeholders:
+      ALERT_TRIGGERED_OR_RESOLVED:
+        TRIGGERED: "DOWN"
+        RESOLVED: "back up"
+    default-alert:
+      failure-threshold: 3
+      success-threshold: 2
+      send-on-resolved: true
+
+endpoints:
+  # ── Dead man's switch ─────────────────────────────────────────────────────
+  # Not a check: each run pings healthchecks.io. If sieve, Gatus or the internet
+  # connection dies, the pings stop and healthchecks.io alerts on its own.
+  - name: healthchecks.io heartbeat
+    group: meta
+    url: ${HEALTHCHECKS_PING_URL}
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+
+  # ── Network (sieve) ───────────────────────────────────────────────────────
+  - name: pihole → unbound (recursion)
+    group: network
+    url: ${NODE_IP}
+    interval: 1m
+    dns:
+      query-name: cloudflare.com
+      query-type: A
+    conditions:
+      - "[DNS_RCODE] == NOERROR"
+    alerts:
+      - type: ntfy
+        description: LAN DNS is failing — clients will stall
+
+  - name: pihole local override
+    group: network
+    url: ${NODE_IP}
+    interval: 5m
+    dns:
+      query-name: gatus.${DOMAIN}
+      query-type: A
+    conditions:
+      - "[DNS_RCODE] == NOERROR"
+      - "[BODY] == ${NODE_IP}"
+    alerts:
+      - type: ntfy
+        description: "sieve's host names no longer resolve to sieve on the LAN"
+
+  - name: pihole web
+    group: network
+    url: http://${NODE_IP}:8080/admin/
+    interval: 5m
+    conditions:
+      - "[CONNECTED] == true"
+      - "[STATUS] < 400"
+    alerts:
+      - type: ntfy
+
+  - name: traefik
+    group: network
+    url: http://traefik:8080/ping
+    interval: 1m
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: ntfy
+        description: sieve's reverse proxy is down — its web UIs are unreachable
+
+  # Resolved through Pi-hole, like a LAN client. Checks the certificate and that
+  # SSO answers: an unauthenticated request must be refused or sent to Authelia
+  # (302/401). A 500 means Authelia on percolator is unreachable.
+  - name: traefik certificate + sso
+    group: network
+    url: https://gatus.${DOMAIN}/
+    interval: 15m
+    client:
+      dns-resolver: udp://${NODE_IP}:53
+      ignore-redirect: true
+    conditions:
+      - "[CONNECTED] == true"
+      - "[CERTIFICATE_EXPIRATION] > 240h"
+      - "[STATUS] == any(302, 401)"
+    alerts:
+      - type: ntfy
+        description: certificate expiring within 10 days, or SSO not redirecting to login
+
+  - name: cloudflare tunnel
+    group: network
+    url: http://cloudflared:2000/ready
+    interval: 1m
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom
+        description: tunnel down — nothing is reachable from outside
+
+  - name: ntfy
+    group: network
+    url: http://ntfy:8080/v1/health
+    interval: 1m
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY].healthy == true"
+    alerts:
+      - type: custom
+        description: self-hosted ntfy is down — routine alerts can't be delivered
+
+  - name: ntfy (public)
+    group: network
+    url: https://ntfy.${DOMAIN}/v1/health
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY].healthy == true"
+    alerts:
+      - type: custom
+        description: ntfy isn't reachable through the tunnel — phones away from home get nothing
+
+  - name: netalertx
+    group: network
+    url: http://${NODE_IP}:20211/
+    interval: 5m
+    conditions:
+      - "[CONNECTED] == true"
+      - "[STATUS] < 400"
+    alerts:
+      - type: ntfy
+
+  - name: gateway
+    group: network
+    url: icmp://${GATEWAY}
+    interval: 1m
+    conditions:
+      - "[CONNECTED] == true"
+    alerts:
+      - type: ntfy
+
+  - name: internet
+    group: network
+    url: icmp://1.1.1.1
+    interval: 1m
+    conditions:
+      - "[CONNECTED] == true"
+    alerts:
+      - type: ntfy
+        description: no internet from sieve
+
+  # ── Fleet ─────────────────────────────────────────────────────────────────
+  # Node reachability. Set enabled: true as each node is provisioned, and add its
+  # app checks here when its stacks land.
+  - name: percolator
+    group: fleet
+    url: icmp://192.168.0.11
+    interval: 2m
+    enabled: false
+    conditions: ["[CONNECTED] == true"]
+    alerts: [{type: ntfy}]
+
+  - name: cellar
+    group: fleet
+    url: icmp://192.168.0.12
+    interval: 2m
+    enabled: false
+    conditions: ["[CONNECTED] == true"]
+    alerts: [{type: ntfy}]
+
+  - name: mochaPot
+    group: fleet
+    url: icmp://192.168.0.13
+    interval: 2m
+    enabled: false
+    conditions: ["[CONNECTED] == true"]
+    alerts: [{type: ntfy}]
+
+  - name: grinder
+    group: fleet
+    url: icmp://192.168.0.14
+    interval: 2m
+    enabled: false
+    conditions: ["[CONNECTED] == true"]
+    alerts: [{type: ntfy}]

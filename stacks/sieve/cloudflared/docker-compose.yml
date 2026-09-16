@@ -1,0 +1,24 @@
+# cloudflared — outbound-only Cloudflare Tunnel. The house is behind CGNAT, so
+# this is the only way in from the internet; no port is opened anywhere.
+#
+# Token-based, remotely managed tunnel: public hostnames are set in the Cloudflare
+# Zero Trust dashboard, not in a local config file. See README.md for the routes.
+#
+# Image: cloudflare/cloudflared:2026.9.1. Checked 2026-09-15.
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:2026.9.1
+    container_name: cloudflared
+    # --metrics exposes /ready on the sieve_edge network for Gatus (not published).
+    command: tunnel --no-autoupdate --metrics 0.0.0.0:2000 run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?run ./generate-secrets.sh}
+    networks: [sieve_edge]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+
+networks:
+  sieve_edge:
+    external: true

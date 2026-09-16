@@ -1,0 +1,73 @@
+# sieve's routes. Go template: {{ env "X" }} comes from the traefik container.
+#
+# Every `rule: Host(`name.{{ env "DOMAIN" }}`)` below also becomes a Pi-hole DNS
+# record pointing at this node (setup-secrets.sh scans every node's routes). Add a
+# router here, then re-run ./setup-secrets.sh and recreate pihole.
+
+http:
+  routers:
+    pihole:
+      rule: Host(`pihole.{{ env "DOMAIN" }}`)
+      entryPoints: [websecure]
+      middlewares: [authelia, pihole-admin, secure-headers]
+      service: pihole
+
+    gatus:
+      rule: Host(`gatus.{{ env "DOMAIN" }}`)
+      entryPoints: [websecure]
+      middlewares: [authelia, secure-headers]
+      service: gatus
+
+    netalertx:
+      rule: Host(`netalertx.{{ env "DOMAIN" }}`)
+      entryPoints: [websecure]
+      middlewares: [authelia, secure-headers]
+      service: netalertx
+
+    traefik-dashboard:
+      rule: Host(`traefik-sieve.{{ env "DOMAIN" }}`)
+      entryPoints: [websecure]
+      middlewares: [authelia, secure-headers]
+      service: api@internal
+
+    # ntfy has its own accounts, so no Authelia. On the LAN, phones reach it here;
+    # away from home, through the Cloudflare tunnel (which goes to ntfy directly).
+    ntfy:
+      rule: Host(`ntfy.{{ env "DOMAIN" }}`)
+      entryPoints: [websecure]
+      service: ntfy
+
+  middlewares:
+    # SSO. Must be a direct hop to Authelia's own port: sending it through another
+    # Traefik drops X-Forwarded-Method, and Authelia rejects the request.
+    authelia:
+      forwardAuth:
+        address: '{{ env "AUTHELIA_URL" }}/api/authz/forward-auth'
+        trustForwardHeader: true
+        authResponseHeaders: [Remote-User, Remote-Groups, Remote-Email, Remote-Name]
+        maxResponseBodySize: 65536   # Authelia's replies are tiny; caps a misbehaving one
+
+    pihole-admin:
+      redirectRegex:
+        regex: '^https://([^/]+)/?$'
+        replacement: 'https://${1}/admin/'
+
+    secure-headers:
+      headers:
+        stsSeconds: 31536000
+        contentTypeNosniff: true
+        referrerPolicy: same-origin
+
+  services:
+    pihole:
+      loadBalancer:
+        servers: [{url: "http://host.docker.internal:8080"}]
+    netalertx:
+      loadBalancer:
+        servers: [{url: "http://host.docker.internal:20211"}]
+    gatus:
+      loadBalancer:
+        servers: [{url: "http://gatus:8080"}]
+    ntfy:
+      loadBalancer:
+        servers: [{url: "http://ntfy:8080"}]

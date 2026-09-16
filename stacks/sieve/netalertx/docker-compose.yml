@@ -1,0 +1,46 @@
+# NetAlertX — who is on the LAN: new-device alerts, presence, device inventory.
+#
+# Image: ghcr.io/netalertx/netalertx:26.9.0. Checked 2026-09-15.
+# Based on NetAlertX's own hardened "baseline" compose file.
+services:
+  netalertx:
+    image: ghcr.io/netalertx/netalertx:26.9.0
+    container_name: netalertx
+    # ARP and nmap scans need layer 2 access to the LAN; a bridge network can't give it.
+    network_mode: host
+    read_only: true
+    cap_drop: [ALL]
+    cap_add:
+      - NET_ADMIN         # arp-scan, nmap
+      - NET_RAW           # raw sockets
+      - NET_BIND_SERVICE  # nbtscan
+      - CHOWN             # entrypoint chowns /data and /tmp, then drops root
+      - SETUID
+      - SETGID
+    # No `sysctls:` block (the baseline's ARP-flux settings): Docker won't apply
+    # network-namespace sysctls to the host namespace. See README.md if wanted.
+    environment:
+      LISTEN_ADDR: 0.0.0.0
+      PORT: "20211"          # web UI — sieve's Traefik only (../firewall.sh)
+      GRAPHQL_PORT: "20212"  # backend API — the UI reaches it internally; no firewall rule
+      # Settings applied on every start. SCAN_SUBNETS is a string that looks like a
+      # Python list; keep the quoting exactly as is.
+      #  - SETPWD_enable_password=false: no own login. sieve's Traefik + Authelia SSO is
+      #    the gate, and the firewall keeps 20211 closed to all but sieve_edge. This app
+      #    has had unauthenticated-RCE CVEs (fixed long before this tag): both must hold.
+      #  - BACKEND_API_URL=/server: the UI talks to the API through its own nginx,
+      #    which is what makes proxying just 20211 work.
+      APP_CONF_OVERRIDE: >-
+        {"SCAN_SUBNETS":"['${LAN_CIDR} --interface=${LAN_INTERFACE}']",
+        "SETPWD_enable_password":false,
+        "BACKEND_API_URL":"/server",
+        "REPORT_DASHBOARD_URL":"https://netalertx.${DOMAIN}"}
+    volumes:
+      - ${DATA_DIR:?}/netalertx:/data
+      # NetAlertX takes its timezone from the host's localtime, not TZ.
+      - /etc/localtime:/etc/localtime:ro
+    tmpfs:
+      - "/tmp:uid=20211,gid=20211,mode=1700,rw,noexec,nosuid,nodev,async,noatime,nodiratime"
+    mem_limit: 1024m
+    pids_limit: 512
+    restart: unless-stopped
