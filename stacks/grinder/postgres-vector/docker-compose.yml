@@ -1,0 +1,34 @@
+services:
+  postgres-vector:
+    # pgvector/pgvector -- official pgvector extension pre-built onto the
+    # base postgres image, not a separately maintained fork. pg16 to match
+    # every other Postgres instance already running in this fleet
+    # (homeassistant's own, immich's own, etc.) — one version to reason
+    # about, not several.
+    image: pgvector/pgvector:pg16
+    container_name: postgres-vector
+    environment:
+      POSTGRES_USER: ${PGVECTOR_USERNAME}
+      POSTGRES_PASSWORD: ${PGVECTOR_PASSWORD}
+      POSTGRES_DB: ${PGVECTOR_DATABASE_NAME}
+    volumes:
+      - /srv/data/postgres-vector:/var/lib/postgresql/data
+      # Runs once, only against an EMPTY data directory (Postgres's own
+      # docker-entrypoint-initdb.d convention) -- creates the extension so
+      # n8n/the embedding worker don't each need their own `CREATE
+      # EXTENSION IF NOT EXISTS vector;` migration step.
+      - ./init-pgvector.sql:/docker-entrypoint-initdb.d/init-pgvector.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PGVECTOR_USERNAME} -d ${PGVECTOR_DATABASE_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    # No ports published -- reached only by n8n and embedding-worker, over
+    # grinder_net, by container name (postgres-vector:5432). Nothing
+    # outside this node needs to reach this database directly.
+
+networks:
+  default:
+    name: grinder_net
+    external: true

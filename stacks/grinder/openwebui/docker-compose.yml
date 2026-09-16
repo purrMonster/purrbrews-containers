@@ -1,0 +1,44 @@
+services:
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: openwebui
+    environment:
+      # roastery's native Windows Ollama (infrastructure.md §9), not a
+      # container on grinder -- Ollama needs the 3080, which lives in
+      # roastery. Wake-on-demand: this points AT roastery's service, it
+      # doesn't wake it (see WEBUI's own "no WoL built in" note below).
+      OLLAMA_BASE_URL: http://${ROASTERY_LAN_IP}:11434
+      WEBUI_AUTH: "true"
+      TZ: ${TZ}
+    volumes:
+      - /srv/data/openwebui:/app/backend/data
+    ports:
+      - "8081:8080"
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.openwebui.rule=Host(`chat.${DOMAIN}`)"
+      - "traefik.http.routers.openwebui.entrypoints=websecure"
+      - "traefik.http.routers.openwebui.tls.certresolver=cloudflare"
+      - "traefik.http.routers.openwebui.middlewares=authelia-forwardauth@file"
+      - "traefik.http.services.openwebui.loadbalancer.server.port=8080"
+    # First account created at http://${GRINDER_LAN_IP}:8081 becomes the
+    # admin -- no default credential to worry about, confirmed via the
+    # project's own docs before assuming.
+    #
+    # roastery must already be awake with Ollama's tray app running
+    # (infrastructure.md §9: "a per-user tray app, not a service... starts
+    # at login, not at boot") for chat requests to succeed -- Open WebUI
+    # itself has no Wake-on-LAN trigger built in. See README "Known gaps"
+    # for the manual/scripted WoL step this still needs.
+    #
+    # Ollama has no authentication of its own (infrastructure.md §9) --
+    # the Windows Firewall rule scoped to specific LAN IPs on roastery is
+    # the entire access control for port 11434. Confirm grinder's own
+    # ${GRINDER_LAN_IP} is actually in that allow-list, not just assumed
+    # to be because it's "on the LAN".
+
+networks:
+  default:
+    name: grinder_net
+    external: true

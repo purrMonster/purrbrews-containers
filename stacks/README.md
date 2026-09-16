@@ -24,6 +24,9 @@ stacks/<node>/
 |---|---|---|
 | `sieve` | Network: DNS, DHCP, tunnel, alerting | [`sieve/`](sieve/README.md) |
 | `percolator` | Identity (SSO) and daily apps | [`percolator/`](percolator/README.md) |
+| `cellar` | Storage/ops: backups, file shares, monitoring | [`cellar/`](cellar/README.md) |
+| `mochaPot` | Home automation, media, kiosk display | [`mochaPot/`](mochaPot/README.md) |
+| `grinder` | AI/automation: n8n, embeddings, tracking apps | [`grinder/`](grinder/README.md) |
 
 ## Ingress: a Traefik on every node
 

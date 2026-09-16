@@ -1,0 +1,123 @@
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: homeassistant
+    # network_mode: host is real official guidance, not a common-practice
+    # guess -- confirmed on the pre-restructure build via Home Assistant's
+    # own Cast integration docs: "When running the Home Assistant
+    # Container in Docker, make sure it is running with host network
+    # mode... will cause this integration to be unable to discover Cast
+    # devices." Same mDNS-multicast-doesn't-cross-bridge-networks
+    # reasoning as musicassistant below. Consequence: this container can't
+    # join a bridge network or resolve container DNS names -- see
+    # postgres-homeassistant below for how its own database is reached
+    # instead (127.0.0.1, loopback).
+    network_mode: host
+    volumes:
+      - /srv/data/homeassistant:/config
+      - /etc/localtime:/etc/localtime:ro
+      # Bluetooth integrations -- from HA's own official compose example,
+      # harmless to include even if no Bluetooth adapter is used yet.
+      - /run/dbus:/run/dbus:ro
+    environment:
+      TZ: ${TZ}
+    depends_on:
+      postgres-homeassistant:
+        condition: service_healthy
+    restart: unless-stopped
+    # Traefik route added 2026-09-16 alongside ../traefik/. loadbalancer.
+    # server.url, not .port -- this container is network_mode: host, so it
+    # has no container-network IP for the docker provider to auto-discover
+    # (a known limitation of host-networked containers, confirmed via
+    # Traefik's own docs). Port 8123 stays published directly too -- the
+    # backdoor. See README "Traefik and the native-login backdoor".
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.homeassistant.rule=Host(`homeassistant.${DOMAIN}`)"
+      - "traefik.http.routers.homeassistant.entrypoints=websecure"
+      - "traefik.http.routers.homeassistant.tls.certresolver=cloudflare"
+      - "traefik.http.routers.homeassistant.middlewares=authelia-forwardauth@file"
+      - "traefik.http.services.homeassistant.loadbalancer.server.url=http://${MOCHAPOT_LAN_IP}:8123"
+    # MOVED HERE 2026-09-16 from percolator (infrastructure.md §4's new
+    # placement rules): "Home Assistant lives on mochaPot for blast radius
+    # and locality: it shares a failure domain with neither the app tier
+    # nor the network tier, the wall dashboard renders locally if
+    # percolator is down, and the laptop battery rides out a power cut."
+    # A role change, not a lift-and-shift -- the pre-restructure compose
+    # file this was adapted from sat behind percolator's Traefik with
+    # Authelia OIDC via a HACS custom component. This version got its OWN
+    # Traefik added 2026-09-16 (see ../traefik/), not percolator's, and
+    # OIDC (alpha-stage HACS component) is still not wired up -- local HA
+    # login is the only way in, same as before. Reachable both at
+    # https://homeassistant.${DOMAIN} (through Traefik + Authelia
+    # ForwardAuth, once percolator's Authelia exists) and directly at
+    # http://${MOCHAPOT_LAN_IP}:8123 (the backdoor) -- no default
+    # credentials either way, onboarding wizard on first visit.
+    #
+    # IMPORTANT -- the Postgres recorder is NOT configurable via compose at
+    # all. Confirmed on the pre-restructure build via HA's own Recorder
+    # integration docs: no env var for this, configuration.yaml-only, and
+    # HA does not create the target database itself (already created here
+    # by generate-secrets.sh's homeassistant/ block + postgres-homeassistant
+    # below). After first boot, add to /srv/data/homeassistant/configuration.yaml:
+    #
+    #   recorder:
+    #     db_url: postgresql://homeassistant:<HA_DB_PASSWORD from
+    #       ./secrets.env.local>@127.0.0.1:5432/homeassistant
+    #
+    # then restart the container. Left as SQLite (HA's own default) until
+    # that manual step is done -- functions fine either way, Postgres is a
+    # scale/performance upgrade for the recorder specifically, not a hard
+    # requirement to get HA running.
+    #
+    # ANOTHER manual step, needed now that Traefik sits in front of this:
+    # Home Assistant refuses requests from a reverse proxy it doesn't
+    # explicitly trust -- confirmed via HA's own reverse-proxy docs,
+    # symptom is a "Login attempt or request with invalid authentication
+    # from a banned/untrusted proxy" error. Add to
+    # /srv/data/homeassistant/configuration.yaml:
+    #
+    #   http:
+    #     use_x_forwarded_for: true
+    #     trusted_proxies:
+    #       - ${MOCHAPOT_LAN_IP}
+    #
+    # then restart. Same category of gap as the recorder db_url above --
+    # config lives on disk, not in compose/env, so it can't be set here.
+    #
+    # Recorder retention -- set this BEFORE the sensors arrive
+    # (infrastructure.md §9): ESPHome publishes diagnostic entities that
+    # update constantly and that nobody ever reads. Also in
+    # configuration.yaml:
+    #
+    #   recorder:
+    #     purge_keep_days: 14
+    #     exclude:
+    #       domains: [automation, updater]
+    #       entity_globs: ["sensor.*_uptime", "sensor.*_linkquality"]
+
+  postgres-homeassistant:
+    image: postgres:16
+    container_name: postgres-homeassistant
+    environment:
+      POSTGRES_USER: ${HA_DB_USERNAME}
+      POSTGRES_PASSWORD: ${HA_DB_PASSWORD}
+      POSTGRES_DB: ${HA_DB_DATABASE_NAME}
+    volumes:
+      - /srv/data/postgres-homeassistant:/var/lib/postgresql/data
+    # No networks: block -- homeassistant can't join a bridge network
+    # anyway (network_mode: host, see above), and colocating this in the
+    # same compose file/project as its only consumer means it doesn't need
+    # one either.
+    #
+    # Published to localhost ONLY -- Home Assistant needs network_mode:
+    # host, which means it can't resolve this container by hostname, so it
+    # reaches this via 127.0.0.1 instead of a container name.
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${HA_DB_USERNAME} -d ${HA_DB_DATABASE_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped

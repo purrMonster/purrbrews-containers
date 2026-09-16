@@ -1,0 +1,67 @@
+# Karakeep (formerly Hoarder) — self-hosted bookmark/read-it-later
+# manager, one of the "Capture" sources feeding the second-brain pipeline
+# (edge-and-automation.md: "Capture (Paperless/Immich/Nextcloud/FreshRSS/
+# Karakeep + notes vault)"). Three services: the app itself, a headless
+# Chrome for full-page screenshots/archiving, and Meilisearch for full-text
+# search — all official parts of Karakeep's own documented compose
+# example, adapted to this repo's conventions (explicit env vars, secrets
+# from generate-secrets.sh, not the upstream .env file pattern).
+services:
+  karakeep:
+    image: ghcr.io/karakeep-app/karakeep:release
+    container_name: karakeep
+    environment:
+      TZ: ${TZ}
+      MEILI_ADDR: http://meilisearch:7700
+      MEILI_MASTER_KEY: ${KARAKEEP_MEILI_MASTER_KEY}
+      BROWSER_WEB_URL: http://chrome:9222
+      DATA_DIR: /data
+      NEXTAUTH_SECRET: ${KARAKEEP_NEXTAUTH_SECRET}
+      NEXTAUTH_URL: http://${GRINDER_LAN_IP}:3030
+      DISABLE_SIGNUPS: "true"   # flip to false only for the very first
+                                  # account creation, then back to true --
+                                  # same "don't leave signups open"
+                                  # discipline as every other app in this
+                                  # fleet with its own accounts.
+    volumes:
+      - /srv/data/karakeep:/data
+    ports:
+      - "3030:3000"
+    depends_on:
+      - meilisearch
+      - chrome
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.karakeep.rule=Host(`karakeep.${DOMAIN}`)"
+      - "traefik.http.routers.karakeep.entrypoints=websecure"
+      - "traefik.http.routers.karakeep.tls.certresolver=cloudflare"
+      - "traefik.http.routers.karakeep.middlewares=authelia-forwardauth@file"
+      - "traefik.http.services.karakeep.loadbalancer.server.port=3000"
+
+  chrome:
+    image: gcr.io/zenika-hub/alpine-chrome:124
+    container_name: karakeep-chrome
+    command:
+      - --no-sandbox
+      - --disable-gpu
+      - --disable-dev-shm-usage
+      - --remote-debugging-address=0.0.0.0
+      - --remote-debugging-port=9222
+      - --hide-scrollbars
+    restart: unless-stopped
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.10
+    container_name: karakeep-meilisearch
+    environment:
+      MEILI_NO_ANALYTICS: "true"
+      MEILI_MASTER_KEY: ${KARAKEEP_MEILI_MASTER_KEY}
+    volumes:
+      - /srv/data/karakeep-meilisearch:/meili_data
+    restart: unless-stopped
+
+networks:
+  default:
+    name: grinder_net
+    external: true

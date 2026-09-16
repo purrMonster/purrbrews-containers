@@ -1,0 +1,321 @@
+# cellar
+
+Backup target, file storage, and fleet ops node — 192.168.0.12, ThinkCentre
+M710q (i3-7100T, 8 GB RAM, 256 GB M.2 NVMe + 1 TB 2.5" HDD). See
+`infrastructure.md` §2-3 for the full fleet hardware table.
+
+This stack directory was **rebuilt from scratch on 2026-09-16** for the
+post-restructure fleet — it is not a migration of the pre-restructure
+`purrBrews-infra` cellar build, even though several files below were
+adapted from it. Treat everything here as a new project: nothing is assumed
+to already be running, no `.env.local` or `secrets.env.local` carries over,
+and every setup step below starts from a bare Debian 13 node that has
+already been through `init/purrbrews-init.sh`.
+
+**cellar runs five things**, per `infrastructure.md` §4, plus its own
+Traefik added 2026-09-16 so `komodo` and `scrutiny` get real HTTPS on
+pretty hostnames instead of bare LAN IP:port:
+
+| App | What it does |
+|---|---|
+| [restic](#restic) | Versioned, encrypted, deduplicated backups — the fleet's actual backup target |
+| [smb](#smb) / [nfs](#nfs) | File shares — household + app archives |
+| [scrutiny](#scrutiny) | S.M.A.R.T. disk health, **hub** for the whole fleet |
+| [diun](#diun) | Docker image update notifications for cellar's own containers |
+| [komodo](#komodo) | Fleet-wide container management — **Core + Mongo**, plus cellar's own agent |
+| [traefik](#traefik) | Reverse proxy + real TLS for komodo/scrutiny, with a native-login backdoor |
+
+Two apps that lived on the pre-restructure cellar are **gone from this
+node**, not lost: Vaultwarden and Caddy moved to `percolator` per
+`infrastructure.md` §4's app table (ingress and identity now sit together
+with the apps that need them). Nothing below tries to recreate them here.
+
+## Why cellar, specifically
+
+- **The schedule lives here, not on roastery.** `infrastructure.md` §7: "A
+  mirror that did not run must be visible from an always-on box rather than
+  failing silently on a machine nobody logged into." cellar is always on;
+  roastery sleeps.
+- **Scrutiny's hub moved here** (it lived on `silo` pre-restructure, which
+  no longer exists as a role — see the 2026-09-15 private notes). cellar
+  already has two physical disks worth monitoring and is the natural place
+  for every other node's `scrutiny-collector` to report to.
+- **Komodo Core + Mongo moved here too**, same reasoning — `silo`'s split
+  duties are now shared between `sieve` (network/alerting) and `cellar`
+  (storage/ops), per `infrastructure.md` §1's retirement note for `silo`.
+
+## Traefik and the native-login backdoor
+
+Every node in this rebuild now runs its own Traefik, not a shared one —
+cellar's fronts `komodo` and `scrutiny` only (the two apps here with an
+HTTP UI worth a pretty hostname; `smb`/`nfs` aren't HTTP, `diun` has no
+UI, `restic` isn't a container). Real TLS via Cloudflare DNS-01, same
+mechanism the pre-restructure fleet's Traefik/Caddy instances all used
+(no port 80 exposed to the internet at all — CGNAT, no port forward — so
+DNS-01 is the only option regardless).
+
+**The backdoor is deliberate, not an oversight**: every app's own host
+port (`9120` for Komodo, `8080` for Scrutiny) stays published alongside
+the Traefik route. The pretty hostname (`komodo.${DOMAIN}`,
+`scrutiny.${DOMAIN}`) goes through Traefik's `authelia-forwardauth`
+middleware — percolator's Authelia has to be up and reachable for that
+path to work. The direct `http://${CELLAR_LAN_IP}:<port>` path bypasses
+Traefik and Authelia entirely and lands straight on the app's own native
+login (Komodo's local admin account; Scrutiny has none at all, see
+"Known gaps"). If percolator is down, or Traefik itself is down, the
+backdoor still works — that's the whole point of keeping both paths open
+rather than routing everything exclusively through Traefik the way
+sieve's pre-restructure Pi-hole did.
+
+## First-time setup on cellar
+
+```sh
+cd /opt/purrbrews/stacks/cellar
+./setup-secrets.sh
+```
+
+This creates `.env.local` from `local.env.example`, prompts for every
+`REPLACE_ME` (LAN IP, disk devices — confirm both with `lsblk -d -o
+NAME,TYPE,SIZE,MODEL`, don't trust the table above blindly on a node that
+hasn't been re-imaged since the restructure), runs `generate-secrets.sh`,
+then `render-configs.sh`. Re-run any time; every step is idempotent.
+
+Then bring up each containerized app in whatever order is convenient —
+none of the six below depend on each other at the compose level (Komodo's
+three services are one compose project and start together). Recommended
+order below follows what unblocks other nodes soonest: **komodo first**
+(so cellar shows up as a Server before any other node's Periphery agent
+needs to connect to it), then **scrutiny** (so other nodes' future
+collectors have somewhere to push to), then **traefik** (so both get real
+hostnames), then smb/nfs/diun/restic in any order.
+
+## Bringing each app up
+
+### komodo
+
+Fleet-wide container management. Core + Mongo run on cellar now (moved
+from the pre-restructure `silo`); cellar also runs its own Periphery agent
+in the same compose project so Core can manage cellar's own containers,
+not just remote ones.
+
+```sh
+sudo mkdir -p /srv/data/komodo/{mongo-data,mongo-config,keys,backups}
+./compose.sh komodo up -d
+docker logs komodo-core --tail 50   # look for a clean startup, not a Mongo AVX crash
+```
+
+**Before first bring-up**, confirm cellar's CPU actually supports AVX
+(`grep avx /proc/cpuinfo`) — MongoDB 5.0+ requires it and crashes outright
+without it. See `komodo/docker-compose.yml`'s own header comment for the
+FerretDB fallback if it's missing.
+
+Log in at `http://${CELLAR_LAN_IP}:9120` with `barista` /
+`KOMODO_INIT_ADMIN_PASSWORD` (printed by `generate-secrets.sh`, also in
+`komodo/secrets.env.local`). **No OIDC login yet** — Authelia lives on
+`percolator`, which hasn't been migrated into this repo. See "Known gaps"
+below.
+
+Once a future node's own Periphery agent needs to connect here: an
+onboarding key comes from Komodo's UI (Settings → the onboarding/servers
+section), and `core.pub` needs copying from `/srv/data/komodo/keys/core.pub`
+on cellar to that node — same pattern the pre-restructure fleet already
+proved out (percolator/sieve/cellar all connected to the old silo-hosted
+Core this same way on 2026-09-05).
+
+### scrutiny
+
+S.M.A.R.T. disk health, running as the fleet's **hub** for the first time
+on this node (moved from the pre-restructure `silo`). Monitors cellar's
+own NVMe and HDD directly; every other migrated node's `scrutiny-collector`
+pushes to it over the LAN.
+
+```sh
+sudo mkdir -p /srv/data/scrutiny/{config,influxdb}
+./compose.sh scrutiny up -d
+```
+
+Confirm `CELLAR_DISK_DEVICE_NVME`/`_HDD` in `.env.local` against real
+hardware first (`lsblk -d -o NAME,TYPE,SIZE,MODEL`; for the NVMe use the
+controller node `/dev/nvme0`, not the namespace block device
+`/dev/nvme0n1`). Dashboard at `http://${CELLAR_LAN_IP}:8080` — no login,
+see "Known gaps".
+
+### smb
+
+Household + app-archive file shares over Samba.
+
+```sh
+sudo mkdir -p /srv/media/household /srv/media/archive
+./compose.sh smb up -d
+```
+
+One user, `barista`, password in `smb/secrets.env.local`. Add real
+household accounts with more `ACCOUNT_<name>`/`UID_<name>` env vars as
+needed — not done here, this is a starting point, same as the
+pre-restructure build left it.
+
+### nfs
+
+Host-native, not a container — see `nfs/README.md` and
+`nfs/setup-nfs.sh`'s own header comment for why. Exports
+`/srv/media/archive` for percolator/mochaPot to mount once they're
+migrated into this repo and actually need to.
+
+```sh
+sudo ./nfs/setup-nfs.sh
+```
+
+### diun
+
+Watches cellar's own Docker containers for image updates. No setup beyond
+bring-up — nothing to configure yet.
+
+```sh
+sudo mkdir -p /srv/data/diun
+./compose.sh diun up -d
+docker logs diun --tail 20
+```
+
+No notification channel wired up yet (same open item the pre-restructure
+fleet carried — see "Known gaps"); check `docker logs diun` for what it
+finds in the meantime.
+
+### traefik
+
+```sh
+sudo mkdir -p /srv/data/traefik/acme
+./compose.sh traefik up -d
+docker logs traefik --tail 50   # look for a successful cert issuance, not just a clean startup
+```
+
+Needs `traefik/secrets.env.local`'s `CF_DNS_API_TOKEN` (prompted by
+`setup-secrets.sh`/`generate-secrets.sh`, same Cloudflare token every
+other node's Traefik/Caddy in this fleet uses) and `TRAEFIK_ACME_EMAIL`
+in `.env.local`. **Add Local DNS Records in sieve's Pi-hole** (once
+sieve exists in this repo) for `komodo.${DOMAIN}` and
+`scrutiny.${DOMAIN}`, both pointing at `${CELLAR_LAN_IP}` — not added
+automatically, not part of this bring-up. Until then, or until
+percolator's Authelia exists, use each app's direct port — see "Traefik
+and the native-login backdoor" above.
+
+### restic
+
+The fleet's actual backup target — not a container, a set of scripts +
+systemd timers, same "no well-maintained option exists as a container for
+this job" reasoning the pre-restructure `backup-mirror/` used, but this
+time the scripts actually work end to end rather than defining a function
+nobody ever called.
+
+```sh
+sudo mkdir -p ${CELLAR_HDD_MOUNT:-/srv/backup}
+./restic/restic-init.sh          # one-time repository creation
+sudo cp restic/restic-backup.service restic/restic-backup.timer \
+        restic/restic-prune.service restic/restic-prune.timer \
+        /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now restic-backup.timer restic-prune.timer
+```
+
+`restic/restic-backup.sh` has **no sources configured yet** — same
+"REPLACE_ME until a node actually has something worth backing up" state
+the pre-restructure `mirror.sh` was in, except this version is a real,
+runnable `restic backup` call per source, not a function definition that
+was never called (see the 2026-09-13 fleet audit, Tier 0 #1 — that's
+exactly the bug being fixed by not repeating its shape). Uncomment and
+fill in each source in the script as percolator/sieve/mochaPot get real
+data worth a backup, once they're migrated into this repo.
+
+**roastery mirror and Google Drive sync are scaffolded but not enabled**
+— `restic/mirror-to-roastery.sh` and `restic/drive-sync.sh` both refuse to
+run until `ROASTERY_WOL_MAC`/`ROASTERY_SSH_HOST`/`ROASTERY_MIRROR_PATH`
+(mirror) and a rendered `rclone.conf` + one interactive `rclone config
+reconnect` (Drive sync) exist. Wire these up once there's a real backup in
+the local repository worth mirroring off cellar — see each script's own
+header comment and `infrastructure.md` §7 for the full chain and the
+Cloudflare-token-style Google API client ID gotcha.
+
+**The repository passphrase (`RESTIC_PASSWORD`) must reach `flask`
+by hand** — `generate-secrets.sh` prints a reminder after it generates
+one. `infrastructure.md` §7: "Encrypted cloud backup whose key sits only
+on the machine that died is not a backup."
+
+## What's here now
+
+- `compose.sh` — wrapper so every app's `docker-compose.yml` sees the
+  shared `.env.local` plus its own `secrets.env.local`, and ensures
+  `cellar_net` exists. Same mechanics as every other node's `compose.sh`.
+- `render-configs.sh` — renders `*.template` files into their real
+  counterparts. Copied verbatim, generic across the fleet.
+- `setup-secrets.sh` — first-time-setup script: creates `.env.local`,
+  prompts for `REPLACE_ME` values, runs `generate-secrets.sh` then
+  `render-configs.sh`.
+- `generate-secrets.sh` — generates cellar's own secrets, locally, right
+  here, straight into each app's `secrets.env.local`. Covers smb, komodo,
+  and restic (including the rclone Google Drive client) as of this
+  rebuild.
+- `local.env.example` — copy to `.env.local` and fill in:
+  `CELLAR_LAN_IP`, `TZ`, `DOMAIN`, `CELLAR_DISK_DEVICE_NVME`,
+  `CELLAR_DISK_DEVICE_HDD`, `CELLAR_HDD_MOUNT`, `PERCOLATOR_LAN_IP`,
+  `TRAEFIK_ACME_EMAIL`.
+- `.gitignore` — `.env.local`, `*/secrets.env.local`, rendered
+  `*/config/*` (except tracked `.template` sources), restic's local cache,
+  and the rendered `rclone.conf` are never committed.
+- `komodo/`, `scrutiny/`, `diun/`, `smb/` — one `docker-compose.yml` each,
+  all joined to the external `cellar_net` network `compose.sh` creates.
+  `komodo`/`scrutiny` also carry Traefik labels.
+- `nfs/` — host-native setup script, no compose file.
+- `restic/` — init/backup/prune/mirror/drive-sync scripts, their systemd
+  service+timer pairs, and the rclone config template.
+- `traefik/` — reverse proxy + real TLS for `komodo`/`scrutiny`, with the
+  ForwardAuth middleware definition in `config/dynamic.yml.template`. See
+  "Traefik and the native-login backdoor" above.
+
+## Known gaps / things to double-check before relying on this
+
+- **Real hardware unconfirmed.** `infrastructure.md` §3's "256 GB NVMe +
+  1 TB HDD" is the post-restructure design, not something re-verified on
+  this specific physical node since the rebuild — the pre-restructure
+  cellar's own `lsblk` (2026-09-05) found no HDD at all, just a 238.5 GB
+  SATA SSD and a 476.9 GB NVMe. Run `lsblk -d -o NAME,TYPE,SIZE,MODEL`
+  before trusting `local.env.example`'s device names.
+- **Komodo has no OIDC login yet, and Traefik's ForwardAuth route won't
+  actually work yet either.** Both depend on percolator's Authelia, which
+  now exists in this repo, but cellar isn't registered with it yet —
+  its IP still needs adding to percolator's `FORWARD_AUTH_CLIENTS`/
+  `firewall.sh` and to Authelia's admin-host list (tracked in
+  `runbook.md`'s backlog). Until then, `komodo.${DOMAIN}`/
+  `scrutiny.${DOMAIN}` will 502/504 through Traefik. The
+  direct-port backdoor (see "Traefik and the native-login backdoor" above)
+  is what actually works today.
+- **Scrutiny and the smb/Komodo ports have zero auth of their own, and
+  ufw doesn't actually gate them.** Docker's iptables DNAT bypasses plain
+  `ufw` for any published bridge-network port (`infrastructure.md` §5/§9)
+  — a rule in `firewall.rules` for 8080/9120/139/445 does not restrict
+  anything until `apply-firewall.sh`'s DOCKER-USER rules cover these
+  specific ports. Accepted on a trusted LAN for now, same call the
+  pre-restructure fleet made repeatedly for the same underlying gap — not
+  fixed here.
+- **restic has no sources configured.** The repository will exist and be
+  empty until real source paths are uncommented in
+  `restic/restic-backup.sh` — don't assume a backup exists just because
+  the timer is enabled. Check `restic -r "$CELLAR_HDD_MOUNT/restic-repo"
+  snapshots` for real.
+- **roastery mirror and Drive sync are unwired.** See restic's
+  bring-up section above.
+- **Diun has no notification channel.** Runs, watches, has nowhere to
+  send what it finds. `docker logs diun` is the only signal today.
+- **UID/GID between smb and nfs not reconciled against a real consumer.**
+  Both assume UID 1000 (`barista`'s UID fleet-wide); neither has been
+  tested against an actual mounting client yet since none exists in this
+  repo.
+- **No node has migrated into this repo yet except cellar/mochaPot/grinder
+  and the fleet-level `init/`/`bootstrap/` pieces** — `sieve`'s ntfy (for
+  the `NTFY_URL` the restic scripts optionally use), Pi-hole (for the
+  Local DNS Records `komodo.${DOMAIN}`/`scrutiny.${DOMAIN}` need), and
+  `percolator`'s Authelia don't exist here yet. Every reference to them
+  above is forward-looking, not something to expect working today.
+- **No local DNS records exist for `komodo.${DOMAIN}`/`scrutiny.${DOMAIN}`
+  yet** — until sieve's Pi-hole has them, reach both by
+  `https://${CELLAR_LAN_IP}` with a cert-mismatch warning (expected —
+  Traefik's cert is issued for the real hostname, not the bare IP), or
+  just use the direct ports.

@@ -1,0 +1,48 @@
+services:
+  speedtest-tracker:
+    # Project's own GHCR image (ghcr.io/alexjustesen/speedtest-tracker) was
+    # confirmed abandoned pre-restructure -- LinuxServer.io's build is the
+    # maintained one. Re-verify this tag is still current before first
+    # bring-up rather than trusting this comment indefinitely.
+    image: lscr.io/linuxserver/speedtest-tracker:v1.15.0-ls170
+    container_name: speedtest-tracker
+    environment:
+      TZ: ${TZ}
+      APP_TIMEZONE: ${TZ}
+      # No Traefik on grinder (unlike the pre-restructure silo build this
+      # was adapted from) -- reachable directly by LAN IP:port.
+      APP_URL: http://${GRINDER_LAN_IP}:8765
+      DB_CONNECTION: sqlite
+      # Laravel encryption key -- REQUIRED, no default, app won't run
+      # correctly without one. Generated in generate-secrets.sh as
+      # "base64:<32 random bytes>", the exact format Laravel expects.
+      APP_KEY: ${SPEEDTEST_TRACKER_APP_KEY}
+      # Overrides the LinuxServer image's fixed default admin account
+      # (admin@example.com / password, auto-created on first boot).
+      ADMIN_NAME: barista
+      ADMIN_EMAIL: admin@grinder.local
+      ADMIN_PASSWORD: ${SPEEDTEST_TRACKER_ADMIN_PASSWORD}
+      # Speed tests do NOT run automatically just from the container being
+      # up -- this is the #1 real-world gotcha for this app (multiple
+      # GitHub issues: "no speedtest scheduled" with no error, just
+      # silence, if this is unset or wrong).
+      SPEEDTEST_SCHEDULE: "0 * * * *"
+      # PUBLIC_DASHBOARD defaults to false -- deliberately left unset to
+      # keep that secure default.
+    ports:
+      - "8765:80"
+    volumes:
+      - /srv/data/speedtest-tracker/config:/config
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.speedtest.rule=Host(`speedtest.${DOMAIN}`)"
+      - "traefik.http.routers.speedtest.entrypoints=websecure"
+      - "traefik.http.routers.speedtest.tls.certresolver=cloudflare"
+      - "traefik.http.routers.speedtest.middlewares=authelia-forwardauth@file"
+      - "traefik.http.services.speedtest.loadbalancer.server.port=80"
+
+networks:
+  default:
+    name: grinder_net
+    external: true

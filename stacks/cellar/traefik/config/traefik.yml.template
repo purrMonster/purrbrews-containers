@@ -1,0 +1,43 @@
+# Rendered by ../../render-configs.sh into config/traefik.yml (gitignored,
+# contains the real domain). Static config only -- the ForwardAuth
+# middleware and any host-network app's router/service live in
+# dynamic.yml.template instead, same split every other node's Traefik in
+# this fleet uses.
+
+log:
+  level: INFO
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+  websecure:
+    address: ":443"
+
+certificatesResolvers:
+  cloudflare:
+    acme:
+      email: ${TRAEFIK_ACME_EMAIL}
+      storage: /acme/acme.json
+      dnsChallenge:
+        provider: cloudflare
+        # DNS-01, not HTTP-01 -- same reasoning as every other TLS-terminating
+        # app in this fleet (cellar's old Caddy included): no port 80 exposed
+        # to the internet at all (CGNAT, no port forward), so HTTP-01
+        # validation isn't possible here regardless. DNS-01 needs no inbound
+        # access, and renews automatically.
+        resolvers:
+          - "1.1.1.1:53"
+          - "1.0.0.1:53"
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    network: cellar_net
+  file:
+    filename: /etc/traefik/dynamic.yml

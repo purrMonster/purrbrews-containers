@@ -1,0 +1,25 @@
+services:
+  embedding-worker:
+    build:
+      context: .
+      args:
+        EMBEDDING_MODEL: ${EMBEDDING_MODEL:-BAAI/bge-small-en-v1.5}
+    image: purrbrews/embedding-worker:local
+    container_name: embedding-worker
+    environment:
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-BAAI/bge-small-en-v1.5}
+    # No ports published -- called by n8n over grinder_net, by container
+    # name (http://embedding-worker:8000/embed). Not meant to be reached
+    # from the LAN at all.
+    restart: unless-stopped
+    # Locally built, not pulled -- same freshness caveat this fleet
+    # already has for cellar's Caddy image: Diun watches image TAGS, not
+    # what a local Dockerfile's pip install happened to pull in at build
+    # time. Re-run `docker compose build --no-cache embedding-worker`
+    # periodically by hand, or pin requirements.txt harder if drift here
+    # ever causes a real problem.
+
+networks:
+  default:
+    name: grinder_net
+    external: true

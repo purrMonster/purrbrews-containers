@@ -1,0 +1,33 @@
+services:
+  traefik:
+    image: traefik:v3.2
+    container_name: traefik
+    command:
+      - --configFile=/etc/traefik/traefik.yml
+    environment:
+      CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN}
+    volumes:
+      - ./config/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./config/dynamic.yml:/etc/traefik/dynamic.yml:ro
+      - /srv/data/traefik/acme:/acme
+      # Needed for the docker provider to see labels on network_mode:
+      # host containers at all (homeassistant/musicassistant/pihole are
+      # ALL host-networked -- see each app's own docker-compose.yml). The
+      # provider still can't auto-detect their IP:port (host networking
+      # has no container-network IP to discover), which is exactly why
+      # each of those labels sets loadbalancer.server.url explicitly
+      # instead of leaving it to auto-discovery.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    restart: unless-stopped
+    # Every app this fronts stays reachable on its own direct port too --
+    # the deliberate backdoor. See ../homeassistant/, ../musicassistant/,
+    # ../pihole/'s own docker-compose.yml comments, and README "Traefik
+    # and the native-login backdoor".
+
+networks:
+  default:
+    name: mochapot_net
+    external: true

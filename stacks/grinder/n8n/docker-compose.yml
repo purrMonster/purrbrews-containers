@@ -1,0 +1,48 @@
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    environment:
+      TZ: ${TZ}
+      N8N_HOST: ${GRINDER_LAN_IP}
+      N8N_PROTOCOL: http
+      WEBHOOK_URL: http://${GRINDER_LAN_IP}:5678/
+      # Pinned explicitly rather than left to auto-generate -- if the
+      # auto-generated key in the persisted volume is ever lost or
+      # regenerated, every stored credential becomes unreadable. Pinning
+      # it here means a fresh container (same secrets.env.local) can
+      # always decrypt the same persisted data. Losing this key is why
+      # it's also called out in infrastructure.md §8's emergency-kit list
+      # (`flask` needs a copy).
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      # infrastructure.md §9: pruning is on by default (336h/10,000
+      # executions), but for any high-frequency pipeline (the planned
+      # email-classification workflow, per edge-and-automation notes)
+      # successful runs should store metadata only -- failures still save
+      # everything for debugging. Set per-workflow in the n8n UI
+      # (Settings -> that workflow), not globally here, since not every
+      # workflow on this instance necessarily wants it.
+    volumes:
+      - /srv/data/n8n:/home/node/.n8n
+    ports:
+      - "5678:5678"
+    restart: unless-stopped
+    # Kept published -- the backdoor. n8n's own owner account works
+    # directly on this port with no Traefik/Authelia in the path. See
+    # ../traefik/ and README "Traefik and the native-login backdoor".
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n.rule=Host(`n8n.${DOMAIN}`)"
+      - "traefik.http.routers.n8n.entrypoints=websecure"
+      - "traefik.http.routers.n8n.tls.certresolver=cloudflare"
+      - "traefik.http.routers.n8n.middlewares=authelia-forwardauth@file"
+      - "traefik.http.services.n8n.loadbalancer.server.port=5678"
+    # SQLite default -- no external DB needed for n8n's own state. The
+    # embedding worker and any vector-store workflow this orchestrates
+    # talk to postgres-vector separately (see ../postgres-vector/), not
+    # through n8n's own database.
+
+networks:
+  default:
+    name: grinder_net
+    external: true

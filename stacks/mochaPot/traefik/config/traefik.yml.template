@@ -1,0 +1,43 @@
+# Rendered by ../../render-configs.sh into config/traefik.yml (gitignored).
+log:
+  level: INFO
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+  websecure:
+    address: ":443"
+
+certificatesResolvers:
+  cloudflare:
+    acme:
+      email: ${TRAEFIK_ACME_EMAIL}
+      storage: /acme/acme.json
+      dnsChallenge:
+        provider: cloudflare
+        # DNS-01, not HTTP-01 -- no port 80 exposed to the internet at all
+        # (CGNAT, no port forward), so HTTP-01 isn't possible regardless.
+        resolvers:
+          - "1.1.1.1:53"
+          - "1.0.0.1:53"
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    # NOT scoped to mochapot_net -- homeassistant/musicassistant/pihole are
+    # all network_mode: host, so they never actually join any bridge
+    # network including this one. Leaving this unset lets the docker
+    # provider still pick up their labels (it reads labels from any
+    # container, network membership only matters for auto-detecting an
+    # IP, which these containers override via loadbalancer.server.url
+    # anyway). traefik itself joins mochapot_net via this file's own
+    # networks: block below, for parity with every other node -- nothing
+    # currently depends on that beyond convention.
+  file:
+    filename: /etc/traefik/dynamic.yml

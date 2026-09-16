@@ -64,7 +64,11 @@ Each node's role and app list live in its `stacks/<node>/README.md` as stacks ar
 So far: [`sieve`](stacks/sieve/README.md) — Pi-hole (DNS + DHCP), Unbound, cloudflared,
 ntfy, Gatus, NetAlertX; [`percolator`](stacks/percolator/README.md) — Traefik, CrowdSec,
 LLDAP, Authelia, Vaultwarden, Nextcloud, Immich, Paperless-ngx, Mealie, Vikunja,
-Actual Budget, FreshRSS, Homepage.
+Actual Budget, FreshRSS, Homepage; [`cellar`](stacks/cellar/README.md) — Traefik, restic,
+Samba/NFS, Scrutiny, Diun, Komodo Core + Mongo; [`mochaPot`](stacks/mochaPot/README.md) —
+Traefik, Home Assistant, Music Assistant, Pi-hole (secondary), kiosk browser;
+[`grinder`](stacks/grinder/README.md) — Traefik, n8n, embedding worker, Open WebUI,
+Karakeep, FitTrackee, Traccar, ESPHome dashboard, Speedtest Tracker.
 MACs are derived from the node name, so a reinstall or NIC swap never changes how the
 network sees a machine (see [`init/README.md`](init/README.md)).
 
