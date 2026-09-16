@@ -61,6 +61,18 @@ chmod +x *.sh
 that's wrong for you. Nothing else needs filling in — immich-ml has no
 secrets and no config template.
 
+Prefer to stay in PowerShell instead of WSL2/Git Bash? `setup-secrets.ps1`
+does the same thing (create `.env.local`, prompt for any `REPLACE_ME`
+value, render `*.template` files), with no `chmod` needed:
+
+```powershell
+cd stacks\roastery
+.\setup-secrets.ps1
+```
+
+It's a hand-maintained port, not generated from `setup-secrets.sh` — if
+you change one, change the other.
+
 ## Windows Firewall (the actual access control)
 
 immich-ml "has no security measures whatsoever" (Immich's own
