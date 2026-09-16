@@ -1,0 +1,10 @@
+# Generated on this node.
+.env.local
+*/secrets.env.local
+*/config/*
+!*/config/*.template
+
+# immich-machine-learning's downloaded model weights -- large, regenerable,
+# never belongs in git (the root .gitignore's data/ pattern doesn't cover
+# this since it's a plain relative bind mount, not under DATA_DIR).
+immich-ml/model-cache/
