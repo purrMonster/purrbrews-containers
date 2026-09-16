@@ -1,0 +1,16 @@
+# Rendered by ../../render-configs.sh into config/dynamic.yml (gitignored).
+http:
+  middlewares:
+    authelia-forwardauth:
+      forwardAuth:
+        # percolator's Authelia (infrastructure.md §4) -- will error until
+        # percolator's own Authelia stack is migrated into this repo. See
+        # README "Known gaps". Every router below still works on its
+        # direct host port with no middleware in the path (the backdoor).
+        address: "http://${PERCOLATOR_LAN_IP}:9091/api/authz/forward-auth"
+        trustForwardHeader: true
+        authResponseHeaders:
+          - Remote-User
+          - Remote-Groups
+          - Remote-Name
+          - Remote-Email

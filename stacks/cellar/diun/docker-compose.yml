@@ -1,0 +1,62 @@
+services:
+  diun:
+    image: crazymax/diun:4.33.0
+    container_name: diun
+    command: serve
+    environment:
+      TZ: ${TZ}
+      DIUN_WATCH_WORKERS: "20"
+      DIUN_WATCH_SCHEDULE: "0 8 * * *"   # daily at 08:00
+      DIUN_WATCH_JITTER: "30s"
+      DIUN_PROVIDERS_DOCKER: "true"
+      # Talks to the socket-proxy sidecar below, never the raw socket
+      # directly -- see that service's own comment for why.
+      DIUN_PROVIDERS_DOCKER_ENDPOINT: tcp://diun-docker-socket-proxy:2375
+      # Watches every container on THIS node by default, not just ones
+      # labeled diun.enable=true -- Diun only ever sees the local Docker
+      # socket, so this is cellar's own update-awareness, not a
+      # fleet-wide watcher; each node gets its own Diun instance as it's
+      # migrated into this repo.
+      DIUN_PROVIDERS_DOCKER_WATCHBYDEFAULT: "true"
+      # Notification provider: not configured yet, same open item as the
+      # pre-restructure build -- see README/runbook. Diun runs and watches
+      # without one, it just has nowhere to send what it finds yet; check
+      # `docker logs diun` in the meantime.
+    volumes:
+      # bbolt state DB -- REQUIRED for persistence, not optional. Without
+      # this surviving a container recreate, Diun has no way to remember
+      # what it already reported and re-notifies about every already-known
+      # image on every restart.
+      - /srv/data/diun:/data
+    depends_on:
+      - diun-docker-socket-proxy
+    restart: unless-stopped
+
+  diun-docker-socket-proxy:
+    # v0.5.0 confirmed against Docker Hub's own registry API (not a
+    # summarized page fetch) on the pre-restructure build -- re-verify
+    # before first bring-up rather than trusting this comment indefinitely.
+    image: tecnativa/docker-socket-proxy:v0.5.0
+    container_name: diun-docker-socket-proxy
+    environment:
+      # Least-privilege API surface -- Diun only ever needs to list/inspect
+      # containers and images, nothing else. POST explicitly disabled --
+      # Diun never needs to create/modify anything. A plain `:ro` bind
+      # mount of the raw socket does NOT actually restrict which API verbs
+      # are allowed over it -- this proxy is the real mitigation.
+      CONTAINERS: "1"
+      IMAGES: "1"
+      POST: "0"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+    # No ports published to the host -- reached only by diun, over this
+    # compose project's own isolated per-directory network (compose.sh
+    # runs each app with --project-directory pointed at its own folder).
+    #
+    # Known rough edge, not resolved anywhere found: at least one real
+    # report of Diun failing to reach a socket-proxy over exactly this
+    # tcp://<name>:2375 pattern. If `docker logs diun` shows a connection
+    # failure after bring-up, the documented (less safe, simpler) fallback
+    # is dropping this sidecar entirely and pointing diun straight at a
+    # read-only raw socket mount instead.

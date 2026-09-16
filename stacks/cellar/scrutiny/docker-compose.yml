@@ -1,0 +1,69 @@
+services:
+  scrutiny:
+    # Only published on GHCR, no official Docker Hub image -- third-party
+    # mirrors exist there, avoid them, not maintained by this project.
+    # omnibus = web UI + collector + embedded InfluxDB in one container.
+    # cellar is now the fleet's Scrutiny HUB (moved here from the
+    # pre-restructure silo build, per infrastructure.md §4's cellar app
+    # list) -- every other node's own scrutiny-collector (added to each
+    # node's stack as it gets migrated into this repo) pushes its SMART
+    # data here over the LAN, and cellar's own disks are monitored
+    # directly by this same container via the devices: list below, no
+    # separate local collector needed for cellar itself.
+    #
+    # Pinned to a real version, not `latest-omnibus` -- the project's own
+    # README calls that tag "dangerous," it can update the image without
+    # warning. Re-verify this pin is still current before first bring-up.
+    image: ghcr.io/analogj/scrutiny:v0.9.3-omnibus
+    container_name: scrutiny
+    cap_add:
+      - SYS_RAWIO   # smartctl access for SATA/SAS drives (the HDD)
+      - SYS_ADMIN   # smartctl access for NVMe drives
+    # Published for two reasons: browser access to the dashboard, and
+    # collector-to-hub traffic from other nodes' scrutiny-collector
+    # containers (Docker networks don't span physical hosts -- same
+    # cross-host exception as Komodo's 9120 below). Same
+    # Docker-NAT-bypasses-ufw caveat as smb's ports and komodo's 9120:
+    # this app has zero login of its own (see README "Known gaps"), and
+    # the DOCKER-USER firewall gap means a plain ufw rule on 8080 does not
+    # actually restrict who can reach it today. Accepted on a trusted LAN,
+    # same call the pre-restructure build made -- revisit once
+    # apply-firewall.sh's DOCKER-USER rules exist for this port.
+    ports:
+      - "8080:8080"
+    # Kept published -- the backdoor. Scrutiny has no login of its own at
+    # all (see this file's own note below), so the direct port and the
+    # Traefik-fronted hostname are equally unauthenticated on their own;
+    # the ForwardAuth middleware below is the only real gate either way,
+    # and it's bypassable by going straight to this port if percolator's
+    # Authelia (or Traefik) is down. Documented, not fixed -- see README
+    # "Known gaps".
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.scrutiny.rule=Host(`scrutiny.${DOMAIN}`)"
+      - "traefik.http.routers.scrutiny.entrypoints=websecure"
+      - "traefik.http.routers.scrutiny.tls.certresolver=cloudflare"
+      - "traefik.http.routers.scrutiny.middlewares=authelia-forwardauth@file"
+      - "traefik.http.services.scrutiny.loadbalancer.server.port=8080"
+    volumes:
+      - /srv/data/scrutiny/config:/opt/scrutiny/config
+      - /srv/data/scrutiny/influxdb:/opt/scrutiny/influxdb
+      - /run/udev:/run/udev:ro
+    devices:
+      # cellar has TWO physical disks now (infrastructure.md §3: 256 GB
+      # NVMe + 1 TB HDD) -- monitor both. Values come from .env.local
+      # (CELLAR_DISK_DEVICE_NVME/_HDD), resolved by docker compose's own
+      # native ${VAR} interpolation from whatever --env-file compose.sh
+      # passes -- no envsubst/render-configs.sh step needed for this file.
+      - ${CELLAR_DISK_DEVICE_NVME}
+      - ${CELLAR_DISK_DEVICE_HDD}
+    restart: unless-stopped
+    # No login/auth exists in this app at all -- confirmed on the
+    # pre-restructure build (no README section on it, no CVEs on file
+    # either), unchanged in this version. Nothing here gates who can view
+    # or push SMART data beyond whatever the network path allows.
+
+networks:
+  default:
+    name: cellar_net
+    external: true

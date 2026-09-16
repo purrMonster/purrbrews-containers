@@ -5,10 +5,10 @@ changes can be made later without re-deriving the reasoning.
 
 ## Backlog / open items
 
-- [ ] Publish the repo on GitHub (public) and enable Secret scanning + Push protection
+- [ ] Confirm Secret scanning + Push protection are enabled on the public GitHub repo (repo itself already created, pushed, `origin` set)
 - [ ] Workstation: DHCP reservation, `bootstrap/data/` (settings + `authorized_keys`), `docker compose up -d --build`, firewall rule for 8443
 - [ ] First real node through `bootstrap.sh`, at the console (the network step has not yet run on real hardware)
-- [ ] Add stacks node by node, each with its own `stacks/<node>/README.md`
+- [x] Add stacks node by node, each with its own `stacks/<node>/README.md` — sieve, percolator, cellar, mochaPot and grinder are all in
 - [x] Pi-hole static leases from `purrbrews-mac.sh`: automated by `stacks/sieve/setup-secrets.sh` (2026-09-15)
 - [ ] sieve: Cloudflare DNS token, tunnel + `ntfy.${DOMAIN}` route, healthchecks.io check, then the bring-up in `stacks/sieve/README.md`
 - [ ] sieve: prove both alert paths with a deliberate break (stop NetAlertX → ntfy; stop ntfy → ntfy.sh)
@@ -16,10 +16,16 @@ changes can be made later without re-deriving the reasoning.
 - [x] percolator: Authelia's 9091 published (UFW: `FORWARD_AUTH_CLIENTS`), session domain `${DOMAIN}`, admin-only rules for `pihole`, `gatus`, `netalertx`, `traefik-sieve` — done in percolator's stack (2026-09-16)
 - [ ] percolator: Cloudflare token, then the bring-up in `stacks/percolator/README.md`; `sudo ./firewall.sh`
 - [ ] First ForwardAuth round trip from sieve's Traefik to Authelia on real hardware (sandbox-tested with real Authelia 2026-09-16)
+- [x] cellar's, mochaPot's and grinder's stacks added, each with its own Traefik (2026-09-16)
+- [ ] Register cellar, mochaPot and grinder with percolator: add all three IPs to `FORWARD_AUTH_CLIENTS`/`firewall.sh` and to Authelia's admin-host list, so their ForwardAuth routes stop 502/504ing (see the 2026-09-16 entry below)
+- [ ] Migrate `stacks/_templates/komodo-periphery/` into this repo and wire it into mochaPot/grinder once fleet-wide Komodo management is wanted
+- [ ] Wire cellar's restic sources to percolator's, sieve's and mochaPot's actual dumps and data — all three now exist in this repo
+- [ ] Enable cellar's roastery mirror and Google Drive sync (both scaffolded, neither turned on)
 - [ ] roastery: `immich-machine-learning` at Immich's version, Windows Firewall 3003 scoped to percolator
 - [ ] Postgres dump job for percolator's databases (Nextcloud, Immich, Paperless)
-- [ ] Remaining nodes: cellar, mochaPot, grinder, roastery; then archive purrBrews-infra
+- [ ] Remaining node: roastery itself joining the fleet; then archive purrBrews-infra
 - [ ] Gatus: enable each node's ping as it is provisioned; add app checks as stacks land
+- [ ] Optional: paste `purrbrews-mac.sh list --format pihole` into Pi-hole's static DHCP list
 
 ---
 
@@ -82,6 +88,96 @@ configs, a sieve-style Traefik on a separate network using sieve's unmodified
 
 **Not tested:** UFW itself on a real node (dry run only), real certificates, and the
 Authelia login page in a browser.
+
+## 2026-09-16 — cellar, mochaPot, grinder: three stacks added
+
+Added `stacks/cellar/`, `stacks/mochaPot/` and `stacks/grinder/` — the first
+node stacks in this repo, built to `infrastructure.md`'s post-restructure app
+placement (§4), not migrated wholesale from the pre-restructure
+`purrBrews-infra` build. Each node's own README states this plainly and lists
+what changed. Summary here is cross-cutting decisions only.
+
+**cellar** (192.168.0.12) — restic, Samba/NFS, Scrutiny hub, Diun, Komodo Core
++ Mongo:
+
+- **restic replaces `backup-mirror/` outright**, not just in name. The
+  2026-09-13 fleet audit's Tier 0 #1 found that `backup-mirror/mirror.sh`
+  defined `mirror_source()` and never called it — nightly, silently, copying
+  zero bytes, the whole time it existed. The new `restic/` scripts are real,
+  runnable `restic backup` calls per source (still empty — percolator,
+  sieve and mochaPot all exist in this repo now, but the actual dump
+  sources aren't wired up yet, tracked in the backlog), not another
+  function definition nobody invokes.
+- **Scrutiny's hub and Komodo's Core + Mongo both moved here from the
+  pre-restructure `silo`**, which no longer exists as a role
+  (`infrastructure.md` §1's retirement note). Komodo's OIDC login is
+  deliberately left off (`KOMODO_OIDC_ENABLED: "false"`) — percolator's
+  Authelia exists in this repo now, but cellar isn't registered with it yet
+  (see the backlog); local admin auth only until then.
+- **Vaultwarden and Caddy are gone from cellar**, not lost — moved to
+  percolator per the new app table. Nothing in this rebuild tries to recreate
+  them.
+- **NFS stays host-native**, same call the pre-restructure build made
+  (containerized NFS servers still aren't recommended) — this time actually
+  implemented (`nfs/setup-nfs.sh`), not just documented as a someday step.
+
+**mochaPot** (192.168.0.13) — Home Assistant + PG, Music Assistant, Pi-hole
+(secondary, DNS only), kiosk browser:
+
+- **Home Assistant moved here from percolator** — `infrastructure.md` §4:
+  "shares a failure domain with neither the app tier nor the network tier,
+  the wall dashboard renders locally if percolator is down." No Traefik/
+  Authelia in front of it here, unlike its old placement — the alpha-stage
+  OIDC component isn't carried over either.
+- **The kiosk browser is genuinely new** — cage (Wayland kiosk compositor) +
+  Chromium, autologin on a dedicated `kiosk` user, not `barista`. Host-native.
+- **Pi-hole here keeps a real web password**, unlike sieve's (which disables
+  it in favor of Authelia's ForwardAuth) — mochaPot has no reverse proxy at
+  all, so this instance's own login is its only gate.
+- Jellyfin/Immich/Vikunja/n8n/FreshRSS/Mealie/Actual Budget/Stirling PDF/
+  Roundcube/Traefik, everything else the pre-restructure mochaPot ran, moved
+  elsewhere or were cut (`infrastructure.md` §4's "Deliberately not
+  running").
+
+**grinder** (192.168.0.14) — n8n, embedding worker, PG + pgvector, Open
+WebUI, Karakeep, FitTrackee, Traccar, ESPHome dashboard, Speedtest Tracker:
+
+- **grinder did not exist pre-restructure** — entirely new node, entirely new
+  stack directory.
+- **`embedding-worker` is custom-built, not a pulled image** — no published
+  image exists for this project's specific "small CPU embedding API n8n
+  calls" shape, so it's a small FastAPI + sentence-transformers service built
+  from a `Dockerfile` in this repo. Diun can't track its freshness the normal
+  way (it watches tags, not what `pip install` pulled at build time) — flagged
+  in the node's own README, not solved here.
+- **Every app gets its own dedicated Postgres** where it needs one
+  (`postgres-vector` for the embedding pipeline, `postgres-fittrackee` for
+  FitTrackee) — same discipline percolator's `homeassistant/docker-compose.yml`
+  documents the reasoning for (a real port collision, pre-restructure, from
+  sharing one Postgres layer across unrelated apps).
+- **Traccar keeps its bundled H2 database**, deliberately not given its own
+  Postgres like FitTrackee — high-write low-value telemetry, not judged worth
+  the extra backup weight yet.
+- **Open WebUI has no automated wake path to roastery's Ollama.** Ollama on
+  Windows only answers once someone's logged in and the tray app is running
+  (`infrastructure.md` §9) — nothing here sends the WoL packet before a chat
+  request; `cellar/restic/mirror-to-roastery.sh`'s WoL-then-wait pattern is
+  flagged as the reusable shape for this, not yet adapted.
+
+**Common to all three**: `generate-secrets.sh` now uses `openssl rand -hex`,
+not `-base64`, for every new secret (`infrastructure.md` §6 — the RFC 6749
+§2.3.1 URL-encoding bug that broke Mealie pre-restructure is a base64-only
+failure mode; hex removes the bug class rather than requiring `client_secret_basic`
+to be audited per app). Traefik was added to all three the same day (each node's own
+README says so under "Traefik and the native-login backdoor"), each
+already pointing its `authelia-forwardauth` middleware at
+`http://${PERCOLATOR_LAN_IP}:9091/api/authz/forward-auth` — percolator's
+real endpoint, which now exists in this repo (see the entry above). What's
+still missing is registration on percolator's side: each of these three
+IPs in `FORWARD_AUTH_CLIENTS`/`firewall.sh` and in Authelia's admin-host
+list, tracked in the backlog below. Until then every `*.${DOMAIN}`
+hostname on these nodes 502/504s through Traefik; the direct-port
+backdoor each README describes is what actually works today.
 
 ## 2026-09-15 — percolator: ingress, identity and daily apps
 

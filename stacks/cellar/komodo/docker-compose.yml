@@ -1,0 +1,176 @@
+# Komodo Core + Mongo, now hosted on cellar (moved here from the
+# pre-restructure silo build, per infrastructure.md §4's cellar app list).
+# Adapted from Komodo's own official reference files
+# (moghtech/komodo, compose/mongo.compose.yaml + compose/compose.env) to
+# this repo's conventions: every env var listed explicitly per service, not
+# loaded via env_file: ./compose.env, and secrets come from
+# komodo/secrets.env.local, generated locally by generate-secrets.sh, never
+# left at the official file's own insecure placeholder defaults (admin/admin,
+# a_random_secret, a_random_jwt_secret, changeme).
+#
+# Includes a local Periphery agent (third service below) so Core can manage
+# cellar's OWN containers, not just remote ones -- same self-management
+# pattern the pre-restructure silo build used, not a separate
+# komodo-periphery/ directory this time, since there's only ever one
+# Periphery per node and it belongs next to the Core it was built for.
+# Other nodes get their OWN standalone Periphery (see
+# ../../_templates/komodo-periphery/ once that template is migrated into
+# this repo) pointed at cellar's Core over the LAN on port 9120.
+#
+# BEFORE FIRST BRING-UP: confirm cellar's CPU actually supports AVX. MongoDB
+# 5.0+ (mongo:7 below is well past that) requires it and crashes outright on
+# startup without it (`Illegal instruction (core dumped)`) -- check with:
+#   grep avx /proc/cpuinfo
+# If missing, this whole file needs rethinking (a different Mongo version
+# won't help, the requirement is version-independent for 5.0+) -- see
+# https://komo.do/docs/setup/mongo for the FerretDB alternative.
+#
+# NOT YET WIRED TO AUTHELIA: unlike the pre-restructure silo build, this
+# version does not attempt OIDC login. Authelia lives on percolator per
+# infrastructure.md §4, and percolator hasn't been migrated into this repo
+# yet -- KOMODO_OIDC_ENABLED stays "false" until it exists. Local admin
+# login (KOMODO_LOCAL_AUTH) is the only way in for now. See README "Known
+# gaps".
+services:
+  mongo:
+    image: mongo:7.0
+    container_name: komodo-mongo
+    labels:
+      komodo.skip:   # official label -- prevents Komodo's own "stop all
+                      # containers" action from stopping its own database
+    command: --quiet --wiredTigerCacheSizeGB 0.25
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${KOMODO_DATABASE_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${KOMODO_DATABASE_PASSWORD}
+    volumes:
+      - /srv/data/komodo/mongo-data:/data/db
+      - /srv/data/komodo/mongo-config:/data/configdb
+    restart: unless-stopped
+
+  komodo-core:
+    image: ghcr.io/moghtech/komodo-core:2.3.2   # pinned, not the official
+                                                  # file's floating `:2` --
+                                                  # Komodo is central enough
+                                                  # to this fleet's future
+                                                  # that a silent minor/patch
+                                                  # bump on redeploy isn't
+                                                  # worth the convenience.
+    container_name: komodo-core
+    init: true
+    depends_on:
+      - mongo
+    ports:
+      # Has to stay reachable from OTHER PHYSICAL HOSTS -- every other
+      # node's future Periphery agent connects to Core over the LAN
+      # (Docker networks don't span hosts), on this exact port. Same
+      # Docker-NAT-bypasses-ufw caveat as smb's/scrutiny's ports above --
+      # this port genuinely can't be closed the way a same-host-only app's
+      # could be; its real security boundary is KOMODO_JWT_SECRET,
+      # KOMODO_WEBHOOK_SECRET and the admin account, treated with
+      # root-SSH-key-level care, not ufw.
+      - "9120:9120"
+    # Kept published deliberately -- this is the backdoor. Komodo's own
+    # KOMODO_LOCAL_AUTH login (barista / KOMODO_INIT_ADMIN_PASSWORD) works
+    # directly on this port with no Traefik/Authelia in the path at all,
+    # for whenever percolator's Authelia -- or Traefik itself -- is down.
+    # See ../traefik/config/dynamic.yml.template's own comment.
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.komodo.rule=Host(`komodo.${DOMAIN}`)"
+      - "traefik.http.routers.komodo.entrypoints=websecure"
+      - "traefik.http.routers.komodo.tls.certresolver=cloudflare"
+      - "traefik.http.routers.komodo.middlewares=authelia-forwardauth@file"
+      - "traefik.http.services.komodo.loadbalancer.server.port=9120"
+    environment:
+      TZ: ${TZ}
+      KOMODO_DATABASE_ADDRESS: mongo:27017
+      KOMODO_DATABASE_USERNAME: ${KOMODO_DATABASE_USERNAME}
+      KOMODO_DATABASE_PASSWORD: ${KOMODO_DATABASE_PASSWORD}
+      # Plain http, by LAN IP -- no Traefik lives on cellar (see README
+      # "Known gaps"). Only used for OAuth/webhook URL suggestions in the
+      # UI, not security-relevant on its own. Switch to
+      # https://komodo.${DOMAIN} once percolator's Traefik exists and a
+      # Local DNS Record for it is added on sieve's Pi-hole.
+      # Real hostname now that Traefik fronts this node (see ../traefik/) --
+      # was http://${CELLAR_LAN_IP}:9120 before Traefik existed here. Only
+      # used for OAuth/webhook URL suggestions in the UI, not
+      # security-relevant on its own. The direct http://${CELLAR_LAN_IP}:9120
+      # backdoor below still works unchanged -- Komodo doesn't care which
+      # hostname a request arrived on for local-auth login.
+      KOMODO_HOST: https://komodo.${DOMAIN}
+      KOMODO_TITLE: purrBrews Komodo
+      # Core writes its own public key here on first boot; the local
+      # Periphery service below shares the same host directory (see
+      # volumes below) so this just works without manual key copying, on
+      # this node only. A future node's standalone Periphery needs the
+      # public key or an onboarding key instead -- see
+      # ../../_templates/komodo-periphery/ once migrated.
+      KOMODO_PERIPHERY_PUBLIC_KEY: file:/config/keys/periphery.pub
+      KOMODO_LOCAL_AUTH: "true"
+      # Official default ships literally as admin/changeme -- replaced
+      # with real generated values below.
+      KOMODO_INIT_ADMIN_USERNAME: barista
+      KOMODO_INIT_ADMIN_PASSWORD: ${KOMODO_INIT_ADMIN_PASSWORD}
+      KOMODO_FIRST_SERVER_NAME: cellar
+      KOMODO_WEBHOOK_SECRET: ${KOMODO_WEBHOOK_SECRET}
+      KOMODO_JWT_SECRET: ${KOMODO_JWT_SECRET}
+      KOMODO_JWT_TTL: 1-day
+      KOMODO_MONITORING_INTERVAL: 15-sec
+      KOMODO_RESOURCE_POLL_INTERVAL: 1-hr
+      # Deliberate change from the official default (false) -- this
+      # instance will eventually hold root-equivalent access (via
+      # Periphery's docker.sock mount) to every node in the fleet; leaving
+      # open signups on is a bigger blast radius than the official file's
+      # generic default assumes.
+      KOMODO_DISABLE_USER_REGISTRATION: "false"
+      # No Authelia to federate against yet -- see this file's header
+      # comment. Flip on once percolator's Authelia exists:
+      #   KOMODO_OIDC_ENABLED: "true"
+      #   KOMODO_OIDC_PROVIDER: https://authelia.${DOMAIN}
+      #   KOMODO_OIDC_CLIENT_ID: komodo
+      #   KOMODO_OIDC_CLIENT_SECRET: ${KOMODO_OIDC_CLIENT_SECRET}
+      KOMODO_OIDC_ENABLED: "false"
+    volumes:
+      - /srv/data/komodo/keys:/config/keys
+      - /srv/data/komodo/backups:/backups
+    restart: unless-stopped
+
+  komodo-periphery:
+    image: ghcr.io/moghtech/komodo-periphery:2.3.2
+    container_name: komodo-periphery
+    init: true
+    depends_on:
+      - komodo-core
+    environment:
+      TZ: ${TZ}
+      PERIPHERY_CORE_ADDRESS: ws://komodo-core:9120
+      PERIPHERY_CONNECT_AS: cellar
+      PERIPHERY_CORE_PUBLIC_KEYS: file:/config/keys/core.pub
+      PERIPHERY_ROOT_DIRECTORY: /etc/komodo
+      PERIPHERY_INCLUDE_DISK_MOUNTS: /etc/hostname
+    volumes:
+      - /srv/data/komodo/keys:/config/keys
+      # The single biggest security consideration in this whole file:
+      # unrestricted Docker socket access. Whoever controls Komodo Core's
+      # web UI (or its JWT/webhook secrets) effectively has root on every
+      # node running a Periphery agent, starting with cellar itself. Treat
+      # KOMODO_JWT_SECRET, KOMODO_WEBHOOK_SECRET, and the admin account's
+      # credentials with the same care as a root SSH key -- not just
+      # "another app password." Inherent to what Komodo does, not a
+      # misconfiguration to fix.
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /proc:/proc
+      # Must be the IDENTICAL path inside and outside the container or
+      # Docker "gets confused" (documented directly by the maintainers --
+      # github.com/moghtech/komodo/discussions/180) -- kept at the
+      # project's own default (/etc/komodo) rather than moved under
+      # /srv/data, since this isn't really app data, it's the actual
+      # operational root Periphery uses to find every stack/repo it
+      # manages on this host.
+      - /etc/komodo:/etc/komodo
+    restart: unless-stopped
+
+networks:
+  default:
+    name: cellar_net
+    external: true

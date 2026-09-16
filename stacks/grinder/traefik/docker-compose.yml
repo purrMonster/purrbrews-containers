@@ -1,0 +1,32 @@
+services:
+  traefik:
+    image: traefik:v3.2
+    container_name: traefik
+    command:
+      - --configFile=/etc/traefik/traefik.yml
+    environment:
+      CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN}
+    volumes:
+      - ./config/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./config/dynamic.yml:/etc/traefik/dynamic.yml:ro
+      - /srv/data/traefik/acme:/acme
+      # Needed so the docker provider can see labels on esphome, the one
+      # network_mode: host app on this node -- see esphome/docker-compose.yml.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    restart: unless-stopped
+    # Every app this fronts keeps its own direct port published too -- the
+    # deliberate backdoor. Unlike cellar's Scrutiny or mochaPot's Music
+    # Assistant, every app on grinder already has its own real native
+    # login (n8n's owner account, Open WebUI's own auth, Karakeep's
+    # NextAuth, FitTrackee's account, Traccar's admin login, ESPHome's
+    # basic auth, Speedtest Tracker's admin login) -- the backdoor here is
+    # never a zero-auth fallback, always a real one. See README "Traefik
+    # and the native-login backdoor".
+
+networks:
+  default:
+    name: grinder_net
+    external: true

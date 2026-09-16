@@ -1,0 +1,57 @@
+# FitTrackee — self-hosted activity tracker for the bike-computer pipeline
+# (edge-and-automation.md §5: ingests GPX from OpenTracks/OsmAnd on the
+# Pixel 6a, via n8n watching a Nextcloud folder). Own dedicated Postgres,
+# colocated in this same compose file -- same "every app gets its own db
+# layer, not a shared instance" discipline percolator's homeassistant
+# compose file documents the reasoning for (a port collision found the
+# hard way, pre-restructure).
+services:
+  fittrackee:
+    image: fittrackee/fittrackee:latest
+    container_name: fittrackee
+    environment:
+      TZ: ${TZ}
+      APP_SECRET_KEY: ${FITTRACKEE_SECRET_KEY}
+      DATABASE_URL: postgresql://${FITTRACKEE_DB_USERNAME}:${FITTRACKEE_DB_PASSWORD}@postgres-fittrackee:5432/${FITTRACKEE_DB_DATABASE_NAME}
+      UI_URL: http://${GRINDER_LAN_IP}:5001
+    volumes:
+      - /srv/data/fittrackee/uploads:/usr/src/app/uploads
+    ports:
+      - "5001:5000"
+    depends_on:
+      postgres-fittrackee:
+        condition: service_healthy
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.fittrackee.rule=Host(`fittrackee.${DOMAIN}`)"
+      - "traefik.http.routers.fittrackee.entrypoints=websecure"
+      - "traefik.http.routers.fittrackee.tls.certresolver=cloudflare"
+      - "traefik.http.routers.fittrackee.middlewares=authelia-forwardauth@file"
+      - "traefik.http.services.fittrackee.loadbalancer.server.port=5000"
+    # First account at http://${GRINDER_LAN_IP}:5001 becomes admin --
+    # confirm against the image's own current docs before relying on that,
+    # not verified against a real bring-up as of this rebuild.
+
+  postgres-fittrackee:
+    image: postgres:16
+    container_name: postgres-fittrackee
+    environment:
+      POSTGRES_USER: ${FITTRACKEE_DB_USERNAME}
+      POSTGRES_PASSWORD: ${FITTRACKEE_DB_PASSWORD}
+      POSTGRES_DB: ${FITTRACKEE_DB_DATABASE_NAME}
+    volumes:
+      - /srv/data/postgres-fittrackee:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${FITTRACKEE_DB_USERNAME} -d ${FITTRACKEE_DB_DATABASE_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    # No ports published -- reached only by fittrackee itself, by
+    # container name, over this compose project's own default network.
+
+networks:
+  default:
+    name: grinder_net
+    external: true

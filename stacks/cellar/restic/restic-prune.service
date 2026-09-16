@@ -1,0 +1,9 @@
+[Unit]
+Description=cellar restic retention (forget --prune)
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=barista
+WorkingDirectory=/opt/purrbrews/stacks/cellar/restic
+ExecStart=/opt/purrbrews/stacks/cellar/restic/restic-prune.sh
