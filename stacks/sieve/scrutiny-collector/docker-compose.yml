@@ -1,0 +1,36 @@
+# Scrutiny collector — standalone agent added 2026-09-16 that scans
+# sieve's own disk(s) with smartctl and pushes the results to cellar's
+# Scrutiny hub (stacks/cellar/scrutiny/docker-compose.yml), same pattern
+# that file's own header comment already promises ("every other node's own
+# scrutiny-collector... pushes its SMART data here over the LAN"). No web
+# UI of its own, nothing to route through Traefik — this container just
+# runs smartctl on a schedule and posts the result.
+#
+# VERIFY BEFORE FIRST BRING-UP: SIEVE_DISK_DEVICE in ../local.env.example
+# against real hardware with `lsblk -d -o NAME,TYPE,SIZE,MODEL`
+# (infrastructure.md §3: sieve is a single 240 GB 2.5" SATA SSD, M.2 stays
+# empty — see that section's own note on why). Also re-check the image tag
+# below is still current (same v0.9.3 pin as cellar's hub — collector and
+# hub versions should track together; the project's own README calls
+# `latest-collector` "dangerous" the same way it does for the omnibus tag).
+services:
+  scrutiny-collector:
+    image: ghcr.io/analogj/scrutiny:v0.9.3-collector
+    container_name: scrutiny-collector
+    cap_add:
+      - SYS_RAWIO   # smartctl access for SATA/SAS drives
+      - SYS_ADMIN   # smartctl access for NVMe drives (unused on sieve today, harmless to keep)
+    environment:
+      COLLECTOR_API_ENDPOINT: http://${CELLAR_LAN_IP}:8080
+      # Every 6 hours -- SMART attributes change slowly; no reason to poll
+      # more often than that and add wear/noise for it. Matches the
+      # collector image's own documented default cadence.
+      COLLECTOR_CRON_SCHEDULE: "0 */6 * * *"
+    volumes:
+      - /run/udev:/run/udev:ro
+    devices:
+      - ${SIEVE_DISK_DEVICE}
+    restart: unless-stopped
+    # No login/auth of its own, same as cellar's hub -- nothing to gate
+    # here beyond whatever the network path allows (see that file's own
+    # "Known gaps" note, unchanged for this collector).

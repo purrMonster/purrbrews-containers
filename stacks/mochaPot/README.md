@@ -25,6 +25,8 @@ HTTPS on pretty hostnames instead of bare LAN IP:port:
 | [pihole](#pihole) | Secondary DNS resolver — **DNS only, never DHCP** |
 | [kiosk](#kiosk) | The household wall dashboard, host-native |
 | [traefik](#traefik) | Reverse proxy + real TLS, with a native-login backdoor |
+| [komodo-periphery](#komodo-periphery--scrutiny-collector) | Agent for cellar's Komodo Core — added 2026-09-16 |
+| [scrutiny-collector](#komodo-periphery--scrutiny-collector) | Pushes SMART data to cellar's Scrutiny hub — added 2026-09-16 |
 
 Everything else the pre-restructure mochaPot ran — Jellyfin, Immich,
 Vikunja, n8n, FreshRSS, Mealie, Actual Budget, Stirling PDF, Roundcube,
@@ -60,7 +62,7 @@ belongs to sieve's primary instance once it's migrated into this repo).
 Real TLS via Cloudflare DNS-01, same mechanism every other node's Traefik
 in this fleet uses.
 
-All three apps' host-networked ports (`8123`, `8095`, `80`) stay published
+All three apps' host-networked ports (`8123`, `8095`, `8081`) stay published
 directly alongside the Traefik route — that's the deliberate backdoor. The
 pretty hostname goes through Traefik's `authelia-forwardauth` middleware,
 which needs percolator's Authelia up and reachable. The direct
@@ -123,7 +125,8 @@ sudo mkdir -p /srv/data/pihole/etc-pihole
 ./compose.sh pihole up -d
 ```
 
-Admin UI at `http://${MOCHAPOT_LAN_IP}/admin`, real login (unlike sieve's
+Admin UI at `http://${MOCHAPOT_LAN_IP}:8081/admin` (moved off 80 —
+mochaPot's own Traefik now owns 80/443, see "traefik" below), real login (unlike sieve's
 copy of this same image — see `pihole/docker-compose.yml`'s own comment
 for why: no Traefik/Authelia gate exists on this node). **Never enable
 Settings → DHCP here** — see "Why mochaPot" above; this is load-bearing,
@@ -142,18 +145,39 @@ attempted here.
 ```sh
 sudo mkdir -p /srv/data/traefik/acme
 ./compose.sh traefik up -d
-docker logs traefik --tail 50   # look for a successful cert issuance
+sudo docker logs traefik --tail 50   # look for a successful cert issuance
 ```
+
+**Bring pihole (or homeassistant/musicassistant) up before traefik**, per
+this README's order — pihole's `network_mode: host` webserver moved off
+port 80 specifically so it wouldn't collide with this. If `traefik` still
+fails with "address already in use" on 80/443, check `sudo ss -tlnp | grep
+':80\|:443'` for whatever else grabbed it first.
 
 Needs `traefik/secrets.env.local`'s `CF_DNS_API_TOKEN` and
 `TRAEFIK_ACME_EMAIL` in `.env.local`. Add Local DNS Records in sieve's
-Pi-hole (once sieve exists in this repo) for `homeassistant.${DOMAIN}`,
-`music.${DOMAIN}`, and `pihole-mochapot.${DOMAIN}`, all pointing at
-`${MOCHAPOT_LAN_IP}`. Until then, or until percolator's Authelia exists,
-use each app's direct port — see "Traefik and the native-login backdoor"
-above. **Set `trusted_proxies` in Home Assistant's `configuration.yaml`**
+Pi-hole for `homeassistant.${DOMAIN}`, `music.${DOMAIN}`, and
+`pihole-mochapot.${DOMAIN}`, all pointing at `${MOCHAPOT_LAN_IP}`. Also
+needs mochaPot added to percolator's `FORWARD_AUTH_CLIENTS`/`firewall.sh`
+(done 2026-09-16) for ForwardAuth to actually answer. Until DNS records
+exist, use each app's direct port — see "Traefik and the native-login
+backdoor" above. **Set `trusted_proxies` in Home Assistant's `configuration.yaml`**
 (see `homeassistant/docker-compose.yml`'s own comment) or it will reject
 requests arriving through this Traefik.
+
+### komodo-periphery / scrutiny-collector
+
+```sh
+mkdir -p komodo-periphery/keys
+# copy cellar:/srv/data/komodo/keys/core.pub to komodo-periphery/keys/core.pub by hand
+./compose.sh komodo-periphery up -d
+./compose.sh scrutiny-collector up -d
+```
+
+Both are fleet agents, not household-facing apps — no Traefik route, no
+login of their own. Confirm `MOCHAPOT_DISK_DEVICE` in `.env.local` against
+`lsblk -d -o NAME,TYPE,SIZE,MODEL` before bringing `scrutiny-collector` up.
+See each file's own header comment for what's still unverified.
 
 ### kiosk
 
@@ -200,14 +224,18 @@ should actually be on the wall.
 
 ## Known gaps / things to double-check before relying on this
 
-- **Traefik's ForwardAuth route won't actually work yet.** It depends on
-  percolator's Authelia, which now exists in this repo, but mochaPot isn't
-  registered with it yet — its IP still needs adding to percolator's
-  `FORWARD_AUTH_CLIENTS`/`firewall.sh` and to Authelia's admin-host list
-  (tracked in `runbook.md`'s backlog). Until then, every `*.${DOMAIN}`
-  hostname on this node will 502/504 through Traefik. The direct-port
-  backdoor (see "Traefik and the native-login backdoor" above) is what
-  actually works today.
+- **Traefik's ForwardAuth route now works.** mochaPot is registered in
+  percolator's `FORWARD_AUTH_CLIENTS` as of 2026-09-16 (none of its apps
+  are admin-only, so they use Authelia's household catch-all rule, not
+  the admin-host list). Still 502/504s until `sudo ./firewall.sh` has
+  actually been run on both mochaPot and percolator, and until this node
+  also has its own `firewall.sh` run (added 2026-09-16 — see below). The
+  direct-port backdoor (see "Traefik and the native-login backdoor"
+  above) works regardless.
+- **No `firewall.sh` existed for this node until 2026-09-16.** homeassistant
+  (8123), musicassistant (8095), pihole (53/8081), and traefik (80/443)
+  all went un-firewalled before that. `sudo ./firewall.sh` now covers all
+  of them, scoped to the LAN. Run it once and after any port change.
 - **No local DNS records exist yet** for `homeassistant.${DOMAIN}`,
   `music.${DOMAIN}`, `pihole-mochapot.${DOMAIN}` — until sieve's Pi-hole
   has them, reach these by `https://${MOCHAPOT_LAN_IP}` with a
@@ -230,9 +258,10 @@ should actually be on the wall.
   not assumed away here.
 - **Kiosk crash recovery is unverified** — see `kiosk/README.md`'s own
   "Known gaps".
-- **No Komodo Periphery agent yet.** Unlike the pre-restructure mochaPot,
-  this rebuild doesn't pre-emptively scaffold one — cellar's Komodo Core
-  exists now (see `stacks/cellar/`), so add mochaPot's own Periphery from
-  `stacks/_templates/komodo-periphery/` (once that template is migrated
-  into this repo) when fleet-wide container management for this node is
-  actually wanted, not before.
+- **Komodo Periphery and Scrutiny collector added 2026-09-16** — see
+  `komodo-periphery/` and `scrutiny-collector/`. `stacks/_templates/
+  komodo-periphery/` never actually landed in this repo, so both were
+  built straight from cellar's own Komodo/Scrutiny blocks instead (same as
+  every other node). `komodo-periphery/keys/core.pub` still needs copying
+  from cellar by hand before `./compose.sh komodo-periphery up -d` will
+  actually connect — see that file's own header comment.

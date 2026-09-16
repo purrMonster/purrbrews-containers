@@ -22,13 +22,13 @@ services:
     # Published for two reasons: browser access to the dashboard, and
     # collector-to-hub traffic from other nodes' scrutiny-collector
     # containers (Docker networks don't span physical hosts -- same
-    # cross-host exception as Komodo's 9120 below). Same
-    # Docker-NAT-bypasses-ufw caveat as smb's ports and komodo's 9120:
-    # this app has zero login of its own (see README "Known gaps"), and
-    # the DOCKER-USER firewall gap means a plain ufw rule on 8080 does not
-    # actually restrict who can reach it today. Accepted on a trusted LAN,
-    # same call the pre-restructure build made -- revisit once
-    # apply-firewall.sh's DOCKER-USER rules exist for this port.
+    # cross-host exception as Komodo's 9120 below). This app has zero
+    # login of its own (see README "Known gaps"), and Docker's iptables
+    # DNAT bypasses plain ufw for any published bridge-network port -- so
+    # this port is gated by firewall.sh's `ufw route allow` rule (added
+    # 2026-09-16), scoped to the LAN, not by a plain ufw rule. Accepted on
+    # a trusted LAN, same call the pre-restructure build made for the
+    # underlying zero-auth gap, which firewall.sh doesn't fix on its own.
     ports:
       - "8080:8080"
     # Kept published -- the backdoor. Scrutiny has no login of its own at

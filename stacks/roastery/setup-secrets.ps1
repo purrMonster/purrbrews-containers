@@ -63,6 +63,32 @@ if (-not (Test-Path $EnvLocal)) {
     }
     Copy-Item $EnvExample $EnvLocal
     Write-Host "  created .env.local from local.env.example"
+} else {
+    # A first run being already done does NOT mean nothing is left to ask --
+    # a later git pull can add a new required key to local.env.example, and
+    # without this, an existing .env.local from a completed prior run would
+    # never pick it up (the REPLACE_ME prompt below only sees keys already
+    # in the file). Bug fixed 2026-09-16 -- same key-sync step
+    # setup-secrets.sh (the bash version) already had; this .ps1 was
+    # missing it, same as the bash scripts on cellar/mochaPot/grinder were.
+    $existingKeys = @{}
+    foreach ($line in Get-Content -Path $EnvLocal) {
+        if ($line -match '^([A-Za-z_][A-Za-z0-9_]*)=') { $existingKeys[$Matches[1]] = $true }
+    }
+    $added = $false
+    $newLines = foreach ($line in Get-Content -Path $EnvExample) {
+        if ($line -match '^([A-Za-z_][A-Za-z0-9_]*)=' -and -not $existingKeys.ContainsKey($Matches[1])) {
+            Write-Host "  added new key $($Matches[1]) (re-run to fill it in if it's REPLACE_ME)"
+            $added = $true
+            $line
+        }
+    }
+    if ($added) {
+        $current = Get-Content -Path $EnvLocal
+        Write-LFFile -Path $EnvLocal -Lines ($current + $newLines)
+    } else {
+        Write-Host "  up to date with local.env.example"
+    }
 }
 
 # NTFS has no chmod 600 equivalent worth the trouble here -- .env.local is

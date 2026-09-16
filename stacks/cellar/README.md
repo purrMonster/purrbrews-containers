@@ -87,7 +87,10 @@ order below follows what unblocks other nodes soonest: **komodo first**
 (so cellar shows up as a Server before any other node's Periphery agent
 needs to connect to it), then **scrutiny** (so other nodes' future
 collectors have somewhere to push to), then **traefik** (so both get real
-hostnames), then smb/nfs/diun/restic in any order.
+hostnames), then smb/nfs/diun/restic in any order. Run `sudo
+./firewall.sh` (added 2026-09-16) once every app that needs a rule is up
+— it opens 80/443 (traefik), 9120 (komodo), and 8080 (scrutiny) to the
+LAN and nothing else.
 
 ## Bringing each app up
 
@@ -111,9 +114,9 @@ FerretDB fallback if it's missing.
 
 Log in at `http://${CELLAR_LAN_IP}:9120` with `barista` /
 `KOMODO_INIT_ADMIN_PASSWORD` (printed by `generate-secrets.sh`, also in
-`komodo/secrets.env.local`). **No OIDC login yet** — Authelia lives on
-`percolator`, which hasn't been migrated into this repo. See "Known gaps"
-below.
+`komodo/secrets.env.local`). **No OIDC login, by decision** — percolator's
+Authelia exists and could federate this, but 2026-09-16's call was local
+auth only for now. See "Known gaps" below.
 
 Once a future node's own Periphery agent needs to connect here: an
 onboarding key comes from Komodo's UI (Settings → the onboarding/servers
@@ -379,23 +382,27 @@ on the machine that died is not a backup."
   cellar's own `lsblk` (2026-09-05) found no HDD at all, just a 238.5 GB
   SATA SSD and a 476.9 GB NVMe. Run `lsblk -d -o NAME,TYPE,SIZE,MODEL`
   before trusting `local.env.example`'s device names.
-- **Komodo has no OIDC login yet, and Traefik's ForwardAuth route won't
-  actually work yet either.** Both depend on percolator's Authelia, which
-  now exists in this repo, but cellar isn't registered with it yet —
-  its IP still needs adding to percolator's `FORWARD_AUTH_CLIENTS`/
-  `firewall.sh` and to Authelia's admin-host list (tracked in
-  `runbook.md`'s backlog). Until then, `komodo.${DOMAIN}`/
-  `scrutiny.${DOMAIN}` will 502/504 through Traefik. The
-  direct-port backdoor (see "Traefik and the native-login backdoor" above)
-  is what actually works today.
-- **Scrutiny and the smb/Komodo ports have zero auth of their own, and
-  ufw doesn't actually gate them.** Docker's iptables DNAT bypasses plain
-  `ufw` for any published bridge-network port (`infrastructure.md` §5/§9)
-  — a rule in `firewall.rules` for 8080/9120/139/445 does not restrict
-  anything until `apply-firewall.sh`'s DOCKER-USER rules cover these
-  specific ports. Accepted on a trusted LAN for now, same call the
-  pre-restructure fleet made repeatedly for the same underlying gap — not
-  fixed here.
+- **Komodo has no OIDC login, by decision.** percolator's Authelia
+  exists and could federate it, but 2026-09-16's call was to keep Komodo
+  on local auth only for now (see `komodo/docker-compose.yml`'s header
+  comment) — not a migration gap, a decision that could be reopened
+  later if local auth becomes a real papercut.
+- **Traefik's ForwardAuth route now works.** cellar is registered in
+  percolator's `FORWARD_AUTH_CLIENTS`/`firewall.sh` and in Authelia's
+  admin-host list as of 2026-09-16. `komodo.${DOMAIN}`/
+  `scrutiny.${DOMAIN}` will still 502/504 until `sudo ./firewall.sh` has
+  actually been **run** on both cellar and percolator (this repo can't
+  run it for you), and until sieve's Pi-hole has Local DNS Records for
+  both hostnames pointing at `${CELLAR_LAN_IP}`.
+- **Scrutiny and Komodo have zero native auth of their own beyond what
+  ForwardAuth adds.** `firewall.sh` (added 2026-09-16) scopes 8080/9120
+  to the LAN via `ufw route allow` (Docker's iptables DNAT bypasses plain
+  `ufw` for any published bridge-network port — `infrastructure.md`
+  §5/§9), but that only restricts *who on the LAN* can reach them, not
+  *whether they need a password once there* — Scrutiny has none at all,
+  Komodo has its own local admin login. Accepted on a trusted LAN, same
+  call the pre-restructure fleet made repeatedly for the same underlying
+  gap. smb isn't built yet (see below), so it has no `firewall.sh` rule.
 - **restic has no sources configured.** The repository will exist and be
   empty until real source paths are uncommented in
   `restic/restic-backup.sh` — don't assume a backup exists just because
@@ -405,6 +412,14 @@ on the machine that died is not a backup."
   bring-up section above.
 - **Diun has no notification channel.** Runs, watches, has nowhere to
   send what it finds. `docker logs diun` is the only signal today.
+- **`smb/` is documented above but doesn't exist in this repo yet.** This
+  README's "smb" section and app table both describe it as buildable
+  (`./compose.sh smb up -d`, a `barista` user, a password in
+  `smb/secrets.env.local`), but no `stacks/cellar/smb/docker-compose.yml`
+  has actually been written — confirmed missing during the 2026-09-16
+  repass (`diun`/`komodo`/`scrutiny`/`traefik` all exist; `smb` does not).
+  Needs a decision on share paths/permissions before it can be built, not
+  something to fill in with a guess — flagged, not fixed, in this pass.
 - **UID/GID between smb and nfs not reconciled against a real consumer.**
   Both assume UID 1000 (`barista`'s UID fleet-wide); neither has been
   tested against an actual mounting client yet since none exists in this
