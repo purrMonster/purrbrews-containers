@@ -1,0 +1,38 @@
+# Gatus — health checks for the fleet, alerts to ntfy. Dashboard: gatus.${DOMAIN}
+# through sieve's Traefik (no port published).
+#
+# Lives on sieve, away from the storage and app nodes it watches. Its own
+# liveness is watched from outside the house: it pings healthchecks.io every
+# 5 minutes, and healthchecks.io alerts when the pings stop.
+#
+# config/config.yaml is tracked and read as-is; Gatus substitutes ${VARS} from
+# this container's environment itself, so no secret is ever rendered to disk.
+#
+# Image: twinproduction/gatus:v5.36.0 (the current `stable`). Checked 2026-09-15.
+services:
+  gatus:
+    image: twinproduction/gatus:v5.36.0
+    container_name: gatus
+    user: ${PUID:-1000}:${PGID:-1000}
+    environment:
+      TZ: ${TZ:-Asia/Kolkata}
+      GATUS_CONFIG_PATH: /config/config.yaml
+      DOMAIN: ${DOMAIN}
+      NODE_IP: ${NODE_IP}
+      GATEWAY: ${GATEWAY}
+      NTFY_ALERT_TOPIC: ${NTFY_ALERT_TOPIC:?run ./generate-secrets.sh}
+      GATUS_NTFY_TOKEN: ${GATUS_NTFY_TOKEN:?run ./generate-secrets.sh}
+      NTFY_CRITICAL_TOPIC: ${NTFY_CRITICAL_TOPIC:?run ./generate-secrets.sh}
+      HEALTHCHECKS_PING_URL: ${HEALTHCHECKS_PING_URL:?run ./generate-secrets.sh}
+    volumes:
+      - ./config:/config:ro
+      - ${DATA_DIR:?}/gatus:/data
+    networks: [sieve_edge]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+
+networks:
+  sieve_edge:
+    external: true

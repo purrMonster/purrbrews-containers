@@ -1,0 +1,77 @@
+# Traefik — sieve's own reverse proxy: HTTPS for sieve's web UIs on the LAN.
+#
+# Every node runs its own Traefik for its own apps, so a broken proxy (or a
+# broken node) only takes down that node's UIs. Login is still one SSO: routers
+# use the ForwardAuth middleware against Authelia on percolator, directly on its
+# published port. See README.md for why it must be a direct hop.
+#
+# Configuration:
+#   static   the flags below
+#   dynamic  dynamic/*.yml (routers, services, middlewares), watched live. These
+#            files are Go templates: {{ env "DOMAIN" }} etc. are filled in by
+#            Traefik itself from this container's environment — nothing to render.
+#
+# No Docker socket: routing is file-based, so Traefik never gets root-equivalent
+# access to the host.
+#
+# Image: traefik:v3.7.13. Checked 2026-09-15.
+services:
+  traefik:
+    image: traefik:v3.7.13
+    container_name: traefik
+    command:
+      - --global.checkNewVersion=false
+      - --global.sendAnonymousUsage=false
+      - --log.level=INFO
+      - --log.noColor=true
+      - --ping=true
+      - --api.dashboard=true
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
+      # :80 only redirects to :443
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:443
+      # Drop headers that alias managed ones (X_Forwarded_User…), so they can't be spoofed.
+      - --entrypoints.web.http.aliasHeadersStrategy=delete
+      - --entrypoints.websecure.http.aliasHeadersStrategy=delete
+      - --entrypoints.websecure.http.tls.certResolver=cloudflare
+      # Real certificates by DNS-01: nothing needs to be reachable from the internet.
+      # Each router gets a certificate for its own host name. Never request a set
+      # another node also requests (e.g. percolator's *.DOMAIN wildcard): Let's
+      # Encrypt allows 5 identical certificates a week, and rebuilds burn them.
+      - --certificatesresolvers.cloudflare.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.cloudflare.acme.dnsChallenge.provider=cloudflare
+      - --certificatesresolvers.cloudflare.acme.dnsChallenge.resolvers=1.1.1.1:53,1.0.0.1:53
+    environment:
+      TZ: ${TZ:-Asia/Kolkata}
+      CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN:?run ./generate-secrets.sh}
+      # Read by dynamic/*.yml
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env.local}
+      NODE: ${NODE:-sieve}
+      AUTHELIA_URL: ${AUTHELIA_URL:?set AUTHELIA_URL in .env.local}
+    ports:
+      - "80:80"
+      - "443:443"
+    extra_hosts:
+      # Pi-hole and NetAlertX use host networking; this is how Traefik reaches them.
+      - host.docker.internal:host-gateway
+    volumes:
+      - ./dynamic:/etc/traefik/dynamic:ro
+      - ${DATA_DIR:?}/traefik/letsencrypt:/letsencrypt
+    networks: [sieve_edge]
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+
+networks:
+  sieve_edge:
+    external: true

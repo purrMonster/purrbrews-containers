@@ -1,0 +1,55 @@
+# ntfy — push notifications to the household's phones.
+#
+# https://ntfy.${DOMAIN}: through the Cloudflare tunnel from outside, through sieve's
+# Traefik on the LAN (so alerts reach phones at home even with the internet down).
+# No port is published.
+#
+# Access is deny-all. Users, their topic access and Gatus's token are declared
+# below from secrets.env.local and re-applied on every start; an account removed
+# here is removed from ntfy. There is no sign-up.
+#
+# Image: binwiederhier/ntfy:v2.28.0. Checked 2026-09-15.
+services:
+  ntfy:
+    image: binwiederhier/ntfy:v2.28.0
+    container_name: ntfy
+    command: serve
+    user: ${PUID:-1000}:${PGID:-1000}
+    environment:
+      TZ: ${TZ:-Asia/Kolkata}
+      NTFY_BASE_URL: https://ntfy.${DOMAIN}
+      NTFY_LISTEN_HTTP: :8080
+      NTFY_BEHIND_PROXY: "true"
+      NTFY_CACHE_FILE: /var/lib/ntfy/cache.db
+      NTFY_CACHE_DURATION: 24h
+      NTFY_ATTACHMENT_CACHE_DIR: /var/lib/ntfy/attachments
+      NTFY_AUTH_FILE: /var/lib/ntfy/user.db
+      NTFY_AUTH_DEFAULT_ACCESS: deny-all
+      NTFY_ENABLE_LOGIN: "true"
+      NTFY_ENABLE_SIGNUP: "false"
+      # user:bcrypt-hash:role, comma-separated
+      NTFY_AUTH_USERS: ${NTFY_AUTH_USERS:?run ./generate-secrets.sh}
+      # user:topic:access
+      NTFY_AUTH_ACCESS: ${NTFY_AUTH_ACCESS:?run ./generate-secrets.sh}
+      # user:tk_token:label
+      NTFY_AUTH_TOKENS: ${NTFY_AUTH_TOKENS:?run ./generate-secrets.sh}
+      # iOS clients can only receive pushes through ntfy.sh's relay (message
+      # contents stay here; only a poll request goes through ntfy.sh).
+      NTFY_UPSTREAM_BASE_URL: https://ntfy.sh
+    volumes:
+      - ${DATA_DIR:?}/ntfy:/var/lib/ntfy
+    networks: [sieve_edge]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --tries=1 http://localhost:8080/v1/health -O - | grep -q '\"healthy\":true'"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+
+networks:
+  sieve_edge:
+    external: true
