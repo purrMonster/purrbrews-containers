@@ -27,7 +27,7 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_ENV="$(cd "${DIR}/../.." && pwd)/.env"
 
 # Bring-up order. Each entry only depends on entries before it.
-APPS=(traefik crowdsec lldap authelia vaultwarden nextcloud immich paperless mealie vikunja actualbudget freshrss homepage)
+APPS=(traefik crowdsec lldap authelia vaultwarden nextcloud immich paperless mealie vikunja actualbudget freshrss homepage komodo-periphery scrutiny-collector)
 
 die()  { echo "compose.sh: $*" >&2; exit 1; }
 warn() { echo "compose.sh: $*" >&2; }

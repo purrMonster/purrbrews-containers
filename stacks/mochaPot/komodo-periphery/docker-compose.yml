@@ -1,0 +1,25 @@
+# Komodo Periphery — standalone agent added 2026-09-16, same pattern as
+# stacks/sieve/komodo-periphery/docker-compose.yml (see that file's own
+# header comment). mochaPot's README "Known gaps" used to say this would
+# come from a `stacks/_templates/komodo-periphery/` template once migrated
+# into this repo — that template never landed, so this file is built
+# straight from cellar's own Periphery block instead, same as every other
+# node's copy. mochaPot differs only in PERIPHERY_CONNECT_AS below.
+services:
+  komodo-periphery:
+    image: ghcr.io/moghtech/komodo-periphery:2.3.2
+    container_name: komodo-periphery
+    init: true
+    environment:
+      TZ: ${TZ}
+      PERIPHERY_CORE_ADDRESS: ws://${CELLAR_LAN_IP}:9120
+      PERIPHERY_CONNECT_AS: mochaPot
+      PERIPHERY_CORE_PUBLIC_KEYS: file:/config/keys/core.pub
+      PERIPHERY_ROOT_DIRECTORY: /etc/komodo
+      PERIPHERY_INCLUDE_DISK_MOUNTS: /etc/hostname
+    volumes:
+      - ./keys:/config/keys
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /proc:/proc
+      - /etc/komodo:/etc/komodo
+    restart: unless-stopped

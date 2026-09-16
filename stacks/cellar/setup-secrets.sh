@@ -36,6 +36,25 @@ if [[ ! -f "${DIR}/.env.local" ]]; then
   [[ -f "${DIR}/local.env.example" ]] || fail "local.env.example not found in ${DIR} — can't create .env.local from it."
   cp "${DIR}/local.env.example" "${DIR}/.env.local"
   echo "  created .env.local from local.env.example"
+else
+  # A first run being already done does NOT mean nothing is left to ask —
+  # a later git pull can add a new required key (e.g. a new app's LAN_IP
+  # or a cross-node secret like a Komodo Periphery connection value) to
+  # local.env.example, and without this, an existing .env.local from a
+  # completed prior run would never pick it up: the REPLACE_ME scan below
+  # only sees keys that are ALREADY in the file. Bug fixed 2026-09-16 —
+  # same key-sync step sieve's and percolator's setup-secrets.sh already
+  # had; cellar/mochaPot/grinder/roastery were missing it.
+  added=0
+  while IFS= read -r line; do
+    [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)= ]] || continue
+    if ! grep -qE "^${BASH_REMATCH[1]}=" "${DIR}/.env.local"; then
+      printf '%s\n' "$line" >> "${DIR}/.env.local"
+      echo "  added new key ${BASH_REMATCH[1]} (re-run to fill it in if it's REPLACE_ME)"
+      added=1
+    fi
+  done < "${DIR}/local.env.example"
+  [[ "$added" -eq 1 ]] || echo "  up to date with local.env.example"
 fi
 chmod 600 "${DIR}/.env.local"
 

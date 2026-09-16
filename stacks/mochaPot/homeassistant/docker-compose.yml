@@ -49,10 +49,11 @@ services:
     # Traefik added 2026-09-16 (see ../traefik/), not percolator's, and
     # OIDC (alpha-stage HACS component) is still not wired up -- local HA
     # login is the only way in, same as before. Reachable both at
-    # https://homeassistant.${DOMAIN} (through Traefik + Authelia
-    # ForwardAuth, once percolator's Authelia exists) and directly at
-    # http://${MOCHAPOT_LAN_IP}:8123 (the backdoor) -- no default
-    # credentials either way, onboarding wizard on first visit.
+    # https://homeassistant.${DOMAIN} (through Traefik + percolator's
+    # Authelia ForwardAuth -- needs mochaPot in FORWARD_AUTH_CLIENTS,
+    # done 2026-09-16) and directly at http://${MOCHAPOT_LAN_IP}:8123
+    # (the backdoor) -- no default credentials either way, onboarding
+    # wizard on first visit.
     #
     # IMPORTANT -- the Postgres recorder is NOT configurable via compose at
     # all. Confirmed on the pre-restructure build via HA's own Recorder

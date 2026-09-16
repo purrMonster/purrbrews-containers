@@ -13,9 +13,10 @@
 # pattern the pre-restructure silo build used, not a separate
 # komodo-periphery/ directory this time, since there's only ever one
 # Periphery per node and it belongs next to the Core it was built for.
-# Other nodes get their OWN standalone Periphery (see
-# ../../_templates/komodo-periphery/ once that template is migrated into
-# this repo) pointed at cellar's Core over the LAN on port 9120.
+# Other nodes get their OWN standalone Periphery (see e.g.
+# ../../sieve/komodo-periphery/ for the canonical, most-detailed version --
+# built directly per node on 2026-09-16, not from a shared template)
+# pointed at cellar's Core over the LAN on port 9120.
 #
 # BEFORE FIRST BRING-UP: confirm cellar's CPU actually supports AVX. MongoDB
 # 5.0+ (mongo:7 below is well past that) requires it and crashes outright on
@@ -25,12 +26,14 @@
 # won't help, the requirement is version-independent for 5.0+) -- see
 # https://komo.do/docs/setup/mongo for the FerretDB alternative.
 #
-# NOT YET WIRED TO AUTHELIA: unlike the pre-restructure silo build, this
-# version does not attempt OIDC login. Authelia lives on percolator per
-# infrastructure.md §4, and percolator hasn't been migrated into this repo
-# yet -- KOMODO_OIDC_ENABLED stays "false" until it exists. Local admin
-# login (KOMODO_LOCAL_AUTH) is the only way in for now. See README "Known
-# gaps".
+# NOT WIRED TO AUTHELIA, BY DECISION: unlike the pre-restructure silo
+# build, this version does not attempt OIDC login. percolator's Authelia
+# now exists in this repo (infrastructure.md §4), so this is no longer a
+# migration gap -- it's a deliberate choice (2026-09-16) to keep Komodo on
+# local auth only for now, same as the pre-restructure silo build never
+# revisited either. KOMODO_OIDC_ENABLED stays "false"; local admin login
+# (KOMODO_LOCAL_AUTH) is the only way in. Revisit only if this becomes a
+# real papercut -- see README "Traefik and the native-login backdoor".
 services:
   mongo:
     image: mongo:7.0
@@ -86,17 +89,14 @@ services:
       KOMODO_DATABASE_ADDRESS: mongo:27017
       KOMODO_DATABASE_USERNAME: ${KOMODO_DATABASE_USERNAME}
       KOMODO_DATABASE_PASSWORD: ${KOMODO_DATABASE_PASSWORD}
-      # Plain http, by LAN IP -- no Traefik lives on cellar (see README
-      # "Known gaps"). Only used for OAuth/webhook URL suggestions in the
-      # UI, not security-relevant on its own. Switch to
-      # https://komodo.${DOMAIN} once percolator's Traefik exists and a
-      # Local DNS Record for it is added on sieve's Pi-hole.
-      # Real hostname now that Traefik fronts this node (see ../traefik/) --
-      # was http://${CELLAR_LAN_IP}:9120 before Traefik existed here. Only
-      # used for OAuth/webhook URL suggestions in the UI, not
-      # security-relevant on its own. The direct http://${CELLAR_LAN_IP}:9120
-      # backdoor below still works unchanged -- Komodo doesn't care which
-      # hostname a request arrived on for local-auth login.
+      # Real hostname now that cellar's own Traefik fronts this node (see
+      # ../traefik/) -- was http://${CELLAR_LAN_IP}:9120 before Traefik
+      # existed here. Only used for OAuth/webhook URL suggestions in the
+      # UI, not security-relevant on its own. The direct
+      # http://${CELLAR_LAN_IP}:9120 backdoor below still works unchanged
+      # -- Komodo doesn't care which hostname a request arrived on for
+      # local-auth login. Requires a Local DNS Record for komodo.${DOMAIN}
+      # on sieve's Pi-hole (see README "First-time setup on cellar").
       KOMODO_HOST: https://komodo.${DOMAIN}
       KOMODO_TITLE: purrBrews Komodo
       # Core writes its own public key here on first boot; the local
@@ -123,8 +123,9 @@ services:
       # open signups on is a bigger blast radius than the official file's
       # generic default assumes.
       KOMODO_DISABLE_USER_REGISTRATION: "false"
-      # No Authelia to federate against yet -- see this file's header
-      # comment. Flip on once percolator's Authelia exists:
+      # Local-auth only, by decision -- see this file's header comment.
+      # percolator's Authelia exists and could federate this if that
+      # decision ever changes:
       #   KOMODO_OIDC_ENABLED: "true"
       #   KOMODO_OIDC_PROVIDER: https://authelia.${DOMAIN}
       #   KOMODO_OIDC_CLIENT_ID: komodo

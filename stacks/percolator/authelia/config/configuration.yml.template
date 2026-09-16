@@ -47,6 +47,9 @@ access_control:
         - 'pihole.${DOMAIN}'
         - 'netalertx.${DOMAIN}'
         - 'gatus.${DOMAIN}'
+        # cellar's admin apps, added 2026-09-16 alongside its own Traefik.
+        - 'komodo.${DOMAIN}'
+        - 'scrutiny.${DOMAIN}'
       subject: ['group:${LLDAP_ADMIN_GROUP}']
       policy: ${AUTH_POLICY}
     - domain: *admin_hosts

@@ -4,6 +4,9 @@
 */config/*
 !*/config/*.template
 
+# komodo-periphery/keys/core.pub — copied by hand from cellar, not tracked.
+*/keys/*
+
 # immich-machine-learning's downloaded model weights -- large, regenerable,
 # never belongs in git (the root .gitignore's data/ pattern doesn't cover
 # this since it's a plain relative bind mount, not under DATA_DIR).
