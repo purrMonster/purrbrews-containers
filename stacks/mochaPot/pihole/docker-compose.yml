@@ -31,7 +31,7 @@ services:
       # already in use". Fixed the same way sieve's Pi-hole already
       # handles this (see stacks/sieve/pihole/docker-compose.yml) -- move
       # the web UI off 80/443 entirely. Admin UI: http://${MOCHAPOT_LAN_IP}:8081/admin
-      FTLCONF_webserver_port: 8081o,[::]:8081o
+      FTLCONF_webserver_port: 8081o
       #
       # Real web password, unlike sieve's (see pihole/secrets.env.local's
       # own comment via generate-secrets.sh) -- this instance has no
@@ -39,6 +39,10 @@ services:
       # gate it has. FTLCONF_ vars force this every startup (unlike the
       # old WEBPASSWORD var, which only seeded the config once).
       FTLCONF_webserver_api_password: ${PIHOLE_WEBPASSWORD}
+      #
+      # IPv4 only (2026-09-17, same fix as sieve's Pi-hole -- see that file's
+      # comment): dropped the "[::]:8081o" half. This LAN doesn't use IPv6 and
+      # mochaPot's firewall.sh has no v6 rule for 8081 either.
     volumes:
       - /srv/data/pihole/etc-pihole:/etc/pihole
     restart: unless-stopped

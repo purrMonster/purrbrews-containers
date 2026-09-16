@@ -59,7 +59,12 @@ services:
       # Port 8080 on the host; reached as pihole.${DOMAIN} through sieve's Traefik,
       # behind Authelia SSO. Its own password is off, so the firewall
       # (../firewall.sh) must keep 8080 closed to everything but sieve_edge.
-      FTLCONF_webserver_port: 8080o,[::]:8080o
+      # IPv4 only, deliberately (2026-09-17) — the "[::]:8080o" half of Pi-hole's
+      # default port syntax made the webserver bind IPv6 too. This LAN doesn't use
+      # IPv6 at all, and firewall.sh only ever wrote IPv4 ufw rules for port 8080,
+      # so an IPv6 bind here is a rule-less, unaccounted-for path — dropped rather
+      # than left inert. Root cause of the 2026-09-17 pihole/authelia outage.
+      FTLCONF_webserver_port: 8080o
       FTLCONF_webserver_api_password: ""
     volumes:
       - ${DATA_DIR:?}/pihole/etc-pihole:/etc/pihole
