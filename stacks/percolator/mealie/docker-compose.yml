@@ -1,0 +1,37 @@
+# Mealie — recipes, meal plans, shopping lists. SQLite on local disk.
+# Image tag checked 2026-09-15.
+services:
+  mealie:
+    image: ghcr.io/mealie-recipes/mealie:v3.26.0
+    container_name: mealie
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+      PUID: ${PUID}
+      PGID: ${PGID}
+      BASE_URL: https://mealie.${DOMAIN}
+      ALLOW_SIGNUP: "false"
+      # Sign in with Authelia. New sign-ins create a Mealie account; members
+      # of the admin group become Mealie admins.
+      OIDC_AUTH_ENABLED: "true"
+      OIDC_SIGNUP_ENABLED: "true"
+      OIDC_CONFIGURATION_URL: https://authelia.${DOMAIN}/.well-known/openid-configuration
+      OIDC_CLIENT_ID: mealie
+      OIDC_CLIENT_SECRET: ${MEALIE_OIDC_CLIENT_SECRET}
+      OIDC_PROVIDER_NAME: Authelia
+      OIDC_AUTO_REDIRECT: "false"
+      OIDC_USER_GROUP: ${LLDAP_HOUSEHOLD_GROUP}
+      OIDC_ADMIN_GROUP: ${LLDAP_ADMIN_GROUP}
+    volumes:
+      - ${DATA_DIR}/mealie:/app/data
+    networks:
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.mealie.rule=Host(`mealie.${DOMAIN}`)
+      - traefik.http.routers.mealie.entrypoints=websecure
+      - traefik.http.services.mealie.loadbalancer.server.port=9000
+
+networks:
+  proxy:
+    external: true

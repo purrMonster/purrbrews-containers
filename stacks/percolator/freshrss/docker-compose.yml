@@ -1,0 +1,37 @@
+# FreshRSS — feed reader. SQLite on local disk. Debian image (OIDC needs it).
+# Image tag checked 2026-09-15.
+services:
+  freshrss:
+    image: freshrss/freshrss:1.30.0
+    container_name: freshrss
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+      # Refresh feeds at minutes 5, 25 and 45 of every hour.
+      CRON_MIN: "5,25,45"
+      TRUSTED_PROXY: ${PROXY_SUBNET}
+      # Sign in with Authelia. The FreshRSS username comes from
+      # preferred_username: create the admin during setup with exactly your
+      # LLDAP username, or you lose admin rights once OIDC is on.
+      OIDC_ENABLED: "1"
+      OIDC_PROVIDER_METADATA_URL: https://authelia.${DOMAIN}/.well-known/openid-configuration
+      OIDC_CLIENT_ID: freshrss
+      OIDC_CLIENT_SECRET: ${FRESHRSS_OIDC_CLIENT_SECRET}
+      OIDC_CLIENT_CRYPTO_KEY: ${FRESHRSS_OIDC_CRYPTO_KEY}
+      OIDC_REMOTE_USER_CLAIM: preferred_username
+      OIDC_SCOPES: "openid groups email profile"
+      OIDC_X_FORWARDED_HEADERS: "X-Forwarded-Host X-Forwarded-Port X-Forwarded-Proto"
+    volumes:
+      - ${DATA_DIR}/freshrss/data:/var/www/FreshRSS/data
+      - ${DATA_DIR}/freshrss/extensions:/var/www/FreshRSS/extensions
+    networks:
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.freshrss.rule=Host(`freshrss.${DOMAIN}`)
+      - traefik.http.routers.freshrss.entrypoints=websecure
+      - traefik.http.services.freshrss.loadbalancer.server.port=80
+
+networks:
+  proxy:
+    external: true

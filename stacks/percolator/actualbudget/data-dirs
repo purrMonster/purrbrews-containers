@@ -1,0 +1,2 @@
+# <path under DATA_DIR> <uid>:<gid> [mode] — created by compose.sh before `up` (PUID/PGID = ops user)
+actualbudget 0:0 750

@@ -1,0 +1,33 @@
+# Vikunja — shared to-do lists and projects. SQLite on local disk.
+# Image tag checked 2026-09-15.
+services:
+  vikunja:
+    image: vikunja/vikunja:2.6.0
+    container_name: vikunja
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+      VIKUNJA_SERVICE_PUBLICURL: https://vikunja.${DOMAIN}/
+      VIKUNJA_SERVICE_SECRET: ${VIKUNJA_SERVICE_SECRET}
+      VIKUNJA_SERVICE_TIMEZONE: ${TZ}
+      VIKUNJA_SERVICE_ENABLEREGISTRATION: "false"
+      VIKUNJA_DATABASE_TYPE: sqlite
+      VIKUNJA_DATABASE_PATH: /db/vikunja.db
+      # The provider itself is declared in config/config.yml; its secret
+      # comes from here so the rendered file holds no secrets.
+      VIKUNJA_AUTH_OPENID_PROVIDERS_AUTHELIA_CLIENTSECRET: ${VIKUNJA_OIDC_CLIENT_SECRET}
+    volumes:
+      - ./config/config.yml:/etc/vikunja/config.yml:ro
+      - ${DATA_DIR}/vikunja/db:/db
+      - ${DATA_DIR}/vikunja/files:/app/vikunja/files
+    networks:
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.vikunja.rule=Host(`vikunja.${DOMAIN}`)
+      - traefik.http.routers.vikunja.entrypoints=websecure
+      - traefik.http.services.vikunja.loadbalancer.server.port=3456
+
+networks:
+  proxy:
+    external: true

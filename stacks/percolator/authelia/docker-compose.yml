@@ -1,0 +1,52 @@
+# Authelia — single sign-on: OpenID Connect provider for the apps, and
+# ForwardAuth for admin pages without their own login (every node's Traefik
+# dashboard, sieve's Pi-hole/Gatus/NetAlertX).
+# Redis holds sessions and is private to this project.
+# Image tags checked 2026-09-15.
+services:
+  authelia:
+    image: authelia/authelia:4.39.27   # keep in step with generate-secrets.sh
+    container_name: authelia
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      TZ: ${TZ}
+    volumes:
+      - ./config/configuration.yml:/config/configuration.yml:ro
+      - ${DATA_DIR}/authelia/data:/data
+    # Published for the other nodes' Traefik ForwardAuth, which must be a direct
+    # hop (a second Traefik drops X-Forwarded-Method). firewall.sh opens it to
+    # FORWARD_AUTH_CLIENTS only; percolator's own Traefik uses authelia:9091.
+    ports:
+      - "9091:9091"
+    networks:
+      - proxy
+      - default
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.authelia.rule=Host(`authelia.${DOMAIN}`)
+      - traefik.http.routers.authelia.entrypoints=websecure
+      - traefik.http.services.authelia.loadbalancer.server.port=9091
+
+  redis:
+    image: redis:8.8.2-alpine
+    container_name: authelia-redis
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${AUTHELIA_REDIS_PASSWORD}", "--save", "300", "1"]
+    volumes:
+      - ${DATA_DIR}/authelia/redis:/data
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$AUTHELIA_REDIS_PASSWORD\" redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    environment:
+      AUTHELIA_REDIS_PASSWORD: ${AUTHELIA_REDIS_PASSWORD}
+
+networks:
+  proxy:
+    external: true

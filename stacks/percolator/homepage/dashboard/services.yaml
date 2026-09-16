@@ -1,0 +1,63 @@
+# One tile per app. {{HOMEPAGE_VAR_DOMAIN}} comes from the container env.
+# Add an app's tile in the same commit as the app. Icons: https://gethomepage.dev/configs/services/#icons
+- Daily:
+    - Nextcloud:
+        href: https://nextcloud.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: nextcloud.svg
+        description: Files, calendars, contacts
+    - Immich:
+        href: https://immich.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: immich.svg
+        description: Photos and videos
+    - Paperless:
+        href: https://paperless.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: paperless-ngx.svg
+        description: Scanned documents
+    - Vaultwarden:
+        href: https://vault.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: vaultwarden.svg
+        description: Passwords
+
+- Home:
+    - Mealie:
+        href: https://mealie.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: mealie.svg
+        description: Recipes and meal plans
+    - Vikunja:
+        href: https://vikunja.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: vikunja.svg
+        description: To-do lists
+    - Actual Budget:
+        href: https://actualbudget.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: actual-budget.svg
+        description: Budgeting
+    - FreshRSS:
+        href: https://freshrss.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: freshrss.svg
+        description: News feeds
+
+# Admin tiles are visible to everyone who reaches Homepage; the pages behind
+# them are admins-only in Authelia.
+- Admin:
+    - LLDAP:
+        href: https://lldap.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: lldap.svg
+        description: Accounts and groups
+    - Traefik (percolator):
+        href: https://traefik.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: traefik.svg
+    - Pi-hole:
+        href: https://pihole.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: pi-hole.svg
+        description: DNS and DHCP (sieve)
+    - Gatus:
+        href: https://gatus.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: gatus.svg
+        description: Status and alerts (sieve)
+    - NetAlertX:
+        href: https://netalertx.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: netalertx.svg
+        description: Devices on the LAN (sieve)
+    - Traefik (sieve):
+        href: https://traefik-sieve.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: traefik.svg

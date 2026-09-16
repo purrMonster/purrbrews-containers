@@ -1,0 +1,10 @@
+# Info widgets that need no credentials. https://gethomepage.dev/widgets/
+- datetime:
+    text_size: xl
+    format:
+      dateStyle: long
+      timeStyle: short
+      hour12: false
+- search:
+    provider: duckduckgo
+    target: _blank

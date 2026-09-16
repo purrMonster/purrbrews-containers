@@ -1,0 +1,15 @@
+# render-mode: 0644
+# Rendered by ../../render-configs.sh — edit the .template. Read by Vikunja as
+# uid 1000, so it is world-readable and must never contain a secret: the
+# client secret comes from VIKUNJA_AUTH_OPENID_PROVIDERS_AUTHELIA_CLIENTSECRET.
+auth:
+  local:
+    enabled: true
+  openid:
+    enabled: true
+    providers:
+      authelia:
+        name: "Authelia"
+        authurl: "https://authelia.${DOMAIN}"
+        clientid: "vikunja"
+        scope: "openid profile email"

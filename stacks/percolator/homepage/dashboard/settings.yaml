@@ -1,0 +1,18 @@
+# Homepage settings — https://gethomepage.dev/configs/settings/
+title: PurrBrews
+theme: dark
+color: stone
+headerStyle: clean
+hideVersion: true
+# Links open in the same tab; this is a start page.
+target: _self
+layout:
+  Daily:
+    style: row
+    columns: 4
+  Home:
+    style: row
+    columns: 4
+  Admin:
+    style: row
+    columns: 4

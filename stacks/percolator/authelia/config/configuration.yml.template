@@ -1,0 +1,228 @@
+# Rendered by ../../render-configs.sh — edit the .template.
+#
+# Policy: ${AUTH_POLICY} everywhere (.env.local AUTH_POLICY). Every OIDC client
+# and access-control rule below uses it, so moving the household to two-factor
+# is one edit — after everyone has enrolled, or they are locked out.
+#
+# Adding an OIDC client: add a block here, add `oidc_client <app> <PREFIX>` to
+# generate-secrets.sh, re-run it and render-configs.sh, recreate authelia.
+---
+theme: auto
+
+server:
+  address: 'tcp://0.0.0.0:9091'
+
+log:
+  level: info
+
+totp:
+  issuer: '${DOMAIN}'
+
+authentication_backend:
+  password_reset:
+    disable: false
+  ldap:
+    # The lldap preset supplies LLDAP's filters and attribute names.
+    implementation: 'lldap'
+    address: 'ldap://lldap:3890'
+    base_dn: '${LDAP_BASE_DN}'
+    user: 'uid=admin,ou=people,${LDAP_BASE_DN}'
+    password: '${AUTHELIA_LDAP_PASSWORD}'
+
+identity_validation:
+  reset_password:
+    jwt_secret: '${AUTHELIA_RESET_PASSWORD_JWT_SECRET}'
+
+access_control:
+  default_policy: deny
+  rules:
+    # Rules are checked in order, and a rule whose subject doesn't match is
+    # skipped, not final. So admin-only hosts need two rules: allow admins,
+    # then deny everyone else, or the household catch-all below lets them in.
+    # The list includes the UIs other nodes protect through the published
+    # port 9091 (stacks/<node>/traefik/dynamic/*.yml). Add a node's admin hosts here.
+    - domain: &admin_hosts
+        - 'traefik.${DOMAIN}'
+        - 'traefik-sieve.${DOMAIN}'
+        - 'pihole.${DOMAIN}'
+        - 'netalertx.${DOMAIN}'
+        - 'gatus.${DOMAIN}'
+      subject: ['group:${LLDAP_ADMIN_GROUP}']
+      policy: ${AUTH_POLICY}
+    - domain: *admin_hosts
+      policy: deny
+    - domain: '*.${DOMAIN}'
+      subject: ['group:${LLDAP_ADMIN_GROUP}', 'group:${LLDAP_HOUSEHOLD_GROUP}']
+      policy: ${AUTH_POLICY}
+
+session:
+  secret: '${AUTHELIA_SESSION_SECRET}'
+  cookies:
+    - domain: '${DOMAIN}'
+      authelia_url: 'https://authelia.${DOMAIN}'
+  redis:
+    host: 'authelia-redis'
+    port: 6379
+    password: '${AUTHELIA_REDIS_PASSWORD}'
+
+regulation:
+  max_retries: 5
+  find_time: '2m'
+  ban_time: '10m'
+
+storage:
+  encryption_key: '${AUTHELIA_STORAGE_ENCRYPTION_KEY}'
+  local:
+    path: '/data/db.sqlite3'
+
+# No mail server yet: password-reset and 2FA-enrolment links are written to
+# ${DATA_DIR}/authelia/data/notification.txt instead of being emailed.
+notifier:
+  filesystem:
+    filename: '/data/notification.txt'
+
+identity_providers:
+  oidc:
+    hmac_secret: '${AUTHELIA_OIDC_HMAC_SECRET}'
+    jwks:
+      # One line with literal \n, un-escaped by YAML's double quotes.
+      - key: "${AUTHELIA_OIDC_JWK_PRIVATE_KEY}"
+    # Only members of the fleet's groups may sign in to any app.
+    authorization_policies:
+      household:
+        default_policy: deny
+        rules:
+          - policy: ${AUTH_POLICY}
+            subject:
+              - 'group:${LLDAP_ADMIN_GROUP}'
+              - 'group:${LLDAP_HOUSEHOLD_GROUP}'
+    clients:
+      - client_id: 'nextcloud'
+        client_name: 'Nextcloud'
+        client_secret: '${NEXTCLOUD_OIDC_CLIENT_SECRET_HASH}'
+        public: false
+        authorization_policy: 'household'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          - 'https://nextcloud.${DOMAIN}/apps/user_oidc/code'
+        scopes: ['openid', 'profile', 'email', 'groups']
+        response_types: ['code']
+        grant_types: ['authorization_code']
+        access_token_signed_response_alg: 'none'
+        userinfo_signed_response_alg: 'none'
+        # user_oidc app sends the secret in the POST body.
+        token_endpoint_auth_method: 'client_secret_post'
+
+      - client_id: 'immich'
+        client_name: 'Immich'
+        client_secret: '${IMMICH_OIDC_CLIENT_SECRET_HASH}'
+        public: false
+        authorization_policy: 'household'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          - 'https://immich.${DOMAIN}/auth/login'
+          - 'https://immich.${DOMAIN}/user-settings'
+          - 'app.immich:///oauth-callback'
+        scopes: ['openid', 'profile', 'email']
+        response_types: ['code']
+        grant_types: ['authorization_code']
+        access_token_signed_response_alg: 'none'
+        userinfo_signed_response_alg: 'none'
+        token_endpoint_auth_method: 'client_secret_basic'
+
+      - client_id: 'paperless'
+        client_name: 'Paperless'
+        client_secret: '${PAPERLESS_OIDC_CLIENT_SECRET_HASH}'
+        public: false
+        authorization_policy: 'household'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          - 'https://paperless.${DOMAIN}/accounts/oidc/authelia/login/callback/'
+        scopes: ['openid', 'profile', 'email', 'groups']
+        response_types: ['code']
+        grant_types: ['authorization_code']
+        access_token_signed_response_alg: 'none'
+        userinfo_signed_response_alg: 'none'
+        token_endpoint_auth_method: 'client_secret_basic'
+
+      - client_id: 'vaultwarden'
+        client_name: 'Vaultwarden'
+        client_secret: '${VAULTWARDEN_OIDC_CLIENT_SECRET_HASH}'
+        public: false
+        authorization_policy: 'household'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          - 'https://vault.${DOMAIN}/identity/connect/oidc-signin'
+        scopes: ['openid', 'offline_access', 'profile', 'email']
+        response_types: ['code']
+        grant_types: ['authorization_code', 'refresh_token']
+        access_token_signed_response_alg: 'none'
+        userinfo_signed_response_alg: 'none'
+        token_endpoint_auth_method: 'client_secret_basic'
+
+      - client_id: 'mealie'
+        client_name: 'Mealie'
+        client_secret: '${MEALIE_OIDC_CLIENT_SECRET_HASH}'
+        public: false
+        authorization_policy: 'household'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          - 'https://mealie.${DOMAIN}/login'
+        scopes: ['openid', 'email', 'profile', 'groups']
+        response_types: ['code']
+        grant_types: ['authorization_code']
+        access_token_signed_response_alg: 'none'
+        userinfo_signed_response_alg: 'none'
+        token_endpoint_auth_method: 'client_secret_basic'
+
+      - client_id: 'vikunja'
+        client_name: 'Vikunja'
+        client_secret: '${VIKUNJA_OIDC_CLIENT_SECRET_HASH}'
+        public: false
+        authorization_policy: 'household'
+        # Vikunja does not support PKCE.
+        require_pkce: false
+        redirect_uris:
+          - 'https://vikunja.${DOMAIN}/auth/openid/authelia'
+        scopes: ['openid', 'profile', 'email']
+        response_types: ['code']
+        grant_types: ['authorization_code']
+        access_token_signed_response_alg: 'none'
+        userinfo_signed_response_alg: 'none'
+        token_endpoint_auth_method: 'client_secret_basic'
+
+      - client_id: 'actual-budget'
+        client_name: 'Actual Budget'
+        client_secret: '${ACTUALBUDGET_OIDC_CLIENT_SECRET_HASH}'
+        public: false
+        authorization_policy: 'household'
+        require_pkce: false
+        redirect_uris:
+          - 'https://actualbudget.${DOMAIN}/openid/callback'
+        scopes: ['openid', 'profile', 'groups', 'email']
+        response_types: ['code']
+        grant_types: ['authorization_code']
+        access_token_signed_response_alg: 'none'
+        userinfo_signed_response_alg: 'none'
+        token_endpoint_auth_method: 'client_secret_basic'
+
+      - client_id: 'freshrss'
+        client_name: 'FreshRSS'
+        client_secret: '${FRESHRSS_OIDC_CLIENT_SECRET_HASH}'
+        public: false
+        authorization_policy: 'household'
+        require_pkce: false
+        redirect_uris:
+          # FreshRSS always includes the port in its redirect_uri.
+          - 'https://freshrss.${DOMAIN}:443/i/oidc/'
+        scopes: ['openid', 'groups', 'email', 'profile']
+        response_types: ['code']
+        grant_types: ['authorization_code']
+        access_token_signed_response_alg: 'none'
+        userinfo_signed_response_alg: 'none'
+        token_endpoint_auth_method: 'client_secret_basic'
