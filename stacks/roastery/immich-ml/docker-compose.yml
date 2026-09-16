@@ -1,0 +1,48 @@
+# immich-machine-learning — GPU-accelerated ML worker for percolator's
+# Immich (face recognition, smart search). immich-server calls out to this
+# over the LAN instead of running inference on percolator's CPU.
+#
+# Version MUST match percolator's immich-server tag exactly (Immich's own
+# compatibility rule) -- currently v3.2.1, per
+# stacks/percolator/immich/docker-compose.yml. Check that file before
+# bumping this one; bump both together, never just one.
+#
+# This container has no authentication of its own (confirmed against
+# Immich's remote-machine-learning docs: "has no security measures
+# whatsoever"). Docker Desktop's real engine runs in its own hidden VM
+# outside WSL2 entirely, so a Linux-side firewall inside WSL2 (ufw or
+# otherwise) has zero effect on a port this publishes -- the actual access
+# control is a Windows Defender Firewall rule on roastery itself, scoped to
+# percolator's LAN IP on this port. See README.md's "Windows Firewall"
+# section; that rule is the entire protection, not this compose file's port
+# mapping.
+services:
+  immich-machine-learning:
+    image: ghcr.io/immich-app/immich-machine-learning:v3.2.1-cuda
+    container_name: immich-machine-learning
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Asia/Kolkata}
+    volumes:
+      # Plain relative bind mount, not a $DATA_DIR path -- roastery has no
+      # such convention (this is the first app built here), and inventing
+      # one off a single app isn't worth it yet. Holds downloaded model
+      # weights; gitignored (stacks/roastery/.gitignore).
+      - ./model-cache:/cache
+    ports:
+      # Bound to all interfaces deliberately -- restricting this to a
+      # specific IP happens at the Windows Firewall layer (see the header
+      # comment above and README.md), not here. Docker Desktop's port
+      # publishing traverses the real Windows network stack, so the
+      # firewall rule actually works, unlike a bind address inside WSL2.
+      - "3003:3003"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    # No healthcheck here: unverified whether this image ships curl/wget to
+    # probe its own /ping endpoint (not checked against the real image at
+    # build time). Verify manually instead -- see README.md.
