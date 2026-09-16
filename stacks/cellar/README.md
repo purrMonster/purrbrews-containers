@@ -230,9 +230,110 @@ data worth a backup, once they're migrated into this repo.
 run until `ROASTERY_WOL_MAC`/`ROASTERY_SSH_HOST`/`ROASTERY_MIRROR_PATH`
 (mirror) and a rendered `rclone.conf` + one interactive `rclone config
 reconnect` (Drive sync) exist. Wire these up once there's a real backup in
-the local repository worth mirroring off cellar — see each script's own
-header comment and `infrastructure.md` §7 for the full chain and the
-Cloudflare-token-style Google API client ID gotcha.
+the local repository worth mirroring off cellar. The mirror is plain SSH/WoL
+and needs no further setup beyond those three variables; Drive sync needs
+its own Google API client and an OAuth handshake, walked through below.
+
+#### Setting up Google Drive sync
+
+`generate-secrets.sh` prompts for `RCLONE_DRIVE_CLIENT_ID` and
+`RCLONE_DRIVE_CLIENT_SECRET` — these are **not generated, only pasted in**,
+because they identify *your own* Google API client rather than a secret
+cellar can invent. `infrastructure.md` §7 is explicit about why this step
+can't be skipped: rclone's built-in shared client is the single biggest
+cause of `403 userRateLimitExceeded`, since every rclone user on earth
+shares its quota. This is a one-time setup, not a per-node one — the same
+client ID/secret can be reused if you ever add a second Drive-backed node.
+
+1. **Create the API client**, at [console.cloud.google.com](https://console.cloud.google.com):
+   - New project (anything, e.g. `purrbrews-restic`).
+   - *APIs & Services → Library* → enable the **Google Drive API** for that
+     project.
+   - *APIs & Services → OAuth consent screen* → User type **External** →
+     fill in an app name and your own email, add your own Google account
+     under **Test users**. Leave the app in **Testing** status — it never
+     needs Google's verification review since only you will ever use it;
+     the only cost of staying in Testing is that OAuth tokens expire after
+     7 days unless refreshed, which rclone does automatically as long as
+     it keeps running.
+   - *APIs & Services → Credentials → Create Credentials → OAuth client
+     ID* → Application type **Desktop app** → any name.
+   - Copy the **Client ID** and **Client secret** it shows you — that's
+     the only time the secret is displayed in full.
+
+2. **Paste them in.** Run (or re-run) `./setup-secrets.sh` on cellar and
+   answer the two prompts with the values from step 1. This writes them
+   into `restic/secrets.env.local` and, via `render-configs.sh`, into a
+   freshly rendered `restic/rclone.conf` (from `rclone.conf.template`) —
+   the `[drive]` remote's `client_id`/`client_secret` lines.
+
+3. **Authorize the OAuth token itself.** This is the part rendering can't
+   do — Google's consent screen has to be clicked through in an actual
+   browser, and cellar is headless. `rclone config reconnect drive:
+   --config restic/rclone.conf` will print a localhost URL and wait,
+   which is useless over a plain SSH session since nothing on your laptop
+   can reach cellar's loopback. Two ways around that:
+   - **SSH tunnel (simplest):** connect with the OAuth callback port
+     forwarded —
+     ```sh
+     ssh -L 53682:localhost:53682 barista@cellar
+     ```
+     then, in that same session:
+     ```sh
+     cd /opt/purrbrews/stacks/cellar
+     rclone config reconnect drive: --config restic/rclone.conf
+     ```
+     It prints a `http://127.0.0.1:53682/auth?...` link — open that exact
+     link in a browser on your own machine (the tunnel carries Google's
+     redirect back to cellar's rclone). Log in, grant access, done.
+   - **No tunnel available:** run the authorization on a *different*
+     machine that has a browser and rclone installed (your laptop,
+     roastery), using the same client ID/secret from step 1:
+     ```sh
+     rclone authorize "drive" '<RCLONE_DRIVE_CLIENT_ID>' '<RCLONE_DRIVE_CLIENT_SECRET>'
+     ```
+     It opens a browser, you approve access, and it prints a
+     `config_token`-style JSON blob to the terminal. Then on cellar:
+     ```sh
+     rclone config reconnect drive: --config restic/rclone.conf --auth-no-open-browser
+     ```
+     and paste that JSON blob in when prompted.
+
+4. **Set the crypt layer's password**, once `drive:` itself is connected —
+   `drive-crypt` (the remote everything actually reads/writes) wraps
+   `drive:` so file names and folder structure are hidden from Google too,
+   on top of restic's own content encryption:
+   ```sh
+   rclone config password drive-crypt password  --config restic/rclone.conf
+   rclone config password drive-crypt password2 --config restic/rclone.conf
+   ```
+   Each prompts for a value — say `y` when it offers to generate a random
+   one rather than typing your own. **Both values must reach `flask`**
+   alongside `RESTIC_PASSWORD` (`infrastructure.md` §8): lose them and the
+   local repository is still fine, but everything already pushed to Drive
+   is unreadable, since the crypt layer's password isn't stored anywhere
+   Google-side or recoverable from `rclone.conf` alone.
+
+5. **Confirm it actually works** before trusting it:
+   ```sh
+   rclone lsd drive-crypt: --config restic/rclone.conf
+   ```
+   An empty listing (or a clean "directory not found") means auth and the
+   crypt layer both work; an OAuth error means step 3 needs redoing, and a
+   `403` means step 1's client isn't actually being used (check
+   `rclone.conf`'s `[drive]` section still has real values, not
+   `${RCLONE_DRIVE_CLIENT_ID}` unsubstituted).
+
+6. **Enable the timer**, once there's a real local backup worth mirroring
+   off cellar (see the "no sources configured yet" note above):
+   ```sh
+   sudo cp restic/drive-sync.service restic/drive-sync.timer /etc/systemd/system/
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now drive-sync.timer
+   ```
+   It runs nightly at 05:00, after the roastery mirror. A failed run
+   notifies `NTFY_URL` if set — check `journalctl -t
+   cellar-restic-drive-sync` either way the first few times.
 
 **The repository passphrase (`RESTIC_PASSWORD`) must reach `flask`
 by hand** — `generate-secrets.sh` prints a reminder after it generates
