@@ -7,7 +7,13 @@
 # hard way, pre-restructure).
 services:
   fittrackee:
-    image: fittrackee/fittrackee:latest
+    # FOUND 2026-09-17: pinned off `:latest` to the same tag the project's
+    # own docker-compose.yml pins (github.com/SamR1/FitTrackee ->
+    # docker-compose.yml) -- this image has no baked-in default CMD at
+    # all, so an untested `:latest` bump is also how the `command:` below
+    # could go stale (see that same comment) without anything in this repo
+    # catching it at build time.
+    image: fittrackee/fittrackee:v1.3.5
     container_name: fittrackee
     environment:
       TZ: ${TZ}
@@ -16,6 +22,14 @@ services:
       UI_URL: http://${GRINDER_LAN_IP}:5001
     volumes:
       - /srv/data/fittrackee/uploads:/usr/src/app/uploads
+    # FOUND 2026-09-17: without this, `docker logs fittrackee` just shows
+    # tini's own usage/help text and the container never actually starts.
+    # The image's ENTRYPOINT is tini (`tini -- PROGRAM`), but unlike most
+    # images it ships NO default CMD to hand tini -- confirmed against the
+    # project's own docker-compose.yml, which sets this exact command on
+    # its `fittrackee` service. Missing entirely here, not a typo; nothing
+    # upstream fails loudly when it's absent, it just silently no-ops.
+    command: 'sh docker-entrypoint.sh'
     ports:
       - "5001:5000"
     depends_on:
