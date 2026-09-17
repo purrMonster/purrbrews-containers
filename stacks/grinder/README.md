@@ -85,8 +85,22 @@ then the rest in any order.
 
 ```sh
 sudo mkdir -p /srv/data/n8n
+sudo chown -R 1000:1000 /srv/data/n8n
 ./compose.sh n8n up -d
 ```
+
+FOUND 2026-09-17: skipping the `chown` line crashes the container on
+every start with `Error: EACCES: permission denied, open
+'/home/node/.n8n/config'`. `sudo mkdir` leaves the directory owned by
+root, but the official `n8nio/n8n` image drops to the unprivileged
+`node` user (uid/gid 1000) before it ever touches `/home/node/.n8n`
+(the bind-mount target for `/srv/data/n8n` — see this stack's
+`n8n/docker-compose.yml`), so that user can't write its own settings
+file into a root-owned directory. Fix is a one-time `chown` right
+after the `mkdir`, not a compose-file change — if this ever hits an
+already-created (root-owned) `/srv/data/n8n` on an existing install,
+run the `chown` line by itself and `./compose.sh n8n up -d
+--force-recreate`.
 
 Owner account on first visit to `http://${GRINDER_LAN_IP}:5678`, no
 default credentials. SQLite for n8n's own state — the second-brain
