@@ -36,7 +36,21 @@ DOCKER=(docker); [[ $EUID -eq 0 ]] || DOCKER=(sudo docker)
 # docker-compose.yml comment), which structurally can't join a bridge
 # network at all. Kept anyway so a future bridge-networked app here
 # doesn't need a compose.sh change to get it.
-"${DOCKER[@]}" network inspect mochapot_net >/dev/null 2>&1 || "${DOCKER[@]}" network create mochapot_net >/dev/null
+## Pinned subnet (2026-09-17, PROXY_SUBNET in local.env.example): Home
+# Assistant's reverse-proxy trust check needs a stable CIDR to trust, not
+# whatever address Docker's default pool happens to hand Traefik's
+# container on a given recreate. Falls back to unpinned creation if
+# PROXY_SUBNET isn't set yet, same tolerance as every other REPLACE_ME
+# value in this repo -- but note that changes nothing for a network that
+# already exists (docker doesn't let you re-subnet in place): remove it
+# first (after stopping every container on it) if it was created before
+# this line existed.
+if ! "${DOCKER[@]}" network inspect mochapot_net >/dev/null 2>&1; then
+  SUBNET_ARGS=()
+  [[ -f "${DIR}/.env.local" ]] && PROXY_SUBNET="$(grep -E '^PROXY_SUBNET=' "${DIR}/.env.local" | tail -n1 | cut -d= -f2- | tr -d "'\"")"
+  [[ -n "${PROXY_SUBNET:-}" && "$PROXY_SUBNET" != *REPLACE_ME* ]] && SUBNET_ARGS=(--subnet "$PROXY_SUBNET")
+  "${DOCKER[@]}" network create "${SUBNET_ARGS[@]}" mochapot_net >/dev/null
+fi
 
 ENV_ARGS=()
 [[ -f "${DIR}/.env.local" ]] && ENV_ARGS+=(--env-file "${DIR}/.env.local")

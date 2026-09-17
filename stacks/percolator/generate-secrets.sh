@@ -168,6 +168,20 @@ oidc_client vikunja VIKUNJA
 log "actualbudget"
 oidc_client actualbudget ACTUALBUDGET
 
+log "homeassistant (OIDC client only -- the app itself lives on mochaPot)"
+# Every other oidc_client() call assumes the app's own secrets.env.local is a
+# sibling directory here, which isn't true for Home Assistant since it moved
+# to mochaPot in the 2026-09-15 restructure. Authelia only ever needs the
+# HASH (below, read by configuration.yml.template), so the plaintext is
+# generated and kept here purely as the one authoritative place to retrieve
+# it from -- hass-oidc-auth reads it from Home Assistant's own
+# configuration.yaml/secrets.yaml on mochaPot, not from any env var, so there
+# is no automated way to deliver it there; copy it over by hand:
+#   grep '^HOMEASSISTANT_OIDC_CLIENT_SECRET=' authelia/secrets.env.local
+set_if_absent "$AUTHELIA" HOMEASSISTANT_OIDC_CLIENT_SECRET "$(rand 32)"
+set_hash "$AUTHELIA" HOMEASSISTANT_OIDC_CLIENT_SECRET_HASH \
+  "$(get_value "$AUTHELIA" HOMEASSISTANT_OIDC_CLIENT_SECRET)" pbkdf2
+
 log "freshrss"
 set_if_absent "${DIR}/freshrss/secrets.env.local" FRESHRSS_OIDC_CRYPTO_KEY "$(rand 32)"
 oidc_client freshrss FRESHRSS
