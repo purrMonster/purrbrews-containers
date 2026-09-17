@@ -103,9 +103,26 @@ echo "  Pi-hole: ${#dhcp_hosts[@]} static lease entr(ies), ${#dns_hosts[@]} host
 # where <domain> is written {{ env "DOMAIN" }} (file provider, Go template) or
 # ${DOMAIN} (rendered template, compose label). Only real rule lines count,
 # `rule:` or `.rule=`, so examples in comments are ignored.
+#
+# FOUND 2026-09-17: the line-filter below used to require the label line to
+# start with (optional `-`, optional space, then) `traefik.` directly --
+# fine for this repo's older compose files, which write the label bare
+# (`- traefik.http.routers.x.rule=...`), but every newer stack added since
+# the restructure (cellar/komodo, cellar/scrutiny, and grinder's karakeep/
+# n8n/openwebui/traccar/speedtest-tracker/esphome/fittrackee) wraps the
+# whole label in double quotes (`- "traefik.http.routers.x.rule=..."`),
+# which is equally valid compose YAML but put a `"` right where this regex
+# didn't allow one -- so router_labels() silently returned nothing for all
+# nine of those files and none of them ever got a Pi-hole record. This is
+# what "pihole isn't resolving <app>" turned out to be, repo-wide, not a
+# single missing record. Fixed by tolerating an optional wrapping quote
+# (`"` or `'`) between the leading `-` and `traefik.`; both label styles
+# now match. Re-run ./setup-secrets.sh (and recreate the pihole container)
+# after pulling this fix, on every node, to pick up the previously-skipped
+# entries.
 # shellcheck disable=SC2016  # literal backticks, braces and $ in the patterns
 router_labels() {
-  grep -E '^[[:space:]]*(rule:|-?[[:space:]]*traefik\.http\.routers\.[A-Za-z0-9_-]+\.rule=)' "$1" \
+  grep -E '^[[:space:]]*(rule:|-?[[:space:]]*["'"'"']?[[:space:]]*traefik\.http\.routers\.[A-Za-z0-9_-]+\.rule=)' "$1" \
     | grep -oE 'Host\(`[a-z0-9-]+\.(\{\{ *env "DOMAIN" *\}\}|\$\{DOMAIN\})`\)' \
     | sed -E 's/^Host\(`([a-z0-9-]+)\..*/\1/' | sort -u || true
 }
