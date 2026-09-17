@@ -223,3 +223,18 @@ validation require a Docker-equipped host and have not run on this Mac.
   environment settings and custom dnsmasq lines.
 - [NetworkManager IPv6 settings](https://networkmanager.pages.freedesktop.org/NetworkManager/NetworkManager/settings-ipv6.html):
   automatic configuration and disabled method.
+
+## Komodo follow-up
+
+Fresh Traefik logs identify the router as `Host(komodo.REPLACE_ME.example.com)`
+and show ACME rejecting that invalid domain. Cellar's current local DOMAIN is
+filled in and Komodo's secrets do not override it; the 25-hour-old container
+still carries its creation-time labels. Recreate only `komodo-core` using the
+current Compose settings. A restart cannot update labels. Cellar's wrapper now
+checks resolved Compose JSON for placeholders before startup and reports field
+paths without printing secret values.
+
+```sh
+cd /opt/purrbrews/stacks/cellar
+bash compose.sh komodo up -d --no-deps --force-recreate komodo-core
+```
