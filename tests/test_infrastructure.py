@@ -138,6 +138,24 @@ class Render(unittest.TestCase):
                 self.assertTrue(fixture.with_suffix('').is_file())
 
 
+class ComposeConfig(unittest.TestCase):
+    def check(self, content):
+        return subprocess.run(['python3', str(ROOT / 'stacks/_lib/check-compose-config.py')], input=content, text=True, capture_output=True)
+
+    def test_placeholder_rejected_without_secret_disclosure(self):
+        result = self.check('{"services":{"app":{"labels":["Host(`komodo.REPLACE_ME.example.com`)"],"password":"private-value"}}}')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('services.app.labels', result.stderr)
+        self.assertNotIn('private-value', result.stderr)
+        self.assertNotIn('komodo.REPLACE_ME', result.stderr)
+
+    def test_real_config_accepted(self):
+        self.assertEqual(self.check('{"services":{"app":{"labels":["Host(`komodo.example.test`)"],"enabled":true}}}').returncode, 0)
+
+    def test_invalid_config_rejected(self):
+        self.assertNotEqual(self.check('').returncode, 0)
+
+
 class Shell(unittest.TestCase):
     def test_shell_syntax(self):
         for file in ROOT.rglob('*.sh'):
