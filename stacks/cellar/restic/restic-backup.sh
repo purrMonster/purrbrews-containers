@@ -77,8 +77,8 @@ fi
 SOURCES_CONFIGURED=0   # flip to 1 once at least one restic backup line above is live
 
 if [[ "$SOURCES_CONFIGURED" -eq 0 ]]; then
-  log "no sources configured yet -- see the Sources section in this script"
-  exit 0
+  log "FAILED: no sources configured -- no backup was taken; see the Sources section"
+  exit 1
 fi
 
 log "backup run starting"

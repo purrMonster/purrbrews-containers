@@ -28,6 +28,9 @@ get() { local l; l="$(grep -E "^$1=" "${DIR}/.env.local" | tail -n1 || true)"; l
 LAN_CIDR="$(get LAN_CIDR)"
 [[ -n "$LAN_CIDR" && "$LAN_CIDR" != *REPLACE_ME* ]] || { echo "LAN_CIDR is not set in .env.local." >&2; exit 1; }
 
+PROXY_SUBNET="$(get PROXY_SUBNET)"
+[[ -n "$PROXY_SUBNET" && "$PROXY_SUBNET" != *REPLACE_ME* ]] || { echo 'Set PROXY_SUBNET to mochapot_net actual subnet.' >&2; exit 1; }
+
 rule() {  # rule <comment> <ufw args...>
   local comment="purrbrews mochaPot: $1"; shift
   if [[ $DRY -eq 1 ]]; then
@@ -53,6 +56,11 @@ rule "dns from LAN (tcp)"    allow proto tcp from "$LAN_CIDR" to any port 53
 # 2026-09-16 port-conflict fix) -- DHCP stays off on this instance, so
 # there's no port 67 rule here, unlike sieve's.
 rule "pihole ui from LAN"    allow proto tcp from "$LAN_CIDR" to any port 8081
+
+# Host-network apps receive proxy traffic from the Docker bridge, not LAN_CIDR.
+rule "homeassistant from proxy" allow proto tcp from "$PROXY_SUBNET" to any port 8123
+rule "musicassistant from proxy" allow proto tcp from "$PROXY_SUBNET" to any port 8095
+rule "pihole ui from proxy" allow proto tcp from "$PROXY_SUBNET" to any port 8081
 
 # ── Traefik (published 80, 443) ──────────────────────────────────────────────
 rule "traefik http from LAN"  route allow proto tcp from "$LAN_CIDR" to any port 80

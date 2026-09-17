@@ -56,3 +56,7 @@ claude/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Python checks and shared configuration helpers
+__pycache__/
+*.pyc

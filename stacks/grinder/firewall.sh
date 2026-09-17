@@ -45,6 +45,12 @@ rule() {  # rule <comment> <ufw args...>
 # ── ESPHome (host network, 6052) ─────────────────────────────────────────────
 rule "esphome dashboard from LAN" allow proto tcp from "$LAN_CIDR" to any port 6052
 
+# ESPHome runs on the host; Traefik arrives from grinder_net.
+# Override for --dry-run on a workstation without Docker.
+PROXY_SUBNET="${PROXY_SUBNET:-$(docker network inspect grinder_net --format '{{range .IPAM.Config}}{{println .Subnet}}{{end}}' | head -n1)}"
+[[ -n "$PROXY_SUBNET" && "$PROXY_SUBNET" != *:* ]] || { echo 'Cannot determine grinder_net IPv4 subnet.' >&2; exit 1; }
+rule "esphome from proxy" allow proto tcp from "$PROXY_SUBNET" to any port 6052
+
 # ── Traefik (published 80, 443) ──────────────────────────────────────────────
 rule "traefik http from LAN"  route allow proto tcp from "$LAN_CIDR" to any port 80
 rule "traefik https from LAN" route allow proto tcp from "$LAN_CIDR" to any port 443
