@@ -44,6 +44,11 @@ services:
       # header comment) — blank/REPLACE_ME is fine once this node is a
       # registered Server in Komodo.
       PERIPHERY_ONBOARDING_KEY: ${PERIPHERY_ONBOARDING_KEY}
+      # Works around moghtech/komodo issue #1425 -- see sieve's
+      # komodo-periphery/docker-compose.yml header comment. Periphery
+      # generates the actual key file itself on first successful boot;
+      # nothing to create by hand.
+      PERIPHERY_PRIVATE_KEY: file:/config/keys/periphery.key
       PERIPHERY_ROOT_DIRECTORY: /etc/komodo
       PERIPHERY_INCLUDE_DISK_MOUNTS: /etc/hostname
     volumes:
