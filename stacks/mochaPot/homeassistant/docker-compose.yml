@@ -31,13 +31,22 @@ services:
     # (a known limitation of host-networked containers, confirmed via
     # Traefik's own docs). Port 8123 stays published directly too -- the
     # backdoor. See README "Traefik and the native-login backdoor".
+    # Unquoted, deliberately (2026-09-17) -- matches every other node's label
+    # style (see percolator's authelia/nextcloud). Quoting these broke
+    # sieve's setup-secrets.sh: its router_labels() regex expects an optional
+    # "-" and whitespace directly before "traefik.http.routers.", and a
+    # leading '"' doesn't match, so it silently matched zero lines here --
+    # no error, just homeassistant.${DOMAIN} never making it into
+    # PIHOLE_DNSMASQ_LINES. Root cause of the 2026-09-17 "site not
+    # available" report; same bug fixed in musicassistant/ and pihole/'s
+    # compose files in this stack.
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.homeassistant.rule=Host(`homeassistant.${DOMAIN}`)"
-      - "traefik.http.routers.homeassistant.entrypoints=websecure"
-      - "traefik.http.routers.homeassistant.tls.certresolver=cloudflare"
-      - "traefik.http.routers.homeassistant.middlewares=authelia-forwardauth@file"
-      - "traefik.http.services.homeassistant.loadbalancer.server.url=http://${MOCHAPOT_LAN_IP}:8123"
+      - traefik.enable=true
+      - traefik.http.routers.homeassistant.rule=Host(`homeassistant.${DOMAIN}`)
+      - traefik.http.routers.homeassistant.entrypoints=websecure
+      - traefik.http.routers.homeassistant.tls.certresolver=cloudflare
+      - traefik.http.routers.homeassistant.middlewares=authelia-forwardauth@file
+      - traefik.http.services.homeassistant.loadbalancer.server.url=http://${MOCHAPOT_LAN_IP}:8123
     # MOVED HERE 2026-09-16 from percolator (infrastructure.md §4's new
     # placement rules): "Home Assistant lives on mochaPot for blast radius
     # and locality: it shares a failure domain with neither the app tier
