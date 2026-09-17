@@ -1,8 +1,9 @@
 # Komodo Periphery — standalone agent added 2026-09-16, same pattern as
 # stacks/sieve/komodo-periphery/docker-compose.yml (see that file's own
-# header comment, including the CONFIRMED 2026-09-17 note on why
-# PERIPHERY_ONBOARDING_KEY, below, is required for first connect, not just
-# core.pub). grinder differs only in PERIPHERY_CONNECT_AS below.
+# header comment, including why PERIPHERY_ONBOARDING_KEY, below, is
+# required for first connect, not just core.pub, and the 2026-09-17 note
+# on matching the pre-restructure purrbrews-infra repo's exact (working)
+# env var wiring. grinder differs only in PERIPHERY_CONNECT_AS below.
 # infrastructure.md §4: "grinder holds nothing household-critical" — this
 # agent is exactly what makes it useful as the fleet's landing zone when
 # another node dies (Komodo can redeploy a stack here from the UI without
@@ -20,12 +21,10 @@ services:
       # One-time bootstrap credential — see sieve's komodo-periphery/
       # docker-compose.yml header comment. Blank/REPLACE_ME is fine once
       # this node is a registered Server in Komodo.
-      PERIPHERY_ONBOARDING_KEY: ${PERIPHERY_ONBOARDING_KEY}
-      # Works around moghtech/komodo issue #1425 -- see sieve's
-      # komodo-periphery/docker-compose.yml header comment. Periphery
-      # generates the actual key file itself on first successful boot;
-      # nothing to create by hand.
-      PERIPHERY_PRIVATE_KEY: file:/config/keys/periphery.key
+      PERIPHERY_ONBOARDING_KEY: ${PERIPHERY_ONBOARDING_KEY}   # remove
+        # this line entirely (and re-run compose up -d) once grinder
+        # already exists as a Server in Komodo's UI -- it's only needed
+        # for the first-ever connection.
       PERIPHERY_ROOT_DIRECTORY: /etc/komodo
       PERIPHERY_INCLUDE_DISK_MOUNTS: /etc/hostname
     volumes:

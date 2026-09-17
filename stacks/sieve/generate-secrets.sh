@@ -148,8 +148,31 @@ log "komodo-periphery/secrets.env.local"
 # onboarding key from cellar's Komodo UI does, on first connect. Pasted in,
 # never randomly generated — leave blank/REPLACE_ME once sieve shows up as
 # a Server in Komodo's UI, it's not needed again after that.
-prompt_secret "${DIR}/komodo-periphery/secrets.env.local" PERIPHERY_ONBOARDING_KEY \
-  "Komodo onboarding key for 'sieve' (cellar's Komodo UI -> Settings -> Servers/onboarding)" "REPLACE_ME"
+#
+# NOT using prompt_secret/put_value here, deliberately (2026-09-17): those
+# always single-quote the stored value (KEY='value'), which is right for
+# secrets that reach Periphery through .env.local's normal ${VAR}
+# substitution -- but the pre-restructure purrbrews-infra repo, which
+# connected fine with this exact mechanism, wrote this ONE key unquoted
+# (KEY=value), and quoting turned out to matter for the debugging session
+# that traced this: the fix that actually got onboarding working again was
+# switching back to unquoted, matching the old repo exactly, after quoted
+# storage produced key-parsing errors on the Periphery side. Kept as its
+# own small block rather than a new generic helper, since nothing else in
+# this fleet needs unquoted storage.
+KP="${DIR}/komodo-periphery/secrets.env.local"
+ensure_file "$KP"
+if ! is_set "$KP" PERIPHERY_ONBOARDING_KEY; then
+  value=""
+  if [[ -t 0 ]]; then
+    read -r -s -p "  Komodo onboarding key for 'sieve' (cellar's Komodo UI -> Settings -> Servers/onboarding): " value
+    printf '\n'
+  fi
+  [[ -n "$value" ]] || { value="REPLACE_ME"; [[ -t 0 ]] && echo "    (skipped — re-run once you have it)"; }
+  grep -qE '^PERIPHERY_ONBOARDING_KEY=' "$KP" && sed -i '/^PERIPHERY_ONBOARDING_KEY=/d' "$KP"
+  printf 'PERIPHERY_ONBOARDING_KEY=%s\n' "$value" >> "$KP"
+  chmod 600 "$KP"
+fi
 
 # pihole, unbound, netalertx: no secrets.
 
