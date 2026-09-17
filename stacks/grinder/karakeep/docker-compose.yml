@@ -40,7 +40,17 @@ services:
       - "traefik.http.services.karakeep.loadbalancer.server.port=3000"
 
   chrome:
-    image: gcr.io/zenika-hub/alpine-chrome:124
+    # FIXED 2026-09-17: gcr.io/zenika-hub/alpine-chrome (Karakeep's own
+    # documented compose example) now fails anonymous pulls with "This API
+    # method requires billing to be enabled" -- Google retired the old free
+    # anonymous gcr.io redirect and routes unauthenticated pulls through a
+    # shared GCP project that requires billing on the CALLER's side, which
+    # obviously isn't set up here. Not a mistake in this repo, a registry
+    # policy change upstream. Zenika publishes the identical image to
+    # Docker Hub too (same Dockerfile/source, just a second registry) --
+    # switched to that mirror, same tag, so nothing else in this file
+    # (BROWSER_WEB_URL, ports, etc.) needs to change.
+    image: zenika/alpine-chrome:124
     container_name: karakeep-chrome
     command:
       - --no-sandbox
