@@ -48,6 +48,36 @@ helpers. Original Compose files were backed up under each ops user's
 of the repository changes are still local only. Secondary DNS must both receive
 local records and allow LAN DNS before being used by clients.
 
+## Verification after activation
+
+The owner ran the secondary DNS/firewall, cellar Traefik recreation, and
+Homepage startup commands. Follow-up checks passed all 58 A-record comparisons
+(29 app names on each resolver), plus public UDP/TCP resolution on the secondary.
+Authelia's AAAA and HTTPS/TYPE65 queries return NOERROR with no answers on both.
+Homepage now redirects to authentication with valid TLS; Scrutiny also redirects
+with a valid Let's Encrypt certificate. These checks do not prove authenticated
+backend functionality. Komodo's direct port 9120 returns 200, but its HTTPS
+hostname still serves Traefik's default certificate; fresh provider logs and
+container status are needed.
+
+All five nodes still report public/bootstrap DNS and the previously learned
+IPv6 resolver. The Git-delivered `init/use-lan-dns.py` verifies both resolvers
+from each node before saving/applying only DNS properties. It ignores automatic
+IPv4/IPv6 DNS and removes the explicit IPv6 DNS list without bringing the
+interface down or applying unrelated saved profile changes:
+
+```sh
+python3 /opt/purrbrews/init/use-lan-dns.py --dry-run
+sudo python3 /opt/purrbrews/init/use-lan-dns.py
+```
+
+This changes resolver selection, not IPv6 addressing. The router advertisements
+have been disabled by the owner, and new provisioning already disables IPv6.
+Containers with resolver snapshots may still require recreation. The script
+supports explicit domain/server/IP arguments for installations with different
+settings. Its use of active-device DNS modification follows the
+[NetworkManager CLI documentation](https://networkmanager.pages.freedesktop.org/NetworkManager/NetworkManager/nmcli.html).
+
 ## Repository changes
 
 - Both Pi-holes now use one local-record generator based on the installed fleet
