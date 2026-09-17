@@ -13,6 +13,27 @@ services:
     # postgres-homeassistant below for how its own database is reached
     # instead (127.0.0.1, loopback).
     network_mode: host
+    # GOTCHA (found 2026-09-17): Docker does NOT live-bind-mount the host's
+    # /etc/resolv.conf into a container, even under network_mode: host --
+    # it snapshots it ONCE, at container creation, into a container-private
+    # copy (`docker exec homeassistant cat /etc/resolv.conf` shows "Generated
+    # by Docker Engine... Overrides: []", a static file, not a live view of
+    # the host's). This container was created while mochaPot's host was
+    # still on init/purrbrews-init.env.example's BOOTSTRAP_DNS
+    # (1.1.1.1/9.9.9.9 -- "used until Pi-hole is up, change later per node").
+    # The host's own resolver was later switched to sieve's Pi-hole
+    # (192.168.0.10), but nothing ever force-recreated this container, so it
+    # kept querying public DNS -- which has never heard of whiskertreat.fyi's
+    # split-horizon records. Symptom: hass-oidc-auth's discovery request to
+    # authelia.${DOMAIN} failed with "Name does not resolve" from inside the
+    # container while `dig`/`curl` from the mochaPot host itself worked fine.
+    # Fix applied live: `./compose.sh homeassistant up -d --force-recreate`
+    # (recreate, not restart -- restart keeps the stale snapshot). pihole and
+    # musicassistant are network_mode: host too and were likely created in
+    # the same bootstrap window -- recreate them the same way if either ever
+    # needs to resolve a hostname it can't. General rule: any time a node's
+    # upstream DNS server changes, force-recreate every network_mode: host
+    # container on it, or it keeps the DNS server it was born with.
     volumes:
       - /srv/data/homeassistant:/config
       - /etc/localtime:/etc/localtime:ro
@@ -45,7 +66,6 @@ services:
       - traefik.http.routers.homeassistant.rule=Host(`homeassistant.${DOMAIN}`)
       - traefik.http.routers.homeassistant.entrypoints=websecure
       - traefik.http.routers.homeassistant.tls.certresolver=cloudflare
-      - traefik.http.routers.homeassistant.middlewares=authelia-forwardauth@file
       - traefik.http.services.homeassistant.loadbalancer.server.url=http://${MOCHAPOT_LAN_IP}:8123
     # MOVED HERE 2026-09-16 from percolator (infrastructure.md §4's new
     # placement rules): "Home Assistant lives on mochaPot for blast radius
@@ -86,17 +106,16 @@ services:
     #   6. Restart, then Settings -> Devices & Services (or the login page)
     #      should offer "Log in with Authelia" / "OpenID Connect/SSO".
     #
-    # DECISION NEEDED, not yet made: this router already sits behind
-    # authelia-forwardauth@file (below), which gates the whole domain at
-    # Traefik before Home Assistant's own login page ever loads. Adding
-    # hass-oidc-auth on top doesn't conflict -- same Authelia session
-    # cookie, so it's normally a no-prompt pass-through -- but it does mean
-    # two independent gates protecting the same app. Leaving both is
-    # defense-in-depth (HA's login page is never exposed to an
-    # unauthenticated request at all); removing the ForwardAuth middleware
-    # here would make hass-oidc-auth the only gate, matching how Nextcloud/
-    # Paperless are set up (OIDC only, no ForwardAuth in front). Not changed
-    # either way as part of this OIDC rollout -- pick one deliberately.
+    # DECIDED 2026-09-17: OIDC only, no ForwardAuth in front -- matches
+    # Nextcloud/Paperless (both OIDC-only, no ForwardAuth middleware on
+    # their routers either). authelia-forwardauth@file removed from this
+    # router's middlewares below; hass-oidc-auth is now the sole gate at the
+    # app level. Trade-off accepted knowingly: HA's own login page (with
+    # local username/password still available as break-glass) is reachable
+    # by an unauthenticated request now, where before Traefik denied it
+    # before HA ever saw it. If that ever needs to change back, the removed
+    # line was:
+    #   - traefik.http.routers.homeassistant.middlewares=authelia-forwardauth@file
     #
     # Local HA login remains available as the break-glass path either way.
     # Reachable both at

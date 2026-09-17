@@ -17,8 +17,12 @@ changes can be made later without re-deriving the reasoning.
 - [ ] percolator: Cloudflare token, then the bring-up in `stacks/percolator/README.md`; `sudo ./firewall.sh`
 - [ ] First ForwardAuth round trip from sieve's Traefik to Authelia on real hardware (sandbox-tested with real Authelia 2026-09-16)
 - [x] cellar's, mochaPot's and grinder's stacks added, each with its own Traefik (2026-09-16)
-- [ ] Register cellar, mochaPot and grinder with percolator: add all three IPs to `FORWARD_AUTH_CLIENTS`/`firewall.sh` and to Authelia's admin-host list, so their ForwardAuth routes stop 502/504ing (see the 2026-09-16 entry below)
-- [ ] Migrate `stacks/_templates/komodo-periphery/` into this repo and wire it into mochaPot/grinder once fleet-wide Komodo management is wanted
+- [x] Register cellar, mochaPot and grinder with percolator: `FORWARD_AUTH_CLIENTS` and `admin_hosts` extended, cellar's Traefik built for real (2026-09-16, full fleet repass)
+- [x] Migrate Komodo Periphery + Scrutiny collector fleet-wide (sieve, percolator, mochaPot, grinder, roastery) — built from cellar's own service blocks, since `stacks/_templates/komodo-periphery/` never actually landed in the repo (2026-09-16)
+- [x] `firewall.sh` for cellar, mochaPot and grinder — none had one before; every published port on them was reachable from the whole LAN with no `ufw route allow` gate (Docker's iptables DNAT bypasses plain `ufw`) (2026-09-16, full fleet repass)
+- [ ] Confirm Komodo Periphery's cross-host auth (pinning Core's public key alone) on a real bring-up — only reasoned about and sandbox-built, not tested cross-host; may need its own passkey/API key from Core's UI
+- [ ] Confirm the new per-node disk-device vars (`SIEVE_DISK_DEVICE`, `PERCOLATOR_DISK_DEVICE_NVME`/`_SATA`, `MOCHAPOT_DISK_DEVICE`, `GRINDER_DISK_DEVICE`) against real hardware (`lsblk -d -o NAME,TYPE,SIZE,MODEL`)
+- [ ] Build `stacks/cellar/smb/` — README/generate-secrets.sh/local.env.example already describe it, but the directory doesn't exist; needs a real decision on shares/permissions, not a guess (found 2026-09-16, full fleet repass)
 - [ ] Wire cellar's restic sources to percolator's, sieve's and mochaPot's actual dumps and data — all three now exist in this repo
 - [ ] Enable cellar's roastery mirror and Google Drive sync (both scaffolded, neither turned on)
 - [ ] roastery: `immich-machine-learning` at Immich's version, Windows Firewall 3003 scoped to percolator

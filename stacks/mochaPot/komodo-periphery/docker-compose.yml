@@ -15,6 +15,10 @@ services:
       PERIPHERY_CORE_ADDRESS: ws://${CELLAR_LAN_IP}:9120
       PERIPHERY_CONNECT_AS: mochaPot
       PERIPHERY_CORE_PUBLIC_KEYS: file:/config/keys/core.pub
+      # One-time bootstrap credential — see sieve's komodo-periphery/
+      # docker-compose.yml header comment. Blank/REPLACE_ME is fine once
+      # this node is a registered Server in Komodo.
+      PERIPHERY_ONBOARDING_KEY: ${PERIPHERY_ONBOARDING_KEY}
       PERIPHERY_ROOT_DIRECTORY: /etc/komodo
       PERIPHERY_INCLUDE_DISK_MOUNTS: /etc/hostname
     volumes:
