@@ -86,6 +86,15 @@ stacks/<node>/local.env.example          node-specific settings template
 runbook.md                               dated design decisions: the why, not just the what
 ```
 
+## Current network audit
+
+**Delivery rule:** commit and push changes to Git, then pull them on the nodes.
+Do not copy configuration or code directly to servers. Generated configuration
+and secrets remain local to each node.
+
+See [the September 2026 audit](docs/network-audit.md) for verified DNS/IPv6
+findings, repository fixes, remaining live failures, and the staged rollout.
+
 ## Getting started
 
 **1. Start the bootstrap container** on the workstation (Docker Desktop is fine):

@@ -75,6 +75,9 @@ if [[ -n "$still_replace_me" ]]; then
   echo "  still has a REPLACE_ME value — re-run this script once you have it, or edit .env.local directly"
 fi
 
+log "Generating local DNS records"
+bash "${DIR}/../_lib/refresh-dns.sh" mochaPot
+
 log "Generating secrets (./generate-secrets.sh)"
 "${DIR}/generate-secrets.sh"
 

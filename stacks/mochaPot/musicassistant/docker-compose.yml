@@ -9,6 +9,9 @@ services:
     # must share a flat network (no VLANs) for this to work. Re-verify the
     # image tag is still current before first bring-up.
     network_mode: host
+    dns:
+      - ${DNS_PRIMARY:-192.168.0.10}
+      - ${DNS_SECONDARY:-192.168.0.13}
     volumes:
       - /srv/data/musicassistant:/data
     environment:

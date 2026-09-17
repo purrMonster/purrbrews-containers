@@ -15,13 +15,17 @@ services:
     environment:
       TZ: ${TZ:-Asia/Kolkata}
       FTLCONF_dns_listeningMode: "ALL"
-      # infrastructure.md §5: "DNS secondary — mochaPot — Pi-hole, DNS
-      # only, never DHCP." This instance is completely independent of
-      # sieve's -- its own blocklists, its own query log, no
-      # replication between them. Same upstream resolver as sieve's for
-      # consistency (Cloudflare); change both together if that's ever
-      # revisited.
+      # Independent public upstream; identical split DNS to sieve.
       FTLCONF_dns_upstreams: "1.1.1.1;1.0.0.1"
+      FTLCONF_dns_hosts: ${PIHOLE_DNS_HOSTS:-}
+      FTLCONF_dns_expandHosts: "true"
+      FTLCONF_misc_dnsmasq_lines: ${PIHOLE_DNSMASQ_LINES:?run ../_lib/refresh-dns.sh mochaPot}
+      # Override persisted UI settings: this resolver must never offer leases.
+      FTLCONF_dhcp_active: "false"
+      FTLCONF_dhcp_ipv6: "false"
+      FTLCONF_ntp_ipv4_active: "false"
+      FTLCONF_ntp_ipv6_active: "false"
+      FTLCONF_ntp_sync_active: "false"
       # mochaPot gained its OWN Traefik on 2026-09-16 (see ../traefik/),
       # which now owns host ports 80/443 -- the comment that used to sit
       # here ("nothing else on mochaPot binds 80") went stale the moment

@@ -98,54 +98,8 @@ set_env PIHOLE_DHCP_HOSTS "$(join "${dhcp_hosts[@]}")"
 set_env PIHOLE_DNS_HOSTS  "$(join "${dns_hosts[@]}")"
 echo "  Pi-hole: ${#dhcp_hosts[@]} static lease entr(ies), ${#dns_hosts[@]} host name entr(ies)"
 
-# Every node's Traefik routers → a DNS record pointing at that node.
-# router_labels <file>: the <label> of each router rule Host(`<label>.<domain>`),
-# where <domain> is written {{ env "DOMAIN" }} (file provider, Go template) or
-# ${DOMAIN} (rendered template, compose label). Only real rule lines count,
-# `rule:` or `.rule=`, so examples in comments are ignored.
-#
-# FOUND 2026-09-17: the line-filter below used to require the label line to
-# start with (optional `-`, optional space, then) `traefik.` directly --
-# fine for this repo's older compose files, which write the label bare
-# (`- traefik.http.routers.x.rule=...`), but every newer stack added since
-# the restructure (cellar/komodo, cellar/scrutiny, and grinder's karakeep/
-# n8n/openwebui/traccar/speedtest-tracker/esphome/fittrackee) wraps the
-# whole label in double quotes (`- "traefik.http.routers.x.rule=..."`),
-# which is equally valid compose YAML but put a `"` right where this regex
-# didn't allow one -- so router_labels() silently returned nothing for all
-# nine of those files and none of them ever got a Pi-hole record. This is
-# what "pihole isn't resolving <app>" turned out to be, repo-wide, not a
-# single missing record. Fixed by tolerating an optional wrapping quote
-# (`"` or `'`) between the leading `-` and `traefik.`; both label styles
-# now match. Re-run ./setup-secrets.sh (and recreate the pihole container)
-# after pulling this fix, on every node, to pick up the previously-skipped
-# entries.
-# shellcheck disable=SC2016  # literal backticks, braces and $ in the patterns
-router_labels() {
-  grep -E '^[[:space:]]*(rule:|-?[[:space:]]*["'"'"']?[[:space:]]*traefik\.http\.routers\.[A-Za-z0-9_-]+\.rule=)' "$1" \
-    | grep -oE 'Host\(`[a-z0-9-]+\.(\{\{ *env "DOMAIN" *\}\}|\$\{DOMAIN\})`\)' \
-    | sed -E 's/^Host\(`([a-z0-9-]+)\..*/\1/' | sort -u || true
-}
-DOMAIN="$(get "$ENV_LOCAL" DOMAIN)"
-declare -A node_ip=()
-while IFS=, read -r name ip _; do node_ip[$name]="$ip"; done <<< "$fleet_csv"
-dns_lines=()
-if [[ -n "$DOMAIN" && "$DOMAIN" != *REPLACE_ME* ]]; then
-  shopt -s nullglob
-  for f in "${PROJECT_DIR}"/stacks/*/traefik/dynamic/*.yml \
-           "${PROJECT_DIR}"/stacks/*/traefik/config/*.template \
-           "${PROJECT_DIR}"/stacks/*/*/docker-compose.yml; do
-    node="${f#"${PROJECT_DIR}"/stacks/}"; node="${node%%/*}"
-    [[ -n "${node_ip[$node]:-}" ]] || { echo "  ! ${f#"${PROJECT_DIR}"/}: '${node}' is not in NODE_IPS — skipped" >&2; continue; }
-    while IFS= read -r label; do
-      dns_lines+=("address=/${label}.${DOMAIN}/${node_ip[$node]}")
-    done < <(router_labels "$f")
-  done
-  shopt -u nullglob
-fi
-mapfile -t dns_lines < <(printf '%s\n' "${dns_lines[@]}" | sed '/^$/d' | sort -u)
-set_env PIHOLE_DNSMASQ_LINES "$(join "${dns_lines[@]}" filter-AAAA)"
-echo "  Pi-hole: ${#dns_lines[@]} Traefik host name(s) → their node"
+# The same generator runs on the secondary: clients may use either resolver.
+printf 'name,ip,mac\n%s\n' "$fleet_csv" | python3 "${PROJECT_DIR}/stacks/_lib/dns-records.py" --node-dir "$DIR"
 
 # ── 4. Data directories ───────────────────────────────────────────────────────
 log "Data directories"

@@ -45,6 +45,7 @@ access_control:
         - 'traefik.${DOMAIN}'
         - 'traefik-sieve.${DOMAIN}'
         - 'pihole.${DOMAIN}'
+        - 'pihole-mochapot.${DOMAIN}'
         - 'netalertx.${DOMAIN}'
         - 'gatus.${DOMAIN}'
         # cellar's admin apps, added 2026-09-16 alongside its own Traefik.
