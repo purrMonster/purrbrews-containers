@@ -100,6 +100,17 @@ log "traefik/secrets.env.local"
 prompt_if_placeholder "${DIR}/traefik/secrets.env.local" "CF_DNS_API_TOKEN" \
   "Cloudflare API token (Zone:DNS:Edit on \${DOMAIN}'s zone)" "REPLACE_ME_cf_token"
 
+log "komodo-periphery/secrets.env.local"
+# One-time bootstrap credential (CONFIRMED 2026-09-17 — see
+# komodo-periphery/docker-compose.yml's own header comment): core.pub alone
+# doesn't register this node as a Server in cellar's Komodo, only an
+# onboarding key from cellar's Komodo UI does, on first connect. Pasted in,
+# never randomly generated — leave REPLACE_ME once mochaPot shows up as a
+# Server in Komodo's UI, it's not needed again after that.
+prompt_if_placeholder "${DIR}/komodo-periphery/secrets.env.local" "PERIPHERY_ONBOARDING_KEY" \
+  "Komodo onboarding key for 'mochaPot' (cellar's Komodo UI -> Settings -> Servers/onboarding)" \
+  "REPLACE_ME" --secret
+
 # --- Future apps go here ------------------------------------------------
 #
 #   set_if_absent "${DIR}/somesvc/secrets.env.local" "SOME_PASSWORD" "$(rand 16)"

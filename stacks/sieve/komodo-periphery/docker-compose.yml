@@ -18,18 +18,42 @@
 # agent; it only needs to reach cellar on port 9120 (already published —
 # see that file's own comment on why it can't be closed off with ufw).
 #
-# VERIFY BEFORE FIRST BRING-UP: confirm ghcr.io/moghtech/komodo-periphery
-# 2.3.2 is still current and matches cellar's Core's own version pin (see
-# that file's comment — Core and Periphery versions should track
-# together), and confirm the public-key-only auth flow below against
-# Komodo's own docs (komo.do/docs) — cellar's own local Periphery already
-# uses this mechanism, but only same-host; it hasn't been proven cross-host
-# yet. If it turns out Periphery also needs its own passkey/API key
-# generated on the Core side, add it as a REQUIRED (prompt_if_placeholder,
-# not set_if_absent) secret in generate-secrets.sh the same way
-# KOMODO_CORE_PUBLIC_KEY is, not a randomly generated one — same category
-# as every other cross-node credential in this fleet (Cloudflare tokens,
-# rclone's client ID/secret).
+# CONFIRMED 2026-09-17: the public-key-only auth flow above is NOT
+# sufficient by itself for a cross-host Periphery. core.pub only lets
+# Periphery trust Core's identity (the noise handshake) — it doesn't
+# register this node as a Server in Komodo at all. Live testing confirmed
+# an onboarding key is also required for first connect: generate one from
+# cellar's Komodo UI (Settings -> the Servers/onboarding section — exact
+# location wasn't pinned down further than that by Komodo's own docs,
+# komo.do/docs/setup/connect-servers, which only says "Create an
+# onboarding key via the Komodo Core API / UI"), matching THIS node's name
+# (PERIPHERY_CONNECT_AS below), then put it in
+# komodo-periphery/secrets.env.local's PERIPHERY_ONBOARDING_KEY (wired via
+# generate-secrets.sh's own prompt_secret call — pasted in, never
+# randomly generated, same category as every other cross-node credential
+# in this fleet). Per Komodo's own docs the key is "not needed if
+# connecting as Server that already exists" — i.e. it's a one-time
+# bootstrap credential, safe to leave blank/REPLACE_ME on any node that's
+# already showing up as a Server in Komodo's UI, needed again only if that
+# Server entry is ever deleted and this node has to re-onboard.
+#
+# FOUND 2026-09-17, separate bug: first real connection attempt with the
+# onboarding key above failed with "Onboarding failed: [Client] Failed to
+# initialize handshake: Private key must be 32 characters or less, or
+# pkcs8 encoded." This is NOT about the onboarding key's format -- it's
+# Periphery's own identity key (PERIPHERY_PRIVATE_KEY), a setting distinct
+# from PERIPHERY_ONBOARDING_KEY, and a confirmed upstream bug/quirk
+# (moghtech/komodo issue #1425): in Periphery v2+ containers,
+# `private_key` in periphery.config.toml is ignored -- ONLY the
+# PERIPHERY_PRIVATE_KEY env var controls it -- and when it's left unset
+# (as this file did), the container falls back to a broken built-in
+# default baked into its own Dockerfile, rather than generating a fresh
+# key at a sane path. Periphery then tries to use that broken default as
+# its private key during the handshake and fails exactly the way seen
+# here. Fixed by setting PERIPHERY_PRIVATE_KEY explicitly below, pointed
+# at the same ./keys mount as core.pub -- Periphery generates a real
+# ed25519 key there itself on first successful boot (nothing to create by
+# hand, unlike core.pub) and reuses it on every restart after that.
 services:
   komodo-periphery:
     image: ghcr.io/moghtech/komodo-periphery:2.3.2
@@ -40,6 +64,13 @@ services:
       PERIPHERY_CORE_ADDRESS: ws://${CELLAR_LAN_IP}:9120
       PERIPHERY_CONNECT_AS: sieve
       PERIPHERY_CORE_PUBLIC_KEYS: file:/config/keys/core.pub
+      # One-time bootstrap credential — see this file's header comment.
+      # Blank/REPLACE_ME is fine once this node is a registered Server.
+      PERIPHERY_ONBOARDING_KEY: ${PERIPHERY_ONBOARDING_KEY}
+      # Works around moghtech/komodo issue #1425 -- see this file's own
+      # header comment. Periphery generates the actual key file itself at
+      # this path on first successful boot; nothing to create by hand.
+      PERIPHERY_PRIVATE_KEY: file:/config/keys/periphery.key
       PERIPHERY_ROOT_DIRECTORY: /etc/komodo
       PERIPHERY_INCLUDE_DISK_MOUNTS: /etc/hostname
     volumes:
