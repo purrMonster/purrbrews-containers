@@ -214,6 +214,34 @@ identity_providers:
         userinfo_signed_response_alg: 'none'
         token_endpoint_auth_method: 'client_secret_basic'
 
+      - client_id: 'homeassistant'
+        client_name: 'Home Assistant'
+        # Cross-node client, unlike every other one here: the app itself
+        # lives on mochaPot, not percolator (infrastructure.md §4's
+        # placement rules), so generate-secrets.sh's usual oidc_client()
+        # helper doesn't apply -- it assumes the app's own secrets.env.local
+        # sits in a sibling directory on this same node. See that script's
+        # own comment on the homeassistant block for how the plaintext
+        # actually gets to mochaPot (manually, not via compose/env).
+        client_secret: '${HOMEASSISTANT_OIDC_CLIENT_SECRET_HASH}'
+        public: false
+        authorization_policy: 'household'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          # hass-oidc-auth's fixed callback path (not configurable) --
+          # confirmed 2026-09-17 against that project's own Authelia guide
+          # (docs/provider-configurations/authelia.md) and Authelia's own
+          # published Home Assistant integration guide -- both agree on this
+          # path and on client_secret_post below.
+          - 'https://homeassistant.${DOMAIN}/auth/oidc/callback'
+        scopes: ['openid', 'profile', 'email', 'groups']
+        response_types: ['code']
+        grant_types: ['authorization_code']
+        access_token_signed_response_alg: 'none'
+        userinfo_signed_response_alg: 'none'
+        token_endpoint_auth_method: 'client_secret_post'
+
       - client_id: 'freshrss'
         client_name: 'FreshRSS'
         client_secret: '${FRESHRSS_OIDC_CLIENT_SECRET_HASH}'

@@ -55,9 +55,51 @@ services:
     # A role change, not a lift-and-shift -- the pre-restructure compose
     # file this was adapted from sat behind percolator's Traefik with
     # Authelia OIDC via a HACS custom component. This version got its OWN
-    # Traefik added 2026-09-16 (see ../traefik/), not percolator's, and
-    # OIDC (alpha-stage HACS component) is still not wired up -- local HA
-    # login is the only way in, same as before. Reachable both at
+    # Traefik added 2026-09-16 (see ../traefik/).
+    #
+    # OIDC via hass-oidc-auth (github.com/christiaangoossens/hass-oidc-auth),
+    # wired up 2026-09-17. HACS-only, no sidecar container -- deploy steps:
+    #   1. Install HACS itself first if this instance doesn't have it yet
+    #      (HACS is not part of this compose file / not installable via it).
+    #   2. HACS -> search "OpenID Connect for Home Assistant" -> install.
+    #   3. Authelia's client is in stacks/percolator/authelia/config/
+    #      configuration.yml.template (client_id 'homeassistant'). Get the
+    #      plaintext secret from percolator:
+    #        grep '^HOMEASSISTANT_OIDC_CLIENT_SECRET=' \
+    #          /opt/purrbrews/stacks/percolator/authelia/secrets.env.local
+    #   4. On mochaPot, /srv/data/homeassistant/secrets.yaml:
+    #        oidc_client_secret: <the plaintext from step 3>
+    #   5. /srv/data/homeassistant/configuration.yaml:
+    #        auth_oidc:
+    #          client_id: "homeassistant"
+    #          client_secret: !secret oidc_client_secret
+    #          discovery_url: "https://authelia.${DOMAIN}/.well-known/openid-configuration"
+    #          claims:
+    #            username: "preferred_username"
+    #            display_name: "name"
+    #            groups: "groups"
+    #          groups_scope: "groups"
+    #      Keep the default `homeassistant` auth provider in http.auth_providers
+    #      alongside this -- hass-oidc-auth's own docs say so, and it's the
+    #      break-glass login if Authelia is ever down (same reasoning as
+    #      Paperless's and Nextcloud's own local-admin break-glass accounts).
+    #   6. Restart, then Settings -> Devices & Services (or the login page)
+    #      should offer "Log in with Authelia" / "OpenID Connect/SSO".
+    #
+    # DECISION NEEDED, not yet made: this router already sits behind
+    # authelia-forwardauth@file (below), which gates the whole domain at
+    # Traefik before Home Assistant's own login page ever loads. Adding
+    # hass-oidc-auth on top doesn't conflict -- same Authelia session
+    # cookie, so it's normally a no-prompt pass-through -- but it does mean
+    # two independent gates protecting the same app. Leaving both is
+    # defense-in-depth (HA's login page is never exposed to an
+    # unauthenticated request at all); removing the ForwardAuth middleware
+    # here would make hass-oidc-auth the only gate, matching how Nextcloud/
+    # Paperless are set up (OIDC only, no ForwardAuth in front). Not changed
+    # either way as part of this OIDC rollout -- pick one deliberately.
+    #
+    # Local HA login remains available as the break-glass path either way.
+    # Reachable both at
     # https://homeassistant.${DOMAIN} (through Traefik + percolator's
     # Authelia ForwardAuth -- needs mochaPot in FORWARD_AUTH_CLIENTS,
     # done 2026-09-16) and directly at http://${MOCHAPOT_LAN_IP}:8123
@@ -90,10 +132,22 @@ services:
     #   http:
     #     use_x_forwarded_for: true
     #     trusted_proxies:
-    #       - ${MOCHAPOT_LAN_IP}
+    #       - ${PROXY_SUBNET}   # e.g. 172.30.13.0/24, see local.env.example
     #
     # then restart. Same category of gap as the recorder db_url above --
     # config lives on disk, not in compose/env, so it can't be set here.
+    #
+    # CORRECTED 2026-09-17: originally documented as trusting
+    # ${MOCHAPOT_LAN_IP} directly, which is wrong -- Traefik's container is
+    # on mochapot_net (a bridge network), not the host, so a request it
+    # proxies to Home Assistant's host-networked port gets hairpin-NATed and
+    # arrives from Traefik's *container* IP on that bridge, not mochaPot's
+    # LAN IP. Confirmed live: HA kept 400ing on the reverse-proxy check even
+    # with the LAN IP trusted, until the actual source (Traefik's bridge
+    # address) was added. Trust the whole ${PROXY_SUBNET} CIDR instead of a
+    # single container IP -- the IP a freshly recreated Traefik container
+    # gets is not guaranteed to be the same one twice, the subnet is (see
+    # compose.sh, which now pins it on network creation).
     #
     # Recorder retention -- set this BEFORE the sensors arrive
     # (infrastructure.md §9): ESPHome publishes diagnostic entities that
