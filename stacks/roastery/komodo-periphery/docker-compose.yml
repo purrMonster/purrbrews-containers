@@ -24,12 +24,16 @@
 #     .\keys\core.pub next to this file. See ../local.env.example's own
 #     comment on why.
 #
-# CONFIRMED 2026-09-17 (see stacks/sieve/komodo-periphery/docker-compose.yml's
-# header comment for the full story): core.pub alone is NOT enough for first
-# connect -- PERIPHERY_ONBOARDING_KEY below is also required, generated from
-# cellar's Komodo UI. Unlike every other node this one IS templated through
+# See stacks/sieve/komodo-periphery/docker-compose.yml's header comment
+# for the full story, including the 2026-09-17 note on matching the
+# pre-restructure purrbrews-infra repo's exact (working) env var wiring:
+# core.pub alone is NOT enough for first connect --
+# PERIPHERY_ONBOARDING_KEY below is also required, generated from cellar's
+# Komodo UI. Unlike every other node this one IS templated through
 # .env.local (single-line value, no PEM round-trip problem) -- see
-# ../local.env.example.
+# ../local.env.example, which now writes this key unquoted (matching the
+# old repo, and this repo's own sieve/generate-secrets.sh) since quoted
+# storage was traced as the actual cause of a key-parsing failure here.
 services:
   komodo-periphery:
     image: ghcr.io/moghtech/komodo-periphery:2.3.2
@@ -43,12 +47,10 @@ services:
       # One-time bootstrap credential, from .env.local (see this file's
       # header comment) — blank/REPLACE_ME is fine once this node is a
       # registered Server in Komodo.
-      PERIPHERY_ONBOARDING_KEY: ${PERIPHERY_ONBOARDING_KEY}
-      # Works around moghtech/komodo issue #1425 -- see sieve's
-      # komodo-periphery/docker-compose.yml header comment. Periphery
-      # generates the actual key file itself on first successful boot;
-      # nothing to create by hand.
-      PERIPHERY_PRIVATE_KEY: file:/config/keys/periphery.key
+      PERIPHERY_ONBOARDING_KEY: ${PERIPHERY_ONBOARDING_KEY}   # remove
+        # this line entirely (and re-run compose up -d) once roastery
+        # already exists as a Server in Komodo's UI -- it's only needed
+        # for the first-ever connection.
       PERIPHERY_ROOT_DIRECTORY: /etc/komodo
       PERIPHERY_INCLUDE_DISK_MOUNTS: /etc/hostname
     volumes:
