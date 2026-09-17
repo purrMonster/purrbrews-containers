@@ -90,6 +90,38 @@ PIHOLE_DNS_EXTRA_HOSTS=192.168.0.20 roastery
 
 Keep static addresses outside the DHCP range (`.50`–`.250` by default).
 
+## Known allowlist exceptions
+
+Blocklists/gravity live in the data directory, not in this compose file (see the
+table above), so they don't survive in git — this section is the record of what's
+been allowed and why, so a gravity rebuild or fresh bring-up doesn't silently lose it.
+
+**Azure Virtual Desktop / Windows App (added 2026-09-17).** The office VDI client
+(Windows App, connecting to a Cloud PC/AVD) stopped resolving several
+`*.wvd.microsoft.com` hosts on Wi-Fi — confirmed via the client's own
+"check access" screen: `afdfp-rdgateway-r1.wvd.microsoft.com` (gateway) and
+`rdweb.wvd.microsoft.com` (resource discovery) both unreachable, `www.wvd.microsoft.com`
+and `res.cdn.office.net` degraded. Every other required Microsoft endpoint
+(`login.microsoftonline.com`, `graph.microsoft.com`, `aka.ms`, etc.) was fine — this
+is specifically the `wvd.microsoft.com` family and `cdn.office.net`, most likely
+caught by a tracker/telemetry blocklist that doesn't distinguish AVD's own
+infrastructure from Microsoft telemetry hosts.
+
+Fix (on sieve):
+```bash
+docker exec pihole pihole allow --regex '(\.|^)wvd\.microsoft\.com$'
+docker exec pihole pihole allow --regex '(\.|^)cdn\.office\.net$'
+docker exec pihole pihole reloadlists
+```
+Verify with `docker exec pihole pihole query <hostname>` for each of the four
+hostnames above, or re-run the Windows App client's "check access" screen.
+
+Microsoft's full required-FQDN list for this client is wider than just these two —
+see [Required FQDNs and endpoints for Azure Virtual Desktop](https://learn.microsoft.com/en-us/azure/virtual-desktop/required-fqdn-endpoint).
+Only `wvd.microsoft.com` and `cdn.office.net` have actually been seen blocked here;
+allow the rest proactively only if they start failing too, so this list doesn't grow
+into a blanket Microsoft exemption for domains gravity was never actually catching.
+
 ## Caveats
 
 - **No IPv6, anywhere, on purpose.** This LAN doesn't use it. `filter-AAAA`
