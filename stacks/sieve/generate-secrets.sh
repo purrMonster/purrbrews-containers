@@ -140,6 +140,17 @@ log "cloudflared/secrets.env.local"
 prompt_secret "${DIR}/cloudflared/secrets.env.local" TUNNEL_TOKEN \
   "Cloudflare Tunnel token (Zero Trust → Networks → Tunnels → sieve)" "REPLACE_ME"
 
+# ── komodo-periphery ─────────────────────────────────────────────────────────
+log "komodo-periphery/secrets.env.local"
+# One-time bootstrap credential (CONFIRMED 2026-09-17 — see
+# komodo-periphery/docker-compose.yml's own header comment): core.pub alone
+# doesn't register this node as a Server in cellar's Komodo, only an
+# onboarding key from cellar's Komodo UI does, on first connect. Pasted in,
+# never randomly generated — leave blank/REPLACE_ME once sieve shows up as
+# a Server in Komodo's UI, it's not needed again after that.
+prompt_secret "${DIR}/komodo-periphery/secrets.env.local" PERIPHERY_ONBOARDING_KEY \
+  "Komodo onboarding key for 'sieve' (cellar's Komodo UI -> Settings -> Servers/onboarding)" "REPLACE_ME"
+
 # pihole, unbound, netalertx: no secrets.
 
 # ── Summary ───────────────────────────────────────────────────────────────────

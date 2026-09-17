@@ -256,6 +256,24 @@ should actually be on the wall.
   actual sync mechanism — a blocklist change on one does not propagate to
   the other. If that divergence ever matters, it needs its own decision,
   not assumed away here.
+- **`network_mode: host` containers freeze their DNS servers at creation
+  time, forever, until force-recreated.** Found 2026-09-17: Home
+  Assistant's `hass-oidc-auth` discovery request failed with "Name does
+  not resolve" from inside the container even though `dig`/`curl` for the
+  same hostname worked fine on mochaPot's host. Cause: Docker snapshots
+  `/etc/resolv.conf` once into the container at creation — it is not a
+  live view of the host's file, host-network mode or not. This container
+  was created while mochaPot was still on bootstrap DNS
+  (`1.1.1.1`/`9.9.9.9`, per `init/purrbrews-init.env.example`) and never
+  recreated after the host switched to sieve's Pi-hole, so it kept
+  querying public resolvers that don't know this fleet's split-horizon
+  records. Fixed with `./compose.sh homeassistant up -d --force-recreate`
+  (restart alone does not re-snapshot the file). `pihole` and
+  `musicassistant` are `network_mode: host` too and were likely created in
+  the same window — recreate them the same way if either ever fails to
+  resolve something. General rule for this node: any time its upstream DNS
+  server changes, force-recreate every `network_mode: host` container on
+  it.
 - **Kiosk crash recovery is unverified** — see `kiosk/README.md`'s own
   "Known gaps".
 - **Komodo Periphery and Scrutiny collector added 2026-09-16** — see

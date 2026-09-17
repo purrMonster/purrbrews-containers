@@ -113,6 +113,16 @@ set_if_absent "${DIR}/traefik/secrets.env.local" CROWDSEC_BOUNCER_KEY \
 prompt_if_placeholder "${DIR}/traefik/secrets.env.local" CF_DNS_API_TOKEN \
   "Cloudflare API token (Zone → DNS → Edit, this zone only)"
 
+log "komodo-periphery"
+# One-time bootstrap credential (CONFIRMED 2026-09-17 — see
+# komodo-periphery/docker-compose.yml's own header comment): core.pub alone
+# doesn't register this node as a Server in cellar's Komodo, only an
+# onboarding key from cellar's Komodo UI does, on first connect. Pasted in,
+# never randomly generated — leave REPLACE_ME once percolator shows up as
+# a Server in Komodo's UI, it's not needed again after that.
+prompt_if_placeholder "${DIR}/komodo-periphery/secrets.env.local" PERIPHERY_ONBOARDING_KEY \
+  "Komodo onboarding key for 'percolator' (cellar's Komodo UI -> Settings -> Servers/onboarding)"
+
 # ── identity ────────────────────────────────────────────────────────────────
 log "lldap"
 set_if_absent "${DIR}/lldap/secrets.env.local" LLDAP_ADMIN_PASSWORD "$(rand 24)"

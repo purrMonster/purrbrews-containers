@@ -16,9 +16,25 @@ services:
       SHOW_PASSWORD_HINT: "false"
       IP_HEADER: X-Forwarded-For
       # Sign in with Authelia. The master password still encrypts the vault;
-      # SSO only replaces the account login step.
+      # SSO only replaces the account login step -- Vaultwarden has no
+      # equivalent of Bitwarden Enterprise's Key Connector, so there is no
+      # way to remove the master password prompt itself (confirmed
+      # 2026-09-17 against dani-garcia/vaultwarden discussion #6678: "SSO
+      # just decouples authentication from decryption... Vaultwarden
+      # doesn't currently support alternative decryption methods for SSO
+      # users" -- the master password is the client-side vault encryption
+      # key, never sent to or seen by the server, so no auth mechanism can
+      # substitute for it).
+      #
+      # SSO_ONLY=true (set 2026-09-17, was false) disables the plain
+      # email+master-password login path entirely -- every sign-in must go
+      # through Authelia first, no "skip SSO" door left. The master
+      # password prompt still appears AFTER Authelia, to actually unlock
+      # the vault; that part is unavoidable per above. Existing accounts
+      # keep their master password (nothing to reset), they just can no
+      # longer log in without SSO first.
       SSO_ENABLED: "true"
-      SSO_ONLY: "false"
+      SSO_ONLY: "true"
       SSO_SIGNUPS_MATCH_EMAIL: "true"
       SSO_AUTHORITY: https://authelia.${DOMAIN}
       SSO_CLIENT_ID: vaultwarden
