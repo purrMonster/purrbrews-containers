@@ -24,6 +24,14 @@ FLEET = 'name,ip,mac\nsieve,192.168.0.10,x\npercolator,192.168.0.11,x\ncellar,19
 
 
 class DNS(unittest.TestCase):
+    def test_fixed_dhcp_roles_ignore_legacy_env_switch(self):
+        primary = (ROOT / 'stacks/sieve/pihole/docker-compose.yml').read_text()
+        secondary = (ROOT / 'stacks/mochaPot/pihole/docker-compose.yml').read_text()
+        self.assertIn('FTLCONF_dhcp_active: "true"', primary)
+        self.assertIn('FTLCONF_dhcp_active: "false"', secondary)
+        self.assertNotIn('${PIHOLE_DHCP_ACTIVE', primary)
+        self.assertNotIn('${PIHOLE_DHCP_ACTIVE', secondary)
+
     def test_actual_routes(self):
         lines, hosts = dns.records(ROOT, 'example.test', io.StringIO(FLEET))
         for host, ip in [('authelia', 11), ('komodo', 12), ('homeassistant', 13), ('n8n', 14), ('pihole', 10)]:

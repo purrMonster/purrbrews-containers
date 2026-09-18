@@ -33,7 +33,10 @@ services:
       FTLCONF_misc_dnsmasq_lines: ${PIHOLE_DNSMASQ_LINES:?run ./setup-secrets.sh}
 
       # ── DHCP ──────────────────────────────────────────────────────────────
-      FTLCONF_dhcp_active: ${PIHOLE_DHCP_ACTIVE:-false}
+      # Sieve is the LAN's sole DHCP server. Keep this role in Compose so an
+      # old .env.local value or persisted UI setting cannot disable it on rebuild.
+      # DHCP must remain disabled on both routers and on mochaPot.
+      FTLCONF_dhcp_active: "true"
       FTLCONF_dhcp_start: ${PIHOLE_DHCP_START}
       FTLCONF_dhcp_end: ${PIHOLE_DHCP_END}
       FTLCONF_dhcp_router: ${GATEWAY}

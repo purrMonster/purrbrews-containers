@@ -37,8 +37,7 @@ if not (start in network and end in network and gateway in network and start <= 
     raise SystemExit('Invalid DHCP range or gateway; DHCP remains unchanged.')
 if start <= gateway <= end or start == network.network_address or end == network.broadcast_address:
     raise SystemExit('DHCP range includes gateway/network/broadcast; refusing activation.')
-helper['update_env'](path, {'PIHOLE_DHCP_ACTIVE': 'true'})
-print(f'Enabling IPv4 DHCP: {start}–{end}; gateway {gateway}')
+print(f'Compose enables IPv4 DHCP: {start}–{end}; gateway {gateway}')
 PY
 
 bash "$DIR/compose.sh" pihole config --quiet
