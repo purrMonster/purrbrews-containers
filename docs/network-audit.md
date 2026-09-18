@@ -238,3 +238,15 @@ paths without printing secret values.
 cd /opt/purrbrews/stacks/cellar
 bash compose.sh komodo up -d --no-deps --force-recreate komodo-core
 ```
+
+## Confirmed DHCP outage
+
+The owner confirmed DHCP is disabled on all routers/switches and network
+isolation is off. Pi-hole's runtime `dhcp.active` is also false; sieve's firewall
+already permits UDP 67. There is therefore no identified DHCP service on the
+intended flat LAN. This explains lease acquisition/renewal failures, but does
+not prove every Wi-Fi association or work-VPN failure has the same cause.
+`stacks/sieve/enable-dhcp.sh` provides the explicit Git-delivered handover.
+Activation and a client lease test remain necessary. Both Pi-holes currently
+resolve `mail.tcs.com` successfully; test the office laptop again after DHCP
+recovery and capture exact Azure hostnames if failures persist.
