@@ -36,8 +36,8 @@ laptop).
 
 - **Chromium auto-updates are disabled** (`--check-for-update-interval`
   pinned to a year) but the *package* itself isn't pinned — `apt upgrade`
-  still moves it. Diun doesn't watch host packages, only container images,
-  so there's no update-awareness for this specific piece of the fleet.
+  still moves it. Container image monitoring does not cover host packages,
+  so this component needs separate package update monitoring.
   Revisit if that turns out to matter.
 - **No screen-off/wake schedule configured.** The x360's display stays on
   continuously as installed here — reasonable for a wall dashboard,

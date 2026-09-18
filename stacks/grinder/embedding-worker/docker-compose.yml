@@ -12,8 +12,7 @@ services:
     # name (http://embedding-worker:8000/embed). Not meant to be reached
     # from the LAN at all.
     restart: unless-stopped
-    # Locally built, not pulled -- same freshness caveat this fleet
-    # already has for cellar's Caddy image: Diun watches image TAGS, not
+    # Locally built, not pulled: registry image monitoring cannot track
     # what a local Dockerfile's pip install happened to pull in at build
     # time. Re-run `docker compose build --no-cache embedding-worker`
     # periodically by hand, or pin requirements.txt harder if drift here

@@ -68,8 +68,7 @@ fi
 #   restic -r "$REPO" backup /mnt/sieve-data        --tag sieve      --host sieve
 #   restic -r "$REPO" backup /mnt/mochapot-data     --tag mochapot   --host mochapot
 #
-# cellar's own /srv/data (Komodo's mongo, Scrutiny's config/influxdb, Diun's
-# state) is worth including too, once this node has run for a while:
+# cellar's own /srv/data (Komodo's mongo, Scrutiny's config/influxdb) is worth including too, once this node has run for a while:
 #
 #   restic -r "$REPO" backup /srv/data --tag cellar --host cellar
 # -----------------------------------------------------------------------
