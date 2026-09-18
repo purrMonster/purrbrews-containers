@@ -44,6 +44,11 @@ def main():
             {**payload, 'type': 'allow', 'kind': 'regex'})
     else:
         api('/domains/allow/regex', 'POST', {**payload, 'domain': PATTERN})
+    # Some FTL versions retain the source entry when changing list type.
+    for rule in api('/domains/deny/regex')['domains']:
+        if rule['domain'] == PATTERN and rule['enabled']:
+            api('/domains/deny/regex/' + encoded, 'PUT',
+                {**payload, 'enabled': False})
     rules = api('/domains/allow/regex')['domains']
     if not any(r['domain'] == PATTERN and r['enabled'] and
                set(groups).issubset(r['groups']) for r in rules):
