@@ -35,7 +35,7 @@ APP_DIR="${DIR}/${APP}"
 DOCKER=(docker); [[ $EUID -eq 0 ]] || DOCKER=(sudo docker)
 
 # cellar_net — every containerized app on this stack joins it (Scrutiny,
-# Diun, Komodo's three services, Samba, and now Traefik — added
+# Komodo's three services, Samba, and now Traefik — added
 # 2026-09-16). Same idempotent-create pattern as every other node's
 # compose.sh. An app that needs to reach another app on cellar by
 # container name doesn't need a compose.sh change to get it, just a

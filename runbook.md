@@ -101,7 +101,7 @@ placement (§4), not migrated wholesale from the pre-restructure
 `purrBrews-infra` build. Each node's own README states this plainly and lists
 what changed. Summary here is cross-cutting decisions only.
 
-**cellar** (192.168.0.12) — restic, Samba/NFS, Scrutiny hub, Diun, Komodo Core
+**cellar** (192.168.0.12) — restic, Samba/NFS, Scrutiny hub, Komodo Core
 + Mongo:
 
 - **restic replaces `backup-mirror/` outright**, not just in name. The
@@ -151,8 +151,8 @@ WebUI, Karakeep, FitTrackee, Traccar, ESPHome dashboard, Speedtest Tracker:
 - **`embedding-worker` is custom-built, not a pulled image** — no published
   image exists for this project's specific "small CPU embedding API n8n
   calls" shape, so it's a small FastAPI + sentence-transformers service built
-  from a `Dockerfile` in this repo. Diun can't track its freshness the normal
-  way (it watches tags, not what `pip install` pulled at build time) — flagged
+  from a `Dockerfile` in this repo. Registry image monitoring cannot track what
+  `pip install` pulled into this local build — flagged
   in the node's own README, not solved here.
 - **Every app gets its own dedicated Postgres** where it needs one
   (`postgres-vector` for the embedding pipeline, `postgres-fittrackee` for
