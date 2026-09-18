@@ -207,9 +207,9 @@ Cloudflare again.
 
 ## Gotchas
 
-- **Never two DHCP servers.** Keep `PIHOLE_DHCP_ACTIVE=false` until the router's DHCP
-  server is off. Then leave the router's DHCP configured but disabled, as the
-  break-glass switch.
+- **Never two DHCP servers.** Sieve always enables DHCP in Compose. Disable DHCP
+  on every router before starting Pi-hole. Router DHCP is a break-glass option
+  only while sieve's Pi-hole is stopped.
 - **sieve itself uses public DNS** (`BOOTSTRAP_DNS` from init), not its own Pi-hole.
   That way a broken Pi-hole can't stop sieve pulling the image that fixes it.
 - **Don't run `generate-secrets.sh` or `setup-secrets.sh` with sudo.** They call sudo
