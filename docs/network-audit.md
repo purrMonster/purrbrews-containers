@@ -250,3 +250,13 @@ not prove every Wi-Fi association or work-VPN failure has the same cause.
 Activation and a client lease test remain necessary. Both Pi-holes currently
 resolve `mail.tcs.com` successfully; test the office laptop again after DHCP
 recovery and capture exact Azure hostnames if failures persist.
+
+## Permanent DHCP role configuration
+
+At the owner's request, sieve now fixes `FTLCONF_dhcp_active: "true"` directly
+in Compose; mochaPot fixes it to `"false"`. This overrides persisted Pi-hole
+settings and ignores legacy `PIHOLE_DHCP_ACTIVE=false` values in node-local
+env files. Every deployment of sieve's Pi-hole will therefore enable DHCP.
+Routers must remain DHCP-disabled. Lease range, gateway and lease duration
+remain configurable in the node's env file. Recreate the primary Pi-hole once
+to activate the new Compose setting; subsequent redeployments retain it.
