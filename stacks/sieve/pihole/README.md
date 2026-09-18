@@ -150,3 +150,21 @@ Pi-hole with the node's compose wrapper. A restart alone does not update its
 environment. Keep NODE_IPS, DOMAIN and PIHOLE_DNS_EXTRA_HOSTS consistent on both
 nodes. See [the network audit](../../../docs/network-audit.md) for rollout order
 and checks; verify the secondary from another LAN machine before advertising it.
+
+## Activate DHCP after router handover
+
+The default remains off so provisioning cannot introduce a competing DHCP server.
+After disabling DHCP on every router/other server on the LAN, run as barista:
+
+```sh
+bash /opt/purrbrews/stacks/sieve/enable-dhcp.sh --routers-dhcp-disabled
+```
+
+This backs up node-local settings, refreshes DNS records and the advertised DNS
+servers, validates the IPv4 lease range, enables DHCP in `.env.local`, recreates
+Pi-hole and checks both its active setting and UDP port 67. Changes to the
+script travel via Git; `.env.local` remains generated node-local configuration.
+Firewall port 67 must already be allowed by the node's tracked firewall script.
+Reconnect one affected client first and confirm a usable lease before renewing
+everything. DHCP cannot cross a separate routed/isolated IoT subnet without a
+relay or a DHCP service on that subnet.
