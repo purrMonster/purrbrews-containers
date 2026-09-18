@@ -93,35 +93,31 @@ Keep static addresses outside the DHCP range (`.50`–`.250` by default).
 
 ## Known allowlist exceptions
 
-Blocklists/gravity live in the data directory, not in this compose file (see the
-table above), so they don't survive in git — this section is the record of what's
-been allowed and why, so a gravity rebuild or fresh bring-up doesn't silently lose it.
+Blocklists and domain rules live in the persistent data directory. The Git-tracked
+`allow-wvd.py` reconciles the approved Windows App exception through the local
+Pi-hole API. Run on sieve after pulling the repository:
 
-**Azure Virtual Desktop / Windows App (added 2026-09-17).** The office VDI client
-(Windows App, connecting to a Cloud PC/AVD) stopped resolving several
-`*.wvd.microsoft.com` hosts on Wi-Fi — confirmed via the client's own
-"check access" screen: `afdfp-rdgateway-r1.wvd.microsoft.com` (gateway) and
-`rdweb.wvd.microsoft.com` (resource discovery) both unreachable, `www.wvd.microsoft.com`
-and `res.cdn.office.net` degraded. Every other required Microsoft endpoint
-(`login.microsoftonline.com`, `graph.microsoft.com`, `aka.ms`, etc.) was fine — this
-is specifically the `wvd.microsoft.com` family and `cdn.office.net`, most likely
-caught by a tracker/telemetry blocklist that doesn't distinguish AVD's own
-infrastructure from Microsoft telemetry hosts.
-
-Fix (on sieve):
-```bash
-docker exec pihole pihole allow --regex '(\.|^)wvd\.microsoft\.com$'
-docker exec pihole pihole allow --regex '(\.|^)cdn\.office\.net$'
-docker exec pihole pihole reloadlists
+```sh
+python3 /opt/purrbrews/stacks/sieve/pihole/allow-wvd.py
 ```
-Verify with `docker exec pihole pihole query <hostname>` for each of the four
-hostnames above, or re-run the Windows App client's "check access" screen.
 
-Microsoft's full required-FQDN list for this client is wider than just these two —
-see [Required FQDNs and endpoints for Azure Virtual Desktop](https://learn.microsoft.com/en-us/azure/virtual-desktop/required-fqdn-endpoint).
-Only `wvd.microsoft.com` and `cdn.office.net` have actually been seen blocked here;
-allow the rest proactively only if they start failing too, so this list doesn't grow
-into a blanket Microsoft exemption for domains gravity was never actually catching.
+It converts the known WVD deny regex into an enabled allow regex, preserves its
+group assignments, and verifies the result. It can be rerun safely. The database
+survives container recreation; rerun this script if rebuilding with an empty data
+directory. The script uses sieve's loopback-only API access from the host; it does
+not change API authentication or firewall settings.
+
+**Audit finding (2026-09-18):** `wvd.microsoft.com` and `cdn.office.net` were
+explicitly configured as deny regexes, despite the previous instructions calling
+them allowlist exceptions. Individual exact allows only covered some hostnames.
+The WVD family is now managed by the script. The `cdn.office.net` deny rule and
+`events.data.microsoft.com` telemetry rule remain separate review items.
+
+Microsoft documents WVD as service traffic and Office CDN as Windows Desktop
+client updates in its [required endpoint list](https://learn.microsoft.com/en-us/azure/virtual-desktop/required-fqdn-endpoint).
+Do not use the old `pihole allow --regex` instructions. Pi-hole's documented regex
+allow command is `pihole --allow-regex`; verify the resulting list type after any
+manual change. Do not blanket-allow Microsoft or Zscaler domains without evidence.
 
 ## Caveats
 
