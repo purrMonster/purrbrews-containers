@@ -35,16 +35,26 @@ APP_DIR="${DIR}/${APP}"
 DOCKER=(docker); [[ $EUID -eq 0 ]] || DOCKER=(sudo docker)
 
 # cellar_net — every containerized app on this stack joins it (Scrutiny,
-# Diun, Komodo's three services, Samba, and now Traefik — added
+# Komodo's three services, Samba, and now Traefik — added
 # 2026-09-16). Same idempotent-create pattern as every other node's
 # compose.sh. An app that needs to reach another app on cellar by
 # container name doesn't need a compose.sh change to get it, just a
 # `networks:` line in its own docker-compose.yml. restic and NFS are not
 # containers and never touch this network — see their own directories.
-"${DOCKER[@]}" network inspect cellar_net >/dev/null 2>&1 || "${DOCKER[@]}" network create cellar_net >/dev/null
 
 ENV_ARGS=()
 [[ -f "${DIR}/.env.local" ]] && ENV_ARGS+=(--env-file "${DIR}/.env.local")
 [[ -f "${APP_DIR}/secrets.env.local" ]] && ENV_ARGS+=(--env-file "${APP_DIR}/secrets.env.local")
+
+# Validate the effective config, including Compose precedence and app secrets.
+# Print only offending field paths: config output can contain credentials.
+case "${1:-}" in
+  up|create|start|restart)
+    "${DOCKER[@]}" compose --project-directory "$APP_DIR" -f "${APP_DIR}/docker-compose.yml" "${ENV_ARGS[@]}" config --format json \
+      | python3 "$DIR/../_lib/check-compose-config.py"
+    ;;
+esac
+
+"${DOCKER[@]}" network inspect cellar_net >/dev/null 2>&1 || "${DOCKER[@]}" network create cellar_net >/dev/null
 
 exec "${DOCKER[@]}" compose --project-directory "$APP_DIR" -f "${APP_DIR}/docker-compose.yml" "${ENV_ARGS[@]}" "$@"

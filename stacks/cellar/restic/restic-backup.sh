@@ -68,8 +68,7 @@ fi
 #   restic -r "$REPO" backup /mnt/sieve-data        --tag sieve      --host sieve
 #   restic -r "$REPO" backup /mnt/mochapot-data     --tag mochapot   --host mochapot
 #
-# cellar's own /srv/data (Komodo's mongo, Scrutiny's config/influxdb, Diun's
-# state) is worth including too, once this node has run for a while:
+# cellar's own /srv/data (Komodo's mongo, Scrutiny's config/influxdb) is worth including too, once this node has run for a while:
 #
 #   restic -r "$REPO" backup /srv/data --tag cellar --host cellar
 # -----------------------------------------------------------------------
@@ -77,8 +76,8 @@ fi
 SOURCES_CONFIGURED=0   # flip to 1 once at least one restic backup line above is live
 
 if [[ "$SOURCES_CONFIGURED" -eq 0 ]]; then
-  log "no sources configured yet -- see the Sources section in this script"
-  exit 0
+  log "FAILED: no sources configured -- no backup was taken; see the Sources section"
+  exit 1
 fi
 
 log "backup run starting"

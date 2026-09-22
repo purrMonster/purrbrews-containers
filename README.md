@@ -65,7 +65,7 @@ So far: [`sieve`](stacks/sieve/README.md) — Pi-hole (DNS + DHCP), Unbound, clo
 ntfy, Gatus, NetAlertX; [`percolator`](stacks/percolator/README.md) — Traefik, CrowdSec,
 LLDAP, Authelia, Vaultwarden, Nextcloud, Immich, Paperless-ngx, Mealie, Vikunja,
 Actual Budget, FreshRSS, Homepage; [`cellar`](stacks/cellar/README.md) — Traefik, restic,
-Samba/NFS, Scrutiny, Diun, Komodo Core + Mongo; [`mochaPot`](stacks/mochaPot/README.md) —
+Samba/NFS, Scrutiny, Komodo Core + Mongo; [`mochaPot`](stacks/mochaPot/README.md) —
 Traefik, Home Assistant, Music Assistant, Pi-hole (secondary), kiosk browser;
 [`grinder`](stacks/grinder/README.md) — Traefik, n8n, embedding worker, Open WebUI,
 Karakeep, FitTrackee, Traccar, ESPHome dashboard, Speedtest Tracker.
@@ -85,6 +85,15 @@ stacks/<node>/firewall.sh                the node's UFW rules, as code
 stacks/<node>/local.env.example          node-specific settings template
 runbook.md                               dated design decisions: the why, not just the what
 ```
+
+## Current network audit
+
+**Delivery rule:** commit and push changes to Git, then pull them on the nodes.
+Do not copy configuration or code directly to servers. Generated configuration
+and secrets remain local to each node.
+
+See [the September 2026 audit](docs/network-audit.md) for verified DNS/IPv6
+findings, repository fixes, remaining live failures, and the staged rollout.
 
 ## Getting started
 

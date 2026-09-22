@@ -13,6 +13,9 @@ services:
     # postgres-homeassistant below for how its own database is reached
     # instead (127.0.0.1, loopback).
     network_mode: host
+    dns:
+      - ${DNS_PRIMARY:-192.168.0.10}
+      - ${DNS_SECONDARY:-192.168.0.13}
     # GOTCHA (found 2026-09-17): Docker does NOT live-bind-mount the host's
     # /etc/resolv.conf into a container, even under network_mode: host --
     # it snapshots it ONCE, at container creation, into a container-private

@@ -336,7 +336,7 @@ step_apt() {
   apt-get "${apt_opts[@]}" install --no-install-recommends \
     ca-certificates curl gnupg git sudo openssl openssh-server \
     vim htop tmux jq rsync bash-completion \
-    bind9-dnsutils iputils-ping iproute2 net-tools ethtool \
+    python3 bind9-dnsutils iputils-ping iproute2 net-tools ethtool \
     network-manager systemd-timesyncd \
     unattended-upgrades apt-listchanges \
     ufw gettext-base
@@ -769,7 +769,7 @@ step_network() {
   [[ "$new_con" == "$final_con" ]] && { nmcli connection delete "$final_con" &>/dev/null || true; }
   nmcli connection add type ethernet ifname "$iface" con-name "$new_con" \
     ipv4.method manual ipv4.addresses "$addr" ipv4.gateway "$GATEWAY" ipv4.dns "$dns" \
-    ipv4.ignore-auto-dns yes ipv6.method auto \
+    ipv4.ignore-auto-dns yes ipv6.method disabled \
     802-3-ethernet.cloned-mac-address "$mac_arg" \
     connection.autoconnect yes connection.autoconnect-priority 100 >/dev/null
 

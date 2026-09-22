@@ -21,7 +21,6 @@ pretty hostnames instead of bare LAN IP:port:
 | [restic](#restic) | Versioned, encrypted, deduplicated backups — the fleet's actual backup target |
 | [smb](#smb) / [nfs](#nfs) | File shares — household + app archives |
 | [scrutiny](#scrutiny) | S.M.A.R.T. disk health, **hub** for the whole fleet |
-| [diun](#diun) | Docker image update notifications for cellar's own containers |
 | [komodo](#komodo) | Fleet-wide container management — **Core + Mongo**, plus cellar's own agent |
 | [traefik](#traefik) | Reverse proxy + real TLS for komodo/scrutiny, with a native-login backdoor |
 
@@ -48,8 +47,8 @@ with the apps that need them). Nothing below tries to recreate them here.
 
 Every node in this rebuild now runs its own Traefik, not a shared one —
 cellar's fronts `komodo` and `scrutiny` only (the two apps here with an
-HTTP UI worth a pretty hostname; `smb`/`nfs` aren't HTTP, `diun` has no
-UI, `restic` isn't a container). Real TLS via Cloudflare DNS-01, same
+HTTP UI worth a pretty hostname; `smb`/`nfs` aren't HTTP, and
+`restic` isn't a container). Real TLS via Cloudflare DNS-01, same
 mechanism the pre-restructure fleet's Traefik/Caddy instances all used
 (no port 80 exposed to the internet at all — CGNAT, no port forward — so
 DNS-01 is the only option regardless).
@@ -87,7 +86,7 @@ order below follows what unblocks other nodes soonest: **komodo first**
 (so cellar shows up as a Server before any other node's Periphery agent
 needs to connect to it), then **scrutiny** (so other nodes' future
 collectors have somewhere to push to), then **traefik** (so both get real
-hostnames), then smb/nfs/diun/restic in any order. Run `sudo
+hostnames), then smb/nfs/restic in any order. Run `sudo
 ./firewall.sh` (added 2026-09-16) once every app that needs a rule is up
 — it opens 80/443 (traefik), 9120 (komodo), and 8080 (scrutiny) to the
 LAN and nothing else.
@@ -167,21 +166,6 @@ migrated into this repo and actually need to.
 ```sh
 sudo ./nfs/setup-nfs.sh
 ```
-
-### diun
-
-Watches cellar's own Docker containers for image updates. No setup beyond
-bring-up — nothing to configure yet.
-
-```sh
-sudo mkdir -p /srv/data/diun
-./compose.sh diun up -d
-docker logs diun --tail 20
-```
-
-No notification channel wired up yet (same open item the pre-restructure
-fleet carried — see "Known gaps"); check `docker logs diun` for what it
-finds in the meantime.
 
 ### traefik
 
@@ -364,7 +348,7 @@ on the machine that died is not a backup."
 - `.gitignore` — `.env.local`, `*/secrets.env.local`, rendered
   `*/config/*` (except tracked `.template` sources), restic's local cache,
   and the rendered `rclone.conf` are never committed.
-- `komodo/`, `scrutiny/`, `diun/`, `smb/` — one `docker-compose.yml` each,
+- `komodo/`, `scrutiny/`, `smb/` — one `docker-compose.yml` each,
   all joined to the external `cellar_net` network `compose.sh` creates.
   `komodo`/`scrutiny` also carry Traefik labels.
 - `nfs/` — host-native setup script, no compose file.
@@ -410,14 +394,12 @@ on the machine that died is not a backup."
   snapshots` for real.
 - **roastery mirror and Drive sync are unwired.** See restic's
   bring-up section above.
-- **Diun has no notification channel.** Runs, watches, has nowhere to
-  send what it finds. `docker logs diun` is the only signal today.
 - **`smb/` is documented above but doesn't exist in this repo yet.** This
   README's "smb" section and app table both describe it as buildable
   (`./compose.sh smb up -d`, a `barista` user, a password in
   `smb/secrets.env.local`), but no `stacks/cellar/smb/docker-compose.yml`
   has actually been written — confirmed missing during the 2026-09-16
-  repass (`diun`/`komodo`/`scrutiny`/`traefik` all exist; `smb` does not).
+  repass (`komodo`/`scrutiny`/`traefik` all exist; `smb` does not).
   Needs a decision on share paths/permissions before it can be built, not
   something to fill in with a guess — flagged, not fixed, in this pass.
 - **UID/GID between smb and nfs not reconciled against a real consumer.**

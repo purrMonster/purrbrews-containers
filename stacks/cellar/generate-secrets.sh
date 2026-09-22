@@ -7,7 +7,7 @@
 # .gitignore). Only the per-app section below differs per node.
 #
 # Rebuilt from scratch 2026-09-16 for cellar's post-restructure app list
-# (restic, Samba/NFS, Scrutiny hub, Diun, Komodo Core + Mongo — see
+# (restic, Samba/NFS, Scrutiny hub, Komodo Core + Mongo — see
 # README.md). Nothing here carries over from the pre-restructure cellar:
 # that build's vaultwarden/caddy secrets are gone because those apps moved
 # to percolator, not because anything here failed.
@@ -129,11 +129,10 @@ prompt_if_placeholder "${DIR}/restic/secrets.env.local" "RCLONE_DRIVE_CLIENT_ID"
 prompt_if_placeholder "${DIR}/restic/secrets.env.local" "RCLONE_DRIVE_CLIENT_SECRET" \
   "rclone Google Drive OAuth client secret" "REPLACE_ME_drive_client_secret" --secret
 
-# scrutiny, diun -- no secrets needed. Scrutiny (as the hub, running here
+# scrutiny -- no secrets needed. Scrutiny (as the hub, running here
 # for the first time) has no auth of its own to protect -- see README
 # "Known gaps", same zero-auth reality the pre-restructure silo build
-# already found and accepted for the LAN. Diun has no web UI or API
-# surface whatsoever, so there's nothing to log into either.
+# already found and accepted for the LAN.
 
 # nfs -- host-native (see nfs/README section), not a container, has no
 # secrets.env.local -- same reasoning as every host-native piece of this

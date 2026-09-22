@@ -133,8 +133,7 @@ this is a small FastAPI wrapper around `sentence-transformers`, built
 locally rather than pulled. Not reachable from the LAN at all, only from
 `n8n` over `grinder_net` (`http://embedding-worker:8000/embed`, POST
 `{"texts": [...]}`, gets back normalized vectors). See the compose file's
-own comment on why this means Diun can't track its freshness the normal
-way — rebuild by hand periodically.
+own comment on why registry image monitoring cannot track local build dependencies — rebuild by hand periodically.
 
 ### openwebui
 
