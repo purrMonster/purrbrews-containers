@@ -1,0 +1,33 @@
+# Native Windows Traefik. Start using ../start.ps1 so relative paths resolve.
+entryPoints:
+  web:
+    address: ':80'
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+  websecure:
+    address: ':443'
+    forwardedHeaders:
+      insecure: false
+    transport:
+      respondingTimeouts:
+        writeTimeout: 0s
+
+providers:
+  file:
+    directory: './config/dynamic'
+    watch: true
+
+certificatesResolvers:
+  cloudflare:
+    acme:
+      email: '${TRAEFIK_ACME_EMAIL}'
+      storage: './data/acme.json'
+      dnsChallenge:
+        provider: cloudflare
+        resolvers: ['1.1.1.1:53', '1.0.0.1:53']
+
+log:
+  level: INFO

@@ -1,0 +1,5 @@
+/config/traefik.yml
+/config/dynamic/*.yml
+/data/
+/traefik.exe
+/secrets.env.local
