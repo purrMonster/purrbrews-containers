@@ -1,7 +1,8 @@
 # Rendered by ../../render-configs.sh — edit the .template.
 #
 # Policy: ${AUTH_POLICY} for human access and OIDC (.env.local AUTH_POLICY).
-# Ollama service accounts use an explicit one_factor rule for API requests.
+# Ollama and Nextcloud service accounts use explicit one_factor rules.
+# Nextcloud bot accounts are denied access to other ForwardAuth/OIDC apps.
 # Move human access to two-factor after everyone has enrolled.
 #
 # Adding an OIDC client: add a block here, add `oidc_client <app> <PREFIX>` to
@@ -36,6 +37,15 @@ identity_validation:
 access_control:
   default_policy: deny
   rules:
+    # Nextcloud bots: allow this host, then deny all other protected hosts.
+    # Keep these before Ollama/admin/household rules, even for overlapping groups.
+    - domain: 'nextcloud.${DOMAIN}'
+      subject: ['group:nextcloud_bot_accounts']
+      policy: one_factor
+    - domain_regex: '^.*$'
+      subject: ['group:nextcloud_bot_accounts']
+      policy: deny
+
     # Dedicated LLDAP service accounts: password authentication for Ollama only.
     - domain: 'ollama.${DOMAIN}'
       subject:
@@ -99,11 +109,22 @@ identity_providers:
     jwks:
       # One line with literal \n, un-escaped by YAML's double quotes.
       - key: "${AUTHELIA_OIDC_JWK_PRIVATE_KEY}"
-    # Only members of the fleet's groups may sign in to any app.
+    # Nextcloud alone accepts bot accounts; other clients deny this group.
     authorization_policies:
+      nextcloud:
+        default_policy: deny
+        rules:
+          - policy: one_factor
+            subject: ['group:nextcloud_bot_accounts']
+          - policy: ${AUTH_POLICY}
+            subject:
+              - 'group:${LLDAP_ADMIN_GROUP}'
+              - 'group:${LLDAP_HOUSEHOLD_GROUP}'
       household:
         default_policy: deny
         rules:
+          - policy: deny
+            subject: ['group:nextcloud_bot_accounts']
           - policy: ${AUTH_POLICY}
             subject:
               - 'group:${LLDAP_ADMIN_GROUP}'
@@ -113,7 +134,7 @@ identity_providers:
         client_name: 'Nextcloud'
         client_secret: '${NEXTCLOUD_OIDC_CLIENT_SECRET_HASH}'
         public: false
-        authorization_policy: 'household'
+        authorization_policy: 'nextcloud'
         require_pkce: true
         pkce_challenge_method: 'S256'
         redirect_uris:
