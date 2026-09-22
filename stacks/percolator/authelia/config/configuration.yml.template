@@ -1,8 +1,8 @@
 # Rendered by ../../render-configs.sh — edit the .template.
 #
-# Policy: ${AUTH_POLICY} everywhere (.env.local AUTH_POLICY). Every OIDC client
-# and access-control rule below uses it, so moving the household to two-factor
-# is one edit — after everyone has enrolled, or they are locked out.
+# Policy: ${AUTH_POLICY} for human access and OIDC (.env.local AUTH_POLICY).
+# Ollama service accounts use an explicit one_factor rule for API requests.
+# Move human access to two-factor after everyone has enrolled.
 #
 # Adding an OIDC client: add a block here, add `oidc_client <app> <PREFIX>` to
 # generate-secrets.sh, re-run it and render-configs.sh, recreate authelia.
@@ -36,6 +36,12 @@ identity_validation:
 access_control:
   default_policy: deny
   rules:
+    # Dedicated LLDAP service accounts: password authentication for Ollama only.
+    - domain: 'ollama.${DOMAIN}'
+      subject:
+        - 'group:ollama_api_group'
+      policy: one_factor
+
     # Rules are checked in order, and a rule whose subject doesn't match is
     # skipped, not final. So admin-only hosts need two rules: allow admins,
     # then deny everyone else, or the household catch-all below lets them in.
@@ -51,6 +57,8 @@ access_control:
         # cellar's admin apps, added 2026-09-16 alongside its own Traefik.
         - 'komodo.${DOMAIN}'
         - 'scrutiny.${DOMAIN}'
+        # Other Ollama clients require an admin login.
+        - 'ollama.${DOMAIN}'
       subject: ['group:${LLDAP_ADMIN_GROUP}']
       policy: ${AUTH_POLICY}
     - domain: *admin_hosts

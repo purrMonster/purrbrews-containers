@@ -17,6 +17,7 @@ init/purrbrews-init.env
 init/authorized_keys
 bootstrap/.env
 bootstrap/data/
+stacks/roastery/immich-ml/model-cache/
 
 # Generated on each node by init/purrbrews-init.sh
 /.env
