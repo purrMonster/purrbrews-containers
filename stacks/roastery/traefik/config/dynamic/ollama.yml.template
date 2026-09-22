@@ -1,0 +1,31 @@
+http:
+  middlewares:
+    ollama-lan:
+      ipAllowList:
+        sourceRange:
+          - '${LAN_CIDR}'
+          - '127.0.0.1/32'
+          - '::1/128'
+    authelia:
+      forwardAuth:
+        address: 'http://${PERCOLATOR_LAN_IP}:9091/api/authz/forward-auth'
+        trustForwardHeader: true
+        maxResponseBodySize: 8192
+        authResponseHeaders:
+          - Remote-User
+          - Remote-Groups
+          - Remote-Email
+          - Remote-Name
+  routers:
+    ollama:
+      rule: 'Host(`ollama.${DOMAIN}`)'
+      entryPoints: [websecure]
+      middlewares: [ollama-lan, authelia]
+      service: ollama
+      tls:
+        certResolver: cloudflare
+  services:
+    ollama:
+      loadBalancer:
+        servers:
+          - url: 'http://127.0.0.1:11434'

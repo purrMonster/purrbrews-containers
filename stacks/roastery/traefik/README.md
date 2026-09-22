@@ -61,15 +61,23 @@ Traefik executable from your actual LAN CIDR. Port 11434 needs no inbound rule.
 Point Pi-hole's ollama.<your-domain> record to roastery's fixed LAN IP.
 Do not add a public tunnel or router port forwarding for this LAN-only setup.
 
-Provide the Cloudflare DNS API token to the Traefik process, for example via
-CF_DNS_API_TOKEN_FILE pointing to a file outside the repo readable only by your
-Windows account. The token needs the same DNS challenge permissions as your
-existing Traefik deployments. From stacks/roastery:
+Edit traefik/secrets.env.local and replace REPLACE_ME with your Cloudflare DNS
+API token. A placeholder file is included; for a fresh git checkout, copy
+secrets.env.example to secrets.env.local first. The local file is gitignored.
+The token needs the same DNS challenge permissions as your existing deployments.
+Alternatively use CF_DNS_API_TOKEN_FILE with an absolute path to a token file.
+From stacks/roastery:
 
 ```powershell
-$env:CF_DNS_API_TOKEN_FILE = 'C:\path\outside-repo\cloudflare-token.txt'
 .\traefik\start.ps1
 ```
+
+start.ps1 automatically reads secrets.env.local beside the script, regardless
+of the current directory. Use -EnvFile to specify another file. Assignments
+override matching process environment variables. Blank lines and full-line
+comments are supported; optional enclosing quotes are stripped. Values are
+literal: no variable expansion, command execution, or inline comment parsing.
+DOMAIN and other template settings still belong in roastery/.env.local.
 
 This runs in the foreground; keep it running. No Windows service or scheduled
 task is installed. Roastery must be awake and Ollama running.
