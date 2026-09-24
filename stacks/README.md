@@ -27,11 +27,11 @@ stacks/<node>/
 | `cellar` | Storage/ops: backups, file shares, monitoring | [`cellar/`](cellar/README.md) |
 | `mochaPot` | Home automation, media, kiosk display | [`mochaPot/`](mochaPot/README.md) |
 | `grinder` | AI/automation: n8n, embeddings, tracking apps | [`grinder/`](grinder/README.md) |
-| `roastery`* | Windows/Docker Desktop: GPU-accelerated Immich ML worker | [`roastery/`](roastery/README.md) |
+| `roastery`* | Windows/Docker Desktop: GPU-accelerated Immich ML worker, Ollama | [`roastery/`](roastery/) |
 
 \* Not a Debian fleet node — no `init/purrbrews-init.sh` provisioning, no
-`$DATA_DIR`, no Traefik, no `firewall.sh`. Its own README explains what's
-different and why.
+`$DATA_DIR`, no `firewall.sh`. Its Traefik is a native Windows binary that
+fronts Ollama only, not a container; see [`roastery/traefik/`](roastery/traefik/README.md).
 
 ## Ingress: a Traefik on every node
 
