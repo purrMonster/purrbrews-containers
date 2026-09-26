@@ -690,9 +690,12 @@ step_firewall() {
         || { rm -f "$tmp"; die "ufw-docker ${UFW_DOCKER_VERSION} checksum mismatch — not installing."; }
       install -m 755 "$tmp" "$bin"; rm -f "$tmp"
     fi
-    if ! ufw-docker check >/dev/null 2>&1; then
-      ufw-docker install
-      ufw reload >/dev/null
+    # --docker-subnets: only Docker's own networks skip the rules. Without it
+    # ufw-docker lets every private address through, i.e. the whole LAN.
+    # Each node's firewall.sh re-runs this once its networks exist.
+    if ! ufw-docker check --docker-subnets >/dev/null 2>&1; then
+      ufw-docker install --docker-subnets
+      systemctl restart ufw
     fi
     ok "UFW on (SSH from ${LAN_CIDR}); ufw-docker ${UFW_DOCKER_VERSION} blocks published ports until 'ufw-docker allow'"
   else

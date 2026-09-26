@@ -62,6 +62,9 @@ n8n's, which has to belong to uid 1000 or n8n dies with `EACCES` on every start.
 - **Backdoor ports and the firewall.** These ports are published by Docker, so the
   UFW rules (each app's `firewall` file) are `route` rules, and those match the
   **container** port after Docker's DNAT: FitTrackee's rule says 5000, not 5001.
+  They only started to matter once ufw-docker was installed with
+  `--docker-subnets` (see `stacks/README.md`); before that the LAN got through
+  regardless.
 - **roastery sleeps.** Ollama there is a tray app that only answers while someone is
   logged in, and nothing here wakes roastery before a chat.
 - **Rebuild the embedding worker now and then**

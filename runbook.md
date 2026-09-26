@@ -80,6 +80,11 @@ until decided otherwise (backlog).
   sudo, then check a port that should be closed from roastery is closed, and one that
   should be open is open. Before that, confirm roastery's IP is in
   `FORWARD_AUTH_CLIENTS` if its Traefik is to keep using 9091.
+  - Repo side done: init and `_lib/firewall.sh` now run
+    `ufw-docker install --docker-subnets` (firewall.sh every time, since the list
+    of Docker networks is read when it runs) and restart ufw when that changed
+    anything. Still to do, on each node, with sudo: `sudo ./firewall.sh`, then the
+    two checks above.
 
 ---
 

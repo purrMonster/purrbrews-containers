@@ -382,6 +382,8 @@ class Firewall(unittest.TestCase):
         self.assertIn('ufw allow proto tcp from 172.31.10.0/24 to any port 8080', out)
         self.assertIn('ufw route allow proto tcp from 192.168.0.0/24 to 172.31.10.0/24 port 443', out)
         self.assertIn('purrbrews\\ sieve:\\ dns\\ from\\ LAN', out)
+        # only Docker's own subnets may skip the rules, not the whole LAN
+        self.assertIn('ufw-docker install --docker-subnets', out)
 
     def test_percolator_forward_auth_clients(self):
         out = self.dry_run('percolator', 'FORWARD_AUTH_CLIENTS=192.168.0.10 192.168.0.12\nPROXY_SUBNET=172.30.0.0/24\n')
