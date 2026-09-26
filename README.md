@@ -60,32 +60,41 @@ Nodes are named after coffee gear.
 | `mochaPot` | 192.168.0.13 | `02:ff:72:b2:8f:c4` |
 | `grinder` | 192.168.0.14 | `02:93:3c:b4:86:e8` |
 
-Each node's role and app list live in its `stacks/<node>/README.md` as stacks are added.
-So far: [`sieve`](stacks/sieve/README.md) — Pi-hole (DNS + DHCP), Unbound, cloudflared,
-ntfy, Gatus, NetAlertX; [`percolator`](stacks/percolator/README.md) — Traefik, CrowdSec,
-LLDAP, Authelia, Vaultwarden, Nextcloud, Immich, Paperless-ngx, Mealie, Vikunja,
-Actual Budget, FreshRSS, Homepage; [`cellar`](stacks/cellar/README.md) — Traefik, restic,
-Samba/NFS, Scrutiny, Komodo Core + Mongo; [`mochaPot`](stacks/mochaPot/README.md) —
-Traefik, Home Assistant, Music Assistant, Pi-hole (secondary), kiosk browser;
-[`grinder`](stacks/grinder/README.md) — Traefik, n8n, embedding worker, Open WebUI,
-Karakeep, FitTrackee, Traccar, ESPHome dashboard, Speedtest Tracker.
+Each node's role, apps and bring-up order are in its `stacks/<node>/README.md`:
+[`sieve`](stacks/sieve/README.md) (Pi-hole DNS + DHCP, Unbound, cloudflared, ntfy, Gatus,
+NetAlertX), [`percolator`](stacks/percolator/README.md) (Traefik, CrowdSec, LLDAP,
+Authelia, Vaultwarden, Nextcloud, Immich, Paperless-ngx, Mealie, Vikunja, Actual Budget,
+FreshRSS, Homepage), [`cellar`](stacks/cellar/README.md) (Komodo, Scrutiny hub, restic,
+Samba/NFS), [`mochaPot`](stacks/mochaPot/README.md) (Home Assistant, Music Assistant,
+secondary Pi-hole, the wall screen) and [`grinder`](stacks/grinder/README.md) (n8n,
+pgvector and an embedding worker, Open WebUI, Karakeep, FitTrackee, Traccar, ESPHome,
+Speedtest Tracker). Every node also runs its own Traefik, a Komodo Periphery agent and
+a Scrutiny collector. The workstation, [`roastery`](stacks/roastery/README.md), lends
+its GPU to Immich and Ollama.
+
+All five nodes are up and running their stacks. Backups aren't finished yet: the
+database dumps, restic's sources and a restore test are still open
+([runbook](runbook.md)).
+
 MACs are derived from the node name, so a reinstall or NIC swap never changes how the
 network sees a machine (see [`init/README.md`](init/README.md)).
 
 ## Repository layout
 
 ```
-bootstrap/                               workstation container that serves node setup on the LAN
-init/                                    fresh Debian → ready node: hardening, Docker, network, timers
-stacks/<node>/<app>/docker-compose.yml   one folder per app, grouped by the node it runs on
-stacks/<node>/compose.sh                 wrapper: loads the node's .env.local + the app's secrets.env.local
-stacks/<node>/setup-secrets.sh           one-command node prep: settings, data dirs, secrets
-stacks/<node>/generate-secrets.sh        creates each app's secrets locally, on the node
-stacks/<node>/firewall.sh                the node's UFW rules, as code
-stacks/<node>/local.env.example          node-specific settings template
-runbook.md                               dated design decisions: the why, not just the what
-docs/                                    plans and audits; start at docs/MAP.md
+bootstrap/                  workstation container that serves node setup on the LAN
+init/                       fresh Debian → ready node: hardening, Docker, network, timers
+stacks/fleet.env            LAN facts every node shares
+stacks/_lib/                the scripts every node uses: setup, render, compose, firewall
+stacks/<node>/node.conf     that node's apps in bring-up order, its network, its DNS role
+stacks/<node>/<app>/        docker-compose.yml, plus secrets.conf / firewall / data-dirs as needed
+runbook.md                  dated decisions and the backlog: the why, not just the what
+docs/                       audits and the map of everything; start at docs/MAP.md
+tests/                      offline checks: python3 -m unittest discover -s tests
 ```
+
+Adding an app to a node is a folder and one line in `node.conf`; no script needs
+editing. [`stacks/README.md`](stacks/README.md) has the details.
 
 ## Current network audit
 
@@ -122,7 +131,13 @@ Confirm the TLS pin, set the ops user's sudo password, and reconnect with
 the script does.
 
 **3. Bring up the node's stacks** from `/opt/purrbrews/stacks/<node>/`, following that
-node's README.
+node's README. It's the same three commands everywhere:
+
+```bash
+./setup-secrets.sh          # settings, secrets, rendered configs; safe to re-run
+sudo ./firewall.sh
+./compose.sh --all up -d    # or one app at a time, in the README's order
+```
 
 ## Design principles
 
@@ -130,9 +145,9 @@ node's README.
   secret is ever committed: no passwords, tokens, API keys, private keys or password
   hashes, not even encrypted. `*.example` and `*.template` files carry `REPLACE_ME`
   placeholders instead.
-- **Secrets are born on the node.** Each node's `generate-secrets.sh` writes real values
-  into gitignored `secrets.env.local` files. Nothing to distribute, nothing to leak in
-  transit.
+- **Secrets are born on the node.** `setup-secrets.sh` reads each app's `secrets.conf`
+  and writes real values into gitignored `secrets.env.local` files. Nothing to
+  distribute, nothing to leak in transit.
 - **Idempotent everything.** Every script checks current state before changing it.
   Re-running is the supported way to repair or update.
 - **Changes that can't strand a headless box.** Network changes run detached and roll
@@ -146,14 +161,18 @@ node's README.
   would be root without a password.
 - **Pinned and verified.** Image tags and downloaded tools are pinned, and third-party
   scripts are checked against a SHA-256 before they run.
+- **The same everywhere.** One set of scripts for every node; what differs lives in
+  `node.conf` and each app's own files. If a node needs special handling, that's a
+  setting, not a fork of the script.
 - **Written down.** Decisions go in [`runbook.md`](runbook.md) with their reasons, so
   the future self who has to fix something at midnight knows why it is the way it is.
 
 ## Adapting it
 
 The layout generalizes to any small fleet. Change `NODE_IPS`, the gateway and the
-timezone in `init/purrbrews-init.env.example`, put your own public keys in
-`bootstrap/data/authorized_keys`, and replace `stacks/` with your nodes.
+timezone in `init/purrbrews-init.env.example` and `stacks/fleet.env`, put your own
+public keys in `bootstrap/data/authorized_keys`, and replace the node folders under
+`stacks/` with your own (keeping `_lib`).
 
 Before pushing to a public fork, turn on GitHub's **Secret scanning** and
 **Push protection**. If a secret ever slips through, rotate it first: deleting the

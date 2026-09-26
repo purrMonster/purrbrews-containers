@@ -21,9 +21,9 @@ compose file from `ntfy/secrets.env.local` and applied on each start.
 | `barista` (`NTFY_ADMIN_USER`) | admin | everything | your phones and browser |
 | `gatus` | user | write-only to `purrbrews-alerts`, by token | Gatus |
 
-`generate-secrets.sh` creates the passwords and Gatus's token, and bcrypt-hashes the
-passwords with ntfy's own hasher (`sudo docker run … ntfy user hash`). Only the hashes
-reach ntfy.
+`./setup-secrets.sh` creates the passwords and Gatus's token (`secrets.conf`),
+bcrypt-hashes the passwords with ntfy's own hasher (`sudo docker run … ntfy user hash`),
+and `secrets.hook` assembles the three lists ntfy reads. Only the hashes reach ntfy.
 
 Tested before first deploy: Gatus's token can publish to the topic but can't read it;
 anonymous publishing gets `403`; the admin can read.
@@ -66,7 +66,7 @@ NTFY_EXTRA_ACCESS='partner:purrbrews-alerts:ro,netalertx:netalertx:wo'
 NTFY_EXTRA_TOKENS='netalertx:tk_…:netalertx'
 ```
 
-Then run `./generate-secrets.sh && ./compose.sh ntfy up -d`.
+Then run `./setup-secrets.sh && ./compose.sh ntfy up -d`.
 
 **Removing someone from the config deletes the account** on the next start.
 

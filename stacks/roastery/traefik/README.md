@@ -1,125 +1,71 @@
-# Native Windows Traefik + Ollama + Authelia
+# Traefik → Ollama (native, on roastery)
 
-Traffic: LAN client -> roastery:443 -> Authelia on percolator -> localhost:11434.
-Both the LAN allowlist and Authelia apply. No unauthenticated route is supplied.
-The accompanying Authelia template adds ollama.${DOMAIN} to the existing admin
-host list, including its deny fallback; the configured AUTH_POLICY still applies.
-
-## Install into the repository
-
-Copy this bundle's stacks directory into your repository, merging directories.
-Review the included percolator Authelia template against any newer local edits.
-Download a Windows amd64 Traefik v3 binary from https://github.com/traefik/traefik/releases,
-verify its published checksum, and place traefik.exe beside start.ps1.
-
-In stacks/roastery/.env.local, add these values (use your real settings):
-
-```ini
-DOMAIN=REPLACE_ME.example.com
-LAN_CIDR=192.168.0.0/24
-PERCOLATOR_LAN_IP=REPLACE_ME
-TRAEFIK_ACME_EMAIL=REPLACE_ME@example.com
+```
+LAN client → roastery:443 (Traefik) → ForwardAuth to Authelia on percolator:9091 → 127.0.0.1:11434 (Ollama)
 ```
 
-From stacks/roastery run the existing renderer:
+Ollama has no authentication, so it listens on localhost only and this is the one
+way in: a LAN address **and** an Authelia login. `ollama.${DOMAIN}` is in Authelia's
+admin host list; dedicated LLDAP service accounts in `ollama_api_group` get
+password-only (`one_factor`) access for API calls. There is deliberately no
+unauthenticated route. If Authelia is down, it fails closed.
 
-```powershell
-.\setup-secrets.ps1
-```
+Traefik runs as a plain Windows process (`traefik.exe`), not in Docker Desktop, so it
+can reach Ollama on localhost.
 
-The templates are compatible with the existing renderer; none contain secrets.
-Never commit the rendered files, token, or data/acme.json (certificate private keys).
+## Setting it up
 
-## Configure Authelia on percolator
+1. **Traefik itself.** Download the Windows amd64 Traefik v3 binary from
+   [the releases page](https://github.com/traefik/traefik/releases), check its
+   published checksum, and put it here as `traefik.exe` (gitignored).
+2. **Settings.** `DOMAIN` and `TRAEFIK_ACME_EMAIL` in `stacks/roastery/.env.local`;
+   `LAN_CIDR` and `PERCOLATOR_LAN_IP` come from `stacks/fleet.env`. Then render:
+   ```powershell
+   cd stacks\roastery
+   .\setup-secrets.ps1
+   ```
+3. **The Cloudflare token.** Copy `secrets.env.example` to `secrets.env.local` here
+   and fill in `CF_DNS_API_TOKEN` (same token and permissions as the other nodes),
+   or point `CF_DNS_API_TOKEN_FILE` at a file outside the repo. `start.ps1` parses it
+   as plain `KEY=value` lines: no expansion, nothing executed.
+4. **Ollama on localhost.** As the Windows user who runs it:
+   ```powershell
+   [Environment]::SetEnvironmentVariable('OLLAMA_HOST', '127.0.0.1:11434', 'User')
+   ```
+   Quit Ollama from the tray, reopen it, and check
+   `Get-NetTCPConnection -LocalPort 11434 -State Listen` shows `127.0.0.1`.
+5. **Windows Firewall.** Allow inbound TCP 443 (and 80, for the redirect) to
+   `traefik.exe` from the LAN. 11434 needs no rule.
+6. **percolator.** Add roastery's IP to `FORWARD_AUTH_CLIENTS` in its `.env.local`,
+   then `sudo ./firewall.sh` and `./compose.sh authelia up -d --force-recreate`
+   there. The ForwardAuth call has to go straight to `:9091`; through percolator's
+   Traefik, `X-Forwarded-Method` gets dropped.
+7. **DNS.** roastery isn't in `NODE_IPS`, so add its fixed IP to
+   `PIHOLE_DNS_EXTRA_HOSTS` on both sieve and mochaPot (`192.168.0.20 roastery`,
+   semicolon-separated from anything already there), then `./render-configs.sh` and
+   `./compose.sh pihole up -d` on each.
+8. **Run it:** `.\traefik\start.ps1`. It stays in the foreground; no service or
+   scheduled task is installed, so roastery has to be awake, logged in, with Ollama
+   running.
 
-Use the updated stacks/percolator/authelia/config/configuration.yml.template.
-Append roastery's fixed LAN IP to FORWARD_AUTH_CLIENTS in percolator's .env.local,
-preserving the existing addresses. From stacks/percolator run:
+After a template changes: pull, `.\render-configs.ps1`. Traefik watches the dynamic
+directory; restart it for static config or token changes.
 
-```bash
-sudo ./firewall.sh
-./render-configs.sh
-./compose.sh authelia up -d --force-recreate
-```
+## Is it working?
 
-The ForwardAuth call deliberately goes to percolator:9091, as the repo documents.
-The login portal remains https://authelia.${DOMAIN}; it must resolve and work
-from the client's browser. Keep port 9091 restricted to the proxy hosts.
+1. On roastery, `curl.exe http://127.0.0.1:11434/api/tags` returns JSON.
+2. From another machine, `roastery:11434` doesn't connect.
+3. Without a session, `https://ollama.${DOMAIN}/api/tags` redirects to Authelia or
+   returns an auth error, never model JSON.
+4. Signed in as an admin, the same URL returns the JSON. A household-only account is
+   refused.
+5. With Authelia stopped, it fails closed.
 
-## Configure Windows and DNS
+## Known gap
 
-As the Windows user who runs Ollama:
+ForwardAuth isn't an API key. The Ollama CLI and Open WebUI's backend can't do the
+browser login, so grinder's Open WebUI can't reach Ollama through this, and pointing
+it at the HTTPS URL doesn't change that. Machine-to-machine access needs its own
+design that keeps Authelia in front; there's intentionally no bypass.
 
-```powershell
-[Environment]::SetEnvironmentVariable('OLLAMA_HOST', '127.0.0.1:11434', 'User')
-```
-
-Quit Ollama from the tray and reopen it. Verify its listening address is
-127.0.0.1 using Get-NetTCPConnection -LocalPort 11434 -State Listen.
-In Windows Firewall, permit inbound TCP 443 (and 80 for redirects) to the
-Traefik executable from your actual LAN CIDR. Port 11434 needs no inbound rule.
-On both sieve and mochaPot, include roastery's fixed LAN IP in
-`PIHOLE_DNS_EXTRA_HOSTS` in `.env.local` (for example,
-`PIHOLE_DNS_EXTRA_HOSTS='192.168.0.20 roastery'`; preserve other entries separated
-by semicolons). This is unnecessary if roastery is already in `NODE_IPS` or
-`PIHOLE_DNS_HOSTS` in `.env.local`; existing native router host entries are reused
-and retained on subsequent renders.
-From each resolver's stack directory, run:
-
-```bash
-bash ./render-configs.sh
-./compose.sh pihole up -d --force-recreate
-```
-
-Rendering discovers the nested Ollama router template and regenerates
-`ollama.${DOMAIN}` pointing to roastery, along with the other local app records.
-Recreation applies these records through Pi-hole's Compose environment.
-Do not add a public tunnel or router port forwarding for this LAN-only setup.
-
-Edit traefik/secrets.env.local and replace REPLACE_ME with your Cloudflare DNS
-API token. A placeholder file is included; for a fresh git checkout, copy
-secrets.env.example to secrets.env.local first. The local file is gitignored.
-The token needs the same DNS challenge permissions as your existing deployments.
-Alternatively use CF_DNS_API_TOKEN_FILE with an absolute path to a token file.
-From stacks/roastery:
-
-```powershell
-.\traefik\start.ps1
-```
-
-start.ps1 automatically reads secrets.env.local beside the script, regardless
-of the current directory. Use -EnvFile to specify another file. Assignments
-override matching process environment variables. Blank lines and full-line
-comments are supported; optional enclosing quotes are stripped. Values are
-literal: no variable expansion, command execution, or inline comment parsing.
-DOMAIN and other template settings still belong in roastery/.env.local.
-
-This runs in the foreground; keep it running. No Windows service or scheduled
-task is installed. Roastery must be awake and Ollama running.
-
-## Verify before relying on it
-
-1. On roastery, curl.exe http://127.0.0.1:11434/api/tags should return JSON.
-2. From another computer, connecting directly to roastery:11434 must fail.
-3. Without a session, https://ollama.<your-domain>/api/tags must not return model
-   JSON: expect an Authelia redirect or an authentication error.
-4. Sign in through Authelia as an admin, then open the same URL in the browser:
-   it should return model JSON. A household-only account must be denied.
-5. If Authelia is unavailable, the endpoint must fail closed.
-
-## API clients and Open WebUI
-
-Authelia ForwardAuth is not an Ollama API-key implementation. A normal Ollama
-CLI or Open WebUI backend does not automatically obtain the browser session.
-The existing grinder Open WebUI connection to roastery:11434 WILL STOP WORKING
-when Ollama binds to localhost. Merely changing its URL to this HTTPS endpoint
-does not solve authentication. This bundle intentionally supplies no bypass;
-machine-to-machine authentication requires a separate client-compatible design.
-
-## Updates
-
-Pull the repo and rerun setup-secrets.ps1 after changing templates.
-Traefik watches the rendered dynamic directory. Restart it for static config
-or process environment changes. A git pull alone does not render templates.
-
-Reference: https://www.authelia.com/integration/proxies/traefik/
+Reference: <https://www.authelia.com/integration/proxies/traefik/>

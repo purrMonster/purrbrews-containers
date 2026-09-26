@@ -1,293 +1,90 @@
 # grinder
 
-Automation, AI indexing, and shed-able services — 192.168.0.14, HP Pavilion
-board (bare board from the Pavilion x360's spare parts, i5 7th gen,
-16 GB RAM, 512 GB NVMe). See `infrastructure.md` §2-3.
+**Automation, AI indexing and the self-tracking apps**: `192.168.0.14`, a bare HP
+Pavilion board (i5 7th gen, 16 GB, 512 GB NVMe).
 
-**grinder is entirely new to this fleet.** It did not exist in the
-pre-restructure `purrBrews-infra` repo at all — `infrastructure.md` §1
-lists it plainly: "grinder new." Nothing below is a migration; it's a
-from-scratch build, though a couple of compose files were adapted from
-apps that existed elsewhere pre-restructure (n8n, Speedtest Tracker) where
-the shape was worth reusing.
+Nothing on grinder is household-critical, on purpose. If it's down for an evening
+nobody notices, which is also what makes its spare memory the landing zone when
+another node dies.
 
-**grinder runs nine things**, per `infrastructure.md` §4, plus its own
-Traefik added 2026-09-16 so every web-facing app gets real HTTPS on a
-pretty hostname instead of bare LAN IP:port:
+| App | URL | What it's for |
+|---|---|---|
+| n8n | `n8n.${DOMAIN}`, or `:5678` | Workflow automation; ties the rest together |
+| postgres-vector | — | Postgres + pgvector, the vector store |
+| embedding-worker | — | CPU embeddings for n8n, built here (`embedding-worker/Dockerfile`) |
+| Open WebUI | `chat.${DOMAIN}`, or `:8081` | Chat with the models on roastery's GPU |
+| Karakeep | `karakeep.${DOMAIN}`, or `:3030` | Bookmarks and read-it-later |
+| FitTrackee | `fittrackee.${DOMAIN}`, or `:5001` | Rides, from the bike computer's GPX |
+| Traccar | `traccar.${DOMAIN}`, or `:8082` (phone posts to `:5055`) | Live position of the bike |
+| ESPHome | `esphome.${DOMAIN}`, or `:6052` | The ESP32 sensors |
+| Speedtest Tracker | `speedtest.${DOMAIN}`, or `:8765` | Hourly ISP speed tests |
+| Traefik | — | HTTPS for all of the above, behind Authelia |
+| Komodo Periphery | — | Lets Komodo on cellar manage this node's containers |
+| Scrutiny collector | — | SMART data for the hub on cellar |
 
-| App | What it does |
+Every app with a UI is behind Authelia on its hostname and keeps its own port open
+to the LAN. Unlike on cellar or mochaPot, every one of those ports has a real login
+of its own, so the way in when Authelia is down is never an open door.
+postgres-vector and the embedding worker aren't published at all; they're only on
+`grinder_net`.
+
+## Setup
+
+As `barista` in `/opt/purrbrews/stacks/grinder`, after `init/purrbrews-init.sh grinder`:
+
+```bash
+./setup-secrets.sh      # asks for DOMAIN, TRAEFIK_ACME_EMAIL, roastery's IP, the disk and
+                        # the Cloudflare token; generates the rest
+sudo ./firewall.sh
+./compose.sh --all up -d
+```
+
+`--all` goes in `node.conf` order: database and embedding worker first, then the
+apps, then Traefik and the agents (copy `komodo-periphery/keys/core.pub` from cellar
+first). `compose.sh` creates every data directory before its app starts, including
+n8n's, which has to belong to uid 1000 or n8n dies with `EACCES` on every start.
+
+## First visits
+
+| App | What to do |
 |---|---|
-| [n8n](#n8n) | Workflow automation — orchestrates the rest |
-| [postgres-vector](#postgres-vector) | Postgres + pgvector — the second brain's vector store |
-| [embedding-worker](#embedding-worker) | CPU embedding API — custom-built, no off-the-shelf image exists |
-| [openwebui](#openwebui) | Chat UI for roastery's wake-on-demand Ollama |
-| [karakeep](#karakeep) | Bookmark/read-it-later manager |
-| [fittrackee](#fittrackee) | Self-hosted activity tracker (bike computer pipeline) |
-| [traccar](#traccar) | Live position tracking (bike computer pipeline) |
-| [esphome](#esphome) | ESP32 sensor fleet management |
-| [speedtest-tracker](#speedtest-tracker) | Periodic ISP speed tests |
-| [traefik](#traefik) | Reverse proxy + real TLS, with a native-login backdoor |
+| n8n | Create the owner account. |
+| Open WebUI | The first account made becomes the admin. |
+| Karakeep | Set `DISABLE_SIGNUPS: "false"` for the first account, then straight back to `"true"` and `up -d` again. |
+| FitTrackee | Create the first account (check whether it becomes admin on this version). |
+| Traccar | **Log in as admin/admin and change it at once**; the image won't take it from the environment. |
+| ESPHome | User `barista`, `ESPHOME_DASHBOARD_PASSWORD` from `esphome/secrets.env.local`. The 2.4 GHz WPA2-only SSID must exist before the first sensor is flashed. |
+| Speedtest Tracker | User `barista` / `SPEEDTEST_TRACKER_ADMIN_PASSWORD`. Confirm in the logs that a test actually ran on the hour; when the schedule isn't picked up it fails silently. |
+| embedding-worker | `sudo docker exec embedding-worker curl -s localhost:8000/health` |
 
-## Why grinder, specifically
+## Things worth knowing
 
-`infrastructure.md` §4: "`grinder` holds nothing household-critical.
-Everything on it is cheap to shed, which is what makes its free memory the
-landing zone when another node dies." Every app on this list is useful but
-not load-bearing for anyone else's day — if grinder is down for an
-evening, nobody notices except whoever's mid-bike-ride or mid-chat with a
-local model.
+- **Backdoor ports and the firewall.** These ports are published by Docker, so the
+  UFW rules (each app's `firewall` file) are `route` rules, and those match the
+  **container** port after Docker's DNAT: FitTrackee's rule says 5000, not 5001.
+- **roastery sleeps.** Ollama there is a tray app that only answers while someone is
+  logged in, and nothing here wakes roastery before a chat.
+- **Rebuild the embedding worker now and then**
+  (`./compose.sh embedding-worker build --no-cache`): nothing watches a local
+  build's Python dependencies.
 
-This is also the "second brain" and edge/sensors node from
-`edge-and-automation.md`: `n8n` orchestrates ingestion and classification
-pipelines, `postgres-vector` + `embedding-worker` are the "Index" step
-("embeddings + pgvector on CPU, always on. Only synthesis needs the
-3080, via WoL"), and `esphome`/`traccar`/`fittrackee` are the sensor and
-bike-computer endpoints that same document plans out in detail.
+## Data
 
-## Traefik and the native-login backdoor
+| Path | Contents | Back up |
+|---|---|---|
+| `/srv/data/n8n` | workflows, credentials (encrypted with `N8N_ENCRYPTION_KEY`) | **yes**, and the key to flask |
+| `/srv/data/postgres-vector` | embeddings | no; derived, can be rebuilt |
+| `/srv/data/karakeep*`, `openwebui`, `fittrackee`, `postgres-fittrackee`, `traccar`, `esphome` | app data | yes (Postgres as a dump) |
+| `/srv/data/speedtest-tracker`, `traefik/acme` | history, certificates | no |
 
-grinder now runs its own Traefik, fronting every app with a web UI:
-`n8n.${DOMAIN}`, `chat.${DOMAIN}` (Open WebUI), `karakeep.${DOMAIN}`,
-`fittrackee.${DOMAIN}`, `traccar.${DOMAIN}`, `esphome.${DOMAIN}`,
-`speedtest.${DOMAIN}`. `postgres-vector` and `embedding-worker` have no
-web UI and aren't fronted — they're only ever reached over `grinder_net`
-by container name.
+## Known gaps
 
-Every fronted app keeps its own direct host port published too — the
-deliberate backdoor. Unlike cellar's Scrutiny or mochaPot's Music
-Assistant (which have no login at all), every app on grinder already has
-a real native account of its own, so the backdoor here is never a
-zero-auth fallback: it's n8n's owner account, Open WebUI's own auth,
-Karakeep's NextAuth login, FitTrackee's account, Traccar's admin login
-(change the default immediately — see its own section below), ESPHome's
-basic auth, or Speedtest Tracker's admin login, all reachable directly at
-`http://${GRINDER_LAN_IP}:<port>` with no Traefik or Authelia in the
-path, whenever percolator's Authelia (or Traefik itself) is down.
-
-## First-time setup on grinder
-
-```sh
-cd /opt/purrbrews/stacks/grinder
-./setup-secrets.sh
-```
-
-Creates `.env.local`, prompts for `REPLACE_ME` (LAN IP, domain, roastery's
-LAN IP, LAN interface name), runs `generate-secrets.sh`, then
-`render-configs.sh`. Re-run any time; every step is idempotent.
-
-Suggested order: **postgres-vector** first (embedding-worker and any n8n
-workflow that uses it depend on it existing), then **embedding-worker**,
-then the rest in any order.
-
-## Bringing each app up
-
-### n8n
-
-```sh
-sudo mkdir -p /srv/data/n8n
-sudo chown -R 1000:1000 /srv/data/n8n
-./compose.sh n8n up -d
-```
-
-FOUND 2026-09-17: skipping the `chown` line crashes the container on
-every start with `Error: EACCES: permission denied, open
-'/home/node/.n8n/config'`. `sudo mkdir` leaves the directory owned by
-root, but the official `n8nio/n8n` image drops to the unprivileged
-`node` user (uid/gid 1000) before it ever touches `/home/node/.n8n`
-(the bind-mount target for `/srv/data/n8n` — see this stack's
-`n8n/docker-compose.yml`), so that user can't write its own settings
-file into a root-owned directory. Fix is a one-time `chown` right
-after the `mkdir`, not a compose-file change — if this ever hits an
-already-created (root-owned) `/srv/data/n8n` on an existing install,
-run the `chown` line by itself and `./compose.sh n8n up -d
---force-recreate`.
-
-Owner account on first visit to `http://${GRINDER_LAN_IP}:5678`, no
-default credentials. SQLite for n8n's own state — the second-brain
-pipeline's actual data lives in `postgres-vector`, reached from n8n's HTTP
-Request nodes and Postgres nodes by container name
-(`postgres-vector:5432`) once both are on `grinder_net`.
-
-### postgres-vector
-
-```sh
-sudo mkdir -p /srv/data/postgres-vector
-./compose.sh postgres-vector up -d
-```
-
-`CREATE EXTENSION vector` runs automatically on first boot via
-`init-pgvector.sql`. No ports published — reached only by `n8n` and
-`embedding-worker`, by container name.
-
-### embedding-worker
-
-```sh
-./compose.sh embedding-worker up -d --build
-curl http://${GRINDER_LAN_IP}:8000/health   # will fail -- not published, see below
-docker exec -it embedding-worker curl localhost:8000/health   # this works
-```
-
-Custom-built (`Dockerfile` in this app's own directory) — no off-the-shelf
-image exists for "the specific embedding model this project wants," so
-this is a small FastAPI wrapper around `sentence-transformers`, built
-locally rather than pulled. Not reachable from the LAN at all, only from
-`n8n` over `grinder_net` (`http://embedding-worker:8000/embed`, POST
-`{"texts": [...]}`, gets back normalized vectors). See the compose file's
-own comment on why registry image monitoring cannot track local build dependencies — rebuild by hand periodically.
-
-### openwebui
-
-```sh
-sudo mkdir -p /srv/data/openwebui
-./compose.sh openwebui up -d
-```
-
-First account at `http://${GRINDER_LAN_IP}:8081` becomes admin. **roastery
-has to already be awake, logged in, with the Ollama tray app running** for
-chat requests to actually work — `infrastructure.md` §9 is explicit that
-Ollama on Windows is a per-user tray app, not a background service, and
-starts at login, not at boot. See "Known gaps" below — this stack doesn't
-yet automate waking roastery for a chat request.
-
-### karakeep
-
-```sh
-sudo mkdir -p /srv/data/karakeep /srv/data/karakeep-meilisearch
-./compose.sh karakeep up -d
-```
-
-First visit to `http://${GRINDER_LAN_IP}:3030` — flip
-`DISABLE_SIGNUPS` to `false` in `docker-compose.yml` for that one account
-creation, then back to `true` and restart, same discipline as every other
-app in this fleet with its own user accounts.
-
-### fittrackee
-
-```sh
-sudo mkdir -p /srv/data/fittrackee/uploads /srv/data/postgres-fittrackee
-./compose.sh fittrackee up -d
-```
-
-First account at `http://${GRINDER_LAN_IP}:5001` — confirm against the
-image's own current docs whether it becomes admin automatically; not
-verified against a real bring-up as of this rebuild. Feeds from
-`edge-and-automation.md` §5's pipeline: OpenTracks/OsmAnd GPX on the
-Pixel 6a → Nextcloud → n8n watches the folder → pushes to this API.
-
-### traccar
-
-```sh
-sudo mkdir -p /srv/data/traccar/data /srv/data/traccar/logs
-./compose.sh traccar up -d
-```
-
-**Log in immediately at `http://${GRINDER_LAN_IP}:8082` with
-`admin`/`admin` and change it** — this image's default credential isn't
-settable via compose/env, it's a first-login manual step. Traccar Client
-on the Pixel 6a posts to `http://${GRINDER_LAN_IP}:5055`.
-
-### esphome
-
-```sh
-sudo mkdir -p /srv/data/esphome
-./compose.sh esphome up -d
-```
-
-Dashboard at `http://${GRINDER_LAN_IP}:6052`, login `barista` / the
-password `generate-secrets.sh` created. **Set up the dedicated 2.4 GHz
-WPA2 SSID before flashing the first ESP32** (`edge-and-automation.md`
-§6a) — band steering and WPA3/mixed mode both break ESP32 association,
-intermittently, which is worse than a clean failure.
-
-### speedtest-tracker
-
-```sh
-sudo mkdir -p /srv/data/speedtest-tracker/config
-./compose.sh speedtest-tracker up -d
-```
-
-Dashboard at `http://${GRINDER_LAN_IP}:8765`. **Confirm `docker logs
-speedtest-tracker` actually shows a scheduled run happening** — this
-app's most common real-world failure mode is silently never running a
-test at all if `SPEEDTEST_SCHEDULE` isn't picked up, no error surfaced.
-
-### traefik
-
-```sh
-sudo mkdir -p /srv/data/traefik/acme
-./compose.sh traefik up -d
-docker logs traefik --tail 50   # look for a successful cert issuance
-```
-
-Needs `traefik/secrets.env.local`'s `CF_DNS_API_TOKEN` and
-`TRAEFIK_ACME_EMAIL` in `.env.local`. Add Local DNS Records in sieve's
-Pi-hole for each `*.${DOMAIN}` hostname listed above, pointing at
-`${GRINDER_LAN_IP}`. Also needs grinder added to percolator's
-`FORWARD_AUTH_CLIENTS`/`firewall.sh` (done 2026-09-16) for ForwardAuth to
-actually answer. Until DNS records exist, use each app's direct port —
-see "Traefik and the native-login backdoor" above.
-
-## What's here now
-
-- `compose.sh` — wrapper so every app's `docker-compose.yml` sees the
-  shared `.env.local` plus its own `secrets.env.local`, and ensures
-  `grinder_net` exists.
-- `render-configs.sh` — renders `*.template` files. Copied verbatim.
-- `setup-secrets.sh` — first-time-setup script.
-- `generate-secrets.sh` — generates every app's secrets except openwebui
-  (its own onboarding UI), embedding-worker (no auth surface) and traccar
-  (first-login manual change).
-- `local.env.example` — copy to `.env.local` and fill in:
-  `GRINDER_LAN_IP`, `TZ`, `DOMAIN`, `ROASTERY_LAN_IP`,
-  `GRINDER_LAN_INTERFACE`, `PERCOLATOR_LAN_IP`, `TRAEFIK_ACME_EMAIL`.
-- `.gitignore` — same rules as every other node's.
-- One directory per app, each with its own `docker-compose.yml` (or, for
-  `embedding-worker`, a `Dockerfile` + `requirements.txt` + `app.py` it
-  builds from). Every app with a web UI carries Traefik labels.
-- `traefik/` — reverse proxy + real TLS, with the ForwardAuth middleware
-  definition in `config/dynamic.yml.template`. See "Traefik and the
-  native-login backdoor" above.
-
-## Known gaps / things to double-check before relying on this
-
-- **Traefik's ForwardAuth route now works.** grinder is registered in
-  percolator's `FORWARD_AUTH_CLIENTS` as of 2026-09-16 (none of its apps
-  are admin-only, so they use Authelia's household catch-all rule, not
-  the admin-host list). Still 502/504s until `sudo ./firewall.sh` has
-  actually been run on both grinder and percolator, and until this node
-  also has its own `firewall.sh` run (added 2026-09-16 — see below). The
-  direct-port backdoor (see "Traefik and the native-login backdoor"
-  above) works regardless.
-- **No `firewall.sh` existed for this node until 2026-09-16.** Every
-  published port (`traefik`'s 80/443, and every app's own backdoor port)
-  went un-firewalled before that — `sudo ./firewall.sh` now scopes all of
-  them to the LAN via `ufw route allow` (Docker's iptables DNAT bypasses
-  plain `ufw`, `infrastructure.md` §5/§9). Run it once and after any port
-  change.
-- **No local DNS records exist yet** for any of grinder's `*.${DOMAIN}`
-  hostnames — until sieve's Pi-hole has them, reach an app by
-  `https://${GRINDER_LAN_IP}` with a cert-mismatch warning (expected), or
-  use its direct port.
-- **No automated wake for roastery.** Open WebUI needs Ollama already
-  running on roastery; nothing here sends the WoL packet automatically
-  before a chat request. `cellar/restic/mirror-to-roastery.sh` has a
-  working WoL-then-wait pattern that could be adapted into an n8n workflow
-  or a small script here — not done yet.
-- **embedding-worker is genuinely new code, not a reused/audited image.**
-  `BAAI/bge-small-en-v1.5` was chosen for being small enough to run
-  comfortably on this node's CPU, not benchmarked against alternatives.
-  Revisit if retrieval quality in practice turns out to matter more than
-  this default assumed.
-- **Traccar uses its bundled H2 database, not Postgres**, unlike
-  FitTrackee — a deliberate call (see the compose file's own comment),
-  worth revisiting if Traccar's data volume or a need for concurrent
-  access changes that trade-off.
-- **No Komodo Periphery agent yet.** Same as mochaPot — add one from
-  `stacks/_templates/komodo-periphery/` (once migrated into this repo)
-  when fleet-wide management of grinder's containers is actually wanted.
-- **No Scrutiny collector yet**, despite grinder having its own NVMe worth
-  monitoring — add `scrutiny-collector/` pointed at cellar's hub (see
-  `stacks/cellar/README.md`) when that's worth doing.
-- **Nothing here is tested against real hardware yet.** grinder is new to
-  this fleet as of this rebuild — every bring-up step above is
-  best-understanding-at-write-time, not confirmed against a live node.
+- **Open WebUI can't reach Ollama once roastery binds it to localhost** behind its
+  own Traefik and Authelia. That needs machine-to-machine auth that keeps Authelia
+  in front; nothing exists yet, and there's no bypass on purpose.
+- **Unpinned images:** n8n (`latest`), Open WebUI (`main`), Karakeep (`release`).
+- **Karakeep's `NEXTAUTH_URL`** is the direct-port URL while its route is
+  `karakeep.${DOMAIN}`. Check the phone's share sheet signs in through the hostname.
+- **Never turn on trusted-header SSO in Open WebUI** while `:8081` is published: any
+  LAN client could forge the header.
+- **Traccar is on H2**, not Postgres; fine for GPS pings, revisit if that changes.

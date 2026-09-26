@@ -1,18 +1,29 @@
-# Secondary Pi-hole
+# Pi-hole (secondary)
 
-## Refresh local app DNS
+mochaPot's Pi-hole: **DNS only, never DHCP.** sieve is the one DHCP server, and the
+compose file pins `dhcp.active` off so no saved UI setting can change that.
 
-From `stacks/mochaPot`, `bash ./render-configs.sh` refreshes DNS before rendering
-templates. Then run `./compose.sh pihole up -d --force-recreate`.
-For the native Ollama route, add roastery's fixed IP and name to
-`PIHOLE_DNS_EXTRA_HOSTS` (for example `192.168.0.20 roastery`) on both resolvers,
-unless roastery is already in `NODE_IPS` or `PIHOLE_DNS_HOSTS` in `.env.local`.
-Existing native router host entries are reused and retained on rendering.
-Preserve other semicolon-separated entries.
+- Admin UI: `https://pihole-mochapot.${DOMAIN}` (Authelia), or
+  `http://192.168.0.13:8081/admin` with its own password (`PIHOLE_WEBPASSWORD` in
+  `secrets.env.local`). Its own password stays on because the direct port is the
+  way in when Authelia is down.
+- Upstream: Cloudflare, not sieve's Unbound, so it keeps answering when sieve is down.
+- Records: the same split DNS as sieve, generated from every Traefik route in the
+  repo (`../../_lib/dns-records.py`).
 
-Both resolvers use the same generated split DNS. From the repository root, run
-`bash stacks/_lib/refresh-dns.sh mochaPot` as the ops user, then recreate this
-Pi-hole with the node's compose wrapper. A restart alone does not update its
-environment. Keep NODE_IPS, DOMAIN and PIHOLE_DNS_EXTRA_HOSTS consistent on both
-nodes. See [the network audit](../../../docs/network-audit.md) for rollout order
-and checks; verify the secondary from another LAN machine before advertising it.
+## Refreshing local DNS
+
+After a route is added anywhere in the fleet:
+
+```sh
+./render-configs.sh            # regenerates the records (RESOLVER=secondary in node.conf)
+./compose.sh pihole up -d      # recreate; a restart doesn't re-read the environment
+```
+
+Do the same on sieve. Keep `DOMAIN` and `PIHOLE_DNS_EXTRA_HOSTS` identical on both;
+roastery isn't in `NODE_IPS`, so `192.168.0.20 roastery` (or whatever its fixed IP
+is) has to be in `PIHOLE_DNS_EXTRA_HOSTS` on both for `ollama.${DOMAIN}` to resolve.
+[The network audit](../../../docs/network-audit.md) has the rollout order and checks.
+
+Blocklists are not synced between the two Pi-holes. If that ever matters, it needs
+its own decision.

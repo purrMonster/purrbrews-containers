@@ -21,6 +21,8 @@ and one sign-in.
 | [Actual Budget](actualbudget/) | `actualbudget.${DOMAIN}` | Budgeting |
 | [FreshRSS](freshrss/) | `freshrss.${DOMAIN}` | News feeds |
 | [Homepage](homepage/) | `homepage.${DOMAIN}` | Start page: a tile for every app |
+| Komodo Periphery | — | Lets Komodo on cellar manage this node's containers |
+| Scrutiny collector | — | SMART data for both disks, sent to the hub on cellar |
 
 Each app's folder has its own README: first run, sign-in setup, how to tell it works.
 
@@ -84,7 +86,7 @@ All commands run on percolator as `barista` in `/opt/purrbrews/stacks/percolator
 `compose.sh` uses `sudo docker` itself; don't prefix it with sudo.
 
 ```bash
-./setup-secrets.sh          # asks for DOMAIN, ACME_EMAIL, roastery IP, Cloudflare token
+./setup-secrets.sh          # asks for DOMAIN, TRAEFIK_ACME_EMAIL, roastery IP, Cloudflare token
                             # generates every secret, renders every config
 sudo ./firewall.sh          # LAN → 80/443 on Traefik; FORWARD_AUTH_CLIENTS → 9091
 ```
@@ -99,20 +101,24 @@ signal (in its README) before the next. "Container started" is not a success sig
 | 3 | `./compose.sh lldap up -d` then `./lldap-bootstrap.sh` | groups exist, `barista` created — **save the printed one-time password** |
 | 4 | `./compose.sh authelia up -d` | log in at `https://authelia.${DOMAIN}` as `barista`; the Traefik dashboard opens; from sieve, `curl -s -o /dev/null -w '%{http_code}' http://192.168.0.11:9091/api/health` gives `200` |
 | 5+ | `./compose.sh <app> up -d` for vaultwarden, nextcloud, immich, paperless, mealie, vikunja, actualbudget, freshrss, homepage | the app's README checklist |
+| last | `./compose.sh komodo-periphery up -d`, `./compose.sh scrutiny-collector up -d` | percolator shows up in Komodo and Scrutiny on cellar (copy `komodo-periphery/keys/core.pub` from cellar first) |
 
 Once everything has been up once, `./compose.sh --all up -d` brings the whole node up
 in that order, and `./compose.sh --all down` takes it down in reverse.
 
 ## Scripts
 
+The four node scripts are the same wrappers on every node; the logic is in
+[`../_lib`](../README.md#the-shared-scripts), and what's specific to percolator is
+in `node.conf` and the files in each app folder.
+
 | Script | Does |
 |---|---|
-| `setup-secrets.sh` | First-time setup and re-run after pulling changes: `.env.local` (adds new keys), secrets, render |
-| `generate-secrets.sh` | Creates missing secrets only. Hex values; OIDC client secret and Authelia's hash written together |
-| `render-configs.sh` | Renders `*/config/*.template`. Refuses a template with an unset variable; lists every failure at the end |
-| `compose.sh` | `docker compose` with the right env files. Before `up` it refuses placeholders and stale renders, creates data directories from `<app>/data-dirs`, and runs `<app>/prepare.sh` |
+| `setup-secrets.sh` | First-time setup, and the re-run after pulling changes: `.env.local` (adds new keys), every app's `secrets.conf`, render |
+| `render-configs.sh` | Renders every `*.template`. Refuses a template with an unset variable and lists every failure at the end |
+| `compose.sh` | `docker compose` with the right env files. Before `up` it refuses placeholders and stale renders, creates `<app>/data-dirs`, and runs `<app>/prepare.sh` |
+| `firewall.sh` | UFW rules from `traefik/firewall` (LAN → 80/443) and `authelia/firewall` (`FORWARD_AUTH_CLIENTS` → 9091). `--dry-run` |
 | `lldap-bootstrap.sh` | Creates the two groups and a user in both. Idempotent; `--dry-run` |
-| `firewall.sh` | UFW route rules for Traefik (LAN) and Authelia's 9091 (`FORWARD_AUTH_CLIENTS`). Idempotent; `--dry-run` |
 
 Files that exist only on the node (gitignored): `.env.local`, `*/secrets.env.local`,
 rendered `*/config/*`.
@@ -134,7 +140,7 @@ LLDAP if they shouldn't reach the Traefik dashboard or be admin in Mealie.
 
 **Rotate an OIDC client secret:** delete `<APP>_OIDC_CLIENT_SECRET` from
 `<app>/secrets.env.local` and `<APP>_OIDC_CLIENT_SECRET_HASH` from
-`authelia/secrets.env.local`, then `./generate-secrets.sh && ./render-configs.sh`,
+`authelia/secrets.env.local`, then `./setup-secrets.sh`,
 `./compose.sh authelia up -d`, `./compose.sh <app> up -d`. Nextcloud and Immich keep
 the secret in their own settings too; paste the new one there.
 

@@ -38,9 +38,10 @@ Traefik dashboard here, and the admin UIs on other nodes. Accounts come from LLD
 | `actual-budget` | Actual Budget | `client_secret_basic` | no |
 | `freshrss` | FreshRSS | `client_secret_basic` | no |
 
-`generate-secrets.sh` writes each app's plaintext secret into that app's
-`secrets.env.local` and its PBKDF2 hash into `authelia/secrets.env.local` in the same
-run, so the two can't drift apart.
+Each app's `secrets.conf` generates its plaintext secret, and
+`authelia/secrets.conf` hashes it (PBKDF2) into `authelia/secrets.env.local` in the
+same `./setup-secrets.sh` run, so the two can't drift apart. Adding a client is a
+line in each of those two files plus its block in the template.
 
 ## Bring up
 

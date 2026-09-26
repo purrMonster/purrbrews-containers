@@ -22,7 +22,7 @@ Alerts fire after 3 failed checks in a row, and resolve after 2 good ones, with 
 1. Create a free account at healthchecks.io → **Add Check**: name `sieve`, period
    **5 minutes**, grace **10 minutes**.
 2. Copy the ping URL (`https://hc-ping.com/<uuid>`).
-3. On sieve, run `./generate-secrets.sh` and paste it. It's stored in
+3. On sieve, run `./setup-secrets.sh` and paste it. It's stored in
    `gatus/secrets.env.local`.
 4. Under Integrations, add email and/or the ntfy integration pointing at your ntfy.sh
    critical topic.

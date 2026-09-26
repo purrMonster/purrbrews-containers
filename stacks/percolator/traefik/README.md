@@ -30,7 +30,7 @@ App routes are not here: each app declares its own with labels in its
 - **One wildcard certificate** for `${DOMAIN}` and `*.${DOMAIN}`, from Let's Encrypt
   via Cloudflare DNS-01. Renewal is automatic.
 - **Real client addresses from the tunnel:** `X-Forwarded-For` is trusted only from
-  `SIEVE_IP`, where cloudflared runs.
+  `SIEVE_LAN_IP` (from `stacks/fleet.env`), where cloudflared runs.
 - **No upload time limit** (`readTimeout: 0s`); Traefik v3's 60 s default breaks
   large Immich and Nextcloud uploads.
 - **The CrowdSec plugin is a local plugin**, loaded from disk. A catalog plugin is

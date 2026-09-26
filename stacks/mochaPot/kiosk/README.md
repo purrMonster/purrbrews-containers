@@ -1,8 +1,7 @@
 # kiosk
 
-The household wall dashboard on mochaPot's own touchscreen (the x360, per
-infrastructure.md §2). Host-native, no `docker-compose.yml` here — see
-`setup-kiosk.sh`'s own header comment for why.
+The household wall dashboard on mochaPot's own touchscreen (the x360).
+Host-native, no `docker-compose.yml`; `setup-kiosk.sh` says why.
 
 ## Setup
 
@@ -34,11 +33,9 @@ laptop).
 
 ## Known gaps
 
-- **Chromium auto-updates are disabled** (`--check-for-update-interval`
-  pinned to a year) but the *package* itself isn't pinned — `apt upgrade`
-  still moves it. Container image monitoring does not cover host packages,
-  so this component needs separate package update monitoring.
-  Revisit if that turns out to matter.
+- **Chromium's own updater is off** (`--check-for-update-interval` is a year), but
+  the package isn't pinned, so `apt upgrade` still moves it. Nothing here watches host
+  packages for updates.
 - **No screen-off/wake schedule configured.** The x360's display stays on
   continuously as installed here — reasonable for a wall dashboard,
   wasteful if this ever moves somewhere it's only glanced at occasionally.
