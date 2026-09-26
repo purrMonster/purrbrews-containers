@@ -24,8 +24,8 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Confirm each node's `DISK_DEVICE` (and `DISK_DEVICE_2` on percolator and cellar) against real hardware (`lsblk -d -o NAME,TYPE,SIZE,MODEL`); these were the per-node `*_DISK_DEVICE*` keys until 2026-09-26
 - [ ] cellar's Samba: `smb/docker-compose.yml` exists but nothing uses it and ufw-docker keeps 445 closed. Decide on shares and permissions, pin the image, then uncomment the rule in `smb/firewall`
 - [ ] Wire cellar's restic sources to percolator's, sieve's and mochaPot's actual dumps and data — all three now exist in this repo
-- [ ] Enable cellar's roastery mirror and Google Drive sync (both scaffolded, neither turned on). Moved up 2026-09-26: the restic disk is 5–8 years old and is the only copy
-- [ ] Replace cellar's restic disk (ST1000LM035, 5–8 years old); the SanDisk on mochaPot is the same age
+- [ ] Backups to roastery, cellar as the dump store, second copy of everything on Google Drive (decided 2026-09-26, starts 2026-09-27; entry below). Replaces the old "enable cellar's roastery mirror and Google Drive sync" item
+- [ ] Replace cellar's old disk (ST1000LM035, 5–8 years old) once it's only the dump store; the SanDisk on mochaPot is the same age
 - [ ] roastery: `immich-machine-learning` at Immich's version, Windows Firewall 3003 scoped to percolator
 - [ ] Postgres dump job for percolator's databases (Nextcloud, Immich, Paperless)
 - [ ] Remaining node: roastery itself joining the fleet; then archive purrBrews-infra
@@ -38,6 +38,29 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Pin n8n (`latest`), Open WebUI (`main`) and Karakeep (`release`)
 - [ ] Open WebUI → roastery's Ollama: needs machine-to-machine auth that keeps Authelia in front; nothing exists yet
 - [ ] Karakeep: `NEXTAUTH_URL` is the direct-port URL while the route is `karakeep.${DOMAIN}`; check the phone share sheet signs in through the hostname
+
+---
+
+## 2026-09-26 — Backups move to roastery; cellar becomes the dump store
+
+The restic disk on cellar is 5–8 years old and holds the only copy of the
+backups (Scrutiny finding in the entry below).
+
+**Decided (owner):** cellar stops being the backup target and becomes the dump
+store, where each node's database dumps and exports land. Backups (restic) move to
+roastery. Everything gets a second copy on Google Drive. Work starts 2026-09-27.
+
+To settle while doing it:
+
+- How the nodes reach a restic repository on roastery (rest-server in Docker
+  Desktop, SFTP, or a share), and the Windows Firewall rule scoped to the fleet.
+- roastery is a workstation: backups only run while it's on and signed in, the same
+  gap Ollama has. Decide the schedule around that, and alert (ntfy) on a missed run.
+- The Google Drive copy: copying the restic repository covers everything restic
+  backs up and is already encrypted, so a plain rclone copy is safe. Anything
+  copied outside restic (raw dumps) needs encrypting first (rclone crypt).
+- cellar's old disk is fine as a dump store, since the dumps are no longer the
+  last copy; the replacement item in the backlog can wait until this is done.
 
 ---
 
