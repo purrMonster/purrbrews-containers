@@ -1,0 +1,3 @@
+# FitTrackee: the database (PostGIS) and uploaded GPX/FIT files.
+pg      fittrackee  postgres-fittrackee  $FITTRACKEE_DB_DATABASE_NAME  $FITTRACKEE_DB_USERNAME
+path    fittrackee/uploads

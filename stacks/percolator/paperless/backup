@@ -1,0 +1,5 @@
+# Paperless: the database, plus data/ (the classifier, settings) and media/
+# (the originals and archived PDFs). consume/ is an inbox, export/ a by-hand job.
+pg      paperless  paperless-postgres  paperless  paperless
+path    paperless/data
+path    paperless/media

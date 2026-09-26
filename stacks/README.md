@@ -6,7 +6,7 @@ that differs between nodes or apps is a small config file, not code.
 
 ```
 stacks/
-├── fleet.env                  LAN facts every node shares (IPs, gateway, TZ). Committed, not secret
+├── fleet.env                  LAN facts every node shares (IPs, gateway, TZ, backups). Committed, not secret
 ├── _lib/                      the actual scripts (see below)
 └── <node>/
     ├── README.md              role, apps, bring-up order, gotchas
@@ -15,13 +15,16 @@ stacks/
     ├── setup-secrets.sh       ┐
     ├── render-configs.sh      │ the same wrapper on every node:
     ├── compose.sh             │ exec ../_lib/<script> <this dir> "$@"
-    ├── firewall.sh            ┘
+    ├── firewall.sh            │ (backup.sh on the Linux nodes)
+    ├── backup.sh              ┘
+    ├── restic/secrets.conf    the backup password and alert URL (cellar: its whole backup hub)
     └── <app>/
         ├── docker-compose.yml
         ├── README.md          first run, "is it working?" (for apps that need one)
         ├── secrets.conf       what setup generates or asks for      (optional)
         ├── firewall           this app's UFW rules                  (optional)
         ├── data-dirs          directories created before `up`       (optional)
+        ├── backup             what gets dumped and backed up         (optional)
         ├── prepare.sh         run before `up`                       (optional)
         └── config/*.template  rendered next to themselves           (optional)
 ```
@@ -49,6 +52,7 @@ few commands that need it; root-owned secrets files break the next run).
 | `./render-configs.sh` | Every `*.template` → the file beside it. A template with an unset or `REPLACE_ME` variable fails and its last good render stays. On a node with `RESOLVER` set, regenerates the Pi-hole records first |
 | `./compose.sh <app> …` | `docker compose` with the env files. Before `up` it checks renders are current, creates `data-dirs`, runs `prepare.sh`, and refuses a resolved config with a `REPLACE_ME` left in it. `--all` goes in `node.conf` order (backwards for `down`); `--list` also shows app folders `node.conf` doesn't mention |
 | `sudo ./firewall.sh` | UFW rules from every app's `firewall` file; `--dry-run` prints them |
+| `sudo ./backup.sh <cmd>` | The node's backups from every app's `backup` file: `plan` (no sudo), `doctor`, `keys`, `nightly`, `restic …`. See [Backups](#backups) |
 
 **Env files, later ones win:** `stacks/fleet.env` → `/opt/purrbrews/.env` (written by
 init: `NODE`, `NODE_IP`, `PUID`/`PGID`, `DATA_DIR`, `MEDIA_DIR`) → the node's
@@ -108,6 +112,23 @@ MEDIA_DIR/household PUID:PGID 755
 Created before `up` if missing, never touched after. Without it Docker creates a
 bind-mount source as `root:root`, and an image that runs as a fixed user crash-loops.
 
+### backup
+
+```
+pg      nextcloud  nextcloud-postgres  nextcloud  nextcloud   # pg_dump inside the app's own container
+mongo   komodo     komodo-mongo  $KOMODO_DATABASE_USERNAME  $KOMODO_DATABASE_PASSWORD
+sqlite  vault      vaultwarden/db.sqlite3                      # a consistent .dump of a live file
+path    vaultwarden                                            # files, straight to the repository
+exclude db.sqlite3*                                            # the live database: the dump has it
+pg      recorder   postgres-homeassistant  $HA_DB_DATABASE_NAME  $HA_DB_USERNAME  optional
+```
+
+Paths are under `DATA_DIR` (or `MEDIA_DIR/…`); `$KEY` is any setting; `optional`
+makes a missing container or file a note rather than a failure. An exclude without
+a `/` matches that name anywhere under the app's paths. `./backup.sh plan` shows
+what a node's files add up to. A live database directory is never a `path`: dump
+it. Details at the top of [`_lib/backup.sh`](_lib/backup.sh).
+
 ## Adding an app
 
 On any node, without touching a script:
@@ -115,7 +136,7 @@ On any node, without touching a script:
 1. `stacks/<node>/<app>/docker-compose.yml`. Data under `${DATA_DIR}/<app>/…`, the
    node's IP as `${NODE_IP}`, other nodes' as `${<NODE>_LAN_IP}` from `fleet.env`. Join
    the node's network (`NETWORK` in `node.conf`) if Traefik fronts it.
-2. Whatever it needs of `secrets.conf`, `firewall`, `data-dirs`, `config/*.template`.
+2. Whatever it needs of `secrets.conf`, `firewall`, `data-dirs`, `backup`, `config/*.template`.
    A new template's rendered file goes in the root `.gitignore` (a test insists).
 3. Add it to `APPS` in `node.conf`, where it belongs in the bring-up order.
 4. If it has a Traefik route: add its host to Authelia's admin list in
@@ -132,13 +153,41 @@ defines, a template that isn't gitignored, an app folder missing from `node.conf
 
 1. Its name and IP in `NODE_IPS` (`init/purrbrews-init.env.example` and the real one on
    roastery) and a `<NODE>_LAN_IP` line in `fleet.env`.
-2. `stacks/<node>/` with the four wrapper scripts copied from any other node,
-   `node.conf`, `local.env.example`, `README.md`.
+2. `stacks/<node>/` with the wrapper scripts copied from any other node (five on
+   Linux, with `backup.sh`), `node.conf`, `local.env.example`, `README.md`, and
+   `restic/secrets.conf` copied from grinder's.
 3. Its own `traefik/` (copy mochaPot's or grinder's), and its IP in percolator's
    `FORWARD_AUTH_CLIENTS`.
 4. `komodo-periphery/` and `scrutiny-collector/` copied as they are: they take the
    node's name from `NODE` and the disk from `DISK_DEVICE`.
 5. Its checks in Gatus.
+6. Backups: `sudo ./backup.sh keys`, then its lines in roastery's
+   `backup-target/authorized_keys` and cellar's `restic/dump-store.keys`, and
+   `setup.ps1` on roastery again (its firewall rule reads the addresses from
+   `fleet.env`). cellar's morning check picks the node up by itself.
+
+## Backups
+
+Decided 2026-09-27 (runbook). Every node, every night:
+
+1. **Dumps** its own databases (`pg`, `mongo`, `sqlite` lines) into
+   `DUMP_DIR/<node>/<app>/`, each read back before it replaces the last good one;
+2. **pushes** them to cellar, the dump store (`DUMP_DIR/<node>/` there), over SSH
+   with a key that can only write that one folder;
+3. **backs up its files** (`path` lines, plus its own `.env`, `.env.local`,
+   every `secrets.env.local` and `/etc/purrbrews`) straight into the restic
+   repository on roastery, over SFTP, `--host <node> --tag files`.
+
+cellar backs up the dump store (`--tag dumps`), wakes roastery, prunes, copies the
+repository to Google Drive and checks each morning that everything above happened;
+[cellar/restic/README.md](cellar/restic/README.md) has that side and the order to
+switch it all on. roastery holds the repository on its NVMe
+([roastery/README.md](roastery/README.md#backup-target)).
+
+`BACKUP_REPOSITORY`, `DUMP_DIR` and `DUMP_STORE_HOST` are in `fleet.env`; each
+node's `restic/secrets.conf` asks for the repository password (the same
+everywhere, made on cellar) and the ntfy URL for failure alerts. One key per
+node (`/root/.ssh/purrbrews-backup`), pinned host keys in `/etc/purrbrews`.
 
 ## Ingress: a Traefik on every node
 

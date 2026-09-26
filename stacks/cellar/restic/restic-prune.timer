@@ -1,10 +1,9 @@
 [Unit]
-Description=Run cellar's restic prune weekly
+Description=restic retention for the whole repository (forget --prune), Sundays at 03:00
 
 [Timer]
-# Sunday 03:30: after the nightly 02:00 backup has finished, and off the
-# nightly cadence so prune's I/O never stacks on top of it.
-OnCalendar=Sun *-*-* 03:30:00
+# Sundays, after the store backup and before the Drive sync, so Drive gets the pruned repository.
+OnCalendar=Sun *-*-* 03:00:00
 Persistent=true
 
 [Install]

@@ -1,0 +1,3 @@
+# Vikunja: tasks in SQLite, attachments as files.
+sqlite  vikunja  vikunja/db/vikunja.db
+path    vikunja/files

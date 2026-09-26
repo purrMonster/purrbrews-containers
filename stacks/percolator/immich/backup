@@ -1,0 +1,6 @@
+# Immich: the database and the library. Upstream's advice: originals and the
+# database matter; thumbnails and transcodes are rebuilt by a job.
+pg      immich  immich-postgres  immich  immich
+path    immich/library
+exclude immich/library/thumbs
+exclude immich/library/encoded-video

@@ -1,8 +1,9 @@
 [Unit]
-Description=Run cellar's Google Drive sync nightly, after the roastery mirror
+Description=Copy the backup repository to Google Drive, nightly at 03:30
 
 [Timer]
-OnCalendar=*-*-* 05:00:00
+# After the store backup (and Sunday's prune). The first run uploads everything.
+OnCalendar=*-*-* 03:30:00
 Persistent=true
 
 [Install]

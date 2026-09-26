@@ -1,0 +1,11 @@
+[Unit]
+Description=Wake roastery for the nightly backups
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/purrbrews/stacks/cellar/restic/wake-roastery.sh
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=10min

@@ -1,0 +1,10 @@
+# Copy to dump-store.keys (gitignored), then sudo ./restic/dump-store-setup.sh.
+# One line per node that pushes dumps here: paste what `sudo ./backup.sh keys`
+# printed on that node, unchanged.
+#
+# <node> from="<ip>" ssh-ed25519 AAAA... purrbrews-backup@<node>
+#
+# sieve from="192.168.0.10" ssh-ed25519 AAAA... purrbrews-backup@sieve
+# percolator from="192.168.0.11" ssh-ed25519 AAAA... purrbrews-backup@percolator
+# mochaPot from="192.168.0.13" ssh-ed25519 AAAA... purrbrews-backup@mochaPot
+# grinder from="192.168.0.14" ssh-ed25519 AAAA... purrbrews-backup@grinder

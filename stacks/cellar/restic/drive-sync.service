@@ -1,10 +1,11 @@
 [Unit]
-Description=cellar -> Google Drive restic repository sync (rclone)
+Description=Copy the backup repository to Google Drive
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=oneshot
-User=barista
-WorkingDirectory=/opt/purrbrews/stacks/cellar/restic
 ExecStart=/opt/purrbrews/stacks/cellar/restic/drive-sync.sh
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=12h

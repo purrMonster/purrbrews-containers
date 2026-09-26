@@ -1,105 +1,118 @@
 # restic
 
-The fleet's backups. Not a container: a handful of scripts and systemd timers,
-all reading the same env files as everything else on cellar.
+The hub of the fleet's backups: cellar is always on, so the jobs that have to run
+on time, and be noticed when they don't, live here. Host-native scripts and
+systemd timers, not a container. Design and reasoning: runbook, 2026-09-27.
 
 ```
-node dumps / data ──► cellar restic (HDD) ──► roastery mirror ──► Google Drive (crypt)
-     02:00 backup           04:00 mirror          05:00 sync
-     Sun 03:30 prune                                   └──► carafe, quarterly, unplugged
+every node, 01:30                 cellar                       roastery (sleeps)
+  backup.sh nightly                                          C:\purrbrews\restic
+   ├─ dump databases ──push──►  /srv/dumps/<node>  ──02:30──►  (SFTP, restic)
+   └─ files ─────────────────────────────────────────────────►       │
+                                  01:25 wake roastery (WoL)           │
+                                  03:00 Sun prune                     │
+                                  03:30 drive-sync ◄──────────────────┘
+                                        └──► Google Drive, drive-crypt:repo
+                                  06:00 check-freshness → ntfy if anything is stale
+                                  1st, 04:30 verify (reads 5%)
 ```
 
-| Script | Timer | State |
+The per-node side is [`stacks/_lib/backup.sh`](../../_lib/backup.sh) (every node's
+`./backup.sh`) and each app's `backup` file; see
+[stacks/README.md → Backups](../../README.md#backups). This folder is what only
+cellar does.
+
+| Script | Timer | Does |
 |---|---|---|
-| `restic-init.sh` | none, once by hand | ready |
-| `restic-backup.sh` | `restic-backup.timer`, nightly 02:00 | **no sources yet**, fails on purpose |
-| `restic-prune.sh` | `restic-prune.timer`, Sundays 03:30 | ready |
-| `mirror-to-roastery.sh` | `mirror-to-roastery.timer`, nightly 04:00 | not switched on |
-| `drive-sync.sh` | `drive-sync.timer`, nightly 05:00 | not switched on |
+| `restic-init.sh` | none, once | creates the repository on roastery |
+| `dump-store-setup.sh` | none; again when `dump-store.keys` changes | the `dumps` account and its rrsync-locked keys |
+| `drive-setup.sh` | none, once (`--token` to re-authorize) | `/etc/purrbrews/rclone.conf`: roastery, drive, drive-crypt |
+| `wake-roastery.sh` | `purrbrews-wake-roastery`, 01:25 | wake-on-LAN, waits for SSH |
+| `../backup.sh store` | `purrbrews-backup-store`, 02:30 | the dump store → restic (`--tag dumps`) |
+| `restic-prune.sh` | `restic-prune`, Sun 03:00 | forget 7 daily / 4 weekly / 12 monthly, prune |
+| `drive-sync.sh` | `drive-sync`, 03:30 | repository → Drive, deletions kept 30 days |
+| `check-freshness.sh` | `purrbrews-backup-check`, 06:00 | every snapshot, dump and the Drive copy under 26 h |
+| `verify.sh` | `purrbrews-backup-verify`, 1st 04:30 | `restic check --read-data-subset=5%` |
+| `restore-test.sh` | none, by hand | restores dumps and sample files, checks them |
 
-A failed run logs to `journalctl -t cellar-restic-*` and, once `NTFY_URL` is set
-in `.env.local`, sends an alert.
+Every job needs root (root's backup key and the rclone config are root's), wakes
+roastery itself if it's asleep, and reports failures to `NTFY_URL`
+(`restic/secrets.env.local`). None of them is switched on yet.
 
-## Setting it up
+## Tying it together
 
-```sh
-cd /opt/purrbrews/stacks/cellar
-./setup-secrets.sh                  # RESTIC_PASSWORD, and asks for the Drive client
-sudo mkdir -p /srv/backup           # CELLAR_HDD_MOUNT, the HDD
-./restic/restic-init.sh
-sudo cp restic/restic-backup.{service,timer} restic/restic-prune.{service,timer} /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now restic-backup.timer restic-prune.timer
-```
+In this order; each step's check has to pass before the next.
 
-**Copy `RESTIC_PASSWORD` to flask straight away.** An encrypted backup whose only
-key is on the machine that died isn't a backup.
+1. **Packages**, on every node: `sudo apt install restic rsync sqlite3`; on cellar
+   also `rclone`.
+2. **Secrets**: `./setup-secrets.sh` here generates `RESTIC_PASSWORD` and the crypt
+   password/salt and asks for the Drive client and `ROASTERY_WOL_MAC`. **Copy
+   RESTIC_PASSWORD, RCLONE_CRYPT_PASSWORD and RCLONE_CRYPT_SALT to flask now.**
+   On every other node, `./setup-secrets.sh` asks for `RESTIC_PASSWORD`: paste
+   cellar's.
+3. **Keys**: `sudo ./backup.sh keys` on every node, cellar included. It prints
+   one line for roastery and (not on cellar) one for the dump store.
+4. **roastery**: the lines go in `stacks/roastery/backup-target/authorized_keys`,
+   then `.\setup.ps1` there, elevated ([roastery/README.md](../../roastery/README.md#backup-target)).
+   Compare the host key fingerprint it prints with what `keys` pinned.
+5. **Dump store**: the other lines go in `restic/dump-store.keys` here, then
+   `sudo ./restic/dump-store-setup.sh`.
+6. **Repository**: `sudo ./restic/restic-init.sh`.
+7. **Check every node**: `sudo ./backup.sh doctor` until it says all good, then
+   `sudo ./backup.sh nightly` by hand once. On percolator the first run uploads
+   everything: do it with roastery awake and someone at it.
+8. **Drive**: the Google API client (below), `sudo ./restic/drive-setup.sh`, then
+   `sudo ./restic/drive-sync.sh` by hand (the first upload is slow).
+9. **Restore test**: `sudo ./restic/restore-test.sh`, then `--from drive`. Not done
+   until both pass.
+10. **Timers**: `purrbrews-backup@<node>.timer` on every node
+    (`stacks/_lib/systemd/`), and here every `*.timer` in this folder:
+    ```sh
+    sudo cp restic/*.service restic/*.timer /etc/systemd/system/
+    sudo systemctl daemon-reload
+    sudo systemctl enable --now purrbrews-wake-roastery.timer purrbrews-backup-store.timer \
+      restic-prune.timer drive-sync.timer purrbrews-backup-check.timer purrbrews-backup-verify.timer
+    ```
+11. **The morning after**: `sudo ./restic/check-freshness.sh` says everything is
+    under 26 h.
 
-Then add sources to the `SOURCES` list at the top of `restic-backup.sh`. Until
-there's one, every run fails on purpose, so an empty repository never looks like
-a working backup. Check for real with:
-
-```sh
-restic -r /srv/backup/restic-repo snapshots
-```
-
-Never point a source at a live Postgres data directory. The database gets dumped
-on its own node first, and the dump is what's backed up.
-
-## roastery mirror
-
-Needs, in `.env.local`: `ROASTERY_WOL_MAC` (the USB dongle, not the onboard NIC),
-`ROASTERY_SSH_HOST`, `ROASTERY_MIRROR_PATH`, and an SSH key from the ops user to
-roastery. Then install and enable `mirror-to-roastery.{service,timer}` the same way
-as above.
-
-## Google Drive sync
+## Google Drive
 
 rclone gets its own Google API client: the shared default is the biggest cause of
-`403 userRateLimitExceeded`, since every rclone user shares its quota. One-time
-setup; the same client works for any other node later.
+`403 userRateLimitExceeded`, since every rclone user shares its quota.
 
 1. **Make the client** at [console.cloud.google.com](https://console.cloud.google.com):
-   - a new project (say `purrbrews-restic`), with the **Google Drive API** enabled;
-   - *OAuth consent screen*: **External**, your own email, yourself as a **test
-     user**. Leave it in *Testing*: only you use it, and rclone refreshes the
-     7-day tokens itself as long as it keeps running;
-   - *Credentials → Create credentials → OAuth client ID → Desktop app*, and copy
-     the ID and secret (the secret is only shown once).
-
+   - a new project (say `purrbrews-backups`) with the **Google Drive API** enabled;
+   - *OAuth consent screen*: **External**, your own email, then **Publish app**
+     (In production). An app left in *Testing* gets refresh tokens that expire
+     after 7 days, and the nightly sync would stop a week in. Unverified is fine
+     for an app only you use; Google warns once at sign-in;
+   - *Credentials → Create credentials → OAuth client ID → Desktop app*; copy the
+     ID and secret (the secret is shown once).
 2. **Paste them in:** `./setup-secrets.sh` asks for `RCLONE_DRIVE_CLIENT_ID` and
-   `RCLONE_DRIVE_CLIENT_SECRET` and renders `restic/rclone.conf`.
+   `RCLONE_DRIVE_CLIENT_SECRET`.
+3. **Authorize:** `sudo ./restic/drive-setup.sh`. cellar has no browser, so it
+   asks you to run `rclone authorize` on roastery and paste the JSON back.
+4. It checks Drive, makes `drive-crypt:repo`, and checks it can read the
+   repository on roastery.
 
-3. **Authorize the token.** It needs a browser and cellar is headless. Either
-   tunnel the callback port:
-   ```sh
-   ssh -L 53682:localhost:53682 barista@cellar
-   cd /opt/purrbrews/stacks/cellar
-   rclone config reconnect drive: --config restic/rclone.conf
-   ```
-   and open the `http://127.0.0.1:53682/auth?...` link it prints on your own
-   machine; or run `rclone authorize "drive" '<client id>' '<client secret>'` on a
-   machine with a browser and paste the JSON it prints into
-   `rclone config reconnect drive: --config restic/rclone.conf --auth-no-open-browser`.
+The rclone config is `/etc/purrbrews/rclone.conf`, not a rendered template:
+rclone writes the refreshed token back into it, and a re-render would throw that
+away. It's backed up with cellar's settings.
 
-4. **Set the crypt passwords** (say `y` to a random one each time):
-   ```sh
-   rclone config password drive-crypt password  --config restic/rclone.conf
-   rclone config password drive-crypt password2 --config restic/rclone.conf
-   ```
-   **Both go to flask too.** Lose them and everything already on Drive is
-   unreadable; they aren't stored anywhere else.
+A single Google account is its own single point of failure. The small critical
+set (Vaultwarden, Paperless, every node's settings) should live somewhere else as
+well, one day.
 
-5. **Check it:** `rclone lsd drive-crypt: --config restic/rclone.conf`. An empty
-   listing is good. An OAuth error means step 3 again; a `403` usually means
-   `rclone.conf` isn't using your client (re-render).
+## When something's wrong
 
-6. **Switch it on** once there's a real local backup to send:
-   ```sh
-   sudo cp restic/drive-sync.{service,timer} /etc/systemd/system/
-   sudo systemctl daemon-reload && sudo systemctl enable --now drive-sync.timer
-   ```
-
-A single Google account is its own single point of failure. The small critical set
-(Vaultwarden export, Paperless documents, every node's `.env.local`, about 20 GB)
-should live somewhere else as well.
+- **A node's backup failed**: `journalctl -u purrbrews-backup@<node>` there;
+  `sudo ./backup.sh doctor` says what's missing.
+- **"repository is already locked"**: a run crashed mid-way. After making sure
+  nothing is running, `sudo ./backup.sh restic unlock` (removes only stale locks).
+- **roastery didn't wake**: its USB NIC's wake setting, or Windows went back to
+  sleep; `setup.ps1` sets both. `sudo ./restic/wake-roastery.sh` tries by hand.
+- **Restoring something**: `sudo ./backup.sh restic snapshots`, then
+  `sudo ./backup.sh restic restore <id> --target /var/tmp/restore --include <path>`
+  on any node. Dumps: `pg_restore` for `.pgdump`, `gzip -dc x.sql.gz | sqlite3 new.db`,
+  `mongorestore --archive=x.mongo.gz --gzip`.

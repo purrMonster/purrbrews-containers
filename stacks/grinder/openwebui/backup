@@ -1,0 +1,5 @@
+# Open WebUI: chats and settings in SQLite. cache/ is downloaded models.
+sqlite  webui  openwebui/webui.db
+path    openwebui
+exclude webui.db*
+exclude cache

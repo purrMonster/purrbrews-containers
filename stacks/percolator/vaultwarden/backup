@@ -1,0 +1,6 @@
+# Vaultwarden: the vault itself is SQLite; attachments, sends and the RSA key
+# pair (without it every session breaks) are files beside it.
+sqlite  vault   vaultwarden/db.sqlite3
+path    vaultwarden
+exclude db.sqlite3*
+exclude icon_cache

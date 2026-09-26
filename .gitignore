@@ -25,6 +25,13 @@ bootstrap/data/
 # Written by init/purrbrews-init.sh on each node.
 /.env
 
+# Backup keys: which node may write where. Public keys, but per-host state,
+# and the pinning (from=) is the part that matters.
+stacks/cellar/restic/dump-store.keys
+stacks/roastery/backup-target/authorized_keys
+# cellar's old rendered rclone config; rclone's own now lives in /etc/purrbrews.
+stacks/cellar/restic/rclone.conf
+
 # Komodo Core's public key, copied by hand from cellar to every node. Not
 # secret, but it's per-host state, not config.
 stacks/*/komodo-periphery/keys/
@@ -32,7 +39,6 @@ stacks/*/komodo-periphery/keys/
 # --- Rendered from *.template by render-configs ------------------------------
 # One line per template. tests/test_infrastructure.py fails if a template's
 # output isn't listed here, so a new template can't leak its secrets.
-stacks/cellar/restic/rclone.conf
 stacks/cellar/traefik/config/dynamic.yml
 stacks/cellar/traefik/config/traefik.yml
 stacks/grinder/traefik/config/dynamic.yml

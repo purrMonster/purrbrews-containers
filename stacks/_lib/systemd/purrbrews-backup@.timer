@@ -1,0 +1,14 @@
+[Unit]
+Description=purrbrews nightly backup (%i), 01:30
+
+[Timer]
+# cellar wakes roastery at 01:25 (purrbrews-wake-roastery.timer) and every
+# node waits up to ten minutes for it. The random delay keeps five nodes
+# from opening their SFTP sessions in the same second.
+OnCalendar=*-*-* 01:30:00
+RandomizedDelaySec=5min
+# Missed because the node was off: run at the next boot rather than skip a day.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

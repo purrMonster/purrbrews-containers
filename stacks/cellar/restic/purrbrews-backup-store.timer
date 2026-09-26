@@ -1,0 +1,10 @@
+[Unit]
+Description=Back up the dump store (every node's database dumps), nightly at 02:30
+
+[Timer]
+# After the nodes (01:30 + up to 5 min) have pushed tonight's dumps.
+OnCalendar=*-*-* 02:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

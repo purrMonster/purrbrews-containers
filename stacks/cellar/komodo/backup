@@ -1,0 +1,4 @@
+# Komodo: Mongo (servers, stacks, users), and Core's key pair, which every
+# Periphery trusts.
+mongo   komodo  komodo-mongo  $KOMODO_DATABASE_USERNAME  $KOMODO_DATABASE_PASSWORD
+path    komodo/keys

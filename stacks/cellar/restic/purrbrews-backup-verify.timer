@@ -1,0 +1,10 @@
+[Unit]
+Description=Read part of the backup repository back, monthly on the 1st at 04:30
+
+[Timer]
+# The 1st of each month; a different 5% of the data each time.
+OnCalendar=*-*-01 04:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

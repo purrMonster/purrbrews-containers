@@ -1,0 +1,11 @@
+[Unit]
+Description=Read part of the backup repository back
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/purrbrews/stacks/cellar/restic/verify.sh
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=6h

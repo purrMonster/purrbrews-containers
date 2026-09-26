@@ -1,0 +1,3 @@
+# CrowdSec: config/ holds the machine and bouncer credentials. Its database
+# is decisions and alerts, which come back on their own.
+path    crowdsec/config

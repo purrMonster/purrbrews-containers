@@ -1,0 +1,12 @@
+# Copy to authorized_keys (gitignored) beside setup.ps1, then run
+# .\setup.ps1 -KeysOnly from an elevated PowerShell.
+#
+# One line per node, exactly as `sudo ./backup.sh keys` prints it there
+# ("On roastery, one line ..."). from= pins each key to its node's address;
+# restrict turns off everything SFTP doesn't need.
+#
+# from="192.168.0.10",restrict ssh-ed25519 AAAA... purrbrews-backup@sieve
+# from="192.168.0.11",restrict ssh-ed25519 AAAA... purrbrews-backup@percolator
+# from="192.168.0.12",restrict ssh-ed25519 AAAA... purrbrews-backup@cellar
+# from="192.168.0.13",restrict ssh-ed25519 AAAA... purrbrews-backup@mochaPot
+# from="192.168.0.14",restrict ssh-ed25519 AAAA... purrbrews-backup@grinder

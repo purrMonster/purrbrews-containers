@@ -23,11 +23,11 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Confirm Komodo Periphery's cross-host auth (pinning Core's public key alone) on a real bring-up — only reasoned about and sandbox-built, not tested cross-host; may need its own passkey/API key from Core's UI
 - [ ] Confirm each node's `DISK_DEVICE` (and `DISK_DEVICE_2` on percolator and cellar) against real hardware (`lsblk -d -o NAME,TYPE,SIZE,MODEL`); these were the per-node `*_DISK_DEVICE*` keys until 2026-09-26
 - [ ] cellar's Samba: `smb/docker-compose.yml` exists but nothing uses it and ufw-docker keeps 445 closed. Decide on shares and permissions, pin the image, then uncomment the rule in `smb/firewall`
-- [ ] Wire cellar's restic sources to percolator's, sieve's and mochaPot's actual dumps and data — all three now exist in this repo
-- [ ] Backups to roastery, cellar as the dump store, second copy of everything on Google Drive (decided 2026-09-26; design and order of work in the 2026-09-27 entry). Replaces the old "enable cellar's roastery mirror and Google Drive sync" item
+- [x] Wire cellar's restic sources to percolator's, sieve's and mochaPot's actual dumps and data: replaced by each node's own `backup` files (2026-09-27)
+- [ ] Backups to roastery, cellar as the dump store, second copy of everything on Google Drive (decided 2026-09-26; design in the 2026-09-27 entries). Scripts written 2026-09-27; next: tie them together in the order in `stacks/cellar/restic/README.md`, ending with a restore test from Drive. Replaces the old "enable cellar's roastery mirror and Google Drive sync" item
 - [ ] Replace cellar's old disk (ST1000LM035, 5–8 years old) once it's only the dump store; the SanDisk on mochaPot is the same age
 - [ ] roastery: `immich-machine-learning` at Immich's version, Windows Firewall 3003 scoped to percolator
-- [ ] Postgres dump job for percolator's databases (Nextcloud, Immich, Paperless)
+- [x] Postgres dump job for percolator's databases (Nextcloud, Immich, Paperless): `pg` lines in their `backup` files (2026-09-27)
 - [ ] Remaining node: roastery itself joining the fleet; then archive purrBrews-infra
 - [ ] Gatus: enable each node's ping as it is provisioned; add app checks as stacks land
 - [ ] Optional: paste `purrbrews-mac.sh list --format pihole` into Pi-hole's static DHCP list
@@ -39,6 +39,72 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Pin n8n (`latest`), Open WebUI (`main`) and Karakeep (`release`)
 - [ ] Open WebUI → roastery's Ollama: needs machine-to-machine auth that keeps Authelia in front; nothing exists yet
 - [ ] Karakeep: `NEXTAUTH_URL` is the direct-port URL while the route is `karakeep.${DOMAIN}`; check the phone share sheet signs in through the hostname
+
+---
+
+## 2026-09-27 — Backup scripts written (not tied together yet)
+
+Every script the design above needs, across all nodes. Nothing is installed,
+enabled or run on a node yet; that's the next session ("tying together", in the
+order in `stacks/cellar/restic/README.md`).
+
+**What exists now:**
+
+- **Per node, one script and a config file per app.** `_lib/backup.sh` (every Linux
+  node's `./backup.sh`, the same wrapper as the other four) with `plan`, `doctor`,
+  `keys`, `dump`, `push`, `files`, `store`, `nightly` and `restic`. What to back up
+  is each app's `backup` file: `pg`, `mongo`, `sqlite` (dumps), `path`, `exclude`.
+  25 of them, covering every app with state worth keeping; the ones left out are on
+  purpose (Traefik certificates, Scrutiny history, Meilisearch, Redis/Valkey,
+  mochaPot's secondary Pi-hole, Speedtest results, the Gatus history).
+- Every node also always backs up its own `.env`, `.env.local`, every
+  `secrets.env.local` and `/etc/purrbrews`: what rebuilding a node needs.
+- Dumps are read back before they replace the last good one (`pg_restore --list`,
+  a trailing `COMMIT;`, `gzip -t`); SQLite is dumped as the file's owner, read-only,
+  so a root `sqlite3` can't leave a root-owned `-shm` that locks the app out; the
+  Mongo password never appears in a process list.
+- `_lib/restic-env.sh`: the shared pieces (repository, keys, pinned host keys,
+  ntfy, locking, wake-on-LAN), so the node side and cellar's side can't drift.
+- `_lib/systemd/purrbrews-backup@.{service,timer}`: one unit for every node, 01:30.
+- **cellar/restic**, rewritten around roastery: `restic-init`, `dump-store-setup`
+  (the `dumps` account; each node's key locked by `rrsync -wo` to its own folder),
+  `wake-roastery`, `restic-prune`, `drive-setup`, `drive-sync`, `check-freshness`,
+  `verify`, `restore-test`, and their timers. The old `restic-backup.sh` and
+  `mirror-to-roastery.sh` are gone, with the HDD repository they served.
+- **roastery**: `backup-target/setup.ps1` (OpenSSH, the `restic` account, the chroot,
+  `AllowUsers restic`, the firewall rule from `fleet.env`, wake-on-LAN, and a
+  3-hour unattended-wake window).
+- `fleet.env` now has `ROASTERY_LAN_IP`, `BACKUP_REPOSITORY`, `DUMP_DIR` and
+  `DUMP_STORE_HOST`; grinder's `ROASTERY_LAN_IP` moved there from its example.
+- Tests: every node's `plan` parses, bad lines are refused, excludes stay inside
+  their app, and a dump + files + store run into a local repository (restored and
+  checked). 44 pass.
+
+**Tested for real in a sandbox** (not on the fleet): the SQLite dumps (a live WAL
+database, owner-only), `files` with the excludes, `store`, stale-dump cleanup, a
+failed dump keeping the last good one, `keys`, `doctor`, and the push to a real
+sshd + rrsync (`-wo` refuses a read and a shell). Not tested anywhere yet: SFTP
+into Windows OpenSSH with a chroot (the one part I'm least sure of; if the chroot
+fights back, drop `ChrootDirectory` and use `sftp:restic@…:/C:/purrbrews/restic`
+in `fleet.env`), `setup.ps1` itself, wake-on-LAN, and rclone against Drive.
+
+**Changed from before, and why:**
+
+- **rclone's config is no longer a rendered template.** rclone writes the refreshed
+  OAuth token back into its config; render-configs would have overwritten it on the
+  next run. It's `/etc/purrbrews/rclone.conf` now, made once by `drive-setup.sh`.
+- **The Google OAuth app has to be published, not left in Testing** (the old README
+  said Testing): refresh tokens of a Testing app expire after 7 days.
+- **The crypt passwords are generated secrets** (`RCLONE_CRYPT_PASSWORD`/`_SALT` in
+  `restic/secrets.conf`), so they go to flask like everything else, and the crypt
+  remote is `drive:purrbrews-restic` (nothing was ever uploaded to the old one).
+- **Windows' unattended-sleep timeout** (2 minutes after a wake with nobody there)
+  would end every backup before it started. `setup.ps1` sets it to 3 hours, and
+  every cellar job wakes roastery itself rather than trusting the 01:25 wake.
+- **Deleted snapshots are recoverable for 30 days** on Drive (`--backup-dir`), since
+  SFTP has no append-only mode.
+- roastery has no DHCP reservation, and `BACKUP_REPOSITORY` now depends on
+  192.168.0.15; that backlog item matters more now.
 
 ---
 
