@@ -24,7 +24,7 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Confirm each node's `DISK_DEVICE` (and `DISK_DEVICE_2` on percolator and cellar) against real hardware (`lsblk -d -o NAME,TYPE,SIZE,MODEL`); these were the per-node `*_DISK_DEVICE*` keys until 2026-09-26
 - [ ] cellar's Samba: `smb/docker-compose.yml` exists but nothing uses it and ufw-docker keeps 445 closed. Decide on shares and permissions, pin the image, then uncomment the rule in `smb/firewall`
 - [ ] Wire cellar's restic sources to percolator's, sieve's and mochaPot's actual dumps and data — all three now exist in this repo
-- [ ] Backups to roastery, cellar as the dump store, second copy of everything on Google Drive (decided 2026-09-26, starts 2026-09-27; entry below). Replaces the old "enable cellar's roastery mirror and Google Drive sync" item
+- [ ] Backups to roastery, cellar as the dump store, second copy of everything on Google Drive (decided 2026-09-26; design and order of work in the 2026-09-27 entry). Replaces the old "enable cellar's roastery mirror and Google Drive sync" item
 - [ ] Replace cellar's old disk (ST1000LM035, 5–8 years old) once it's only the dump store; the SanDisk on mochaPot is the same age
 - [ ] roastery: `immich-machine-learning` at Immich's version, Windows Firewall 3003 scoped to percolator
 - [ ] Postgres dump job for percolator's databases (Nextcloud, Immich, Paperless)
@@ -39,6 +39,71 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Pin n8n (`latest`), Open WebUI (`main`) and Karakeep (`release`)
 - [ ] Open WebUI → roastery's Ollama: needs machine-to-machine auth that keeps Authelia in front; nothing exists yet
 - [ ] Karakeep: `NEXTAUTH_URL` is the direct-port URL while the route is `karakeep.${DOMAIN}`; check the phone share sheet signs in through the hostname
+
+---
+
+## 2026-09-27 — Backup design, decided
+
+The owner left the three open questions from the entry below to me ("for my
+hardware and design, take a decision"). What I measured first:
+
+- **Data is small.** percolator uses 89 GB of `/srv` (Immich, Nextcloud, Paperless
+  files and databases); every other node's `/srv/data` is under 1 GB, grinder's
+  Open WebUI the largest at 890 MB. Call it ~100 GB to protect today.
+- **roastery's disks:** C: is a Samsung 1 TB NVMe (PM9A1, healthy, 667 GB free).
+  D: is another **ST1000LM035**, the same old 2.5" Seagate model as cellar's
+  restic disk, 335 GB free.
+- **cellar's disks:** the old Seagate (`/srv/backup`) and a 256 GB NVMe for the
+  system, 208 GB free.
+- roastery sleeps in S3 and wakes on the USB Realtek NIC (the onboard I211 isn't
+  connected), which is what `mirror-to-roastery.sh` already expects.
+
+**Decisions:**
+
+1. **The repository lives on roastery's C: (NVMe)**, in `C:\purrbrews\restic`, not
+   on D:. D: is the same old laptop disk we're moving away from. C: being the
+   system disk is the usual objection (a reinstall could take it); the Google Drive
+   copy covers that, and at ~100 GB it has years of room.
+2. **Nodes reach it over SFTP**: Windows' OpenSSH Server on roastery, a dedicated
+   non-admin local account `restic`, key-only, its home the repository folder.
+   Windows Firewall allows 22 from the five node IPs only. Why not the others:
+   OpenSSH is a Windows service that runs before anyone signs in (Docker Desktop and
+   rest-server don't), and restic speaks SFTP natively. SMB is the easiest to
+   break and the usual ransomware target.
+   - The cost: rest-server's append-only mode is gone, so a node with the key
+     could delete snapshots. Covered by the Drive copy keeping deleted files
+     (`rclone sync --backup-dir`, 30 days), below.
+3. **Dumps through cellar, files straight to roastery** (option B):
+   - Every node dumps its own databases at 01:30 (pg_dump / mongodump) and pushes
+     them to cellar's `/srv/dumps/<node>`, **on cellar's NVMe**, not the old HDD.
+   - Every node backs up its own file data straight to the roastery repository at
+     02:15 (`--host <node>`). Only percolator has much; the rest is config-sized.
+   - cellar backs up `/srv/dumps` and its own data the same way.
+   - Built config-driven like the rest of `_lib`: an app lists what to dump and
+     which paths to back up in a small per-app file; no per-node scripts.
+4. **cellar orchestrates**, since it's the one that's always on: wakes roastery at
+   02:00 (WoL), syncs the repository to Google Drive at 04:00 (rclone reads it over
+   SFTP, through the existing `drive-crypt` remote), prunes on Sundays (one host
+   prunes, so there's no lock fight), and at 06:00 checks every host has a snapshot
+   under 26 hours old. Anything missing or failed goes to ntfy.
+5. **cellar's old Seagate** stops being used for backups at all. It can stay as
+   scratch until it's replaced.
+
+**Order of work:**
+
+1. roastery: OpenSSH Server, the `restic` account, the firewall rule, `C:\purrbrews\restic`
+   (owner-approved system change; I prepare the exact commands).
+2. `restic init` on the SFTP repository; `RESTIC_PASSWORD` to flask the same day.
+3. Dump job in `_lib`, dump files for percolator (Nextcloud, Immich, Paperless),
+   cellar (Komodo's Mongo), grinder (FitTrackee, postgres-vector), mochaPot (HA
+   recorder); push to cellar.
+4. File backup job in `_lib`, per-app path lists, timers on each node.
+5. cellar: WoL timer, Drive sync repointed at the SFTP repo, freshness check.
+6. **Restore test** from the Drive copy: one database and one photo folder. Not done
+   until this passes.
+
+Also noticed: roastery's own D: (documents, projects, `insta360`) sits on that same
+old Seagate model with no backup. Adding a Windows restic job for it later is cheap.
 
 ---
 
@@ -167,7 +232,7 @@ until decided otherwise (backlog).
     Plan: get a second copy off it first (the Google Drive sync in the backlog),
     run a long SMART self-test on both (`sudo smartctl -t long`, owner's step), and
     budget a replacement for the restic disk rather than waiting for it to fail.
-- [ ] **The firewall's `route` rules don't restrict LAN clients.** Correction to the
+- [x] **The firewall's `route` rules don't restrict LAN clients.** Correction to the
   entry below: I wrote that grinder's old rules "never matched". The port numbers
   were wrong (they match the container port), but it didn't matter, because every
   published port answers from the LAN anyway, including Authelia's 9091, which is
@@ -196,6 +261,9 @@ until decided otherwise (backlog).
     addresses (backup: `.env.local.bak-20260926`). Needs one more
     `sudo ./firewall.sh` on percolator. roastery is not in the list; add
     192.168.0.15 too if its Traefik comes back.
+  - Done (2026-09-27): owner re-ran it on percolator. 9091 answers from sieve,
+    cellar, mochaPot and grinder and is closed from roastery; every protected
+    hostname redirects to Authelia again.
 
 ---
 
