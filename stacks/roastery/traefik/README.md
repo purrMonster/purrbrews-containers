@@ -58,7 +58,22 @@ Quit Ollama from the tray and reopen it. Verify its listening address is
 127.0.0.1 using Get-NetTCPConnection -LocalPort 11434 -State Listen.
 In Windows Firewall, permit inbound TCP 443 (and 80 for redirects) to the
 Traefik executable from your actual LAN CIDR. Port 11434 needs no inbound rule.
-Point Pi-hole's ollama.<your-domain> record to roastery's fixed LAN IP.
+On both sieve and mochaPot, include roastery's fixed LAN IP in
+`PIHOLE_DNS_EXTRA_HOSTS` in `.env.local` (for example,
+`PIHOLE_DNS_EXTRA_HOSTS='192.168.0.20 roastery'`; preserve other entries separated
+by semicolons). This is unnecessary if roastery is already in `NODE_IPS` or
+`PIHOLE_DNS_HOSTS` in `.env.local`; existing native router host entries are reused
+and retained on subsequent renders.
+From each resolver's stack directory, run:
+
+```bash
+bash ./render-configs.sh
+./compose.sh pihole up -d --force-recreate
+```
+
+Rendering discovers the nested Ollama router template and regenerates
+`ollama.${DOMAIN}` pointing to roastery, along with the other local app records.
+Recreation applies these records through Pi-hole's Compose environment.
 Do not add a public tunnel or router port forwarding for this LAN-only setup.
 
 Edit traefik/secrets.env.local and replace REPLACE_ME with your Cloudflare DNS

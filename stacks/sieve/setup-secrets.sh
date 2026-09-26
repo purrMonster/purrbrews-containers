@@ -95,7 +95,7 @@ join() { local IFS=';'; printf '%s' "$*"; }
 extra="$(get "$ENV_LOCAL" PIHOLE_DHCP_EXTRA_HOSTS)"; [[ -n "$extra" ]] && dhcp_hosts+=("$extra")
 extra="$(get "$ENV_LOCAL" PIHOLE_DNS_EXTRA_HOSTS)";  [[ -n "$extra" ]] && dns_hosts+=("$extra")
 set_env PIHOLE_DHCP_HOSTS "$(join "${dhcp_hosts[@]}")"
-set_env PIHOLE_DNS_HOSTS  "$(join "${dns_hosts[@]}")"
+# dns-records.py updates DNS hosts while retaining existing native router names.
 echo "  Pi-hole: ${#dhcp_hosts[@]} static lease entr(ies), ${#dns_hosts[@]} host name entr(ies)"
 
 # The same generator runs on the secondary: clients may use either resolver.

@@ -33,13 +33,30 @@ class DNS(unittest.TestCase):
         self.assertNotIn('${PIHOLE_DHCP_ACTIVE', secondary)
 
     def test_actual_routes(self):
-        lines, hosts = dns.records(ROOT, 'example.test', io.StringIO(FLEET))
-        for host, ip in [('authelia', 11), ('komodo', 12), ('homeassistant', 13), ('n8n', 14), ('pihole', 10)]:
+        lines, hosts = dns.records(ROOT, 'example.test', io.StringIO(FLEET), '192.168.0.20 roastery')
+        for host, ip in [('authelia', 11), ('komodo', 12), ('homeassistant', 13), ('n8n', 14), ('pihole', 10), ('ollama', 20)]:
             self.assertIn(f'address=/{host}.example.test/192.168.0.{ip}', lines)
             self.assertIn(f'local=/{host}.example.test/', lines)
         self.assertIn('filter-AAAA', lines)
         self.assertNotIn('local=/example.test/', lines)  # public ACME remains resolvable
-        self.assertEqual(len(hosts), 5)
+        self.assertEqual(len(hosts), 6)
+
+    def test_roastery_can_come_from_fleet(self):
+        lines, _ = dns.records(ROOT, 'example.test', io.StringIO(FLEET + 'roastery,192.168.0.21,x\n'))
+        self.assertIn('address=/ollama.example.test/192.168.0.21', lines)
+
+    def test_missing_roastery_is_error(self):
+        with self.assertRaisesRegex(ValueError, 'Router node roastery'):
+            dns.records(ROOT, 'example.test', io.StringIO(FLEET))
+
+    def test_existing_native_host_survives_repeated_generation(self):
+        existing = '192.168.0.20 roastery;192.168.0.99 sieve'
+        for _ in range(2):
+            lines, hosts = dns.records(ROOT, 'example.test', io.StringIO(FLEET), existing_hosts=existing)
+            self.assertIn('address=/ollama.example.test/192.168.0.20', lines)
+            self.assertIn('address=/pihole.example.test/192.168.0.10', lines)
+            self.assertIn('192.168.0.20 roastery', hosts)
+            existing = ';'.join(hosts)
 
     def test_missing_node_is_error(self):
         with self.assertRaisesRegex(ValueError, 'missing from NODE_IPS'):
@@ -58,12 +75,17 @@ class DNS(unittest.TestCase):
     def test_primary_secondary_cli_parity_and_dhcp(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            shutil.copytree(ROOT / 'stacks', root / 'stacks', ignore=shutil.ignore_patterns('*.env.local', '__pycache__'))
+            # Copy router sources only; node-local credentials are not fixtures.
+            for source in (ROOT / 'stacks').rglob('*'):
+                if source.is_file() and (source.name.endswith('.template') or source.suffix == '.yml'):
+                    target = root / source.relative_to(ROOT)
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(source, target)
             outputs = {}
             for node in ['sieve', 'mochaPot']:
                 directory = root / 'stacks' / node
                 path = directory / '.env.local'
-                path.write_text('DOMAIN=example.test\nPIHOLE_DNS_EXTRA_HOSTS="192.168.0.20 workstation"\n')
+                path.write_text('DOMAIN=example.test\nPIHOLE_DNS_HOSTS="192.168.0.20 roastery"\nPIHOLE_DNS_EXTRA_HOSTS="192.168.0.30 workstation"\n')
                 result = subprocess.run(['python3', str(ROOT / 'stacks/_lib/dns-records.py'), '--node-dir', str(directory)], input=FLEET, text=True, capture_output=True)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 outputs[node] = dns.read_env(path)
@@ -76,6 +98,35 @@ class DNS(unittest.TestCase):
 
 
 class Render(unittest.TestCase):
+    @unittest.skipIf(os.geteuid() == 0, 'renderer intentionally rejects root')
+    def test_resolver_render_refreshes_dns_and_stops_on_failure(self):
+        for name in ['sieve', 'mochaPot']:
+            with self.subTest(node=name), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                lib = root / 'stacks/_lib'
+                shutil.copytree(ROOT / 'stacks/_lib', lib)
+                node = root / 'stacks' / name
+                app = node / 'pihole'
+                app.mkdir(parents=True)
+                template = app / 'config.template'
+                template.write_text('dns=${PIHOLE_DNSMASQ_LINES}\n')
+                refresh = lib / 'refresh-dns.sh'
+                refresh.write_text('''#!/usr/bin/env bash
+set -eu
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+printf "PIHOLE_DNSMASQ_LINES='address=/ollama.example.test/192.168.0.20'\\n" > "$ROOT/stacks/$1/.env.local"
+''')
+                command = ['bash', str(lib / 'render-configs.sh'), str(node)]
+                result = subprocess.run(command, text=True, capture_output=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                output = template.with_suffix('')
+                self.assertEqual(output.read_text(), 'dns=address=/ollama.example.test/192.168.0.20\n')
+                output.write_text('last-good')
+                refresh.write_text('exit 1\n')
+                result = subprocess.run(command, text=True, capture_output=True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(output.read_text(), 'last-good')
+
     def test_failed_render_preserves_existing(self):
         for value in [None, '', 'REPLACE_ME.example.test']:
             with tempfile.TemporaryDirectory() as tmp:

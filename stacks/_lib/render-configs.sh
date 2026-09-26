@@ -6,6 +6,11 @@ DIR="$(cd "${1:?node directory required}" && pwd)"
 ROOT="$(cd "$DIR/../.." && pwd)"
 [[ $EUID -ne 0 ]] || { echo 'Run as the ops user, not sudo.' >&2; exit 1; }
 command -v python3 >/dev/null || { echo 'python3 is required.' >&2; exit 1; }
+case "$(basename "$DIR")" in
+  sieve|mochaPot)
+    bash "$ROOT/stacks/_lib/refresh-dns.sh" "$(basename "$DIR")" || exit 1
+    ;;
+esac
 failed=0; count=0
 while IFS= read -r tpl; do
   count=$((count + 1))

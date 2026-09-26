@@ -84,6 +84,7 @@ stacks/<node>/generate-secrets.sh        creates each app's secrets locally, on 
 stacks/<node>/firewall.sh                the node's UFW rules, as code
 stacks/<node>/local.env.example          node-specific settings template
 runbook.md                               dated design decisions: the why, not just the what
+docs/                                    plans and audits; start at docs/MAP.md
 ```
 
 ## Current network audit
