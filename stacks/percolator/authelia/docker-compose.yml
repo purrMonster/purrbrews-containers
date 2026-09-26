@@ -5,7 +5,8 @@
 # Image tags checked 2026-09-15.
 services:
   authelia:
-    image: authelia/authelia:4.39.27   # keep in step with generate-secrets.sh
+    # setup-secrets.sh hashes OIDC secrets with this same image, read from here.
+    image: authelia/authelia:4.39.27
     container_name: authelia
     restart: unless-stopped
     depends_on:
@@ -29,14 +30,9 @@ services:
       - traefik.http.routers.authelia.rule=Host(`authelia.${DOMAIN}`)
       - traefik.http.routers.authelia.entrypoints=websecure
       - traefik.http.services.authelia.loadbalancer.server.port=9091
-      # REQUIRED: authelia is the only app in this stack on two networks
-      # (proxy, for Traefik; default, for private Redis access) -- every
-      # other app here is on `proxy` alone, so this is the one container
-      # where Traefik's docker provider can't infer which network's IP to
-      # route to. Without this label it doesn't error loudly, it just
-      # silently drops the router -- which is exactly what a plain 404 on
-      # authelia.${DOMAIN} looks like (Traefik answering "no route", not
-      # Authelia answering "not found"). Found 2026-09-16.
+      # Authelia is on two networks (proxy, and default for Redis). Without
+      # this Traefik can't pick one and quietly drops the router, and all I
+      # got was a bare 404 on authelia.${DOMAIN}.
       - traefik.docker.network=proxy
 
   redis:

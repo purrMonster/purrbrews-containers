@@ -1,36 +1,29 @@
+# Music Assistant: whole-house audio. Host networking for mDNS/UPnP player
+# discovery and streaming to Cast, AirPlay, Sonos and DLNA; every player has
+# to be on the same flat LAN.
+#
+# No login of its own. Through Traefik it's behind Authelia; the direct port
+# (8095) is only as private as the LAN.
+#
+# Image: ghcr.io/music-assistant/server:2.9.8.
 services:
   musicassistant:
     image: ghcr.io/music-assistant/server:2.9.8
     container_name: musicassistant
-    # Confirmed on the pre-restructure build via Music Assistant's own
-    # docs: required for mDNS/UPnP player discovery and direct-network
-    # streaming to Chromecast/AirPlay/Sonos/DLNA -- same underlying reason
-    # as Home Assistant's network_mode: host above. All target devices
-    # must share a flat network (no VLANs) for this to work. Re-verify the
-    # image tag is still current before first bring-up.
     network_mode: host
+    # Same resolv.conf snapshot problem as Home Assistant.
     dns:
       - ${DNS_PRIMARY:-192.168.0.10}
       - ${DNS_SECONDARY:-192.168.0.13}
     volumes:
-      - /srv/data/musicassistant:/data
+      - ${DATA_DIR:?}/musicassistant:/data
     environment:
       TZ: ${TZ}
     restart: unless-stopped
-    # No auth config at the compose level -- confirmed on the
-    # pre-restructure build, unchanged. Reachable directly on the LAN, and
-    # now also at music.${DOMAIN} through Traefik -- the ForwardAuth
-    # middleware below is the only real gate either way (same zero-native-
-    # auth situation as cellar's Scrutiny), bypassable via the direct port
-    # if percolator's Authelia is down. Port 8095 (this image's web UI
-    # port) stays open regardless -- the backdoor.
-    # Unquoted, deliberately (2026-09-17) -- see homeassistant/docker-compose.yml's
-    # comment: quoted labels broke sieve's setup-secrets.sh DNS generation for
-    # this whole stack silently.
     labels:
       - traefik.enable=true
       - traefik.http.routers.musicassistant.rule=Host(`music.${DOMAIN}`)
       - traefik.http.routers.musicassistant.entrypoints=websecure
       - traefik.http.routers.musicassistant.tls.certresolver=cloudflare
       - traefik.http.routers.musicassistant.middlewares=authelia-forwardauth@file
-      - traefik.http.services.musicassistant.loadbalancer.server.url=http://${MOCHAPOT_LAN_IP}:8095
+      - traefik.http.services.musicassistant.loadbalancer.server.url=http://${NODE_IP:?}:8095

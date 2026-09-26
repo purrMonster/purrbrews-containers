@@ -1,27 +1,26 @@
-# Scrutiny collector — standalone agent added 2026-09-16, same pattern as
-# stacks/sieve/scrutiny-collector/docker-compose.yml (see that file's own
-# header comment). percolator differs from sieve in having TWO physical
-# disks to monitor (infrastructure.md §3: 1 TB NVMe + 256 GB SATA SSD,
-# physically separate — same OS/data-separation discipline as this node's
-# whole storage layout), so both PERCOLATOR_DISK_DEVICE_NVME and
-# PERCOLATOR_DISK_DEVICE_SATA go in ../local.env.example. VERIFY BOTH
-# against real hardware with `lsblk -d -o NAME,TYPE,SIZE,MODEL` before
-# first bring-up — use the NVMe controller node (/dev/nvme0), not the
-# namespace block device lsblk shows (/dev/nvme0n1), same convention as
-# cellar's own local.env.example.
+# Scrutiny collector: runs smartctl on this node's disks every six hours and
+# posts the results to the Scrutiny hub on cellar. No UI, nothing to route.
+#
+# percolator has two disks: DISK_DEVICE (NVMe, /srv/data) and DISK_DEVICE_2
+# (SATA SSD, the OS), both in .env.local. Check them with `lsblk -d -o NAME,SIZE,MODEL`;
+# for NVMe use the controller (/dev/nvme0), not the namespace (/dev/nvme0n1).
+#
+# Image: ghcr.io/analogj/scrutiny:v0.9.3-collector, the same version as the
+# hub on cellar (keep them together). Not `latest-collector`: upstream's own
+# README calls the floating tags dangerous. Checked 2026-09-16.
 services:
   scrutiny-collector:
     image: ghcr.io/analogj/scrutiny:v0.9.3-collector
     container_name: scrutiny-collector
     cap_add:
-      - SYS_RAWIO
-      - SYS_ADMIN
+      - SYS_RAWIO   # smartctl on SATA
+      - SYS_ADMIN   # smartctl on NVMe
     environment:
       COLLECTOR_API_ENDPOINT: http://${CELLAR_LAN_IP}:8080
       COLLECTOR_CRON_SCHEDULE: "0 */6 * * *"
     volumes:
       - /run/udev:/run/udev:ro
     devices:
-      - ${PERCOLATOR_DISK_DEVICE_NVME}
-      - ${PERCOLATOR_DISK_DEVICE_SATA}
+      - ${DISK_DEVICE:?set DISK_DEVICE in .env.local}
+      - ${DISK_DEVICE_2:?set DISK_DEVICE_2 in .env.local}
     restart: unless-stopped

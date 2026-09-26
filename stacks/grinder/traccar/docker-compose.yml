@@ -1,30 +1,25 @@
-# Traccar — live position tracking for the bike computer (Traccar Client
-# on the Pixel 6a), first-party Home Assistant integration turns the bike
-# into a device_tracker for arrival automations on mochaPot's Home
-# Assistant (edge-and-automation.md §5).
+# Traccar: live position of the bike, from Traccar Client on the phone. Home
+# Assistant's Traccar integration turns it into a device_tracker.
+#
+# On its bundled H2 database, not Postgres like FitTrackee: constant GPS pings
+# are high-write, low-value rows, not worth a database and a backup of their
+# own. Revisit if that changes.
+#
+# The default login is admin/admin and can't be set from here. Change it on
+# the first visit.
+#
+# Image: traccar/traccar:6.2-alpine.
 services:
   traccar:
     image: traccar/traccar:6.2-alpine
     container_name: traccar
-    # Traccar's own default config uses its bundled H2 embedded database
-    # -- deliberately NOT given its own Postgres here, unlike FitTrackee.
-    # Traccar's position data is high-write, low-value-per-row telemetry
-    # (constant GPS pings), not something this fleet has decided is worth
-    # a dedicated Postgres instance and its own backup weight; H2 is the
-    # image's own supported default and keeps this app to one container.
-    # Revisit if Traccar's own data volume or a real need for concurrent
-    # access ever makes that call wrong.
     ports:
-      - "8082:8082"     # web UI
-      - "5055:5055"     # Traccar Client (OsmAnd protocol) ingest port
+      - "8082:8082"   # web UI
+      - "5055:5055"   # OsmAnd protocol, what the phone posts to; not HTTP, so no Traefik
     volumes:
-      - /srv/data/traccar/data:/opt/traccar/data
-      - /srv/data/traccar/logs:/opt/traccar/logs
+      - ${DATA_DIR:?}/traccar/data:/opt/traccar/data
+      - ${DATA_DIR:?}/traccar/logs:/opt/traccar/logs
     restart: unless-stopped
-    # Only the web UI (8082) gets a Traefik route -- port 5055 (the
-    # Traccar Client/OsmAnd ingest port) is a raw TCP protocol the bike
-    # computer posts to directly, not HTTP, and isn't meant to go through
-    # a browser-facing hostname at all. It stays published as-is.
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.traccar.rule=Host(`traccar.${DOMAIN}`)"
@@ -32,12 +27,6 @@ services:
       - "traefik.http.routers.traccar.tls.certresolver=cloudflare"
       - "traefik.http.routers.traccar.middlewares=authelia-forwardauth@file"
       - "traefik.http.services.traccar.loadbalancer.server.port=8082"
-    # Default admin account is admin/admin on first boot -- CHANGE THIS
-    # IMMEDIATELY after first login (Settings -> Users), same "don't leave
-    # a well-known default credential live" discipline as every other app
-    # in this fleet. Not scriptable via compose/env for this image;
-    # confirmed as a first-login manual step, not an oversight to fix
-    # here.
 
 networks:
   default:

@@ -1,0 +1,3 @@
+route tcp 8082 LAN  # traccar ui from LAN
+# The phone posts positions here directly; it is not HTTP, so no Traefik.
+route tcp 5055 LAN  # traccar osmand ingest from LAN

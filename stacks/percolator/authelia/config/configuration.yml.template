@@ -5,8 +5,9 @@
 # Nextcloud bot accounts are denied access to other ForwardAuth/OIDC apps.
 # Move human access to two-factor after everyone has enrolled.
 #
-# Adding an OIDC client: add a block here, add `oidc_client <app> <PREFIX>` to
-# generate-secrets.sh, re-run it and render-configs.sh, recreate authelia.
+# Adding an OIDC client: add a block below, a `<APP>_OIDC_CLIENT_SECRET hex 64`
+# line to the app's secrets.conf and a matching `_HASH ... hash pbkdf2` line to
+# authelia/secrets.conf, then ./setup-secrets.sh and recreate authelia.
 ---
 theme: auto
 
@@ -64,7 +65,7 @@ access_control:
         - 'pihole-mochapot.${DOMAIN}'
         - 'netalertx.${DOMAIN}'
         - 'gatus.${DOMAIN}'
-        # cellar's admin apps, added 2026-09-16 alongside its own Traefik.
+        # cellar's admin apps.
         - 'komodo.${DOMAIN}'
         - 'scrutiny.${DOMAIN}'
         # Other Ollama clients require an admin login.
@@ -246,24 +247,19 @@ identity_providers:
 
       - client_id: 'homeassistant'
         client_name: 'Home Assistant'
-        # Cross-node client, unlike every other one here: the app itself
-        # lives on mochaPot, not percolator (infrastructure.md §4's
-        # placement rules), so generate-secrets.sh's usual oidc_client()
-        # helper doesn't apply -- it assumes the app's own secrets.env.local
-        # sits in a sibling directory on this same node. See that script's
-        # own comment on the homeassistant block for how the plaintext
-        # actually gets to mochaPot (manually, not via compose/env).
+        # The only client whose app isn't on this node. Home Assistant runs
+        # on mochaPot and reads the plaintext from its own secrets.yaml, so
+        # both halves are kept in authelia/secrets.conf and the plaintext is
+        # copied across by hand (mochaPot/homeassistant/README.md).
         client_secret: '${HOMEASSISTANT_OIDC_CLIENT_SECRET_HASH}'
         public: false
         authorization_policy: 'household'
         require_pkce: true
         pkce_challenge_method: 'S256'
         redirect_uris:
-          # hass-oidc-auth's fixed callback path (not configurable) --
-          # confirmed 2026-09-17 against that project's own Authelia guide
-          # (docs/provider-configurations/authelia.md) and Authelia's own
-          # published Home Assistant integration guide -- both agree on this
-          # path and on client_secret_post below.
+          # hass-oidc-auth's callback path is fixed, and it posts the secret
+          # in the body (client_secret_post below). Both its own Authelia guide
+          # and Authelia's Home Assistant guide agree on that.
           - 'https://homeassistant.${DOMAIN}/auth/oidc/callback'
         scopes: ['openid', 'profile', 'email', 'groups']
         response_types: ['code']

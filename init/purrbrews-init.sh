@@ -813,7 +813,7 @@ EOF
   fi
   printf '\nNext:\n'
   if [[ -d "$stack_dir" ]]; then
-    printf '  cd %s   # and run this node\x27s container setup (e.g. sudo ./setup-secrets.sh)\n' "$stack_dir"
+    printf '  cd %s   # and run this node\x27s container setup (./setup-secrets.sh, as the ops user, not with sudo)\n' "$stack_dir"
   else
     printf '  %s does not exist yet — add the stack to the repo, then: sudo systemctl start purrbrews-pull\n' "$stack_dir"
   fi

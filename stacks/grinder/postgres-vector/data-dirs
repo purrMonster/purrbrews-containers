@@ -1,0 +1,2 @@
+# <path under DATA_DIR> <uid>:<gid> [mode]. PUID:PGID is the ops user.
+postgres-vector 0:0 755

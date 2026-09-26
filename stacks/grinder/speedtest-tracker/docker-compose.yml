@@ -1,38 +1,30 @@
+# Speedtest Tracker: an ISP speed test every hour.
+#
+# LinuxServer's build; the project's own GHCR image went stale. Tests only
+# run if SPEEDTEST_SCHEDULE is set and picked up, and when it isn't there's
+# no error, just silence. Check the logs show a run.
+#
+# Image: lscr.io/linuxserver/speedtest-tracker:v1.15.0-ls170.
 services:
   speedtest-tracker:
-    # Project's own GHCR image (ghcr.io/alexjustesen/speedtest-tracker) was
-    # confirmed abandoned pre-restructure -- LinuxServer.io's build is the
-    # maintained one. Re-verify this tag is still current before first
-    # bring-up rather than trusting this comment indefinitely.
     image: lscr.io/linuxserver/speedtest-tracker:v1.15.0-ls170
     container_name: speedtest-tracker
     environment:
       TZ: ${TZ}
       APP_TIMEZONE: ${TZ}
-      # No Traefik on grinder (unlike the pre-restructure silo build this
-      # was adapted from) -- reachable directly by LAN IP:port.
-      APP_URL: http://${GRINDER_LAN_IP}:8765
+      APP_URL: http://${NODE_IP:?}:8765
       DB_CONNECTION: sqlite
-      # Laravel encryption key -- REQUIRED, no default, app won't run
-      # correctly without one. Generated in generate-secrets.sh as
-      # "base64:<32 random bytes>", the exact format Laravel expects.
       APP_KEY: ${SPEEDTEST_TRACKER_APP_KEY}
-      # Overrides the LinuxServer image's fixed default admin account
-      # (admin@example.com / password, auto-created on first boot).
+      # Replaces the image's built-in admin@example.com / password.
       ADMIN_NAME: barista
       ADMIN_EMAIL: admin@grinder.local
       ADMIN_PASSWORD: ${SPEEDTEST_TRACKER_ADMIN_PASSWORD}
-      # Speed tests do NOT run automatically just from the container being
-      # up -- this is the #1 real-world gotcha for this app (multiple
-      # GitHub issues: "no speedtest scheduled" with no error, just
-      # silence, if this is unset or wrong).
       SPEEDTEST_SCHEDULE: "0 * * * *"
-      # PUBLIC_DASHBOARD defaults to false -- deliberately left unset to
-      # keep that secure default.
+      # PUBLIC_DASHBOARD stays unset, i.e. off.
     ports:
       - "8765:80"
     volumes:
-      - /srv/data/speedtest-tracker/config:/config
+      - ${DATA_DIR:?}/speedtest-tracker/config:/config
     restart: unless-stopped
     labels:
       - "traefik.enable=true"

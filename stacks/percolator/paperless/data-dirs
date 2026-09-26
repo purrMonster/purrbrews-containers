@@ -1,4 +1,4 @@
-# <path under DATA_DIR> <uid>:<gid> [mode] — created by compose.sh before `up` (PUID/PGID = ops user)
+# <path under DATA_DIR> <uid>:<gid> [mode]. PUID:PGID is the ops user.
 # consume/ is group-writable so scanners and scripts running as the ops user
 # can drop files in.
 paperless/data 0:0 750

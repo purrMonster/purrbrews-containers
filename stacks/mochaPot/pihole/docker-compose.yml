@@ -1,75 +1,46 @@
+# Pi-hole, secondary: DNS only, never DHCP. It forwards to public resolvers
+# rather than to sieve's Unbound, so it keeps working when sieve doesn't,
+# and it serves the same generated split DNS (see ../../_lib/dns-records.py).
+#
+# Image: pihole/pihole:2026.07.2, the same as sieve's. Checked 2026-09-15.
 services:
   pihole:
     image: pihole/pihole:2026.07.2
     container_name: pihole
-    # Host networking, deliberately -- same reasoning as sieve's own
-    # Pi-hole: needs to see real LAN traffic for DNS (port 53); no
-    # bridge-network alternative works reliably.
+    # Host networking so it answers on the LAN's port 53 and sees real clients.
     network_mode: host
-    # dnsmasq needs this to fully configure itself -- see
-    # stacks/sieve/pihole/docker-compose.yml's own comment for the exact
-    # symptom (FTL reports "listening on port 53" but every query times
-    # out) if this is ever dropped by accident.
+    # dnsmasq won't finish configuring without it: FTL says it's listening on
+    # 53 and every query times out.
     cap_add:
       - NET_ADMIN
     environment:
       TZ: ${TZ:-Asia/Kolkata}
       FTLCONF_dns_listeningMode: "ALL"
-      # Independent public upstream; identical split DNS to sieve.
       FTLCONF_dns_upstreams: "1.1.1.1;1.0.0.1"
       FTLCONF_dns_hosts: ${PIHOLE_DNS_HOSTS:-}
       FTLCONF_dns_expandHosts: "true"
-      FTLCONF_misc_dnsmasq_lines: ${PIHOLE_DNSMASQ_LINES:?run ../_lib/refresh-dns.sh mochaPot}
-      # Override persisted UI settings: this resolver must never offer leases.
+      FTLCONF_misc_dnsmasq_lines: ${PIHOLE_DNSMASQ_LINES:?run ./render-configs.sh}
+      # Set in compose so no saved UI setting can ever turn DHCP on here.
+      # Two DHCP servers on one LAN is how the house loses its network.
       FTLCONF_dhcp_active: "false"
       FTLCONF_dhcp_ipv6: "false"
       FTLCONF_ntp_ipv4_active: "false"
       FTLCONF_ntp_ipv6_active: "false"
       FTLCONF_ntp_sync_active: "false"
-      # mochaPot gained its OWN Traefik on 2026-09-16 (see ../traefik/),
-      # which now owns host ports 80/443 -- the comment that used to sit
-      # here ("nothing else on mochaPot binds 80") went stale the moment
-      # that happened and caused a real bring-up failure: pihole (host
-      # networking, starts before traefik in this README's order) grabbed
-      # 80 first, so traefik's own `ports: "80:80"` failed with "address
-      # already in use". Fixed the same way sieve's Pi-hole already
-      # handles this (see stacks/sieve/pihole/docker-compose.yml) -- move
-      # the web UI off 80/443 entirely. Admin UI: http://${MOCHAPOT_LAN_IP}:8081/admin
+      # Off 80, which Traefik needs on this host. IPv4 only, like sieve's:
+      # the LAN has no IPv6 and the firewall has no v6 rule for it.
       FTLCONF_webserver_port: 8081o
-      #
-      # Real web password, unlike sieve's (see pihole/secrets.env.local's
-      # own comment via generate-secrets.sh) -- this instance has no
-      # Authelia ForwardAuth in front of it, so its own login is the only
-      # gate it has. FTLCONF_ vars force this every startup (unlike the
-      # old WEBPASSWORD var, which only seeded the config once).
+      # A real password, unlike sieve's: the direct port is the way in when
+      # Authelia is down, so this login can't be switched off.
       FTLCONF_webserver_api_password: ${PIHOLE_WEBPASSWORD}
-      #
-      # IPv4 only (2026-09-17, same fix as sieve's Pi-hole -- see that file's
-      # comment): dropped the "[::]:8081o" half. This LAN doesn't use IPv6 and
-      # mochaPot's firewall.sh has no v6 rule for 8081 either.
     volumes:
-      - /srv/data/pihole/etc-pihole:/etc/pihole
+      - ${DATA_DIR:?}/pihole/etc-pihole:/etc/pihole
     restart: unless-stopped
-    # Traefik route added 2026-09-16 (../traefik/) fronts the admin UI at
-    # pihole-mochapot.${DOMAIN} (not pihole.${DOMAIN} -- that hostname, if
-    # it ever exists, belongs to sieve's PRIMARY Pi-hole once that node is
-    # migrated into this repo; two apps answering the same hostname on
-    # different nodes would be a real conflict, not a style choice).
-    # PIHOLE_WEBPASSWORD stays real and required either way (see this
-    # file's own comment above) -- both the Traefik path and the direct
-    # port at ${MOCHAPOT_LAN_IP} require this instance's own login, DNS
-    # (port 53) is never routed through Traefik regardless.
-    # Unquoted, deliberately (2026-09-17) -- see ../homeassistant/docker-compose.yml's
-    # comment: quoted labels broke sieve's setup-secrets.sh DNS generation for
-    # this whole stack silently.
+    # pihole-mochapot, because pihole.${DOMAIN} is sieve's.
     labels:
       - traefik.enable=true
       - traefik.http.routers.pihole-mochapot.rule=Host(`pihole-mochapot.${DOMAIN}`)
       - traefik.http.routers.pihole-mochapot.entrypoints=websecure
       - traefik.http.routers.pihole-mochapot.tls.certresolver=cloudflare
       - traefik.http.routers.pihole-mochapot.middlewares=authelia-forwardauth@file
-      - traefik.http.services.pihole-mochapot.loadbalancer.server.url=http://${MOCHAPOT_LAN_IP}:8081
-    # DHCP MUST STAY OFF on this instance. infrastructure.md §5: "Never
-    # run two DHCP servers on one LAN... mochaPot's Pi-hole serves DNS
-    # only." Do not enable Settings -> DHCP here, ever -- sieve is the
-    # fleet's only DHCP server, 7-day lease, by design.
+      - traefik.http.services.pihole-mochapot.loadbalancer.server.url=http://${NODE_IP:?}:8081

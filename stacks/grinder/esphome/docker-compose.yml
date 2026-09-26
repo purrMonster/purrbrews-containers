@@ -1,46 +1,32 @@
-# ESPHome dashboard — manages the fleet's ESP32 sensors as tracked YAML
-# (edge-and-automation.md §6a: "every sensor becomes a tracked file in the
-# repo, matching the project's existing IaC discipline"). Config lives
-# under /srv/data/esphome, not this git repo itself -- generated device
-# YAML contains WiFi credentials and API encryption keys, same
-# never-commit-secrets discipline as every secrets.env.local elsewhere in
-# this fleet, just for a different app.
+# ESPHome: the dashboard for the ESP32 sensors. Device YAML lives under
+# DATA_DIR, not in git: it holds Wi-Fi credentials and API keys.
+#
+# Host networking, which ESPHome's docs require for mDNS discovery and
+# reliable OTA updates.
+#
+# Put the sensors on the dedicated 2.4 GHz WPA2 SSID before the first one goes
+# live. ESP32s handle band steering and WPA3/mixed mode badly, and
+# intermittently, which is worse than failing outright.
+#
+# Image: ghcr.io/esphome/esphome:stable.
 services:
   esphome:
     image: ghcr.io/esphome/esphome:stable
     container_name: esphome
-    # network_mode: host -- REQUIRED, not a convenience choice: ESPHome's
-    # own docs are explicit that the dashboard needs host networking for
-    # mDNS-based discovery of already-flashed devices and for OTA updates
-    # to work reliably. Same category of exception as Home Assistant's/
-    # Music Assistant's own network_mode: host on mochaPot.
     network_mode: host
     environment:
       TZ: ${TZ}
       USERNAME: barista
       PASSWORD: ${ESPHOME_DASHBOARD_PASSWORD}
     volumes:
-      - /srv/data/esphome:/config
+      - ${DATA_DIR:?}/esphome:/config
     restart: unless-stopped
-    # Traefik route added 2026-09-16 (../traefik/). loadbalancer.server.url,
-    # not .port -- network_mode: host means no container-network IP for
-    # the docker provider to auto-discover, same exception as every other
-    # host-networked app in this fleet.
+    # Host-networked: Traefik gets the URL, there's nothing to discover.
+    # The dashboard on :6052 keeps its basic auth either way.
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.esphome.rule=Host(`esphome.${DOMAIN}`)"
       - "traefik.http.routers.esphome.entrypoints=websecure"
       - "traefik.http.routers.esphome.tls.certresolver=cloudflare"
       - "traefik.http.routers.esphome.middlewares=authelia-forwardauth@file"
-      - "traefik.http.services.esphome.loadbalancer.server.url=http://${GRINDER_LAN_IP}:6052"
-    # Dashboard on port 6052 (no ports: block needed -- network_mode:
-    # host binds it directly): http://${GRINDER_LAN_IP}:6052 -- the
-    # backdoor, gated by this file's own USERNAME/PASSWORD basic auth
-    # either way.
-    #
-    # infrastructure.md §9/edge-and-automation.md §6a: flash the dedicated
-    # 2.4 GHz WPA2 SSID into every device BEFORE the first one goes live --
-    # ESP32 handles band steering toward 5 GHz and WPA3/mixed mode badly,
-    # intermittently, which is worse than a clean failure. Not something
-    # this compose file can enforce; a setup-order discipline, not a
-    # config value.
+      - "traefik.http.services.esphome.loadbalancer.server.url=http://${NODE_IP:?}:6052"

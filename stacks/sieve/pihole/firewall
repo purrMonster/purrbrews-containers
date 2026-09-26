@@ -1,0 +1,7 @@
+allow udp 53   LAN       # dns from LAN
+allow tcp 53   LAN       # dns from LAN (tcp)
+allow udp 53   NETWORK   # dns from sieve_edge
+# A client's first DHCPDISCOVER comes from 0.0.0.0, so this one can't be LAN-only.
+allow udp 67   any       # dhcp
+# The web UI has no password of its own; only Traefik and Gatus may reach it.
+allow tcp 8080 NETWORK   # pihole ui from sieve_edge

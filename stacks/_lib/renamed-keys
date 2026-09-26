@@ -1,0 +1,12 @@
+# .env.local keys that were renamed when the nodes were made to match.
+# <old name> <new name>. setup-secrets.sh and compose.sh copy an old value
+# to the new name if the new one isn't there yet; the old line is left alone.
+
+ACME_EMAIL                   TRAEFIK_ACME_EMAIL
+SIEVE_DISK_DEVICE            DISK_DEVICE
+PERCOLATOR_DISK_DEVICE_NVME  DISK_DEVICE
+PERCOLATOR_DISK_DEVICE_SATA  DISK_DEVICE_2
+CELLAR_DISK_DEVICE_NVME      DISK_DEVICE
+CELLAR_DISK_DEVICE_HDD       DISK_DEVICE_2
+MOCHAPOT_DISK_DEVICE         DISK_DEVICE
+GRINDER_DISK_DEVICE          DISK_DEVICE

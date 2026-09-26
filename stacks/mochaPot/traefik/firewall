@@ -1,0 +1,2 @@
+route tcp 80  LAN  # traefik http from LAN
+route tcp 443 LAN  # traefik https from LAN

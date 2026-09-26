@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
-"""Generate identical split DNS on both Pi-holes from routers and fleet CSV."""
+"""Split DNS for both Pi-holes: one record per Traefik route in the repo, pointed
+at the node that serves it, plus the fleet's host names (and, on the primary,
+its DHCP static leases). Fleet CSV (name,ip,mac) comes in on stdin."""
 import argparse
 import csv
+import io
 import ipaddress
 import os
 from pathlib import Path
@@ -102,22 +105,40 @@ def update_env(path, updates):
             os.unlink(name)
 
 
+def dhcp_hosts(fleet_csv, extra=''):
+    """Static leases for every fleet node's cloned MAC, plus the extras."""
+    leases = [f"{row['mac']},{ipaddress.IPv4Address(row['ip'])},{row['name']}"
+              for row in csv.DictReader(io.StringIO(fleet_csv))]
+    leases += [entry.strip() for entry in extra.split(';') if entry.strip()]
+    return leases
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--node-dir', type=Path, required=True)
+    parser.add_argument('--role', choices=['primary', 'secondary'], required=True)
     args = parser.parse_args()
     node = args.node_dir.resolve()
     path = node / '.env.local'
     values = read_env(path)
-    lines, hosts = records(node.parent.parent, values.get('DOMAIN', ''), sys.stdin,
+    fleet = sys.stdin.read()
+    lines, hosts = records(node.parent.parent, values.get('DOMAIN', ''), io.StringIO(fleet),
                            values.get('PIHOLE_DNS_EXTRA_HOSTS', ''),
                            values.get('PIHOLE_DNS_HOSTS', ''))
-    if node.name == 'sieve':
-        by_name = {entry.split()[1]: entry.split()[0] for entry in hosts}
-        lines.append('dhcp-option=option:dns-server,' + by_name['sieve'] + ',' + by_name['mochaPot'])
-    update_env(path, {'PIHOLE_DNSMASQ_LINES': ';'.join(lines),
-                      'PIHOLE_DNS_HOSTS': ';'.join(hosts)})
-    print(f'{node.name}: generated {(len(lines) - 1) // 2} local app names')
+    updates = {'PIHOLE_DNS_HOSTS': ';'.join(hosts)}
+    if args.role == 'primary':
+        # Only the primary hands out leases, so only it tells clients which
+        # resolvers to use: itself first, the secondary as the fallback.
+        servers = [str(ipaddress.IPv4Address(ip)) for ip in os.environ['DNS_SERVERS'].split(',')]
+        lines.append('dhcp-option=option:dns-server,' + ','.join(servers))
+        updates['PIHOLE_DHCP_HOSTS'] = ';'.join(dhcp_hosts(fleet, values.get('PIHOLE_DHCP_EXTRA_HOSTS', '')))
+    updates['PIHOLE_DNSMASQ_LINES'] = ';'.join(lines)
+    update_env(path, updates)
+    print(f'{node.name}: generated {len(routes_in(lines))} local app names')
+
+
+def routes_in(lines):
+    return [line for line in lines if line.startswith('address=/')]
 
 
 if __name__ == '__main__':

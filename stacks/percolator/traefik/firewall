@@ -1,0 +1,4 @@
+# Published ports go through FORWARD, hence `route`. sieve's cloudflared is on
+# the LAN too, so tunnel traffic is covered by these.
+route tcp 80  LAN  # traefik http from LAN
+route tcp 443 LAN  # traefik https from LAN

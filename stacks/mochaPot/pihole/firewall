@@ -1,0 +1,5 @@
+allow udp 53   LAN      # dns from LAN
+allow tcp 53   LAN      # dns from LAN (tcp)
+# No port 67: DHCP stays off on this one.
+allow tcp 8081 LAN      # pihole ui from LAN
+allow tcp 8081 NETWORK  # pihole ui from proxy

@@ -18,8 +18,8 @@ chmod 600 "$backup"
 cat "$DIR/.env.local" > "$backup"
 echo "Settings backup: $backup"
 
-# Generate app DNS plus option 6 (.10 and .13 from the installed fleet map).
-bash "$DIR/../_lib/refresh-dns.sh" sieve
+# Regenerate app DNS and the DHCP options (DNS_PRIMARY/SECONDARY from fleet.env).
+bash "$DIR/../_lib/refresh-dns.sh" "$DIR"
 python3 - "$DIR" <<'PY'
 from pathlib import Path
 import ipaddress
@@ -43,7 +43,7 @@ PY
 bash "$DIR/compose.sh" pihole config --quiet
 bash "$DIR/compose.sh" pihole up -d --force-recreate
 # Wait for FTL configuration AND an actual DHCP socket, not just a container.
-for attempt in {1..15}; do
+for _ in {1..15}; do
   active="$(sudo docker exec pihole pihole-FTL --config dhcp.active 2>/dev/null || true)"
   if [[ "$active" == true ]] && [[ -n "$(ss -H -lun 'sport = :67')" ]]; then
     echo 'Verified: Pi-hole DHCP is active and UDP port 67 is listening.'

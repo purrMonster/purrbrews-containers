@@ -1,0 +1,3 @@
+# <path under DATA_DIR> <uid>:<gid> [mode]. PUID:PGID is the ops user.
+# The image sorts out ownership inside this itself.
+pihole 0:0 755

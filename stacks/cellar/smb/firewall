@@ -1,0 +1,3 @@
+# No rule yet: nothing uses the shares, so ufw-docker keeps 139/445 closed.
+# When they're wanted, uncomment and run sudo ./firewall.sh.
+# route tcp 445 LAN  # smb from LAN

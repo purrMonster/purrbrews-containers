@@ -1,11 +1,8 @@
-# Karakeep (formerly Hoarder) — self-hosted bookmark/read-it-later
-# manager, one of the "Capture" sources feeding the second-brain pipeline
-# (edge-and-automation.md: "Capture (Paperless/Immich/Nextcloud/FreshRSS/
-# Karakeep + notes vault)"). Three services: the app itself, a headless
-# Chrome for full-page screenshots/archiving, and Meilisearch for full-text
-# search — all official parts of Karakeep's own documented compose
-# example, adapted to this repo's conventions (explicit env vars, secrets
-# from generate-secrets.sh, not the upstream .env file pattern).
+# Karakeep (was Hoarder): bookmarks and read-it-later. Three services, as in
+# upstream's own compose: the app, a headless Chrome for screenshots and
+# archiving, and Meilisearch for full-text search.
+#
+# Image: ghcr.io/karakeep-app/karakeep:release. Unpinned, still to fix.
 services:
   karakeep:
     image: ghcr.io/karakeep-app/karakeep:release
@@ -17,14 +14,13 @@ services:
       BROWSER_WEB_URL: http://chrome:9222
       DATA_DIR: /data
       NEXTAUTH_SECRET: ${KARAKEEP_NEXTAUTH_SECRET}
-      NEXTAUTH_URL: http://${GRINDER_LAN_IP}:3030
-      DISABLE_SIGNUPS: "true"   # flip to false only for the very first
-                                  # account creation, then back to true --
-                                  # same "don't leave signups open"
-                                  # discipline as every other app in this
-                                  # fleet with its own accounts.
+      # The direct-port URL, while the route is karakeep.${DOMAIN}. Check the
+      # phone share sheet signs in through the hostname before relying on it.
+      NEXTAUTH_URL: http://${NODE_IP:?}:3030
+      # Flip to false for the very first account, then straight back.
+      DISABLE_SIGNUPS: "true"
     volumes:
-      - /srv/data/karakeep:/data
+      - ${DATA_DIR:?}/karakeep:/data
     ports:
       - "3030:3000"
     depends_on:
@@ -40,16 +36,9 @@ services:
       - "traefik.http.services.karakeep.loadbalancer.server.port=3000"
 
   chrome:
-    # FIXED 2026-09-17: gcr.io/zenika-hub/alpine-chrome (Karakeep's own
-    # documented compose example) now fails anonymous pulls with "This API
-    # method requires billing to be enabled" -- Google retired the old free
-    # anonymous gcr.io redirect and routes unauthenticated pulls through a
-    # shared GCP project that requires billing on the CALLER's side, which
-    # obviously isn't set up here. Not a mistake in this repo, a registry
-    # policy change upstream. Zenika publishes the identical image to
-    # Docker Hub too (same Dockerfile/source, just a second registry) --
-    # switched to that mirror, same tag, so nothing else in this file
-    # (BROWSER_WEB_URL, ports, etc.) needs to change.
+    # Docker Hub, not gcr.io/zenika-hub (upstream's example): anonymous pulls
+    # from gcr.io now fail with "requires billing to be enabled". Same image,
+    # same tag.
     image: zenika/alpine-chrome:124
     container_name: karakeep-chrome
     command:
@@ -68,7 +57,7 @@ services:
       MEILI_NO_ANALYTICS: "true"
       MEILI_MASTER_KEY: ${KARAKEEP_MEILI_MASTER_KEY}
     volumes:
-      - /srv/data/karakeep-meilisearch:/meili_data
+      - ${DATA_DIR:?}/karakeep-meilisearch:/meili_data
     restart: unless-stopped
 
 networks:

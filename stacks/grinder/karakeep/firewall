@@ -1,0 +1,2 @@
+# ufw-docker route rules match the container port (after DNAT), not the published one.
+route tcp 3000 LAN  # karakeep from LAN (host 3030)
