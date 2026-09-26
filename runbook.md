@@ -78,7 +78,7 @@ until decided otherwise (backlog).
     root-owned, so this is the owner's step: add the `http:` block from
     `stacks/mochaPot/homeassistant/README.md` with `sudo`, then
     `./compose.sh homeassistant restart`.
-- [ ] **Komodo through Traefik never gets past its loading spinner**; `:9120` shows
+- [x] **Komodo through Traefik never gets past its loading spinner**; `:9120` shows
   the login. Plan: Traefik and Core logs on cellar, websocket path.
   - Cause: not cellar at all. The UI sends its own token in `Authorization`;
     Traefik passes that to Authelia's forward-auth, whose default also treats the
@@ -89,16 +89,46 @@ until decided otherwise (backlog).
   - Fix: Authelia's `forward-auth` endpoint goes by the session cookie only; a
     second endpoint, `forward-auth-basic`, keeps Basic auth for the Ollama
     service accounts, and roastery's ollama route points at it.
+  - Done: rendered and Authelia recreated on percolator (config validated with the
+    same image first). `komodo.${DOMAIN}` now shows Komodo's login.
 - [ ] **ollama.${DOMAIN} refuses**: roastery's native Traefik isn't running (Ollama
   itself answers on localhost). Plan: confirm, and decide whether it should start
   on its own.
+  - Cause: it does start on its own: the `traefik` scheduled task runs `start.ps1`
+    at boot. It exits 1 every time because Windows Application Control blocks
+    `traefik.exe` ("An Application Control policy has blocked this file"). Config,
+    renders and the token are all fine. Owner's decision: allow the binary (or turn
+    Smart App Control off), or run this Traefik somewhere else.
+  - The same task has Windows' default 72-hour execution limit, so even once it
+    starts it would be killed after three days. Set it to no limit when fixing the
+    above (task settings, "Stop the task if it runs longer than").
 - [ ] **Gatus: "ntfy (public)" and "traefik certificate + sso" time out** from sieve,
   while both answer from the LAN. Plan: check what the gatus container resolves and
   reaches for those names.
+  - Cause: both names resolve to sieve's own address, 192.168.0.10. From a
+    container, a published port on the host's own IP is answered by docker-proxy
+    on the host, i.e. the INPUT chain, and UFW has no INPUT rule for 443 from
+    `sieve_edge` (the `route` rules only cover FORWARD). Checked from the ntfy
+    container: `https://192.168.0.10/` times out, Traefik's container IP answers.
+  - Fix: `allow tcp 443 NETWORK` in `sieve/traefik/firewall`. Takes effect with the
+    firewall run below (`sudo ./firewall.sh` on sieve).
 - [ ] **Paperless shows "Error loading settings"** on its dashboard. Plan: logs.
+  - Cause: `/api/ui_settings/` and `/api/saved_views/` answer 403. The account
+    Authelia created on first sign-in has no permissions at all; step 2 of the
+    README's first run (make it a superuser) was never done. Owner's step: sign in
+    as `admin` and tick *Superuser* on that user, as the README says.
 - [ ] **Scrutiny flags attribute 188 (command timeout)** on cellar's 1 TB Seagate
   (the restic disk) and mochaPot's 128 GB SanDisk. SMART itself passes. Plan: note
   the counts, check cables, watch the trend before trusting backups to that disk.
+  - Counts on 2026-09-26. Seagate ST1000LM035 (cellar): 188 raw 4295032858, which
+    is Seagate's packed form: 0x1_0001_001A, three counters of 1, 1 and 26, so a
+    few dozen timeouts at most, at 18 905 power-on hours; reallocated 0, UDMA
+    CRC (199) 1. SanDisk 128 GB (mochaPot): 188 = 9924 at 665 hours; reallocated
+    0, CRC 0.
+  - Read: the Seagate looks like an old, small count rather than a failing disk;
+    the one CRC error points at the cable or the USB bridge. The SanDisk's number
+    is high for its age. Next: re-seat or swap the cables, and compare these
+    numbers in a week. If either keeps climbing, it doesn't hold backups.
 - [ ] **The firewall's `route` rules don't restrict LAN clients.** Correction to the
   entry below: I wrote that grinder's old rules "never matched". The port numbers
   were wrong (they match the container port), but it didn't matter, because every
