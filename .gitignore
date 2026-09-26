@@ -1,6 +1,10 @@
-# --- Secrets & host-specific config (never committed) ------------------------
-# Real values live only on the node that generated them. Commit the matching
-# *.example / *.template file with REPLACE_ME placeholders instead.
+# This repo is public. Anything a node generates or renders stays on that node.
+# One .gitignore for the whole repo; the nodes used to have one each and they
+# drifted apart.
+
+# --- Settings and secrets ---------------------------------------------------
+# Real values only ever exist on the node that made them. What's committed is
+# the *.example / *.template / secrets.conf that describes them.
 .env.local
 *.env.local
 secrets.env*
@@ -17,23 +21,34 @@ init/purrbrews-init.env
 init/authorized_keys
 bootstrap/.env
 bootstrap/data/
-stacks/roastery/immich-ml/model-cache/
 
-# Generated on each node by init/purrbrews-init.sh
+# Written by init/purrbrews-init.sh on each node.
 /.env
 
-# Rendered from *.template by render-configs.sh — regenerate, don't commit.
-# (List rendered files per app here as they appear.)
+# Komodo Core's public key, copied by hand from cellar to every node. Not
+# secret, but it's per-host state, not config.
+stacks/*/komodo-periphery/keys/
 
-# komodo-periphery/keys/core.pub — copied by hand from cellar on each node
-# (see stacks/sieve/komodo-periphery/docker-compose.yml's own comment).
-# Komodo's own public key isn't secret, but it's host-copied state, not
-# hand-tracked config — same "always regeneratable, never commit it"
-# treatment as everything else in this section.
-*/keys/*
+# --- Rendered from *.template by render-configs ------------------------------
+# One line per template. tests/test_infrastructure.py fails if a template's
+# output isn't listed here, so a new template can't leak its secrets.
+stacks/cellar/restic/rclone.conf
+stacks/cellar/traefik/config/dynamic.yml
+stacks/cellar/traefik/config/traefik.yml
+stacks/grinder/traefik/config/dynamic.yml
+stacks/grinder/traefik/config/traefik.yml
+stacks/mochaPot/kiosk/bash_profile
+stacks/mochaPot/traefik/config/dynamic.yml
+stacks/mochaPot/traefik/config/traefik.yml
+stacks/percolator/authelia/config/configuration.yml
+stacks/percolator/traefik/config/dynamic.yml
+stacks/percolator/traefik/config/traefik.yml
+stacks/percolator/vikunja/config/config.yml
+stacks/roastery/traefik/config/dynamic/ollama.yml
+stacks/roastery/traefik/config/traefik.yml
 
 # --- Runtime data -----------------------------------------------------------
-# App data belongs under DATA_DIR (/srv/data) on the node, never in the repo.
+# App data lives under DATA_DIR (/srv/data) on the node, never in the repo.
 data/
 volumes/
 *.sqlite
@@ -43,11 +58,15 @@ volumes/
 backups/
 *.tar
 *.tar.gz
+stacks/cellar/restic/cache/
+stacks/mochaPot/kiosk/profile/
+stacks/roastery/immich-ml/model-cache/
+stacks/roastery/traefik/traefik.exe
 
 # --- Claude collaboration workspace -----------------------------------------
 claude/
 
-# --- Editors & OS -----------------------------------------------------------
+# --- Editors, OS, Python ----------------------------------------------------
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
@@ -57,7 +76,5 @@ claude/
 .DS_Store
 Thumbs.db
 desktop.ini
-
-# Python checks and shared configuration helpers
 __pycache__/
 *.pyc
