@@ -1,0 +1,11 @@
+[Unit]
+Description=Back up the dump store (every node's database dumps)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/purrbrews/stacks/cellar/backup.sh store
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=4h

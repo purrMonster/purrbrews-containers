@@ -1,0 +1,5 @@
+# LLDAP: every user and group. The private key beside the database signs its
+# tokens.
+sqlite  users   lldap/users.db
+path    lldap
+exclude users.db*

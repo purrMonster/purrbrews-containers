@@ -11,7 +11,7 @@ the side, so not a fleet node: no `init/purrbrews-init.sh`, no `/opt/purrbrews`,
 | immich-ml | `./compose.ps1 immich-ml up -d` | `:3003`, percolator only (Windows Firewall) |
 | Komodo Periphery | `./compose.ps1 komodo-periphery up -d` | dials out to cellar |
 | [Traefik → Ollama](traefik/README.md) | `.\traefik\start.ps1`, native | `ollama.${DOMAIN}`, admins, via Authelia |
-| restic mirror | nothing here; cellar pushes to it | `stacks/cellar/restic` |
+| [Backup target](#backup-target) | OpenSSH (SFTP), `backup-target\setup.ps1` | `C:\purrbrews\restic`, the fleet's restic repository |
 
 ## Scripts
 
@@ -81,3 +81,30 @@ put an onboarding key from Komodo's UI in `.env.local` for the first connect, th
 `.\compose.ps1 komodo-periphery up -d`. Leave the key empty once roastery shows up
 as a Server. No Scrutiny collector: Docker Desktop doesn't pass raw Windows disks
 through to smartctl.
+
+## Backup target
+
+The fleet's restic repository lives here, on the NVMe (C:), not on D:, which is
+the same old 2.5" Seagate model we moved the backups off (runbook, 2026-09-27).
+Every node backs up into it over SFTP; cellar wakes this PC first and copies the
+repository to Google Drive afterwards.
+
+[`backup-target\setup.ps1`](backup-target/setup.ps1), from an elevated
+PowerShell, does all of it and says what it did: OpenSSH Server at boot, a
+key-only `restic` account that can do nothing but SFTP into `C:\purrbrews`,
+`AllowUsers restic`, port 22 open to the five node addresses only, wake-on-LAN on
+the USB NIC, and 3 hours awake after an unattended wake (Windows' default of 2
+minutes would end every backup before it started).
+
+```powershell
+copy backup-target\authorized_keys.example backup-target\authorized_keys
+# paste each node's line from `sudo ./backup.sh keys`
+.\backup-target\setup.ps1              # first time, and after a node is added
+.\backup-target\setup.ps1 -KeysOnly    # only the keys changed
+```
+
+- **Nothing else can SSH into this PC** while `AllowUsers restic` is there. That's
+  deliberate; remove the managed block from `C:\ProgramData\ssh\sshd_config` if
+  that ever changes.
+- **Sleep, don't shut down.** Wake-on-LAN brings it back from sleep, not from off.
+- **Its own D: isn't backed up yet** (documents, projects, insta360 footage).

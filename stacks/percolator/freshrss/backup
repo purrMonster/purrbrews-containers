@@ -1,0 +1,6 @@
+# FreshRSS: one SQLite per user under data/users/, plus its config.
+sqlite  users  freshrss/data/users/*/db.sqlite
+path    freshrss/data
+path    freshrss/extensions
+exclude db.sqlite*
+exclude cache

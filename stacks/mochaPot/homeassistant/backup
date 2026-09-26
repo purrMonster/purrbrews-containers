@@ -1,0 +1,10 @@
+# Home Assistant: the recorder in Postgres (optional: it's only used once the
+# README's recorder block is in configuration.yaml), the SQLite recorder
+# while it isn't, and /config itself (.storage holds the integrations).
+pg      recorder  postgres-homeassistant  $HA_DB_DATABASE_NAME  $HA_DB_USERNAME  optional
+sqlite  recorder-sqlite  homeassistant/home-assistant_v2.db  optional
+path    homeassistant
+exclude home-assistant_v2.db*
+exclude backups
+exclude tts
+exclude *.log*

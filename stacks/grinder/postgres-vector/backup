@@ -1,0 +1,3 @@
+# The embeddings. They can be rebuilt from the sources, but that's hours of
+# GPU time on roastery, so they're dumped.
+pg      vectors  postgres-vector  $PGVECTOR_DATABASE_NAME  $PGVECTOR_USERNAME

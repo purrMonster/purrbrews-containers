@@ -1,0 +1,3 @@
+# The shares. Empty today; optional until something lives there.
+path    MEDIA_DIR/household  optional
+path    MEDIA_DIR/archive    optional

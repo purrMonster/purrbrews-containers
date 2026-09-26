@@ -1,0 +1,10 @@
+[Unit]
+Description=Check every backup ran in the last day, daily at 06:00
+
+[Timer]
+# Morning: late enough for everything above, early enough to fix before the next night.
+OnCalendar=*-*-* 06:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

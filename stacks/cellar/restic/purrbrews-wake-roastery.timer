@@ -1,0 +1,10 @@
+[Unit]
+Description=Wake roastery for the nightly backups, nightly at 01:25
+
+[Timer]
+# Five minutes before the nodes start (purrbrews-backup@.timer, 01:30).
+OnCalendar=*-*-* 01:25:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

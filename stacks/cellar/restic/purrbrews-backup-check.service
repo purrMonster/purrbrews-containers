@@ -1,0 +1,11 @@
+[Unit]
+Description=Check every backup ran in the last day
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/purrbrews/stacks/cellar/restic/check-freshness.sh
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=1h

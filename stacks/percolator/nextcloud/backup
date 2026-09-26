@@ -1,0 +1,5 @@
+# Nextcloud: the database, and html/ (config, apps, and data/, everyone's files).
+pg      nextcloud  nextcloud-postgres  nextcloud  nextcloud
+path    nextcloud/html
+# Thumbnails, rebuilt on demand, and often bigger than the photos they preview.
+exclude nextcloud/html/data/appdata_*/preview

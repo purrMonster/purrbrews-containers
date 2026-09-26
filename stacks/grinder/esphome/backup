@@ -1,0 +1,3 @@
+# ESPHome: the device YAML and secrets. .esphome/ is build output.
+path    esphome
+exclude .esphome

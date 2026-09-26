@@ -1,0 +1,2 @@
+# ntfy: users, tokens and ACLs (user.db). The message cache is disposable.
+sqlite  users  ntfy/user.db

@@ -1,0 +1,3 @@
+# Music Assistant: providers, players and the library index.
+path    musicassistant
+exclude cache

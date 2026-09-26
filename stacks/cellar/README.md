@@ -1,7 +1,8 @@
 # cellar
 
-**Backups, file shares and the fleet's ops tools**: `192.168.0.12`, ThinkCentre
-M710q (i3-7100T, 8 GB), NVMe for the OS plus a 1 TB HDD for the backup repository.
+**The dump store, file shares and the fleet's ops tools**: `192.168.0.12`, ThinkCentre
+M710q (i3-7100T, 8 GB), NVMe for the OS and the dump store, plus an old 1 TB HDD
+that no longer holds backups.
 
 cellar is always on, so anything that has to run on a schedule, and be noticed
 when it doesn't, lives here.
@@ -13,7 +14,7 @@ when it doesn't, lives here.
 | [Traefik](traefik/) | — | HTTPS for the two above |
 | [Samba](smb/) | `\\cellar\household`, `\\cellar\archive` | File shares. Built, not in use yet (no firewall rule) |
 | [NFS](nfs/README.md) | `cellar:/srv/media/archive` | Archive export, host-native. Nothing mounts it yet |
-| [restic](restic/README.md) | — | The backup chain, host-native. Repository ready; no sources yet |
+| [restic](restic/README.md) | — | The backup chain's hub, host-native: the dump store, waking roastery, the Drive copy, the morning check. Scripts written, not switched on yet |
 
 ## Setup
 
@@ -64,14 +65,13 @@ Then, in order (`node.conf`), checking each before the next:
 | `/srv/data/komodo/keys` | Core's key pair | yes (every agent trusts `core.pub`) |
 | `/srv/data/scrutiny` | SMART history | no |
 | `/srv/data/traefik/acme` | certificates | no, re-issued |
-| `/srv/backup/restic-repo` | the backup repository | it *is* the backup; mirrored to roastery and Drive once those are on |
+| `/srv/dumps/<node>` | every node's database dumps (the dump store) | yes, as the `dumps` snapshot (`backup.sh store`) |
 | `/srv/media/{household,archive}` | the shares | yes, once they hold anything |
 
 ## Known gaps
 
-- **restic has no sources.** Nothing is backed up yet. Needs the database dump job
-  on percolator and SSH access from cellar to each node first (runbook backlog).
-- **The roastery mirror and Drive sync aren't switched on**, and there's been no
-  restore test.
+- **Nothing is backed up yet.** The scripts are written (runbook, 2026-09-27) but
+  not tied together: roastery's backup target, the keys, the timers and a
+  restore test are still to do. [restic/README.md](restic/README.md) has the order.
 - **Samba isn't reachable**: ufw-docker keeps 139/445 closed until `smb/firewall`
   gets its rule. Pin its image when it goes into use.

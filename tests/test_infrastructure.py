@@ -303,7 +303,7 @@ class Layout(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, f'{file}: {result.stderr}')
 
     def test_node_scripts_are_identical_wrappers(self):
-        for script in ['compose.sh', 'setup-secrets.sh', 'render-configs.sh', 'firewall.sh']:
+        for script in ['compose.sh', 'setup-secrets.sh', 'render-configs.sh', 'firewall.sh', 'backup.sh']:
             copies = {(STACKS / node / script).read_text() for node in NODES if (STACKS / node / script).exists()}
             self.assertEqual(len(copies), 1, f'{script} differs between nodes')
             self.assertIn('../_lib/', copies.pop())
@@ -335,7 +335,9 @@ class Layout(unittest.TestCase):
         for path in ['stacks/sieve/.env.local', 'stacks/sieve/ntfy/secrets.env.local',
                      'stacks/roastery/traefik/secrets.env.local', 'stacks/grinder/komodo-periphery/keys/core.pub',
                      'stacks/roastery/komodo-periphery/keys/periphery.key', 'stacks/cellar/restic/cache/x',
-                     'stacks/roastery/immich-ml/model-cache/x', 'stacks/roastery/traefik/traefik.exe']:
+                     'stacks/roastery/immich-ml/model-cache/x', 'stacks/roastery/traefik/traefik.exe',
+                     'stacks/cellar/restic/dump-store.keys', 'stacks/roastery/backup-target/authorized_keys',
+                     'stacks/grinder/restic/secrets.env.local']:
             ignored = subprocess.run(['git', '-C', str(ROOT), 'check-ignore', '-q', '--no-index', path])
             self.assertEqual(ignored.returncode, 0, path)
 
@@ -506,6 +508,90 @@ class Secrets(unittest.TestCase):
         self.assertIn('TRAEFIK_ACME_EMAIL=me@example.test', text)
         self.assertIn('DISK_DEVICE=/dev/nvme0', text)
         self.assertIn('ACME_EMAIL=me@example.test', text)  # the old line stays
+
+
+class Backup(unittest.TestCase):
+    """_lib/backup.sh and the apps' backup files."""
+
+    def plan(self, node, root=None):
+        base = root or ROOT
+        return subprocess.run(['bash', str(base / 'stacks' / node / 'backup.sh'), 'plan'],
+                              capture_output=True, text=True)
+
+    def test_every_node_plans(self):
+        for node in LINUX_NODES:
+            with self.subTest(node=node):
+                result = self.plan(node)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn('Files (restic --host', result.stdout)
+
+    def test_backup_files_only_name_known_apps(self):
+        for spec in STACKS.glob('*/*/backup'):
+            node, app = spec.parent.parent.name, spec.parent.name
+            if app == 'restic':
+                continue
+            self.assertIn(app, node_conf(node)['APPS'], f'{spec}: {app} is not in {node}/node.conf, so it would never run')
+
+    def test_every_node_has_the_backup_secrets(self):
+        for node in LINUX_NODES:
+            spec = (STACKS / node / 'restic/secrets.conf').read_text()
+            self.assertRegex(spec, r'(?m)^RESTIC_PASSWORD\s', node)
+            self.assertRegex(spec, r'(?m)^NTFY_URL\s+prompt optional', node)
+
+    def test_bad_lines_are_rejected(self):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp)
+        root = copy_repo(tmp)
+        spec = root / 'stacks/grinder/n8n/backup'
+        for bad in ['tar n8n', 'path /etc', 'path ../../etc', 'sqlite n8n', 'pg a b c', 'exclude cache/../../x']:
+            with self.subTest(line=bad):
+                spec.write_text(bad + '\n')
+                result = self.plan('grinder', root)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('n8n/backup', result.stderr)
+
+    def test_excludes_are_scoped_to_their_app(self):
+        out = self.plan('percolator').stdout
+        self.assertIn('/srv/data/vaultwarden/**/db.sqlite3*', out)
+        self.assertIn('/srv/data/immich/library/thumbs', out)
+        self.assertNotIn('/srv/data/immich/**/db.sqlite3', out)
+
+    @unittest.skipUnless(AS_ROOT and shutil.which('restic') and shutil.which('sqlite3') and shutil.which('setpriv'),
+                         'needs root, restic, sqlite3 and setpriv')
+    def test_dump_and_files_into_a_local_repository(self):
+        tmp = Path(tempfile.mkdtemp(dir='/tmp'))
+        self.addCleanup(shutil.rmtree, tmp)
+        tmp.chmod(0o755)
+        root = copy_repo(tmp)
+        data, repo, dumps = tmp / 'data', tmp / 'repo', tmp / 'dumps'
+        (data / 'vaultwarden/icon_cache').mkdir(parents=True)
+        subprocess.run(['sqlite3', str(data / 'vaultwarden/db.sqlite3'),
+                        'pragma journal_mode=wal; create table c(x); insert into c values (42);'],
+                       check=True, capture_output=True)
+        (data / 'vaultwarden/rsa_key.pem').write_text('key')
+        (data / 'vaultwarden/icon_cache/a.png').write_text('png')
+        (root / '.env').write_text(f'NODE_IP=192.168.0.11\nDATA_DIR={data}\n')
+        node = root / 'stacks/percolator'
+        node.joinpath('node.conf').write_text('APPS=(vaultwarden)\n')
+        (node / '.env.local').write_text(f'BACKUP_REPOSITORY={repo}\nDUMP_DIR={dumps}\nDUMP_STORE_HOST=192.168.0.11\n')
+        (node / 'restic/secrets.env.local').write_text('RESTIC_PASSWORD=test\n')
+        env = dict(os.environ, BACKUP_KEY=str(tmp / 'key'), BACKUP_ETC=str(tmp / 'etc'),
+                   BACKUP_CACHE=str(tmp / 'cache'), BACKUP_LOCK=str(tmp / 'lock'), RESTIC_PASSWORD='test',
+                   PATH=f"{fake_bin(tmp / 'bin')}:{os.environ['PATH']}")
+        subprocess.run(['restic', '-q', '-r', str(repo), 'init'], env=env, check=True, capture_output=True)
+        result = subprocess.run(['bash', str(node / 'backup.sh'), 'nightly'], env=env, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        dump = dumps / 'percolator/vaultwarden/vault.sql.gz'
+        self.assertIn('INSERT INTO c VALUES(42);', subprocess.run(['bash', '-c', f'gzip -dc {dump}'],
+                                                                  capture_output=True, text=True).stdout)
+        listing = subprocess.run(['restic', '-r', str(repo), 'ls', 'latest', '--tag', 'files'],
+                                 env=env, capture_output=True, text=True, check=True).stdout
+        self.assertIn('rsa_key.pem', listing)
+        self.assertNotIn('db.sqlite3', listing)   # the live database: the dump has it
+        self.assertNotIn('icon_cache', listing)
+        self.assertIn('.env.local', listing)      # the node's own settings always go
+        store = subprocess.run(['bash', str(node / 'backup.sh'), 'store'], env=env, capture_output=True, text=True)
+        self.assertEqual(store.returncode, 0, store.stderr)
 
 
 if __name__ == '__main__':

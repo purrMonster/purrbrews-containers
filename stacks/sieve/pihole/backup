@@ -1,0 +1,6 @@
+# Pi-hole: gravity.db holds the adlists, groups and allow/deny lists; the
+# rest of the config is pihole.toml. The query log (pihole-FTL.db) isn't kept.
+# mochaPot's Pi-hole is the secondary, rebuilt from this repo, so only here.
+sqlite  gravity  pihole/etc-pihole/gravity.db
+path    pihole/etc-pihole
+exclude *.db*

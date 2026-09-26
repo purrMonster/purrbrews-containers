@@ -1,0 +1,5 @@
+# Mealie: recipes and meal plans in SQLite, recipe images as files.
+sqlite  mealie  mealie/mealie.db
+path    mealie
+exclude mealie.db*
+exclude backups

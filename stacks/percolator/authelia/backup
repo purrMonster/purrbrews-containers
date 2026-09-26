@@ -1,0 +1,6 @@
+# Authelia: enrolled TOTP and WebAuthn devices live in its SQLite. Unreadable
+# without AUTHELIA_STORAGE_ENCRYPTION_KEY, which is in authelia/secrets.env.local
+# (backed up with the node's settings).
+sqlite  authelia   authelia/data/db.sqlite3
+path    authelia/data
+exclude db.sqlite3*

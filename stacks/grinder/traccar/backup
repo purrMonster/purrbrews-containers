@@ -1,0 +1,4 @@
+# Traccar: its bundled H2 database is copied as it lies (no dump tool for
+# it), so a restore may need Traccar's own recovery. Low value, by design
+# (runbook: Traccar keeps H2).
+path    traccar/data

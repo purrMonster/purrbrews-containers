@@ -1,0 +1,5 @@
+# Karakeep: bookmarks in SQLite, archived pages and images as assets.
+# Meilisearch is only an index; Karakeep rebuilds it.
+sqlite  karakeep  karakeep/db.db
+path    karakeep
+exclude db.db*

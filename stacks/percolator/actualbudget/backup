@@ -1,0 +1,4 @@
+# Actual: accounts in server-files/account.sqlite; each budget is a file in
+# user-files/.
+sqlite  account  actualbudget/server-files/account.sqlite
+path    actualbudget/user-files
