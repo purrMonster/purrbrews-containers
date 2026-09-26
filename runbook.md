@@ -63,6 +63,12 @@ until decided otherwise (backlog).
     PostGIS image is bullseye (16.9, glibc 2.31): same on-disk format, but the
     (empty) databases need `ALTER DATABASE … REFRESH COLLATION VERSION`. An older
     base than I'd like; it's the tag upstream maintains for 16.
+  - Done on grinder: migrations now run to the end. The next start then stopped at
+    gunicorn's log file (`/usr/src/app/logs/gunicorn.log`, a directory the image
+    doesn't have); `GUNICORN_LOG=-` sends it to stderr instead. `uploads` was
+    created root-owned while the app runs as 1000, so `data-dirs` says 1000:1000
+    now. data-dirs never touches an existing directory, so grinder needs, once:
+    `sudo chown -R 1000:1000 /srv/data/fittrackee` (owner's step, needs sudo).
 - [ ] **Home Assistant through Traefik answers 400 to everything**; `:8123` works.
   HA is rejecting Traefik as an untrusted proxy. Plan: compare `mochapot_net`'s real
   subnet with `http.trusted_proxies` (node-local `configuration.yaml`, not the repo).

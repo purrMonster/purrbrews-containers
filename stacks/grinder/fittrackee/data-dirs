@@ -1,3 +1,5 @@
 # <path under DATA_DIR> <uid>:<gid> [mode]. PUID:PGID is the ops user.
-fittrackee/uploads 0:0 755
+# The image runs as fittrackee (1000:1000); a root-owned uploads directory
+# means every upload fails.
+fittrackee/uploads 1000:1000 755
 postgres-fittrackee 0:0 755

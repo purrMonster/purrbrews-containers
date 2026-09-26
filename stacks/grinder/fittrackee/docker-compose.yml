@@ -14,6 +14,10 @@ services:
       APP_SECRET_KEY: ${FITTRACKEE_SECRET_KEY}
       DATABASE_URL: postgresql://${FITTRACKEE_DB_USERNAME}:${FITTRACKEE_DB_PASSWORD}@postgres-fittrackee:5432/${FITTRACKEE_DB_DATABASE_NAME}
       UI_URL: http://${NODE_IP:?}:5001
+      # The entrypoint's default is a file under /usr/src/app/logs, which the
+      # image doesn't create, and gunicorn refuses to start without it. "-" is
+      # stderr, so the errors end up in `docker logs` with everything else.
+      GUNICORN_LOG: "-"
     volumes:
       - ${DATA_DIR:?}/fittrackee/uploads:/usr/src/app/uploads
     # The entrypoint is tini, and the image gives tini nothing to run. Without
