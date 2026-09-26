@@ -30,12 +30,56 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Remaining node: roastery itself joining the fleet; then archive purrBrews-infra
 - [ ] Gatus: enable each node's ping as it is provisioned; add app checks as stacks land
 - [ ] Optional: paste `purrbrews-mac.sh list --format pihole` into Pi-hole's static DHCP list
-- [ ] Roll out the 2026-09-26 cleanup on every node (entry below): `git fetch && git reset --hard origin/main`, `./setup-secrets.sh`, `sudo ./firewall.sh`, then recreate what changed
-- [ ] grinder: check the backdoor ports answer from the LAN after `sudo ./firewall.sh` (the old rules named the published ports, which ufw-docker never matches)
+- [x] Roll out the 2026-09-26 cleanup on every node: every node pulled it (2026-09-26, per the owner)
+- [ ] Work through the 2026-09-26 live-check plan (entry below)
+- [ ] Decide: keep barista in the `docker` group (added 2026-09-26; root without a password) or take it out again once the live-check fixes are done
 - [ ] cellar: confirm Komodo still logs in after `KOMODO_DISABLE_USER_REGISTRATION` went to `true`
 - [ ] Pin n8n (`latest`), Open WebUI (`main`) and Karakeep (`release`)
 - [ ] Open WebUI → roastery's Ollama: needs machine-to-machine auth that keeps Authelia in front; nothing exists yet
 - [ ] Karakeep: `NEXTAUTH_URL` is the direct-port URL while the route is `karakeep.${DOMAIN}`; check the phone share sheet signs in through the hostname
+
+---
+
+## 2026-09-26 — Live check after the cleanup rollout: findings and plan
+
+Every node has pulled the cleanup. From Chrome on roastery I opened every Traefik
+hostname in the repo and the direct ports: 25 of 30 hostnames answer as they should.
+barista was added to the `docker` group on every node today so containers can be
+inspected without sudo. That makes barista root-equivalent without a password, which
+the README's least-privilege principle rules out; it stays a conscious exception
+until decided otherwise (backlog).
+
+**Findings, and what I'll do about each** (ticked as each is fixed and verified):
+
+- [ ] **FitTrackee is down.** `fittrackee.${DOMAIN}` is a 502 and `:5001` refuses.
+  Plan: read its logs on grinder, fix, recreate.
+- [ ] **Home Assistant through Traefik answers 400 to everything**; `:8123` works.
+  HA is rejecting Traefik as an untrusted proxy. Plan: compare `mochapot_net`'s real
+  subnet with `http.trusted_proxies` (node-local `configuration.yaml`, not the repo).
+- [ ] **Komodo through Traefik never gets past its loading spinner**; `:9120` shows
+  the login. Plan: Traefik and Core logs on cellar, websocket path.
+- [ ] **ollama.${DOMAIN} refuses**: roastery's native Traefik isn't running (Ollama
+  itself answers on localhost). Plan: confirm, and decide whether it should start
+  on its own.
+- [ ] **Gatus: "ntfy (public)" and "traefik certificate + sso" time out** from sieve,
+  while both answer from the LAN. Plan: check what the gatus container resolves and
+  reaches for those names.
+- [ ] **Paperless shows "Error loading settings"** on its dashboard. Plan: logs.
+- [ ] **Scrutiny flags attribute 188 (command timeout)** on cellar's 1 TB Seagate
+  (the restic disk) and mochaPot's 128 GB SanDisk. SMART itself passes. Plan: note
+  the counts, check cables, watch the trend before trusting backups to that disk.
+- [ ] **The firewall's `route` rules don't restrict LAN clients.** Correction to the
+  entry below: I wrote that grinder's old rules "never matched". The port numbers
+  were wrong (they match the container port), but it didn't matter, because every
+  published port answers from the LAN anyway, including Authelia's 9091, which is
+  meant for `FORWARD_AUTH_CLIENTS` only. ufw-docker installed without
+  `--docker-subnets` puts `RETURN -s 192.168.0.0/16` (and 10/8, 172.16/12) ahead of
+  the rules, so anything from a private address is let through. Only host-networked
+  ports (sieve's Pi-hole UI) are really filtered. Plan: init installs ufw-docker with
+  `--docker-subnets` (only Docker's own subnets bypass), re-run on each node with
+  sudo, then check a port that should be closed from roastery is closed, and one that
+  should be open is open. Before that, confirm roastery's IP is in
+  `FORWARD_AUTH_CLIENTS` if its Traefik is to keep using 9091.
 
 ---
 
