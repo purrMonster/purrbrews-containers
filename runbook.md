@@ -24,7 +24,8 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Confirm each node's `DISK_DEVICE` (and `DISK_DEVICE_2` on percolator and cellar) against real hardware (`lsblk -d -o NAME,TYPE,SIZE,MODEL`); these were the per-node `*_DISK_DEVICE*` keys until 2026-09-26
 - [ ] cellar's Samba: `smb/docker-compose.yml` exists but nothing uses it and ufw-docker keeps 445 closed. Decide on shares and permissions, pin the image, then uncomment the rule in `smb/firewall`
 - [ ] Wire cellar's restic sources to percolator's, sieve's and mochaPot's actual dumps and data — all three now exist in this repo
-- [ ] Enable cellar's roastery mirror and Google Drive sync (both scaffolded, neither turned on)
+- [ ] Enable cellar's roastery mirror and Google Drive sync (both scaffolded, neither turned on). Moved up 2026-09-26: the restic disk is 5–8 years old and is the only copy
+- [ ] Replace cellar's restic disk (ST1000LM035, 5–8 years old); the SanDisk on mochaPot is the same age
 - [ ] roastery: `immich-machine-learning` at Immich's version, Windows Firewall 3003 scoped to percolator
 - [ ] Postgres dump job for percolator's databases (Nextcloud, Immich, Paperless)
 - [ ] Remaining node: roastery itself joining the fleet; then archive purrBrews-infra
@@ -129,6 +130,12 @@ until decided otherwise (backlog).
     the one CRC error points at the cable or the USB bridge. The SanDisk's number
     is high for its age. Next: re-seat or swap the cables, and compare these
     numbers in a week. If either keeps climbing, it doesn't hold backups.
+  - Both disks are 5–8 years old (owner, 2026-09-26). That changes the plan more
+    than the counts do: the Seagate's 18 905 hours is only ~2 years powered on,
+    but it's an old 2.5" laptop disk and it holds the only copy of the backups.
+    Plan: get a second copy off it first (the Google Drive sync in the backlog),
+    run a long SMART self-test on both (`sudo smartctl -t long`, owner's step), and
+    budget a replacement for the restic disk rather than waiting for it to fail.
 - [ ] **The firewall's `route` rules don't restrict LAN clients.** Correction to the
   entry below: I wrote that grinder's old rules "never matched". The port numbers
   were wrong (they match the container port), but it didn't matter, because every
