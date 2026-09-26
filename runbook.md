@@ -72,8 +72,23 @@ until decided otherwise (backlog).
 - [ ] **Home Assistant through Traefik answers 400 to everything**; `:8123` works.
   HA is rejecting Traefik as an untrusted proxy. Plan: compare `mochapot_net`'s real
   subnet with `http.trusted_proxies` (node-local `configuration.yaml`, not the repo).
+  - Cause: `/srv/data/homeassistant/configuration.yaml` has no `http:` block at
+    all; HA logs "untrusted proxy 172.30.13.2" (Traefik on `mochapot_net`,
+    172.30.13.0/24). The README's block was never pasted in. The file is
+    root-owned, so this is the owner's step: add the `http:` block from
+    `stacks/mochaPot/homeassistant/README.md` with `sudo`, then
+    `./compose.sh homeassistant restart`.
 - [ ] **Komodo through Traefik never gets past its loading spinner**; `:9120` shows
   the login. Plan: Traefik and Core logs on cellar, websocket path.
+  - Cause: not cellar at all. The UI sends its own token in `Authorization`;
+    Traefik passes that to Authelia's forward-auth, whose default also treats the
+    header as a login attempt. A bare token isn't valid Basic auth, so Authelia
+    answered 401 with `WWW-Authenticate: Basic`, and Chrome held `GET /user` and
+    `POST /read/GetCoreInfo` on a password prompt it never showed. Direct to 9120
+    and without the header, both answer in milliseconds.
+  - Fix: Authelia's `forward-auth` endpoint goes by the session cookie only; a
+    second endpoint, `forward-auth-basic`, keeps Basic auth for the Ollama
+    service accounts, and roastery's ollama route points at it.
 - [ ] **ollama.${DOMAIN} refuses**: roastery's native Traefik isn't running (Ollama
   itself answers on localhost). Plan: confirm, and decide whether it should start
   on its own.

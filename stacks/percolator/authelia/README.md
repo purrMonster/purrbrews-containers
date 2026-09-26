@@ -101,6 +101,9 @@ Every node runs its own Traefik. Their ForwardAuth middleware calls
   `https://authelia.${DOMAIN}`.
 - **The session is shared:** the cookie is for `${DOMAIN}`, so signing in once
   covers every node.
+- **Cookie only:** `forward-auth` ignores the `Authorization` header, so apps that
+  send their own (Komodo) aren't mistaken for a login. The one exception is
+  `forward-auth-basic`, which also takes Basic auth, for the Ollama service accounts.
 
 **Adding a node's Traefik:** add its IP to `FORWARD_AUTH_CLIENTS` in `.env.local`,
 `sudo ./firewall.sh`; add its admin host names to the first access rule in

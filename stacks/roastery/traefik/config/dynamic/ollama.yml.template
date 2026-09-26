@@ -12,7 +12,9 @@ http:
           - '::1/128'
     authelia:
       forwardAuth:
-        address: 'http://${PERCOLATOR_LAN_IP}:9091/api/authz/forward-auth'
+        # forward-auth-basic, not forward-auth: the service accounts send Basic
+        # auth, which only that endpoint accepts.
+        address: 'http://${PERCOLATOR_LAN_IP}:9091/api/authz/forward-auth-basic'
         trustForwardHeader: true
         maxResponseBodySize: 8192
         authResponseHeaders:
