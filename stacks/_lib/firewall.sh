@@ -7,7 +7,8 @@
 #   ./firewall.sh --dry-run        print the ufw commands instead
 #
 # init/purrbrews-init.sh already set deny-incoming, SSH from the LAN and
-# ufw-docker. UFW skips a rule it already has, so re-running only adds what's
+# installed ufw-docker; this re-applies ufw-docker with --docker-subnets (see
+# below). UFW skips a rule it already has, so re-running only adds what's
 # new. Nothing here deletes a rule; if an app goes away, remove its rules with
 # `sudo ufw status numbered` and `sudo ufw delete <n>`.
 #
@@ -75,6 +76,19 @@ rule() {  # rule <label> <ufw args...>
   fi
 }
 
+# ufw-docker's plain `install` lets every private address (10/8, 172.16/12,
+# 192.168/16) past the route rules, which quietly made every published port
+# LAN-wide; I only found out by testing from roastery (runbook, 2026-09-26).
+# --docker-subnets narrows the bypass to Docker's own networks. It runs every
+# time because a network created since the last run isn't in its list yet.
+restart_ufw=0
+if [[ $DRY -eq 1 ]]; then
+  echo "ufw-docker install --docker-subnets"
+elif command -v ufw-docker >/dev/null; then
+  out="$(ufw-docker install --docker-subnets 2>&1)" || die "ufw-docker install --docker-subnets failed: $out"
+  [[ "$out" != *"Backing up"* ]] || { restart_ufw=1; note "ufw-docker now lets only Docker's own subnets past the rules"; }
+fi
+
 total=0
 for app in "${APPS[@]}"; do
   spec="$NODE_DIR/$app/firewall"
@@ -108,9 +122,10 @@ for app in "${APPS[@]}"; do
   done < "$spec"
 done
 
-[[ $total -gt 0 ]] || { note "no app on $NODE_NAME asks for a firewall rule."; exit 0; }
+[[ $total -gt 0 ]] || note "no app on $NODE_NAME asks for a firewall rule."
 if [[ $DRY -eq 0 ]]; then
-  ufw reload >/dev/null
+  # A changed after.rules needs a restart; ufw-docker says so itself.
+  if [[ $restart_ufw -eq 1 ]]; then systemctl restart ufw; else ufw reload >/dev/null; fi
   echo
   ufw status numbered | grep -E "purrbrews $NODE_NAME|Status"
 fi

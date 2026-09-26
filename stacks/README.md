@@ -92,6 +92,12 @@ published one. `LAN` is `LAN_CIDR`, `NETWORK` is the subnet of the node's `NETWO
 destination (sieve uses `NETWORK` there). The script only adds rules; remove old ones
 with `sudo ufw status numbered` / `sudo ufw delete <n>`.
 
+It also re-applies `ufw-docker install --docker-subnets` first. ufw-docker's plain
+install lets any private address (the whole LAN included) past these rules, so for
+a long time the `route` rules restricted nothing. With `--docker-subnets` only
+Docker's own networks skip them; since that list is taken at run time, run
+`sudo ./firewall.sh` again after a new network appears.
+
 ### data-dirs
 
 ```
