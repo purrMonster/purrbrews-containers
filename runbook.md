@@ -33,6 +33,7 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Optional: paste `purrbrews-mac.sh list --format pihole` into Pi-hole's static DHCP list
 - [x] Roll out the 2026-09-26 cleanup on every node: every node pulled it (2026-09-26, per the owner)
 - [ ] Work through the 2026-09-26 live-check plan (entry below)
+- [ ] Setup keeps a node's existing values, so a changed default in `local.env.example` never reaches a node that's already set up (how percolator's `FORWARD_AUTH_CLIENTS` went stale). Have setup-secrets list keys whose value differs from the example, so the drift is at least visible
 - [ ] Decide: keep barista in the `docker` group (added 2026-09-26; root without a password) or take it out again once the live-check fixes are done
 - [ ] cellar: confirm Komodo still logs in after `KOMODO_DISABLE_USER_REGISTRATION` went to `true`
 - [ ] Pin n8n (`latest`), Open WebUI (`main`) and Karakeep (`release`)
@@ -75,7 +76,7 @@ until decided otherwise (backlog).
 
 **Findings, and what I'll do about each** (ticked as each is fixed and verified):
 
-- [ ] **FitTrackee is down.** `fittrackee.${DOMAIN}` is a 502 and `:5001` refuses.
+- [x] **FitTrackee is down.** `fittrackee.${DOMAIN}` is a 502 and `:5001` refuses.
   Plan: read its logs on grinder, fix, recreate.
   - Cause: FitTrackee 1.x needs PostGIS and the database was plain `postgres:16`.
     The migration dies at `ADD COLUMN geom geometry(...)` ("type geometry does not
@@ -93,7 +94,9 @@ until decided otherwise (backlog).
     created root-owned while the app runs as 1000, so `data-dirs` says 1000:1000
     now. data-dirs never touches an existing directory, so grinder needs, once:
     `sudo chown -R 1000:1000 /srv/data/fittrackee` (owner's step, needs sudo).
-- [ ] **Home Assistant through Traefik answers 400 to everything**; `:8123` works.
+  - Done: chowned; the container can write to `uploads`, and the hostname sends
+    you to Authelia.
+- [x] **Home Assistant through Traefik answers 400 to everything**; `:8123` works.
   HA is rejecting Traefik as an untrusted proxy. Plan: compare `mochapot_net`'s real
   subnet with `http.trusted_proxies` (node-local `configuration.yaml`, not the repo).
   - Cause: `/srv/data/homeassistant/configuration.yaml` has no `http:` block at
@@ -102,6 +105,8 @@ until decided otherwise (backlog).
     root-owned, so this is the owner's step: add the `http:` block from
     `stacks/mochaPot/homeassistant/README.md` with `sudo`, then
     `./compose.sh homeassistant restart`.
+  - Done: `http:` block added. `homeassistant.${DOMAIN}` answers 200 and HA logs no
+    more untrusted-proxy errors.
 - [x] **Komodo through Traefik never gets past its loading spinner**; `:9120` shows
   the login. Plan: Traefik and Core logs on cellar, websocket path.
   - Cause: not cellar at all. The UI sends its own token in `Authorization`;
@@ -126,7 +131,7 @@ until decided otherwise (backlog).
   - The same task has Windows' default 72-hour execution limit, so even once it
     starts it would be killed after three days. Set it to no limit when fixing the
     above (task settings, "Stop the task if it runs longer than").
-- [ ] **Gatus: "ntfy (public)" and "traefik certificate + sso" time out** from sieve,
+- [x] **Gatus: "ntfy (public)" and "traefik certificate + sso" time out** from sieve,
   while both answer from the LAN. Plan: check what the gatus container resolves and
   reaches for those names.
   - Cause: both names resolve to sieve's own address, 192.168.0.10. From a
@@ -136,11 +141,14 @@ until decided otherwise (backlog).
     container: `https://192.168.0.10/` times out, Traefik's container IP answers.
   - Fix: `allow tcp 443 NETWORK` in `sieve/traefik/firewall`. Takes effect with the
     firewall run below (`sudo ./firewall.sh` on sieve).
+  - Done: after the firewall run both checks pass (16–25 ms).
 - [ ] **Paperless shows "Error loading settings"** on its dashboard. Plan: logs.
   - Cause: `/api/ui_settings/` and `/api/saved_views/` answer 403. The account
     Authelia created on first sign-in has no permissions at all; step 2 of the
     README's first run (make it a superuser) was never done. Owner's step: sign in
     as `admin` and tick *Superuser* on that user, as the README says.
+  - Still open after the owner's pass: `admin` has never signed in and the SSO user
+    is still not a superuser, so the API still answers 403.
 - [ ] **Scrutiny flags attribute 188 (command timeout)** on cellar's 1 TB Seagate
   (the restic disk) and mochaPot's 128 GB SanDisk. SMART itself passes. Plan: note
   the counts, check cables, watch the trend before trusting backups to that disk.
@@ -176,6 +184,18 @@ until decided otherwise (backlog).
     of Docker networks is read when it runs) and restart ufw when that changed
     anything. Still to do, on each node, with sudo: `sudo ./firewall.sh`, then the
     two checks above.
+  - Owner ran `sudo ./firewall.sh` on every node. From roastery (192.168.0.15): Authelia's
+    9091 and sieve's Pi-hole UI are now closed; the ports the `firewall` files open to
+    the LAN (FitTrackee 5001, Komodo 9120, HA 8123, Traefik 443, DNS) are open.
+  - It broke SSO on cellar, mochaPot and grinder: only sieve could still reach 9091,
+    so their protected pages timed out. percolator's `.env.local` still had
+    `FORWARD_AUTH_CLIENTS=192.168.0.10`, from before the other nodes were added to
+    `local.env.example`; setup never changes a value that's already set, so the
+    example's update never reached the node. The route rules only mattered now that
+    ufw-docker stopped letting the whole LAN through. Set it to the example's four
+    addresses (backup: `.env.local.bak-20260926`). Needs one more
+    `sudo ./firewall.sh` on percolator. roastery is not in the list; add
+    192.168.0.15 too if its Traefik comes back.
 
 ---
 
