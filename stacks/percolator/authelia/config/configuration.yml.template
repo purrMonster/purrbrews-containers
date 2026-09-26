@@ -13,6 +13,25 @@ theme: auto
 
 server:
   address: 'tcp://0.0.0.0:9091'
+  endpoints:
+    authz:
+      # The default also accepts an Authorization header. Komodo's UI sends its
+      # own token in that header, Authelia took it for a login attempt and
+      # answered 401 + WWW-Authenticate: Basic, and Chrome sat on the hidden
+      # password prompt, hence the endless spinner (runbook, 2026-09-26). So
+      # the endpoint every app uses goes by the session cookie only.
+      forward-auth:
+        implementation: 'ForwardAuth'
+        authn_strategies:
+          - name: 'CookieSession'
+      # For API clients with no browser session: the ollama_api_group service
+      # accounts sign in with Basic auth. Only roastery's ollama route uses it.
+      forward-auth-basic:
+        implementation: 'ForwardAuth'
+        authn_strategies:
+          - name: 'HeaderAuthorization'
+            schemes: ['Basic']
+          - name: 'CookieSession'
 
 log:
   level: info
