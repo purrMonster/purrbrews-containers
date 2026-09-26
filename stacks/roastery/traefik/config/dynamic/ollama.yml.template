@@ -1,3 +1,7 @@
+# Rendered by ../../render-configs.ps1 into config/dynamic/ollama.yml (gitignored).
+# Ollama has no auth, so it listens on localhost only and this is the only way
+# in: LAN clients, then an Authelia login (admins, or the ollama_api_group
+# service accounts; see percolator's Authelia template).
 http:
   middlewares:
     ollama-lan:

@@ -1,3 +1,6 @@
+# start.ps1: runs the native Traefik in the foreground. It reads its Cloudflare
+# token from secrets.env.local beside this script (parsed, never executed) and
+# refuses to start while a rendered config is missing or still has ${...} in it.
 param(
     [string]$TraefikExe = (Join-Path $PSScriptRoot 'traefik.exe'),
     [string]$EnvFile = (Join-Path $PSScriptRoot 'secrets.env.local')

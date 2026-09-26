@@ -1,10 +1,14 @@
+# Traefik: HTTPS for every grinder app with a UI, behind Authelia on
+# percolator (config/dynamic.yml.template).
+#
+# Every app also keeps its own port published, and unlike cellar's Scrutiny
+# every one of them has a real login of its own there. That's the way in
+# when Authelia or Traefik is down.
+#
+# Image: traefik:v3.7.13. v3.2's Docker client was too old for the upgraded
+# engine ("client version 1.24 is too old") and the docker provider looped.
 services:
   traefik:
-    # Bumped 2026-09-17, same fix as mochaPot's Traefik: v3.2's bundled Docker
-    # client negotiates too old an API version once the host's Docker Engine
-    # is upgraded ("client version 1.24 is too old"), which throws the docker
-    # provider into an infinite retry loop. sieve/percolator already run this
-    # tag; cellar had the identical latent issue, fixed the same way.
     image: traefik:v3.7.13
     container_name: traefik
     command:
@@ -14,22 +18,13 @@ services:
     volumes:
       - ./config/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./config/dynamic.yml:/etc/traefik/dynamic.yml:ro
-      - /srv/data/traefik/acme:/acme
-      # Needed so the docker provider can see labels on esphome, the one
-      # network_mode: host app on this node -- see esphome/docker-compose.yml.
+      - ${DATA_DIR:?}/traefik/acme:/acme
+      # Read-only, for the labels (ESPHome's included, host network and all).
       - /var/run/docker.sock:/var/run/docker.sock:ro
     ports:
       - "80:80"
       - "443:443"
     restart: unless-stopped
-    # Every app this fronts keeps its own direct port published too -- the
-    # deliberate backdoor. Unlike cellar's Scrutiny or mochaPot's Music
-    # Assistant, every app on grinder already has its own real native
-    # login (n8n's owner account, Open WebUI's own auth, Karakeep's
-    # NextAuth, FitTrackee's account, Traccar's admin login, ESPHome's
-    # basic auth, Speedtest Tracker's admin login) -- the backdoor here is
-    # never a zero-auth fallback, always a real one. See README "Traefik
-    # and the native-login backdoor".
 
 networks:
   default:

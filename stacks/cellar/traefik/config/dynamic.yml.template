@@ -1,14 +1,14 @@
 # Rendered by ../../render-configs.sh into config/dynamic.yml (gitignored).
+#
+# The ForwardAuth middleware the app labels use as authelia-forwardauth@file.
+# It calls Authelia directly on percolator:9091: going through percolator's
+# Traefik drops X-Forwarded-Method and Authelia answers 400. For this to
+# work, cellar's IP has to be in percolator's FORWARD_AUTH_CLIENTS, and
+# komodo/scrutiny in Authelia's admin host list (both done).
 http:
   middlewares:
     authelia-forwardauth:
       forwardAuth:
-        # percolator's Authelia (infrastructure.md §4). cellar must be
-        # added to percolator's FORWARD_AUTH_CLIENTS/firewall.sh and to
-        # Authelia's admin_hosts list for this to actually work -- see
-        # README "Known gaps" if komodo.${DOMAIN}/scrutiny.${DOMAIN}
-        # 502/504. Every router below still works on its direct host port
-        # with no middleware in the path (the backdoor).
         address: "http://${PERCOLATOR_LAN_IP}:9091/api/authz/forward-auth"
         trustForwardHeader: true
         authResponseHeaders:

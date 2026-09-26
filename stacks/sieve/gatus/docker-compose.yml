@@ -20,10 +20,10 @@ services:
       DOMAIN: ${DOMAIN}
       NODE_IP: ${NODE_IP}
       GATEWAY: ${GATEWAY}
-      NTFY_ALERT_TOPIC: ${NTFY_ALERT_TOPIC:?run ./generate-secrets.sh}
-      GATUS_NTFY_TOKEN: ${GATUS_NTFY_TOKEN:?run ./generate-secrets.sh}
-      NTFY_CRITICAL_TOPIC: ${NTFY_CRITICAL_TOPIC:?run ./generate-secrets.sh}
-      HEALTHCHECKS_PING_URL: ${HEALTHCHECKS_PING_URL:?run ./generate-secrets.sh}
+      NTFY_ALERT_TOPIC: ${NTFY_ALERT_TOPIC:?run ./setup-secrets.sh}
+      GATUS_NTFY_TOKEN: ${GATUS_NTFY_TOKEN:?run ./setup-secrets.sh}
+      NTFY_CRITICAL_TOPIC: ${NTFY_CRITICAL_TOPIC:?run ./setup-secrets.sh}
+      HEALTHCHECKS_PING_URL: ${HEALTHCHECKS_PING_URL:?run ./setup-secrets.sh}
     volumes:
       - ./config:/config:ro
       - ${DATA_DIR:?}/gatus:/data

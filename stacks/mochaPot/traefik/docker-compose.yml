@@ -1,3 +1,12 @@
+# Traefik: HTTPS for Home Assistant, Music Assistant and this Pi-hole's UI.
+# Sign-in is Authelia on percolator (config/dynamic.yml.template), except for
+# Home Assistant, which does its own OIDC.
+#
+# All three apps are host-networked and keep their ports open: that's the way
+# in when Authelia or Traefik is down.
+#
+# Image: traefik:v3.7.13. v3.2's Docker client was too old for the upgraded
+# engine ("client version 1.24 is too old") and the docker provider looped.
 services:
   traefik:
     image: traefik:v3.7.13
@@ -9,23 +18,14 @@ services:
     volumes:
       - ./config/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./config/dynamic.yml:/etc/traefik/dynamic.yml:ro
-      - /srv/data/traefik/acme:/acme
-      # Needed for the docker provider to see labels on network_mode:
-      # host containers at all (homeassistant/musicassistant/pihole are
-      # ALL host-networked -- see each app's own docker-compose.yml). The
-      # provider still can't auto-detect their IP:port (host networking
-      # has no container-network IP to discover), which is exactly why
-      # each of those labels sets loadbalancer.server.url explicitly
-      # instead of leaving it to auto-discovery.
+      - ${DATA_DIR:?}/traefik/acme:/acme
+      # Read-only, for the labels. Host-networked containers have no address
+      # to discover, which is why every label here sets a server URL.
       - /var/run/docker.sock:/var/run/docker.sock:ro
     ports:
       - "80:80"
       - "443:443"
     restart: unless-stopped
-    # Every app this fronts stays reachable on its own direct port too --
-    # the deliberate backdoor. See ../homeassistant/, ../musicassistant/,
-    # ../pihole/'s own docker-compose.yml comments, and README "Traefik
-    # and the native-login backdoor".
 
 networks:
   default:

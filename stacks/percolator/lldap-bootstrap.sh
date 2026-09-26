@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# lldap-bootstrap.sh — make sure LLDAP has the fleet's groups and that the
+# lldap-bootstrap.sh: make sure LLDAP has the fleet's groups and that the
 # given users are in them. Safe to re-run; every step checks first.
 #
 #   ./lldap-bootstrap.sh [--dry-run] [user ...]      (default user: barista)
@@ -35,23 +35,16 @@ for arg in "$@"; do
 done
 [[ ${#USERS[@]} -gt 0 ]] || USERS=(barista)
 
-log()  { printf '\n\033[1;36m==>\033[0m %s\n' "$*"; }
-die()  { echo "ERROR: $*" >&2; exit 1; }
+# shellcheck source=../_lib/common.sh
+source "${DIR}/../_lib/common.sh"
 command -v jq >/dev/null || die "jq not found (sudo apt-get install jq)"
 
-get_value() {
-  local line
-  line="$(grep -E "^$2=" "$1" 2>/dev/null | tail -n1 || true)"
-  line="${line#*=}"; line="${line#\'}"; line="${line%\'}"
-  printf '%s' "$line"
-}
-
-ADMIN_GROUP="$(get_value "${DIR}/.env.local" LLDAP_ADMIN_GROUP)"
-HOUSEHOLD_GROUP="$(get_value "${DIR}/.env.local" LLDAP_HOUSEHOLD_GROUP)"
-DOMAIN="$(get_value "${DIR}/.env.local" DOMAIN)"
-ADMIN_PASSWORD="$(get_value "${DIR}/lldap/secrets.env.local" LLDAP_ADMIN_PASSWORD)"
+ADMIN_GROUP="$(env_get "${DIR}/.env.local" LLDAP_ADMIN_GROUP)"
+HOUSEHOLD_GROUP="$(env_get "${DIR}/.env.local" LLDAP_HOUSEHOLD_GROUP)"
+DOMAIN="$(env_get "${DIR}/.env.local" DOMAIN)"
+ADMIN_PASSWORD="$(env_get "${DIR}/lldap/secrets.env.local" LLDAP_ADMIN_PASSWORD)"
 [[ -n "$ADMIN_GROUP" && -n "$HOUSEHOLD_GROUP" ]] || die "LLDAP_ADMIN_GROUP / LLDAP_HOUSEHOLD_GROUP missing from .env.local"
-[[ -n "$ADMIN_PASSWORD" ]] || die "LLDAP_ADMIN_PASSWORD missing — run ./generate-secrets.sh"
+[[ -n "$ADMIN_PASSWORD" ]] || die "LLDAP_ADMIN_PASSWORD missing — run ./setup-secrets.sh"
 
 [[ "$DRY_RUN" -eq 1 ]] && log "DRY RUN — reads are real, nothing is changed"
 

@@ -1,34 +1,23 @@
-# FitTrackee — self-hosted activity tracker for the bike-computer pipeline
-# (edge-and-automation.md §5: ingests GPX from OpenTracks/OsmAnd on the
-# Pixel 6a, via n8n watching a Nextcloud folder). Own dedicated Postgres,
-# colocated in this same compose file -- same "every app gets its own db
-# layer, not a shared instance" discipline percolator's homeassistant
-# compose file documents the reasoning for (a port collision found the
-# hard way, pre-restructure).
+# FitTrackee: activity tracking for the bike computer. GPX from the phone
+# lands in Nextcloud, n8n picks it up and posts it here. Its own Postgres,
+# because every app on this fleet gets its own database.
+#
+# Image: fittrackee/fittrackee:v1.3.5, the tag upstream's compose pins. Not
+# `latest`: the image ships no default command (see below), so an untested
+# bump is exactly how this would break again.
 services:
   fittrackee:
-    # FOUND 2026-09-17: pinned off `:latest` to the same tag the project's
-    # own docker-compose.yml pins (github.com/SamR1/FitTrackee ->
-    # docker-compose.yml) -- this image has no baked-in default CMD at
-    # all, so an untested `:latest` bump is also how the `command:` below
-    # could go stale (see that same comment) without anything in this repo
-    # catching it at build time.
     image: fittrackee/fittrackee:v1.3.5
     container_name: fittrackee
     environment:
       TZ: ${TZ}
       APP_SECRET_KEY: ${FITTRACKEE_SECRET_KEY}
       DATABASE_URL: postgresql://${FITTRACKEE_DB_USERNAME}:${FITTRACKEE_DB_PASSWORD}@postgres-fittrackee:5432/${FITTRACKEE_DB_DATABASE_NAME}
-      UI_URL: http://${GRINDER_LAN_IP}:5001
+      UI_URL: http://${NODE_IP:?}:5001
     volumes:
-      - /srv/data/fittrackee/uploads:/usr/src/app/uploads
-    # FOUND 2026-09-17: without this, `docker logs fittrackee` just shows
-    # tini's own usage/help text and the container never actually starts.
-    # The image's ENTRYPOINT is tini (`tini -- PROGRAM`), but unlike most
-    # images it ships NO default CMD to hand tini -- confirmed against the
-    # project's own docker-compose.yml, which sets this exact command on
-    # its `fittrackee` service. Missing entirely here, not a typo; nothing
-    # upstream fails loudly when it's absent, it just silently no-ops.
+      - ${DATA_DIR:?}/fittrackee/uploads:/usr/src/app/uploads
+    # The entrypoint is tini, and the image gives tini nothing to run. Without
+    # this, the logs are just tini's usage text and nothing starts.
     command: 'sh docker-entrypoint.sh'
     ports:
       - "5001:5000"
@@ -43,9 +32,6 @@ services:
       - "traefik.http.routers.fittrackee.tls.certresolver=cloudflare"
       - "traefik.http.routers.fittrackee.middlewares=authelia-forwardauth@file"
       - "traefik.http.services.fittrackee.loadbalancer.server.port=5000"
-    # First account at http://${GRINDER_LAN_IP}:5001 becomes admin --
-    # confirm against the image's own current docs before relying on that,
-    # not verified against a real bring-up as of this rebuild.
 
   postgres-fittrackee:
     image: postgres:16
@@ -55,15 +41,13 @@ services:
       POSTGRES_PASSWORD: ${FITTRACKEE_DB_PASSWORD}
       POSTGRES_DB: ${FITTRACKEE_DB_DATABASE_NAME}
     volumes:
-      - /srv/data/postgres-fittrackee:/var/lib/postgresql/data
+      - ${DATA_DIR:?}/postgres-fittrackee:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${FITTRACKEE_DB_USERNAME} -d ${FITTRACKEE_DB_DATABASE_NAME}"]
       interval: 5s
       timeout: 5s
       retries: 10
     restart: unless-stopped
-    # No ports published -- reached only by fittrackee itself, by
-    # container name, over this compose project's own default network.
 
 networks:
   default:

@@ -1,15 +1,12 @@
 # Rendered by ../../render-configs.sh into config/dynamic.yml (gitignored).
-# Shared ForwardAuth middleware every app's docker-compose.yml labels
-# reference as `authelia-forwardauth@file`.
-# fixed
+#
+# The ForwardAuth middleware the app labels use as authelia-forwardauth@file.
+# Straight to Authelia on percolator:9091; a second Traefik in the path drops
+# X-Forwarded-Method. mochaPot is in percolator's FORWARD_AUTH_CLIENTS.
 http:
   middlewares:
     authelia-forwardauth:
       forwardAuth:
-        # percolator's Authelia (infrastructure.md §4) -- will error until
-        # percolator's own Authelia stack is migrated into this repo. See
-        # README "Known gaps". Every router below still works on its
-        # direct host port with no middleware in the path (the backdoor).
         address: "http://${PERCOLATOR_LAN_IP}:9091/api/authz/forward-auth"
         trustForwardHeader: true
         authResponseHeaders:

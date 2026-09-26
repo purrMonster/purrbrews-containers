@@ -12,7 +12,7 @@ services:
     # --metrics exposes /ready on the sieve_edge network for Gatus (not published).
     command: tunnel --no-autoupdate --metrics 0.0.0.0:2000 run
     environment:
-      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?run ./generate-secrets.sh}
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?run ./setup-secrets.sh}
     networks: [sieve_edge]
     read_only: true
     cap_drop: [ALL]

@@ -1,0 +1,3 @@
+# <path under DATA_DIR> <uid>:<gid> [mode]. PUID:PGID is the ops user.
+karakeep 0:0 755
+karakeep-meilisearch 0:0 755

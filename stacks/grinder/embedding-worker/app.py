@@ -1,14 +1,9 @@
-# Minimal embedding API for n8n to call. One model, loaded once at
-# startup (not per-request -- sentence-transformers' load is the slow
-# part). BAAI/bge-small-en-v1.5 is the default: small enough to run
-# comfortably on grinder's 2c/4t CPU (infrastructure.md §2), 384-dim
-# output, competitive retrieval quality for a home corpus at this scale --
-# not benchmarked against alternatives here, a reasonable default to start
-# from and revisit if retrieval quality turns out to matter.
+# Minimal embedding API for n8n. One model, loaded once at startup (loading is
+# the slow part). bge-small-en-v1.5 by default: small enough for grinder's CPU,
+# 384 dimensions, and good enough to start with. Not benchmarked; revisit if
+# retrieval quality turns out to matter.
 #
-# No auth -- this API is reachable only from grinder_net (see
-# docker-compose.yml, no ports published), same trust model as every
-# other container-to-container call in this fleet.
+# No auth: nothing is published, only grinder_net can reach it.
 import os
 
 from fastapi import FastAPI

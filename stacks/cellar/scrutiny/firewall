@@ -1,0 +1,2 @@
+# Same story as Komodo: every node's collector pushes here over the LAN.
+route tcp 8080 LAN  # scrutiny hub from LAN

@@ -2,9 +2,8 @@
 Description=Run cellar's restic prune weekly
 
 [Timer]
-# Sunday 03:30 -- after the nightly 02:00 backup has had time to finish,
-# and off the nightly cadence entirely so prune's I/O doesn't stack with
-# backup's every single night.
+# Sunday 03:30: after the nightly 02:00 backup has finished, and off the
+# nightly cadence so prune's I/O never stacks on top of it.
 OnCalendar=Sun *-*-* 03:30:00
 Persistent=true
 

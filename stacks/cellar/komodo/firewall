@@ -1,0 +1,4 @@
+# The other nodes' Periphery agents connect here directly (Docker networks
+# don't span hosts), so this has to be the whole LAN, not just Traefik. What
+# actually guards it is Komodo's own login and its JWT/webhook secrets.
+route tcp 9120 LAN  # komodo core from LAN

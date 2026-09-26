@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
 #
-# mirror-to-roastery.sh — step three of infrastructure.md §7's chain:
-# cellar pushes a mirror of the restic repository to roastery's SATA
-# drive, waking roastery over WoL first if it's asleep (§4: "roastery
-# sleeps rather than shuts down", exactly so this can reach it). roastery
-# holds the SECOND copy, not the primary -- cellar's own HDD repo is what
-# a real restore reads from (§7: "roughly forty minutes on gigabit" vs.
-# waiting on a cloud download).
+# mirror-to-roastery.sh: the second copy. Wakes roastery (it sleeps, it
+# doesn't shut down, exactly so this works), then rsyncs the repository to
+# its SATA drive. A restore still reads from cellar's HDD; this is for when
+# cellar is the thing that died.
 #
-# Needs an SSH key from cellar's runtime user to roastery, and roastery's
-# WoL MAC (the USB dongle, not its onboard NIC -- see the 2026-09-15
-# private notes for the confirmed MAC, C8:4D:44:27:B1:E5, kept out of this
-# tracked file per this repo's "no real MACs in git" rule -- put it in
-# .env.local as ROASTERY_WOL_MAC instead, not added to local.env.example
-# until this script is actually wired up).
+# Not switched on yet. Needs, in .env.local: ROASTERY_WOL_MAC (the USB
+# dongle's MAC, not the onboard NIC's; it stays out of git),
+# ROASTERY_SSH_HOST and ROASTERY_MIRROR_PATH, plus an SSH key from the ops
+# user to roastery.
+#
+# --delete is deliberate: this is a byte-for-byte copy of a repository that
+# prunes itself, not an append-only archive. restic's content-addressed,
+# encrypted packs are the integrity check, not rsync's flags.
 #
 set -euo pipefail
-
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-STACK_DIR="$(dirname "$DIR")"
+# shellcheck source=../../_lib/common.sh
+source "$DIR/../../_lib/common.sh"
+load_node "$DIR/.."
 TAG="cellar-restic-mirror"
 
 log() { logger -t "$TAG" "$*"; echo "$*"; }
@@ -26,43 +26,34 @@ notify() {
   [[ -n "${NTFY_URL:-}" ]] && curl -fsS -H "Title: $1" -d "$2" "$NTFY_URL" >/dev/null 2>&1 || true
 }
 
-[[ -f "${STACK_DIR}/.env.local" ]] || { log "FAILED: no .env.local"; exit 1; }
-set -a
-source "${STACK_DIR}/.env.local"
-set +a
+[[ -f "$ENV_LOCAL" ]] || { log "FAILED: no .env.local"; exit 1; }
+export_env
+: "${ROASTERY_WOL_MAC:?set ROASTERY_WOL_MAC in .env.local before enabling this}"
+: "${ROASTERY_SSH_HOST:?set ROASTERY_SSH_HOST (user@host) in .env.local before enabling this}"
+: "${ROASTERY_MIRROR_PATH:?set ROASTERY_MIRROR_PATH in .env.local before enabling this}"
+REPO="${CELLAR_HDD_MOUNT:?}/restic-repo"
 
-: "${ROASTERY_WOL_MAC:?Set ROASTERY_WOL_MAC in .env.local before enabling this script}"
-: "${ROASTERY_SSH_HOST:?Set ROASTERY_SSH_HOST (user@host) in .env.local before enabling this script}"
-: "${ROASTERY_MIRROR_PATH:?Set ROASTERY_MIRROR_PATH (destination dir on roastery) in .env.local before enabling this script}"
-
-REPO="${CELLAR_HDD_MOUNT}/restic-repo"
-
-log "waking roastery (${ROASTERY_WOL_MAC})"
-command -v wakeonlan >/dev/null 2>&1 || { log "FAILED: wakeonlan not installed (apt install wakeonlan)"; exit 1; }
+command -v wakeonlan >/dev/null || { log "FAILED: wakeonlan isn't installed (apt install wakeonlan)"; exit 1; }
+log "waking roastery ($ROASTERY_WOL_MAC)"
 wakeonlan "$ROASTERY_WOL_MAC"
 
-log "waiting for roastery to answer SSH (up to 5 min)"
+log "waiting up to 5 minutes for roastery to answer SSH"
+up=0
 for _ in $(seq 1 30); do
-  ssh -o ConnectTimeout=5 -o BatchMode=yes "$ROASTERY_SSH_HOST" true 2>/dev/null && break
+  if ssh -o ConnectTimeout=5 -o BatchMode=yes "$ROASTERY_SSH_HOST" true 2>/dev/null; then up=1; break; fi
   sleep 10
 done
-if ! ssh -o ConnectTimeout=5 -o BatchMode=yes "$ROASTERY_SSH_HOST" true 2>/dev/null; then
-  log "FAILED: roastery didn't come up within 5 min"
+if [[ $up -eq 0 ]]; then
+  log "FAILED: roastery didn't come up within 5 minutes"
   notify "restic mirror FAILED (cellar -> roastery)" "roastery never answered SSH after WoL."
   exit 1
 fi
 
-log "syncing ${REPO} -> ${ROASTERY_SSH_HOST}:${ROASTERY_MIRROR_PATH}"
-if rsync -az --delete "${REPO}/" "${ROASTERY_SSH_HOST}:${ROASTERY_MIRROR_PATH}/" 2>&1 | tee -a "/var/log/${TAG}.log"; then
+log "syncing $REPO -> $ROASTERY_SSH_HOST:$ROASTERY_MIRROR_PATH"
+if rsync -az --delete "$REPO/" "$ROASTERY_SSH_HOST:$ROASTERY_MIRROR_PATH/" 2>&1 | tee -a "/var/log/${TAG}.log"; then
   log "mirror run OK"
 else
   log "FAILED: rsync to roastery"
-  notify "restic mirror FAILED (cellar -> roastery)" "See journalctl -t ${TAG} or /var/log/${TAG}.log"
+  notify "restic mirror FAILED (cellar -> roastery)" "See journalctl -t $TAG or /var/log/${TAG}.log"
   exit 1
 fi
-# --delete here is deliberate and different from the old backup-mirror's
-# append-only rsync: this mirror is meant to be a byte-identical second
-# copy of the restic repository (which does its own pruning via `restic
-# forget --prune`), not an independent append-only archive. restic's own
-# encryption and content-addressed pack files are the integrity guarantee
-# here, not rsync's flags.

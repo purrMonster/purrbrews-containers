@@ -1,22 +1,24 @@
-# Scrutiny collector — standalone agent added 2026-09-16, same pattern as
-# stacks/sieve/scrutiny-collector/docker-compose.yml (see that file's own
-# header comment). mochaPot has one disk (infrastructure.md §3: 128 GB M.2
-# SATA, the only fleet slot besides sieve's that takes SATA — confirmed on
-# the x360; no HDD in this machine, it's the one that gets moved). VERIFY
-# MOCHAPOT_DISK_DEVICE in ../local.env.example against real hardware with
-# `lsblk -d -o NAME,TYPE,SIZE,MODEL` before first bring-up.
+# Scrutiny collector: runs smartctl on this node's disk every six hours and
+# posts the results to the Scrutiny hub on cellar. No UI, nothing to route.
+#
+# DISK_DEVICE is set in .env.local. Check it with `lsblk -d -o NAME,SIZE,MODEL`;
+# for NVMe use the controller (/dev/nvme0), not the namespace (/dev/nvme0n1).
+#
+# Image: ghcr.io/analogj/scrutiny:v0.9.3-collector, the same version as the
+# hub on cellar (keep them together). Not `latest-collector`: upstream's own
+# README calls the floating tags dangerous. Checked 2026-09-16.
 services:
   scrutiny-collector:
     image: ghcr.io/analogj/scrutiny:v0.9.3-collector
     container_name: scrutiny-collector
     cap_add:
-      - SYS_RAWIO
-      - SYS_ADMIN
+      - SYS_RAWIO   # smartctl on SATA
+      - SYS_ADMIN   # smartctl on NVMe
     environment:
       COLLECTOR_API_ENDPOINT: http://${CELLAR_LAN_IP}:8080
       COLLECTOR_CRON_SCHEDULE: "0 */6 * * *"
     volumes:
       - /run/udev:/run/udev:ro
     devices:
-      - ${MOCHAPOT_DISK_DEVICE}
+      - ${DISK_DEVICE:?set DISK_DEVICE in .env.local}
     restart: unless-stopped

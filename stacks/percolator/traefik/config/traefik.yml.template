@@ -18,7 +18,7 @@ entryPoints:
     # see tunnel visitors' real addresses instead of sieve's.
     forwardedHeaders:
       trustedIPs:
-        - "${SIEVE_IP}/32"
+        - "${SIEVE_LAN_IP}/32"
     transport:
       respondingTimeouts:
         # v3 defaults readTimeout to 60s, which cuts off large Immich and
@@ -49,7 +49,7 @@ providers:
 certificatesResolvers:
   cloudflare:
     acme:
-      email: "${ACME_EMAIL}"
+      email: "${TRAEFIK_ACME_EMAIL}"
       storage: /letsencrypt/acme.json
       dnsChallenge:
         provider: cloudflare

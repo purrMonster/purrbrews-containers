@@ -1,4 +1,5 @@
-# Native Windows Traefik. Start using ../start.ps1 so relative paths resolve.
+# Rendered by ../../render-configs.ps1 into config/traefik.yml (gitignored). Native Windows
+# Traefik; start it with ../start.ps1 so the relative paths resolve.
 entryPoints:
   web:
     address: ':80'

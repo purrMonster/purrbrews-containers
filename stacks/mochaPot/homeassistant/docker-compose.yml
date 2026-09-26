@@ -1,186 +1,46 @@
+# Home Assistant, with its own Postgres for the recorder.
+#
+# Host networking because Cast, mDNS and UPnP discovery don't cross a Docker
+# bridge (HA's own Cast docs say so). The catch: it can't join a network or
+# resolve container names, so it reaches its database on 127.0.0.1.
+#
+# Sign-in is hass-oidc-auth against Authelia (no ForwardAuth in front, same as
+# Nextcloud and Paperless), with the local account kept as the break-glass.
+# The recorder, trusted proxies and OIDC all live in configuration.yaml, not
+# here; README.md has the snippets.
+#
+# Image: ghcr.io/home-assistant/home-assistant:stable, which HA recommends
+# tracking. postgres:16.
 services:
   homeassistant:
     image: ghcr.io/home-assistant/home-assistant:stable
     container_name: homeassistant
-    # network_mode: host is real official guidance, not a common-practice
-    # guess -- confirmed on the pre-restructure build via Home Assistant's
-    # own Cast integration docs: "When running the Home Assistant
-    # Container in Docker, make sure it is running with host network
-    # mode... will cause this integration to be unable to discover Cast
-    # devices." Same mDNS-multicast-doesn't-cross-bridge-networks
-    # reasoning as musicassistant below. Consequence: this container can't
-    # join a bridge network or resolve container DNS names -- see
-    # postgres-homeassistant below for how its own database is reached
-    # instead (127.0.0.1, loopback).
     network_mode: host
+    # Explicit, because Docker copies the host's resolv.conf once, at create
+    # time. This container was born on bootstrap DNS and kept asking 1.1.1.1
+    # for authelia.${DOMAIN} long after the host had moved to Pi-hole.
     dns:
       - ${DNS_PRIMARY:-192.168.0.10}
       - ${DNS_SECONDARY:-192.168.0.13}
-    # GOTCHA (found 2026-09-17): Docker does NOT live-bind-mount the host's
-    # /etc/resolv.conf into a container, even under network_mode: host --
-    # it snapshots it ONCE, at container creation, into a container-private
-    # copy (`docker exec homeassistant cat /etc/resolv.conf` shows "Generated
-    # by Docker Engine... Overrides: []", a static file, not a live view of
-    # the host's). This container was created while mochaPot's host was
-    # still on init/purrbrews-init.env.example's BOOTSTRAP_DNS
-    # (1.1.1.1/9.9.9.9 -- "used until Pi-hole is up, change later per node").
-    # The host's own resolver was later switched to sieve's Pi-hole
-    # (192.168.0.10), but nothing ever force-recreated this container, so it
-    # kept querying public DNS -- which has never heard of whiskertreat.fyi's
-    # split-horizon records. Symptom: hass-oidc-auth's discovery request to
-    # authelia.${DOMAIN} failed with "Name does not resolve" from inside the
-    # container while `dig`/`curl` from the mochaPot host itself worked fine.
-    # Fix applied live: `./compose.sh homeassistant up -d --force-recreate`
-    # (recreate, not restart -- restart keeps the stale snapshot). pihole and
-    # musicassistant are network_mode: host too and were likely created in
-    # the same bootstrap window -- recreate them the same way if either ever
-    # needs to resolve a hostname it can't. General rule: any time a node's
-    # upstream DNS server changes, force-recreate every network_mode: host
-    # container on it, or it keeps the DNS server it was born with.
     volumes:
-      - /srv/data/homeassistant:/config
+      - ${DATA_DIR:?}/homeassistant:/config
       - /etc/localtime:/etc/localtime:ro
-      # Bluetooth integrations -- from HA's own official compose example,
-      # harmless to include even if no Bluetooth adapter is used yet.
-      - /run/dbus:/run/dbus:ro
+      - /run/dbus:/run/dbus:ro   # Bluetooth integrations
     environment:
       TZ: ${TZ}
     depends_on:
       postgres-homeassistant:
         condition: service_healthy
     restart: unless-stopped
-    # Traefik route added 2026-09-16 alongside ../traefik/. loadbalancer.
-    # server.url, not .port -- this container is network_mode: host, so it
-    # has no container-network IP for the docker provider to auto-discover
-    # (a known limitation of host-networked containers, confirmed via
-    # Traefik's own docs). Port 8123 stays published directly too -- the
-    # backdoor. See README "Traefik and the native-login backdoor".
-    # Unquoted, deliberately (2026-09-17) -- matches every other node's label
-    # style (see percolator's authelia/nextcloud). Quoting these broke
-    # sieve's setup-secrets.sh: its router_labels() regex expects an optional
-    # "-" and whitespace directly before "traefik.http.routers.", and a
-    # leading '"' doesn't match, so it silently matched zero lines here --
-    # no error, just homeassistant.${DOMAIN} never making it into
-    # PIHOLE_DNSMASQ_LINES. Root cause of the 2026-09-17 "site not
-    # available" report; same bug fixed in musicassistant/ and pihole/'s
-    # compose files in this stack.
+    # Host-networked, so Traefik can't discover an address: give it the URL.
+    # Labels unquoted, like everywhere else; dns-records.py skipped quoted
+    # ones once, and homeassistant.${DOMAIN} silently got no DNS record.
     labels:
       - traefik.enable=true
       - traefik.http.routers.homeassistant.rule=Host(`homeassistant.${DOMAIN}`)
       - traefik.http.routers.homeassistant.entrypoints=websecure
       - traefik.http.routers.homeassistant.tls.certresolver=cloudflare
-      - traefik.http.services.homeassistant.loadbalancer.server.url=http://${MOCHAPOT_LAN_IP}:8123
-    # MOVED HERE 2026-09-16 from percolator (infrastructure.md §4's new
-    # placement rules): "Home Assistant lives on mochaPot for blast radius
-    # and locality: it shares a failure domain with neither the app tier
-    # nor the network tier, the wall dashboard renders locally if
-    # percolator is down, and the laptop battery rides out a power cut."
-    # A role change, not a lift-and-shift -- the pre-restructure compose
-    # file this was adapted from sat behind percolator's Traefik with
-    # Authelia OIDC via a HACS custom component. This version got its OWN
-    # Traefik added 2026-09-16 (see ../traefik/).
-    #
-    # OIDC via hass-oidc-auth (github.com/christiaangoossens/hass-oidc-auth),
-    # wired up 2026-09-17. HACS-only, no sidecar container -- deploy steps:
-    #   1. Install HACS itself first if this instance doesn't have it yet
-    #      (HACS is not part of this compose file / not installable via it).
-    #   2. HACS -> search "OpenID Connect for Home Assistant" -> install.
-    #   3. Authelia's client is in stacks/percolator/authelia/config/
-    #      configuration.yml.template (client_id 'homeassistant'). Get the
-    #      plaintext secret from percolator:
-    #        grep '^HOMEASSISTANT_OIDC_CLIENT_SECRET=' \
-    #          /opt/purrbrews/stacks/percolator/authelia/secrets.env.local
-    #   4. On mochaPot, /srv/data/homeassistant/secrets.yaml:
-    #        oidc_client_secret: <the plaintext from step 3>
-    #   5. /srv/data/homeassistant/configuration.yaml:
-    #        auth_oidc:
-    #          client_id: "homeassistant"
-    #          client_secret: !secret oidc_client_secret
-    #          discovery_url: "https://authelia.${DOMAIN}/.well-known/openid-configuration"
-    #          claims:
-    #            username: "preferred_username"
-    #            display_name: "name"
-    #            groups: "groups"
-    #          groups_scope: "groups"
-    #      Keep the default `homeassistant` auth provider in http.auth_providers
-    #      alongside this -- hass-oidc-auth's own docs say so, and it's the
-    #      break-glass login if Authelia is ever down (same reasoning as
-    #      Paperless's and Nextcloud's own local-admin break-glass accounts).
-    #   6. Restart, then Settings -> Devices & Services (or the login page)
-    #      should offer "Log in with Authelia" / "OpenID Connect/SSO".
-    #
-    # DECIDED 2026-09-17: OIDC only, no ForwardAuth in front -- matches
-    # Nextcloud/Paperless (both OIDC-only, no ForwardAuth middleware on
-    # their routers either). authelia-forwardauth@file removed from this
-    # router's middlewares below; hass-oidc-auth is now the sole gate at the
-    # app level. Trade-off accepted knowingly: HA's own login page (with
-    # local username/password still available as break-glass) is reachable
-    # by an unauthenticated request now, where before Traefik denied it
-    # before HA ever saw it. If that ever needs to change back, the removed
-    # line was:
-    #   - traefik.http.routers.homeassistant.middlewares=authelia-forwardauth@file
-    #
-    # Local HA login remains available as the break-glass path either way.
-    # Reachable both at
-    # https://homeassistant.${DOMAIN} (through Traefik + percolator's
-    # Authelia ForwardAuth -- needs mochaPot in FORWARD_AUTH_CLIENTS,
-    # done 2026-09-16) and directly at http://${MOCHAPOT_LAN_IP}:8123
-    # (the backdoor) -- no default credentials either way, onboarding
-    # wizard on first visit.
-    #
-    # IMPORTANT -- the Postgres recorder is NOT configurable via compose at
-    # all. Confirmed on the pre-restructure build via HA's own Recorder
-    # integration docs: no env var for this, configuration.yaml-only, and
-    # HA does not create the target database itself (already created here
-    # by generate-secrets.sh's homeassistant/ block + postgres-homeassistant
-    # below). After first boot, add to /srv/data/homeassistant/configuration.yaml:
-    #
-    #   recorder:
-    #     db_url: postgresql://homeassistant:<HA_DB_PASSWORD from
-    #       ./secrets.env.local>@127.0.0.1:5432/homeassistant
-    #
-    # then restart the container. Left as SQLite (HA's own default) until
-    # that manual step is done -- functions fine either way, Postgres is a
-    # scale/performance upgrade for the recorder specifically, not a hard
-    # requirement to get HA running.
-    #
-    # ANOTHER manual step, needed now that Traefik sits in front of this:
-    # Home Assistant refuses requests from a reverse proxy it doesn't
-    # explicitly trust -- confirmed via HA's own reverse-proxy docs,
-    # symptom is a "Login attempt or request with invalid authentication
-    # from a banned/untrusted proxy" error. Add to
-    # /srv/data/homeassistant/configuration.yaml:
-    #
-    #   http:
-    #     use_x_forwarded_for: true
-    #     trusted_proxies:
-    #       - ${PROXY_SUBNET}   # e.g. 172.30.13.0/24, see local.env.example
-    #
-    # then restart. Same category of gap as the recorder db_url above --
-    # config lives on disk, not in compose/env, so it can't be set here.
-    #
-    # CORRECTED 2026-09-17: originally documented as trusting
-    # ${MOCHAPOT_LAN_IP} directly, which is wrong -- Traefik's container is
-    # on mochapot_net (a bridge network), not the host, so a request it
-    # proxies to Home Assistant's host-networked port gets hairpin-NATed and
-    # arrives from Traefik's *container* IP on that bridge, not mochaPot's
-    # LAN IP. Confirmed live: HA kept 400ing on the reverse-proxy check even
-    # with the LAN IP trusted, until the actual source (Traefik's bridge
-    # address) was added. Trust the whole ${PROXY_SUBNET} CIDR instead of a
-    # single container IP -- the IP a freshly recreated Traefik container
-    # gets is not guaranteed to be the same one twice, the subnet is (see
-    # compose.sh, which now pins it on network creation).
-    #
-    # Recorder retention -- set this BEFORE the sensors arrive
-    # (infrastructure.md §9): ESPHome publishes diagnostic entities that
-    # update constantly and that nobody ever reads. Also in
-    # configuration.yaml:
-    #
-    #   recorder:
-    #     purge_keep_days: 14
-    #     exclude:
-    #       domains: [automation, updater]
-    #       entity_globs: ["sensor.*_uptime", "sensor.*_linkquality"]
+      - traefik.http.services.homeassistant.loadbalancer.server.url=http://${NODE_IP:?}:8123
 
   postgres-homeassistant:
     image: postgres:16
@@ -190,15 +50,8 @@ services:
       POSTGRES_PASSWORD: ${HA_DB_PASSWORD}
       POSTGRES_DB: ${HA_DB_DATABASE_NAME}
     volumes:
-      - /srv/data/postgres-homeassistant:/var/lib/postgresql/data
-    # No networks: block -- homeassistant can't join a bridge network
-    # anyway (network_mode: host, see above), and colocating this in the
-    # same compose file/project as its only consumer means it doesn't need
-    # one either.
-    #
-    # Published to localhost ONLY -- Home Assistant needs network_mode:
-    # host, which means it can't resolve this container by hostname, so it
-    # reaches this via 127.0.0.1 instead of a container name.
+      - ${DATA_DIR:?}/postgres-homeassistant:/var/lib/postgresql/data
+    # Loopback only; Home Assistant is on the host network and connects here.
     ports:
       - "127.0.0.1:5432:5432"
     healthcheck:

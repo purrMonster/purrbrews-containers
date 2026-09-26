@@ -1,0 +1,2 @@
+# ufw-docker route rules match the container port (after DNAT), not the published one.
+route tcp 8080 LAN  # openwebui from LAN (host 8081)

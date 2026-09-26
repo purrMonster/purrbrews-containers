@@ -1,0 +1,2 @@
+# <path under DATA_DIR> <uid>:<gid> [mode]. PUID:PGID is the ops user.
+gatus PUID:PGID 750

@@ -1,0 +1,3 @@
+# Player discovery and streaming need the whole LAN both ways; nothing narrower works.
+allow tcp 8095 LAN      # musicassistant ui from LAN
+allow tcp 8095 NETWORK  # musicassistant from proxy

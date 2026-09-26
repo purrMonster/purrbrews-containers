@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# prepare.sh — run by ../compose.sh before `up`. Puts the CrowdSec bouncer
+# prepare.sh: run by compose.sh before `up`. Puts the CrowdSec bouncer
 # plugin's source, at a pinned and verified commit, where Traefik loads it as
 # a local plugin.
 #

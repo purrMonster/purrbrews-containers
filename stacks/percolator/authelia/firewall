@@ -1,0 +1,3 @@
+# ForwardAuth from the other nodes' Traefik, and nobody else: 9091 is plain
+# HTTP and serves the login portal as well.
+route tcp 9091 $FORWARD_AUTH_CLIENTS  # authelia forward-auth

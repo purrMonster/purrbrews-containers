@@ -1,2 +1,2 @@
-# <path under DATA_DIR> <uid>:<gid> [mode] — created by compose.sh before `up` (PUID/PGID = ops user)
+# <path under DATA_DIR> <uid>:<gid> [mode]. PUID:PGID is the ops user.
 lldap 0:0 750

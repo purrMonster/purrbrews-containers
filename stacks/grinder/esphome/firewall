@@ -1,0 +1,3 @@
+allow tcp 6052 LAN      # esphome dashboard from LAN
+# Host-networked, so Traefik's requests arrive from grinder_net.
+allow tcp 6052 NETWORK  # esphome from proxy

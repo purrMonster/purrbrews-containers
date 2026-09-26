@@ -1,0 +1,3 @@
+# <path under DATA_DIR> <uid>:<gid> [mode]. PUID:PGID is the ops user.
+fittrackee/uploads 0:0 755
+postgres-fittrackee 0:0 755

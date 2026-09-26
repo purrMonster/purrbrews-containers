@@ -44,18 +44,15 @@ services:
       - --certificatesresolvers.cloudflare.acme.storage=/letsencrypt/acme.json
       - --certificatesresolvers.cloudflare.acme.dnsChallenge.provider=cloudflare
       - --certificatesresolvers.cloudflare.acme.dnsChallenge.resolvers=1.1.1.1:53,1.0.0.1:53
-      # Missing on every other node's Traefik (cellar/grinder/mochaPot/percolator
-      # all set this) -- an oversight here, not a deliberate difference. Optional
-      # for Let's Encrypt, but without it there's no contact address to warn you
-      # if renewal ever starts silently failing.
       - --certificatesresolvers.cloudflare.acme.email=${TRAEFIK_ACME_EMAIL:?set TRAEFIK_ACME_EMAIL in .env.local}
     environment:
       TZ: ${TZ:-Asia/Kolkata}
-      CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN:?run ./generate-secrets.sh}
+      CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN:?run ./setup-secrets.sh}
       # Read by dynamic/*.yml
       DOMAIN: ${DOMAIN:?set DOMAIN in .env.local}
       NODE: ${NODE:-sieve}
-      AUTHELIA_URL: ${AUTHELIA_URL:?set AUTHELIA_URL in .env.local}
+      # Authelia on percolator, on its own published port (see README.md).
+      AUTHELIA_URL: http://${PERCOLATOR_LAN_IP:?}:9091
     ports:
       - "80:80"
       - "443:443"

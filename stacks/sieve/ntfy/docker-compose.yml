@@ -28,11 +28,11 @@ services:
       NTFY_ENABLE_LOGIN: "true"
       NTFY_ENABLE_SIGNUP: "false"
       # user:bcrypt-hash:role, comma-separated
-      NTFY_AUTH_USERS: ${NTFY_AUTH_USERS:?run ./generate-secrets.sh}
+      NTFY_AUTH_USERS: ${NTFY_AUTH_USERS:?run ./setup-secrets.sh}
       # user:topic:access
-      NTFY_AUTH_ACCESS: ${NTFY_AUTH_ACCESS:?run ./generate-secrets.sh}
+      NTFY_AUTH_ACCESS: ${NTFY_AUTH_ACCESS:?run ./setup-secrets.sh}
       # user:tk_token:label
-      NTFY_AUTH_TOKENS: ${NTFY_AUTH_TOKENS:?run ./generate-secrets.sh}
+      NTFY_AUTH_TOKENS: ${NTFY_AUTH_TOKENS:?run ./setup-secrets.sh}
       # iOS clients can only receive pushes through ntfy.sh's relay (message
       # contents stay here; only a poll request goes through ntfy.sh).
       NTFY_UPSTREAM_BASE_URL: https://ntfy.sh

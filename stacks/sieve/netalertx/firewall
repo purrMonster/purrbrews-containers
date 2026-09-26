@@ -1,0 +1,2 @@
+# Web UI through Traefik and Gatus only. The backend API (20212) gets no rule.
+allow tcp 20211 NETWORK  # netalertx ui from sieve_edge

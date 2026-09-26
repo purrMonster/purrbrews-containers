@@ -1,0 +1,3 @@
+allow tcp 8123 LAN      # homeassistant ui from LAN
+# Host-networked, so Traefik's requests arrive from mochapot_net, not the LAN.
+allow tcp 8123 NETWORK  # homeassistant from proxy

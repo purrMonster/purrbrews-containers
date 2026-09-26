@@ -1,37 +1,55 @@
 #!/usr/bin/env bash
-# Shared renderer. Each app gets a fresh shell, root/node/app env precedence,
-# validation, private permissions and atomic replacement of its output.
+#
+# render-configs.sh: turn every *.template under a node into the file next to
+# it (config.yml.template -> config.yml). Every node's ./render-configs.sh
+# calls this with its own directory.
+#
+# Each app renders in its own subshell with the same env files compose.sh
+# uses (fleet.env, /opt/purrbrews/.env, .env.local, the app's secrets), so one
+# app's secrets never leak into another app's config. A template with an
+# unset or REPLACE_ME variable fails and the old rendered file stays as it
+# was; the others still render. Output is written atomically, mode 600 unless
+# the template's first line is `# render-mode: 0644`.
+#
+# On a node with RESOLVER set in node.conf (the two Pi-holes), the local DNS
+# records are regenerated first, since a new route anywhere in the fleet
+# needs a record on both.
+#
 set -uo pipefail
-DIR="$(cd "${1:?node directory required}" && pwd)"
-ROOT="$(cd "$DIR/../.." && pwd)"
-[[ $EUID -ne 0 ]] || { echo 'Run as the ops user, not sudo.' >&2; exit 1; }
-command -v python3 >/dev/null || { echo 'python3 is required.' >&2; exit 1; }
-case "$(basename "$DIR")" in
-  sieve|mochaPot)
-    bash "$ROOT/stacks/_lib/refresh-dns.sh" "$(basename "$DIR")" || exit 1
-    ;;
-esac
+# shellcheck source=common.sh
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+
+load_node "${1:?usage: render-configs.sh <node dir>}"
+not_root
+command -v python3 >/dev/null || die "python3 is required."
+
+if [[ -n "$RESOLVER" ]]; then
+  bash "$LIB/refresh-dns.sh" "$NODE_DIR" || exit 1
+fi
+
 failed=0; count=0
 while IFS= read -r tpl; do
   count=$((count + 1))
-  relative="${tpl#"$DIR"/}"
-  app_dir="$DIR/${relative%%/*}"
+  relative="${tpl#"$NODE_DIR"/}"
+  app_dir="$NODE_DIR/${relative%%/*}"
   if (
     set -e
     set -a
-    for env_file in "$ROOT/.env" "$DIR/.env.local" "$app_dir/secrets.env.local"; do
+    for env_file in "${ENV_FILES[@]}" "$app_dir/secrets.env.local"; do
       if [[ -f "$env_file" ]]; then
+        # shellcheck source=/dev/null
         source "$env_file" || { echo "Cannot load $env_file" >&2; exit 1; }
       fi
     done
     set +a
-    python3 "$ROOT/stacks/_lib/render-template.py" "$tpl"
+    python3 "$LIB/render-template.py" "$tpl"
   ); then
-    echo "Rendered: ${tpl#"$DIR"/}"
+    echo "Rendered: $relative"
   else
-    echo "FAILED: ${tpl#"$DIR"/}" >&2
+    echo "FAILED: $relative" >&2
     failed=$((failed + 1))
   fi
-done < <(find "$DIR" -name '*.template' -type f | sort)
+done < <(find "$NODE_DIR" -name '*.template' -type f | sort)
+
 echo "render-configs.sh: $count template(s), $failed failure(s)."
 [[ $failed -eq 0 ]]

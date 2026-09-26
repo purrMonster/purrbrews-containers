@@ -1,0 +1,4 @@
+# <path under DATA_DIR> <uid>:<gid> [mode]. PUID:PGID is the ops user.
+# The shares live on MEDIA_DIR, owned by the ops user (UID_barista in the compose file).
+MEDIA_DIR/household PUID:PGID 755
+MEDIA_DIR/archive PUID:PGID 755

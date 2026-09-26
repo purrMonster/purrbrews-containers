@@ -32,7 +32,7 @@ http:
           # decisions instead of blocking the whole household.
           updateMaxFailure: -1
           forwardedHeadersTrustedIPs:
-            - "${SIEVE_IP}/32"
+            - "${SIEVE_LAN_IP}/32"
           # LAN clients are never blocked by the bouncer.
           clientTrustedIPs:
             - "${LAN_CIDR}"

@@ -1,0 +1,5 @@
+# <path under DATA_DIR> <uid>:<gid> [mode]. PUID:PGID is the ops user.
+komodo/mongo-data 0:0 755
+komodo/mongo-config 0:0 755
+komodo/keys 0:0 755
+komodo/backups 0:0 755

@@ -1,9 +1,6 @@
-# Rendered by ../render-configs.sh into kiosk/bash_profile, then installed
-# to ~kiosk/.bash_profile by setup-kiosk.sh. Only runs on tty1 (the
-# physical console) -- an SSH login as `kiosk` (not that anything would,
-# it has no purpose logging in as this account remotely) would also hit
-# this, which is fine, `[[ -z "${SSH_CONNECTION:-}" ]]` below guards against
-# actually launching the display session over SSH.
+# Rendered by ../render-configs.sh into kiosk/bash_profile; setup-kiosk.sh
+# installs it as ~kiosk/.bash_profile. Only the physical console (tty1)
+# starts the display session, never an SSH login.
 
 if [[ -z "${SSH_CONNECTION:-}" ]] && [[ "$(tty)" == "/dev/tty1" ]]; then
   exec cage -- chromium \

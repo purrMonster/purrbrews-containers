@@ -1,49 +1,33 @@
+# Samba: the household share and the app archive, for browsing from laptops.
+# The archive is also exported over NFS (../nfs), host-native.
+#
+# ghcr.io/servercontainers/samba, because dperson/samba (the one every
+# tutorial uses) is unmaintained. `latest` on purpose for now: it's not in
+# use yet, and I'll pin it when something depends on it.
+#
+# Not reachable yet: ufw-docker keeps 139/445 closed until smb/firewall has a
+# rule. UID_barista has to match the NFS export's anonuid (1000) and whatever
+# the consuming containers run as, or SMB and NFS will fight over ownership.
 services:
   smb:
-    # ghcr.io/servercontainers/samba -- confirmed 2026-09-03 (pre-restructure
-    # cellar build) that dperson/samba, the commonly-tutorialized image, is
-    # stale/unmaintained; this one is actively maintained. Re-confirm the
-    # tag is still current before first bring-up on the rebuilt node --
-    # :latest, matching how this fleet already treats this specific image.
     image: ghcr.io/servercontainers/samba:latest
     container_name: smb
     environment:
       TZ: ${TZ}
       SAMBA_CONF_WORKGROUP: WORKGROUP
-      # Standalone, not a domain member -- household LAN, no AD.
       SAMBA_CONF_SERVER_ROLE: standalone
       AVAHI_DISABLE: "1"
-      # One share, household + app archives together for now -- same shape
-      # as the pre-restructure build. Per-app subfolders get split out
-      # under archive/ once percolator's/mochaPot's apps actually write to
-      # them, not pre-split speculatively.
       SAMBA_VOLUME_CONFIG_household: "[household]; path=/shares/household; valid users = barista; guest ok = no; read only = no; browseable = yes"
       SAMBA_VOLUME_CONFIG_archive: "[archive]; path=/shares/archive; valid users = barista; guest ok = no; read only = no; browseable = yes"
       ACCOUNT_barista: ${SMB_BARISTA_PASSWORD}
       UID_barista: "1000"
     volumes:
-      - /srv/media/household:/shares/household
-      - /srv/media/archive:/shares/archive
+      - ${MEDIA_DIR:?}/household:/shares/household
+      - ${MEDIA_DIR:?}/archive:/shares/archive
     ports:
       - "139:139"
       - "445:445"
     restart: unless-stopped
-    # Docker's iptables DNAT bypasses plain ufw for published bridge-network
-    # ports (infrastructure.md §5/§9) -- any `ufw allow`/`deny` on 139/445
-    # is a no-op until apply-firewall.sh's DOCKER-USER rules cover this
-    # port specifically. SMB still requires its own login (ACCOUNT_barista's
-    # password) regardless, so this isn't a wide-open surface the way a
-    # zero-auth app on a bypassed port would be -- but the port itself
-    # isn't actually LAN-scoped by ufw the way a firewall.rules entry might
-    # suggest, until that DOCKER-USER rule exists.
-    #
-    # UID/GID gotcha carried over from the pre-restructure build, still
-    # unresolved: UID_barista above must match whatever UID the host's
-    # native nfs-kernel-server exports use (see ../nfs/) and whatever UID
-    # percolator's/mochaPot's containers run as when mounting via NFS --
-    # otherwise SMB and NFS clients touching the same files get permission
-    # mismatches. Reconcile when those nodes' archive-mount config is
-    # actually written.
 
 networks:
   default:
