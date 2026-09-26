@@ -31,7 +31,89 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Gatus: enable each node's ping as it is provisioned; add app checks as stacks land
 - [ ] Optional: paste `purrbrews-mac.sh list --format pihole` into Pi-hole's static DHCP list
 
+### Second brain ([design plan](docs/second-brain/design-plan.md), 2026-09-26)
+
+- [ ] Phase 0: answer open questions Q1 (partner), Q2 (phones), Q3 (away-from-home sync) and record them here
+- [ ] Phase 1: `stacks/grinder/syncthing/` (hub, admin-only GUI at `syncthing-grinder.${DOMAIN}`, `firewall.sh` 22000/21027 LAN-only, Authelia `admin_hosts` entry)
+- [ ] Phase 1: `stacks/cellar/syncthing/` (receive-only replica, staggered versioning 30 days, GUI on loopback)
+- [ ] Phase 1: Obsidian + Syncthing(-Fork) on phone and roastery; global discovery/relays off everywhere
+- [ ] Phase 1: vault skeleton + templates in `docs/second-brain/vault-skeleton/`; capture shortcuts on phone and desktop
+- [ ] Phase 1 acceptance: every P1 check in the plan, including the 10-of-14-days usage gate
+- [ ] Phase 2: restic source `/srv/sync` on cellar; 7 nightly snapshots; one-note restore diff is identical
+- [ ] Phase 2: `household` vault on the partner's devices (only if Q1 says yes); `jc` confirmed absent there
+- [ ] Phase 3: choose embedding model (Q4) before the first index
+- [ ] Phase 3: `stacks/grinder/brain/` (read-only vault mount, `brain` schema, no published port) + Open WebUI tool + Gatus check; every P3 check incl. the isolation test
+- [ ] Phase 4: resolve Q6 (grinder → roastery Ollama machine-to-machine auth), then WoL helper + n8n digest/archive/conflict/resurface workflows; every P4 check
+- [ ] Pin Open WebUI (`:main`) and Karakeep (`:release`) image tags when grinder is next touched
+
 ---
+
+## 2026-09-26 — Second brain: design plan
+
+Full plan: [`docs/second-brain/design-plan.md`](docs/second-brain/design-plan.md).
+Nothing is built; this entry records the decisions the build will follow. Items are
+in the backlog above.
+
+**Decided (proposed, pending the Phase 0 answers):**
+
+- **Obsidian on a plain-Markdown vault, synced by Syncthing.**
+  - The canonical data is text files, readable by any editor, trivially indexed and
+    trivially backed up. No new database and no database dump job, which matters while
+    the Postgres dump job is still open.
+  - Rejected for now: SiYuan and Trilium (own formats, weak offline phone capture) and
+    Nextcloud sync (not a real two-way folder sync on Android; it would put notes on
+    the household-critical node).
+  - Obsidian LiveSync (CouchDB) is the fallback if Syncthing-Fork on Android
+    disappoints, or if an iPhone is involved.
+  - Memos is deferred: a second place to check is the friction this is meant to remove.
+- **grinder is the Syncthing hub and runs the index; cellar keeps a receive-only,
+  versioned replica.**
+  - grinder was already the second-brain node (`postgres-vector`, `embedding-worker`,
+    n8n, Open WebUI, Karakeep).
+  - It is "cheap to shed", so it is never the only copy: every device and cellar hold
+    full replicas.
+  - cellar's replica makes the restic source a local path. Syncthing's versioning
+    there is the quick undo; restic is the backup.
+- **Karakeep, Paperless and Immich keep links, documents and screenshots.** Notes link
+  to them; they are never copied in. Tasks go to Vikunja.
+- **Separate vaults (`jc`, `household`, optional `partner`), not folders in one
+  vault.** Syncthing shares whole folders per device, so privacy is enforced by which
+  devices hold the data at all. The partner's private vault never reaches grinder
+  unless she opts in.
+- **One new custom service, `brain`, on grinder:**
+  - it watches the vaults through a read-only mount, chunks by heading, embeds via
+    `embedding-worker`, and stores in `postgres-vector` schema `brain`;
+  - it serves `/search` on `grinder_net` only, with no published port;
+  - it filters by vault in SQL, per Open WebUI user;
+  - the index is derived data and is not backed up.
+- **Retrieval always on (CPU); synthesis only when roastery wakes.** Search-only
+  answers with links still work when roastery is asleep.
+- **Automation writes only into `_ai/` and never edits a human's note.**
+  - The inbox auto-archives after 30 days: moved and logged, never deleted.
+  - `ai: false` / `_noai/` exclude a note from indexing entirely.
+- **LAN-only sync.**
+  - Global discovery, relays and NAT traversal are off, and devices are added by hand.
+  - 22000/21027 are firewalled to the LAN.
+  - The Syncthing GUI is admin-only behind Authelia and has no backdoor port, since it
+    can add devices.
+- **Rollout is gated on evidence, not enthusiasm.**
+  - Phase 3 (AI) needs Phase 1's usage gate (inbox notes on 10 of 14 days) *and*
+    Phase 2's restore test.
+  - Phase 4 (synthesis) needs a machine-to-machine path to roastery's Ollama that keeps
+    Authelia in front. None exists today (`stacks/roastery/traefik/README.md`).
+
+**Found while planning (not fixed here):**
+
+- Open WebUI uses `:main` and Karakeep uses `:release`, against the pinned-images
+  principle.
+- Karakeep's `NEXTAUTH_URL` is the direct-port URL, while its route is
+  `karakeep.${DOMAIN}`. Check that mobile share-sheet sign-in works through the
+  hostname.
+- Enabling trusted-header SSO on Open WebUI while its 8081 backdoor is published would
+  let any LAN client forge the identity header. Don't combine the two.
+
+**Open questions:** Q1–Q11 in the plan's §14. Q1–Q3 block Phase 1; Q4 blocks Phase 3;
+Q6 blocks Phase 4.
 
 ## 2026-09-16 — percolator joins the fleet: Authelia on 9091, Homepage
 

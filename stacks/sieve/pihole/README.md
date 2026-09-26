@@ -64,16 +64,23 @@ automatically enable DHCP. Do not rely on the obsolete env switch to disable it.
 ## App host names
 
 Nothing to maintain by hand. When any node's Traefik gets a new router, run
-`./setup-secrets.sh` on **sieve**, then `./compose.sh pihole up -d`. Every router
+`bash ./render-configs.sh` on **both sieve and mochaPot**, then
+`./compose.sh pihole up -d --force-recreate`. Every router
 rule ``Host(`<name>.<domain>`)`` becomes `address=/<name>.${DOMAIN}/<that node's IP>`.
 It is read from three places, one line per rule:
 
 - `stacks/*/traefik/dynamic/*.yml`: `` rule: Host(`<name>.{{ env "DOMAIN" }}`) `` (sieve style);
-- `stacks/*/traefik/config/*.template`: `` rule: "Host(`<name>.${DOMAIN}`)" ``;
+- `stacks/*/traefik/config/**/*.template` (including nested dynamic directories): `` rule: "Host(`<name>.${DOMAIN}`)" ``;
 - `stacks/*/*/docker-compose.yml`: `` traefik.http.routers.<r>.rule=Host(`<name>.${DOMAIN}`) `` (percolator style).
 
 Check what's generated with
 `grep PIHOLE_DNSMASQ_LINES .env.local`.
+
+Native router hosts outside `NODE_IPS` can use an existing `PIHOLE_DNS_HOSTS`
+entry in `.env.local`; rendering reuses and retains it. Otherwise, list them in
+`PIHOLE_DNS_EXTRA_HOSTS` on both resolvers. For Ollama, add roastery's fixed IP
+(for example `192.168.0.20 roastery`), preserving existing semicolon-separated
+entries. Missing router addresses stop rendering without replacing DNS records.
 
 A name with no record isn't overridden: it resolves through public DNS (the tunnel,
 if it's published there) or not at all. So if a new app gives `NXDOMAIN` at home,
