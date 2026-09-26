@@ -133,7 +133,7 @@ remote checkouts. Commands below run on their named hosts as barista, from
    requires downtime; do not remove a live Docker network blindly.
 
    ```sh
-   bash stacks/_lib/refresh-dns.sh mochaPot
+   bash stacks/mochaPot/render-configs.sh
    sudo bash stacks/mochaPot/firewall.sh
    bash stacks/mochaPot/compose.sh pihole config --quiet
    bash stacks/mochaPot/compose.sh pihole up -d --force-recreate
@@ -155,7 +155,7 @@ remote checkouts. Commands below run on their named hosts as barista, from
    .10. This also updates the DHCP DNS option when sieve DHCP is enabled.
 
    ```sh
-   bash stacks/_lib/refresh-dns.sh sieve
+   bash stacks/sieve/render-configs.sh
    bash stacks/sieve/compose.sh pihole config --quiet
    bash stacks/sieve/compose.sh pihole up -d --force-recreate
    bash stacks/sieve/compose.sh unbound up -d --force-recreate

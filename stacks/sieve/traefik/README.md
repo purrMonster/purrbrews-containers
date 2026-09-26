@@ -37,7 +37,8 @@ record is generated for it.
 
 ## Why a direct hop to Authelia
 
-The `authelia` middleware calls `AUTHELIA_URL/api/authz/forward-auth`, which is
+The `authelia` middleware calls `AUTHELIA_URL/api/authz/forward-auth`, which the
+compose file builds from `PERCOLATOR_LAN_IP` in `stacks/fleet.env` as
 `http://192.168.0.11:9091`: Authelia's own published port on percolator. Two
 alternatives look tidier and don't work:
 
@@ -78,7 +79,7 @@ internet. Each router gets a certificate for its own name.
   names reveal nothing exploitable, and none of them is reachable from outside.
 
 Create the token in the Cloudflare dashboard: **My Profile → API Tokens → Create
-Token → Edit zone DNS** template, limited to your zone. `./generate-secrets.sh` asks
+Token → Edit zone DNS** template, limited to your zone. `./setup-secrets.sh` asks
 for it. The same token can be used on every node.
 
 Certificates are stored in `/srv/data/traefik/letsencrypt/acme.json` (root, 0700

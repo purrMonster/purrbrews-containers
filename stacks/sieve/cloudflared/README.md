@@ -13,7 +13,7 @@ sieve holds only a token.
    *Cloudflared*, name it `sieve`.
 2. On the install page, copy the token: the long string after `--token`. You don't
    need to install anything, since the container is the connector.
-3. On sieve, run `./generate-secrets.sh` and paste the token when asked. It's stored
+3. On sieve, run `./setup-secrets.sh` and paste the token when asked. It's stored
    in `cloudflared/secrets.env.local`.
 4. `./compose.sh cloudflared up -d`. The tunnel turns **Healthy** in the dashboard
    within a minute.
@@ -62,4 +62,4 @@ home.
 - `--no-autoupdate`: the image tag is the version, and upgrades are a tag bump.
 - `--metrics 0.0.0.0:2000` is reachable only on `sieve_edge`; the port is not published.
 - Rotating the token: dashboard → tunnel → *Refresh token*. Then delete `TUNNEL_TOKEN`
-  from `secrets.env.local`, re-run `./generate-secrets.sh` and recreate the container.
+  from `secrets.env.local`, re-run `./setup-secrets.sh` and recreate the container.

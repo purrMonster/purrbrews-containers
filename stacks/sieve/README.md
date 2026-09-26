@@ -16,6 +16,8 @@ for app reasons, and when it's down the whole house notices.
 | [ntfy](ntfy/README.md) | Push notifications to phones | `ntfy.${DOMAIN}` (own accounts; LAN + tunnel) |
 | [Gatus](gatus/README.md) | Health checks and alerting | `gatus.${DOMAIN}` (SSO) |
 | [NetAlertX](netalertx/README.md) | Device discovery, new-device alerts | `netalertx.${DOMAIN}` (SSO) |
+| Komodo Periphery | Lets Komodo on cellar manage sieve's containers | — |
+| Scrutiny collector | SMART data for the hub on cellar | — |
 
 About 0.8 GB of RAM in total.
 
@@ -64,16 +66,24 @@ flowchart LR
 ```
 stacks/sieve/
 ├── README.md               this file
+├── node.conf               app order, the sieve_edge network, RESOLVER=primary
 ├── local.env.example       node settings → .env.local
-├── setup-secrets.sh        prepares .env.local, data dirs and secrets (run first)
-├── generate-secrets.sh     creates <app>/secrets.env.local (called by setup-secrets.sh)
-├── compose.sh              docker compose with the right env files; `all` for every app
-├── firewall.sh             this node's UFW rules
+├── setup-secrets.sh        .env.local, every app's secrets, render (run first)
+├── render-configs.sh       DNS records + leases, then *.template → rendered files
+├── compose.sh              docker compose with the right env files; --all for every app
+├── firewall.sh             UFW rules from each app's firewall file
+├── enable-dhcp.sh          one-time DHCP handover (see pihole/README.md)
 └── <app>/
     ├── docker-compose.yml
     ├── README.md
+    ├── secrets.conf        what setup-secrets.sh generates or asks for (optional)
+    ├── firewall            this app's UFW rules (optional)
+    ├── data-dirs           directories created before `up` (optional)
     └── config/             tracked config, when the app needs files
 ```
+
+The four scripts are the same three-line wrappers on every node; the logic is
+in [`../_lib`](../README.md#the-shared-scripts).
 
 `.env.local` and every `secrets.env.local` are gitignored and mode 600.
 
@@ -119,9 +129,10 @@ hasn't proven anything yet.
 | 7 | `./compose.sh netalertx up -d` | After ~5 min, the device list shows real devices, not just the gateway |
 | 8 | Point clients at sieve | Router DNS → 192.168.0.10, then [hand over DHCP](pihole/README.md#handing-over-dhcp) |
 | 9 | Once Authelia runs on percolator | `https://gatus.${DOMAIN}` sends you to the login page, and lands on Gatus after it |
+| 10 | `./compose.sh komodo-periphery up -d`, `./compose.sh scrutiny-collector up -d` | sieve shows up as a Server in Komodo and as a device in Scrutiny, both on cellar. Needs `komodo-periphery/keys/core.pub` copied from cellar first |
 
 `sudo docker …` works too. `compose.sh` just adds the env files and runs sudo for you.
-Once everything is up, `./compose.sh all pull` and `./compose.sh all up -d` update
+Once everything is up, `./compose.sh --all pull` and `./compose.sh --all up -d` update
 the whole node in order.
 
 ## What percolator must provide
@@ -187,12 +198,13 @@ valid across rebuilds. Change them in `.env.local`, and then in
 ## Day 2
 
 ```bash
-./compose.sh all ps                      # everything at a glance
+./compose.sh --all ps                    # everything at a glance
 ./compose.sh <app> logs -f --tail 50
 ./compose.sh <app> pull && ./compose.sh <app> up -d     # after bumping a tag
-./setup-secrets.sh                       # after a pull that adds settings, secrets or a Traefik route
+./setup-secrets.sh                       # after a pull that adds settings or secrets
+./render-configs.sh                      # after a Traefik route is added anywhere in the fleet
 ./compose.sh pihole up -d                #   …then this, so Pi-hole picks up new DNS records
-sudo ./firewall.sh                       # after a pull that changes firewall.sh
+sudo ./firewall.sh                       # after a pull that changes an app's firewall file
 ```
 
 The daily repo pull never restarts containers; redeploy changed apps yourself.
@@ -212,7 +224,7 @@ Cloudflare again.
   only while sieve's Pi-hole is stopped.
 - **sieve itself uses public DNS** (`BOOTSTRAP_DNS` from init), not its own Pi-hole.
   That way a broken Pi-hole can't stop sieve pulling the image that fixes it.
-- **Don't run `generate-secrets.sh` or `setup-secrets.sh` with sudo.** They call sudo
+- **Don't run `setup-secrets.sh` or `render-configs.sh` with sudo.** They call sudo
   where needed; running them as root leaves root-owned files behind.
 - **Removing a user from ntfy's config deletes that user** on the next restart. That
   is how provisioning works, and is intended.

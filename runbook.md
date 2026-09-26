@@ -21,8 +21,8 @@ changes can be made later without re-deriving the reasoning.
 - [x] Migrate Komodo Periphery + Scrutiny collector fleet-wide (sieve, percolator, mochaPot, grinder, roastery) — built from cellar's own service blocks, since `stacks/_templates/komodo-periphery/` never actually landed in the repo (2026-09-16)
 - [x] `firewall.sh` for cellar, mochaPot and grinder — none had one before; every published port on them was reachable from the whole LAN with no `ufw route allow` gate (Docker's iptables DNAT bypasses plain `ufw`) (2026-09-16, full fleet repass)
 - [ ] Confirm Komodo Periphery's cross-host auth (pinning Core's public key alone) on a real bring-up — only reasoned about and sandbox-built, not tested cross-host; may need its own passkey/API key from Core's UI
-- [ ] Confirm the new per-node disk-device vars (`SIEVE_DISK_DEVICE`, `PERCOLATOR_DISK_DEVICE_NVME`/`_SATA`, `MOCHAPOT_DISK_DEVICE`, `GRINDER_DISK_DEVICE`) against real hardware (`lsblk -d -o NAME,TYPE,SIZE,MODEL`)
-- [ ] Build `stacks/cellar/smb/` — README/generate-secrets.sh/local.env.example already describe it, but the directory doesn't exist; needs a real decision on shares/permissions, not a guess (found 2026-09-16, full fleet repass)
+- [ ] Confirm each node's `DISK_DEVICE` (and `DISK_DEVICE_2` on percolator and cellar) against real hardware (`lsblk -d -o NAME,TYPE,SIZE,MODEL`); these were the per-node `*_DISK_DEVICE*` keys until 2026-09-26
+- [ ] cellar's Samba: `smb/docker-compose.yml` exists but nothing uses it and ufw-docker keeps 445 closed. Decide on shares and permissions, pin the image, then uncomment the rule in `smb/firewall`
 - [ ] Wire cellar's restic sources to percolator's, sieve's and mochaPot's actual dumps and data — all three now exist in this repo
 - [ ] Enable cellar's roastery mirror and Google Drive sync (both scaffolded, neither turned on)
 - [ ] roastery: `immich-machine-learning` at Immich's version, Windows Firewall 3003 scoped to percolator
@@ -30,90 +30,76 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Remaining node: roastery itself joining the fleet; then archive purrBrews-infra
 - [ ] Gatus: enable each node's ping as it is provisioned; add app checks as stacks land
 - [ ] Optional: paste `purrbrews-mac.sh list --format pihole` into Pi-hole's static DHCP list
-
-### Second brain ([design plan](docs/second-brain/design-plan.md), 2026-09-26)
-
-- [ ] Phase 0: answer open questions Q1 (partner), Q2 (phones), Q3 (away-from-home sync) and record them here
-- [ ] Phase 1: `stacks/grinder/syncthing/` (hub, admin-only GUI at `syncthing-grinder.${DOMAIN}`, `firewall.sh` 22000/21027 LAN-only, Authelia `admin_hosts` entry)
-- [ ] Phase 1: `stacks/cellar/syncthing/` (receive-only replica, staggered versioning 30 days, GUI on loopback)
-- [ ] Phase 1: Obsidian + Syncthing(-Fork) on phone and roastery; global discovery/relays off everywhere
-- [ ] Phase 1: vault skeleton + templates in `docs/second-brain/vault-skeleton/`; capture shortcuts on phone and desktop
-- [ ] Phase 1 acceptance: every P1 check in the plan, including the 10-of-14-days usage gate
-- [ ] Phase 2: restic source `/srv/sync` on cellar; 7 nightly snapshots; one-note restore diff is identical
-- [ ] Phase 2: `household` vault on the partner's devices (only if Q1 says yes); `jc` confirmed absent there
-- [ ] Phase 3: choose embedding model (Q4) before the first index
-- [ ] Phase 3: `stacks/grinder/brain/` (read-only vault mount, `brain` schema, no published port) + Open WebUI tool + Gatus check; every P3 check incl. the isolation test
-- [ ] Phase 4: resolve Q6 (grinder → roastery Ollama machine-to-machine auth), then WoL helper + n8n digest/archive/conflict/resurface workflows; every P4 check
-- [ ] Pin Open WebUI (`:main`) and Karakeep (`:release`) image tags when grinder is next touched
+- [ ] Roll out the 2026-09-26 cleanup on every node (entry below): `git fetch && git reset --hard origin/main`, `./setup-secrets.sh`, `sudo ./firewall.sh`, then recreate what changed
+- [ ] grinder: check the backdoor ports answer from the LAN after `sudo ./firewall.sh` (the old rules named the published ports, which ufw-docker never matches)
+- [ ] cellar: confirm Komodo still logs in after `KOMODO_DISABLE_USER_REGISTRATION` went to `true`
+- [ ] Pin n8n (`latest`), Open WebUI (`main`) and Karakeep (`release`)
+- [ ] Open WebUI → roastery's Ollama: needs machine-to-machine auth that keeps Authelia in front; nothing exists yet
+- [ ] Karakeep: `NEXTAUTH_URL` is the direct-port URL while the route is `karakeep.${DOMAIN}`; check the phone share sheet signs in through the hostname
 
 ---
 
-## 2026-09-26 — Second brain: design plan
+## 2026-09-26 — One toolkit for every node
 
-Full plan: [`docs/second-brain/design-plan.md`](docs/second-brain/design-plan.md).
-Nothing is built; this entry records the decisions the build will follow. Items are
-in the backlog above.
+The nodes had drifted. percolator's `compose.sh` checked stale renders and made data
+directories; cellar's validated the resolved config; grinder's and mochaPot's did
+neither; roastery's didn't use sudo at all. Every node had its own copy of
+`generate-secrets.sh` with slightly different quoting, and adding an app meant
+editing three scripts on that node and remembering which one had which bug fixed.
 
-**Decided (proposed, pending the Phase 0 answers):**
+**Decided: one set of scripts in `stacks/_lib`, and config instead of code.**
 
-- **Obsidian on a plain-Markdown vault, synced by Syncthing.**
-  - The canonical data is text files, readable by any editor, trivially indexed and
-    trivially backed up. No new database and no database dump job, which matters while
-    the Postgres dump job is still open.
-  - Rejected for now: SiYuan and Trilium (own formats, weak offline phone capture) and
-    Nextcloud sync (not a real two-way folder sync on Android; it would put notes on
-    the household-critical node).
-  - Obsidian LiveSync (CouchDB) is the fallback if Syncthing-Fork on Android
-    disappoints, or if an iPhone is involved.
-  - Memos is deferred: a second place to check is the friction this is meant to remove.
-- **grinder is the Syncthing hub and runs the index; cellar keeps a receive-only,
-  versioned replica.**
-  - grinder was already the second-brain node (`postgres-vector`, `embedding-worker`,
-    n8n, Open WebUI, Karakeep).
-  - It is "cheap to shed", so it is never the only copy: every device and cellar hold
-    full replicas.
-  - cellar's replica makes the restic source a local path. Syncthing's versioning
-    there is the quick undo; restic is the backup.
-- **Karakeep, Paperless and Immich keep links, documents and screenshots.** Notes link
-  to them; they are never copied in. Tasks go to Vikunja.
-- **Separate vaults (`jc`, `household`, optional `partner`), not folders in one
-  vault.** Syncthing shares whole folders per device, so privacy is enforced by which
-  devices hold the data at all. The partner's private vault never reaches grinder
-  unless she opts in.
-- **One new custom service, `brain`, on grinder:**
-  - it watches the vaults through a read-only mount, chunks by heading, embeds via
-    `embedding-worker`, and stores in `postgres-vector` schema `brain`;
-  - it serves `/search` on `grinder_net` only, with no published port;
-  - it filters by vault in SQL, per Open WebUI user;
-  - the index is derived data and is not backed up.
-- **Retrieval always on (CPU); synthesis only when roastery wakes.** Search-only
-  answers with links still work when roastery is asleep.
-- **Automation writes only into `_ai/` and never edits a human's note.**
-  - The inbox auto-archives after 30 days: moved and logged, never deleted.
-  - `ai: false` / `_noai/` exclude a note from indexing entirely.
-- **LAN-only sync.**
-  - Global discovery, relays and NAT traversal are off, and devices are added by hand.
-  - 22000/21027 are firewalled to the LAN.
-  - The Syncthing GUI is admin-only behind Authelia and has no backdoor port, since it
-    can add devices.
-- **Rollout is gated on evidence, not enthusiasm.**
-  - Phase 3 (AI) needs Phase 1's usage gate (inbox notes on 10 of 14 days) *and*
-    Phase 2's restore test.
-  - Phase 4 (synthesis) needs a machine-to-machine path to roastery's Ollama that keeps
-    Authelia in front. None exists today (`stacks/roastery/traefik/README.md`).
+- Every node's `compose.sh`, `setup-secrets.sh`, `render-configs.sh` and `firewall.sh`
+  is the same three-line wrapper. Everything node-specific is in `node.conf`: `APPS`
+  in bring-up order, `NETWORK` (and the key holding its fixed subnet), `RESOLVER`
+  (primary/secondary Pi-hole).
+- Per app, optional: `secrets.conf` (what to generate or ask for), `firewall` (UFW
+  rules), `data-dirs`, `prepare.sh`, templates. Adding an app is a folder plus one
+  word in `APPS`.
+- Every node now gets percolator's pre-`up` checks: renders current, data directories
+  made with the right owner, no `REPLACE_ME` in the resolved config.
+- `stacks/fleet.env` holds what every node shares (node IPs, LAN, gateway, TZ, the
+  two resolvers). The per-node copies of `CELLAR_LAN_IP`, `PERCOLATOR_LAN_IP`,
+  `SIEVE_IP`, `AUTHELIA_URL` are gone from the examples; existing `.env.local` lines
+  are harmless (later files win and the values are the same). A test keeps
+  `fleet.env` in step with `NODE_IPS`.
+- Compose files use `${NODE_IP}`, `${NODE}`, `${DATA_DIR}` and `${MEDIA_DIR}`, so
+  the Komodo Periphery and Scrutiny collector files are identical on every Linux node.
+- Renamed keys (`ACME_EMAIL` → `TRAEFIK_ACME_EMAIL`, every `*_DISK_DEVICE*` →
+  `DISK_DEVICE`/`DISK_DEVICE_2`) are listed in `_lib/renamed-keys`; setup and
+  `compose.sh` copy the old value across, so a pull never strands a node.
+- The DHCP static leases moved from sieve's setup script into `dns-records.py`
+  (primary role only), so both Pi-holes are driven the same way.
+- roastery gets PowerShell twins (`_lib/purrbrews.ps1`) of setup, render and compose,
+  checked against the bash renderer by a test.
+- One root `.gitignore` instead of five that disagreed; every rendered file is
+  listed, and a test fails if a template's output isn't.
 
-**Found while planning (not fixed here):**
+**Fixed on the way:**
 
-- Open WebUI uses `:main` and Karakeep uses `:release`, against the pinned-images
-  principle.
-- Karakeep's `NEXTAUTH_URL` is the direct-port URL, while its route is
-  `karakeep.${DOMAIN}`. Check that mobile share-sheet sign-in works through the
-  hostname.
-- Enabling trusted-header SSO on Open WebUI while its 8081 backdoor is published would
-  let any LAN client forge the identity header. Don't combine the two.
+- grinder's backdoor rules named the published ports (5001, 3030, 8081, 8765).
+  ufw-docker's `route` rules match after DNAT, on the container port, so those
+  never matched. They now say 5000, 3000, 8080, 80.
+- Komodo's `KOMODO_DISABLE_USER_REGISTRATION` was `"false"` under a comment
+  explaining why it should be off. Now `"true"`.
+- Speedtest Tracker's generated `APP_KEY` was hex behind `base64:`, which decodes to
+  the wrong length. New installs get real base64; an existing key is left alone.
+- An unquoted `FORWARD_AUTH_CLIENTS` (it has spaces) broke `source` in the renderer.
+  Setup now quotes such values in place.
+- init's closing hint said `sudo ./setup-secrets.sh`, which is exactly what not to do.
+- A comment in mochaPot's Home Assistant file had the real domain in it, and one in
+  cellar's mirror script had roastery's real MAC. Both gone from the files (they are
+  still in the old history).
 
-**Open questions:** Q1–Q11 in the plan's §14. Q1–Q3 block Phase 1; Q4 blocks Phase 3;
-Q6 blocks Phase 4.
+**Also:** history on `main` was rewritten (the merge linearised, fixups squashed,
+terse messages reworded). Nodes need a one-time `git fetch && git reset --hard
+origin/main`; their daily `--ff-only` pull fails until then. `runbook_1.md`, a plan
+document that now lives elsewhere, and roastery's tracked Komodo keys were
+removed.
+Every README now describes what's running rather than what was planned, and
+comments explain why rather than retelling history; the history is here.
+
+---
 
 ## 2026-09-16 — percolator joins the fleet: Authelia on 9091, Homepage
 
