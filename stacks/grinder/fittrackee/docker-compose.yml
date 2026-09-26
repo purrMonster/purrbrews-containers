@@ -34,7 +34,12 @@ services:
       - "traefik.http.services.fittrackee.loadbalancer.server.port=5000"
 
   postgres-fittrackee:
-    image: postgres:16
+    # FitTrackee 1.x stores GPS tracks as PostGIS geometry, so plain postgres:16
+    # fails its first migration ("type geometry does not exist") and the app
+    # restarts forever. Same major as before, so the data directory carries over.
+    # The image creates the extension only on a fresh data directory; an existing
+    # one needs `CREATE EXTENSION postgis` once (runbook, 2026-09-26).
+    image: postgis/postgis:16-3.5  # checked 2026-09-26
     container_name: postgres-fittrackee
     environment:
       POSTGRES_USER: ${FITTRACKEE_DB_USERNAME}

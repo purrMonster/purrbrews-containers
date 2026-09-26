@@ -53,6 +53,16 @@ until decided otherwise (backlog).
 
 - [ ] **FitTrackee is down.** `fittrackee.${DOMAIN}` is a 502 and `:5001` refuses.
   Plan: read its logs on grinder, fix, recreate.
+  - Cause: FitTrackee 1.x needs PostGIS and the database was plain `postgres:16`.
+    The migration dies at `ADD COLUMN geom geometry(...)` ("type geometry does not
+    exist"), rolls back, and the container restarts every ~10 s. It never got past
+    that, so the database has no tables and nothing is lost.
+  - Fix: `postgis/postgis:16-3.5` (same major, same data directory), then
+    `CREATE EXTENSION postgis` in the FitTrackee database, since the image only does
+    that on a fresh directory. The old directory was initialised on trixie (16.15) and the
+    PostGIS image is bullseye (16.9, glibc 2.31): same on-disk format, but the
+    (empty) databases need `ALTER DATABASE … REFRESH COLLATION VERSION`. An older
+    base than I'd like; it's the tag upstream maintains for 16.
 - [ ] **Home Assistant through Traefik answers 400 to everything**; `:8123` works.
   HA is rejecting Traefik as an untrusted proxy. Plan: compare `mochapot_net`'s real
   subnet with `http.trusted_proxies` (node-local `configuration.yaml`, not the repo).
