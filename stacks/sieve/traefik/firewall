@@ -1,2 +1,6 @@
 route tcp 443 LAN NETWORK  # traefik https from LAN
 route tcp 80  LAN NETWORK  # traefik http from LAN
+# Gatus reaches Traefik by the node's own IP, like any client would. From a
+# container that goes through docker-proxy on the host (INPUT), which the route
+# rules above never see, so without this its https checks just time out.
+allow tcp 443 NETWORK      # traefik https from sieve_edge (gatus)
