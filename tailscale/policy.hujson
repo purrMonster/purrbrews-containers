@@ -1,0 +1,41 @@
+// purrBrews tailnet policy. The admin console holds the live copy
+// (Access controls → JSON editor); this file is what it should say. Change
+// it here first, commit, then paste. Pasting replaces the whole policy,
+// including Tailscale's default allow-everything rule, which is the point.
+//
+// Why each line is here: tailscale/README.md. No email addresses in this
+// file, since the repo is public; autogroups stand in for people.
+{
+	"tagOwners": {
+		// The five Debian nodes join with this tag (init's tailscale step).
+		// Tagged devices belong to the tailnet, not to a person, and their
+		// keys don't expire, so a server never silently drops off.
+		"tag:purrbrews-node": ["autogroup:admin"],
+	},
+
+	"grants": [
+		// SSH to the nodes, for the tailnet's admins only (you). UFW on each
+		// node allows 22 on tailscale0 and nothing else, so this is the only
+		// port that would answer anyway; both layers agree.
+		{
+			"src": ["autogroup:admin"],
+			"dst": ["tag:purrbrews-node"],
+			"ip":  ["tcp:22"],
+		},
+		// Remote Desktop between your own devices: laptop or phone → roastery.
+		// autogroup:self never includes someone else's devices, so inviting
+		// another person later gives them nothing of yours.
+		{
+			"src": ["autogroup:member"],
+			"dst": ["autogroup:self"],
+			"ip":  ["tcp:3389", "udp:3389"],
+		},
+	],
+
+	// Deliberately absent:
+	//  - no rule *from* tag:purrbrews-node: a node can't open anything on the
+	//    tailnet, so a compromised node can't reach your laptop through it;
+	//  - no "ssh" section: the nodes run OpenSSH with their own keys and
+	//    sudo, not Tailscale SSH;
+	//  - no subnet routes or exit nodes.
+}
