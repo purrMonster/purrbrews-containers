@@ -170,6 +170,17 @@ first contact (`accept-new`) instead of needing a second `keys` round.
    so the nodes couldn't have pushed dumps. `dump-store-setup.sh` now writes its
    own drop-in, `20-purrbrews-dumps.conf` (`AllowUsers dumps`, key-only), checks
    it with `sshd -t` and reloads; it only warned before.
+4. **The host-key pinning wrote garbage into cellar's known_hosts.** Debian 13's
+   `ssh-keyscan` prints its `# host:22 SSH-2.0-…` banners on stdout; the new
+   pinning took them for keys, and rclone refuses a known_hosts file with even one
+   bad line ("illegal base64 data"), so `restic-init` failed again, this time
+   before reaching roastery. Worse, `ssh-keygen -F` stopped matching in the broken
+   file, so each run re-added everything. Fix: only lines that look like keys are
+   taken, and `tidy_known_hosts` cleans the file (non-key lines, duplicates) on
+   the next run, so cellar repairs itself. The pinned keys themselves were right.
+5. **cellar still had the HDD-era `restic-backup.timer` enabled** (last ran 02:00,
+   its script is gone). `backup.sh install` now disables and removes
+   `restic-backup` and `mirror-to-roastery` units wherever it finds them.
 
 ---
 

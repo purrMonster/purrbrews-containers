@@ -92,15 +92,19 @@ restic_env() {
 pin_repo_host() {
   [[ -n "$REPO_HOST" ]] || return 0
   [[ -w "$(dirname "$BACKUP_KNOWN_HOSTS")" ]] || return 0
-  local scanned line type key have added=0
-  scanned="$(ssh-keyscan -T 5 "$REPO_HOST" 2>/dev/null | sort)" || true
+  local scanned type key have added=0
+  tidy_known_hosts
+  # Only real key lines: some ssh-keyscan versions print their "# host:22
+  # SSH-2.0-…" banners on stdout, and rclone's known_hosts parser rejects
+  # the whole file over one such line (runbook, 2026-09-27).
+  scanned="$(ssh-keyscan -T 5 "$REPO_HOST" 2>/dev/null | awk '$1 !~ /^#/ && $2 ~ /^(ssh-|ecdsa-)/ && $3 ~ /^[A-Za-z0-9+\/]+=*$/' | sort -u)" || true
   [[ -n "$scanned" ]] || return 1
   have="$(ssh-keygen -F "$REPO_HOST" -f "$BACKUP_KNOWN_HOSTS" 2>/dev/null | grep -v '^#' || true)"
   while read -r _ type key; do
     [[ -n "${key:-}" ]] || continue
     if grep -qF " $type $key" <<< "$have"; then
       continue
-    elif grep -q " $type " <<< "$have"; then
+    elif grep -qF " $type " <<< "$have"; then
       warn "roastery's $type host key has CHANGED since it was pinned; not trusting it. Check before editing $BACKUP_KNOWN_HOSTS."
       return 1
     fi
@@ -109,6 +113,24 @@ pin_repo_host() {
   done <<< "$scanned"
   chmod 644 "$BACKUP_KNOWN_HOSTS" 2>/dev/null || true
   [[ $added -eq 0 ]] || echo "pinned $added host key(s) for $REPO_HOST"
+}
+
+# tidy_known_hosts: drop anything in BACKUP_KNOWN_HOSTS that isn't a key line
+# (and exact duplicates). The first version of pin_repo_host wrote
+# ssh-keyscan's banner lines into it on cellar.
+tidy_known_hosts() {
+  [[ -f "$BACKUP_KNOWN_HOSTS" && -w "$BACKUP_KNOWN_HOSTS" ]] || return 0
+  local tmp
+  tmp="$(mktemp "$BACKUP_KNOWN_HOSTS.XXXXXX")"
+  awk '/^#/ || ($2 ~ /^(ssh-|ecdsa-|sk-)/ && $3 ~ /^[A-Za-z0-9+\/]+=*$/) { if (!seen[$0]++) print }' \
+    "$BACKUP_KNOWN_HOSTS" > "$tmp"
+  if cmp -s "$tmp" "$BACKUP_KNOWN_HOSTS"; then
+    rm -f "$tmp"
+  else
+    chmod 644 "$tmp"
+    mv -f "$tmp" "$BACKUP_KNOWN_HOSTS"
+    echo "tidied $BACKUP_KNOWN_HOSTS (removed lines that weren't host keys)"
+  fi
 }
 
 port_open() {  # port_open <host> <port>: true if something accepts a TCP connection

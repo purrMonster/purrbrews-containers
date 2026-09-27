@@ -566,6 +566,16 @@ cmd_install() {
 
   cmd_keys
 
+  # Units from cellar's HDD-era backup (retired 2026-09-27): their scripts
+  # are gone, so a timer left enabled fails every night.
+  for f in restic-backup mirror-to-roastery; do
+    if [[ -e /etc/systemd/system/$f.timer || -e /etc/systemd/system/$f.service ]]; then
+      systemctl disable --now "$f.timer" >/dev/null 2>&1 || true
+      rm -f "/etc/systemd/system/$f.timer" "/etc/systemd/system/$f.service"
+      note "removed the retired $f.timer/.service"
+    fi
+  done
+
   log "systemd units (installed, not enabled)"
   install -m 644 "$LIB"/systemd/purrbrews-backup@.service "$LIB"/systemd/purrbrews-backup@.timer /etc/systemd/system/
   note "purrbrews-backup@.service/.timer"
