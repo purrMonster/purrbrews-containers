@@ -12,6 +12,7 @@ the side, so not a fleet node: no `init/purrbrews-init.sh`, no `/opt/purrbrews`,
 | Komodo Periphery | `./compose.ps1 komodo-periphery up -d` | dials out to cellar |
 | [Traefik → Ollama](traefik/README.md) | `.\traefik\start.ps1`, native | `ollama.${DOMAIN}`, admins, via Authelia |
 | [Backup target](#backup-target) | OpenSSH (SFTP), `backup-target\setup.ps1` | `C:\purrbrews\restic`, the fleet's restic repository |
+| [Remote access](#remote-access) | Tailscale + Remote Desktop, `remote-access\setup.ps1` | `mstsc /v:roastery` from the tailnet |
 
 ## Scripts
 
@@ -108,3 +109,30 @@ copy backup-target\authorized_keys.example backup-target\authorized_keys
   that ever changes.
 - **Sleep, don't shut down.** Wake-on-LAN brings it back from sleep, not from off.
 - **Its own D: isn't backed up yet** (documents, projects, insta360 footage).
+
+## Remote access
+
+Remote Desktop into this PC from anywhere, over the tailnet, without a single
+port open on the router. The whole design is in
+[`tailscale/README.md`](../../tailscale/README.md); this is roastery's part.
+
+[`remote-access\setup.ps1`](remote-access/setup.ps1), from an elevated
+PowerShell, installs Tailscale (pinned MSI, SHA-256 checked), joins the tailnet
+as `roastery` in unattended mode, turns Remote Desktop on with Network Level
+Authentication, and opens 3389 to Tailscale addresses (`100.64.0.0/10`) only.
+
+```powershell
+.\remote-access\setup.ps1              # tailnet only
+.\remote-access\setup.ps1 -AllowLan    # also from 192.168.0.0/24
+```
+
+- **roastery joins as you, not tagged.** It's a personal PC; the policy lets your
+  own devices reach each other (`autogroup:self`). So its key does expire: turn
+  that off once in the admin console (*Machines → roastery → Disable key expiry*).
+- **RDP wants your account's password**, not the PIN. With a Microsoft account,
+  that's the Microsoft account password.
+- **It has to be awake.** Wake-on-LAN doesn't cross the internet, but cellar is on
+  the LAN and already knows how: `ssh barista@cellar` over the tailnet, then
+  `/opt/purrbrews/stacks/cellar/restic/wake-roastery.sh`.
+- The SFTP rule for backups (22 from the nodes' LAN addresses) is untouched; the
+  tailnet can't reach this PC's SSH at all.
