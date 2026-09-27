@@ -182,6 +182,24 @@ first contact (`accept-new`) instead of needing a second `keys` round.
    its script is gone). `backup.sh install` now disables and removes
    `restic-backup` and `mirror-to-roastery` units wherever it finds them.
 
+**Coordination with the remote-access session** (the owner relayed its checklist):
+
+- `docs/runbook-catch-up` on GitHub was built on the pre-rewrite history and
+  carried the old addresses in its commits; deleted. Its only content worth
+  keeping, four runbook entries (09-17 to 09-25), is re-added further down from its
+  text, not its commits; its README tweak was already superseded on `main`.
+- History operations are one session's job, and not this one's from here on:
+  no force-pushes to `main` without the owner's go-ahead; the `backup/*`
+  branches, `stash@{0}` and `feature/remote-access` stay untouched.
+- Before every push: `git log origin/main..HEAD --format='%ae %ce'` shows only
+  `jyotirmoy.github@jyotirmoy.cc`, and a `git grep` for the real domain over the
+  new commits finds nothing (the pattern itself stays out of the repo).
+- The repo folder's permissions are all inherited again (no `restic` entry;
+  checked with `icacls`), and `setup.ps1` now refuses any backup root other than
+  `<drive>:\purrbrews`.
+- The nodes were reset to the rewritten history once (`git fetch && git reset
+  --hard origin/main`) and have pulled normally since.
+
 ---
 
 ## 2026-09-27 — Backup scripts written (not tied together yet)
@@ -534,6 +552,137 @@ document that now lives elsewhere, and roastery's tracked Komodo keys were
 removed.
 Every README now describes what's running rather than what was planned, and
 comments explain why rather than retelling history; the history is here.
+
+---
+
+## 2026-09-25 — Every stack running
+
+*Recovered on 2026-09-27 from the `docs/runbook-catch-up` branch, which was built
+on the pre-cleanup history and never merged; the branch itself was deleted
+because its old commits carried personal details. These four entries (09-17 to
+09-25) are kept as they were written. Some specifics have moved on since: the
+toolkit was unified on 2026-09-26, `stacks/roastery/README.md` exists again, and
+the backups are the 2026-09-27 design.*
+
+Status checkpoint, reported by the owner: every stack on sieve, percolator,
+cellar, mochaPot, grinder and roastery is up and working. The backlog above is
+ticked to match. What stays open is not "does it run" but "is it safe to lose":
+database dumps, restic sources, a restore test, alert-path break tests and Gatus
+coverage.
+
+Nothing between 2026-09-16 and this entry was written down at the time. The
+three entries below reconstruct it from the commits and the comments they left
+in the compose files, which carry the full detail.
+
+## 2026-09-22 — roastery's Traefik for Ollama; service-account groups in Authelia
+
+**roastery runs a native Windows Traefik** (`stacks/roastery/traefik/`, started by
+`start.ps1`), not a container. It fronts Ollama on `localhost:11434` as
+`ollama.${DOMAIN}`, behind ForwardAuth to Authelia on percolator like every other
+node. roastery's IP was added to `FORWARD_AUTH_CLIENTS`, and `ollama` to the
+admin-host list with its deny fallback. The binary is downloaded and
+checksum-verified by hand; `data/acme.json` and the rendered files are never
+committed.
+
+**Machine clients get their own LLDAP groups, not admin accounts.**
+
+- `ollama_api_group`: `one_factor` on `ollama.${DOMAIN}` only, so API clients
+  can call Ollama with a password. People still need an admin login.
+- `nextcloud_bot_accounts`: `one_factor` on `nextcloud.${DOMAIN}` and
+  Nextcloud's OIDC client (its own `nextcloud` authorization policy), and
+  `deny` on every other host. These rules sit before the admin/household
+  rules, so a bot that also lands in a human group still can't wander.
+
+The old `stacks/roastery/README.md` was removed in the same merge; the Traefik
+README is the only roastery doc now.
+
+## 2026-09-18 — Fleet audit: DNS consistency, DHCP on sieve, Diun removed
+
+A read-only audit of the running fleet against the repo, recorded in full in
+[docs/network-audit.md](docs/network-audit.md). The decisions:
+
+- **Changes reach nodes through Git only.** Commit, push, pull on the node. Files
+  copied straight to a server during the audit were superseded, not activated.
+- **One shared render/DNS library** in `stacks/_lib/` (`render-template.py`,
+  `render-configs.sh`, `dns-records.py`, `refresh-dns.sh`) replaced each node's
+  copy-pasted `render-configs.sh` logic. Rendering is atomic: a failed template
+  leaves the old file in place. Offline tests in `tests/` cover it
+  (`python3 -m unittest discover -s tests -v`).
+- **Both Pi-holes serve the same records.** mochaPot's secondary now gets local
+  records and allows LAN DNS on 53. Before this, it answered only on its own host.
+- **Hosts use LAN DNS only.** `init/use-lan-dns.py` moves an existing node's
+  NetworkManager profile to .10/.13 and verifies it. A public fallback resolver
+  can't resolve private names, so it only hid failures. The router's IPv6 RA is
+  off, but NetworkManager keeps IPv6 DNS it already learned, so each host still
+  needs the migration.
+- **DHCP is sieve's, permanently.** Routers had DHCP off and Pi-hole's was
+  inactive, so nothing on the LAN was handing out leases. sieve's Compose now
+  pins `FTLCONF_dhcp_active: "true"` and mochaPot's `"false"`, overriding
+  whatever Pi-hole persisted. `stacks/sieve/enable-dhcp.sh` is the handover.
+- **cellar refuses unresolved placeholders.** Komodo was serving Traefik's
+  default certificate because a container created before `DOMAIN` was set kept
+  `komodo.REPLACE_ME…` in its labels. `_lib/check-compose-config.py` now checks
+  the resolved Compose config before `up`. Labels only change on recreate, never
+  on restart.
+- **Windows App (AVD) allowlist lives in `pihole/allow-wvd.py`**, driven through
+  Pi-hole's local API, so the exception survives a gravity rebuild.
+- **Diun removed** from cellar. It never had a notification target, so it
+  watched and told no one. Nothing replaces it yet; image tags stay pinned and
+  are bumped by hand.
+
+## 2026-09-17 — First real bring-up: what broke and why
+
+The stacks met real hardware. Every fix below left a dated comment at the spot in
+the compose file; this is the index.
+
+**Silent failures, the worst kind:**
+
+- **Traefik dropped Authelia's router without an error.** Authelia is on two
+  networks (`proxy` and its Redis network), and Traefik can't guess which IP to
+  use. The symptom was a plain 404 on `authelia.${DOMAIN}`. Fixed with
+  `traefik.docker.network=proxy`. Any container on two networks needs this label.
+- **Quoted Traefik labels never got Pi-hole records.** sieve's DNS generator
+  matched `- traefik.…` but not `- "traefik.…"`, so nine newer apps quietly had
+  no DNS. mochaPot's labels were unquoted first, then the generator was fixed to
+  accept both styles. It now lives in `_lib/dns-records.py` and also reads
+  Traefik file-provider routes.
+- **Containers with `network_mode: host` keep the DNS they were born with.**
+  Docker snapshots `/etc/resolv.conf` at creation. Home Assistant was created
+  while mochaPot still used bootstrap DNS (1.1.1.1), so it could never resolve
+  `authelia.${DOMAIN}`. **Rule: when a node's upstream DNS changes,
+  force-recreate every host-network container on it.** A restart is not enough.
+
+**Version and registry drift:**
+
+- **Traefik v3.2 broke on newer Docker Engine** ("client version 1.24 is too
+  old") and looped forever. All five nodes now run `traefik:v3.7.13`.
+- **Karakeep's browser image moved off gcr.io**, where anonymous pulls now
+  require billing, to the same image on Docker Hub (`zenika/alpine-chrome:124`).
+- **FitTrackee ships no default command.** tini printed its help text and
+  exited. Pinned to `v1.3.5` with the upstream `command:`.
+- **Komodo Periphery:** `core.pub` alone doesn't register a node. First connect
+  needs `PERIPHERY_ONBOARDING_KEY` from Komodo's UI (one-time; blank it
+  afterwards). `PERIPHERY_PRIVATE_KEY` must also be set explicitly, because
+  v2 ignores the config file and falls back to a broken built-in default
+  (moghtech/komodo#1425).
+
+**Decisions:**
+
+- **Pi-hole's web server binds IPv4 only** (`8080o`, not `8080o,[::]:8080o`).
+  An IPv6 bind with no matching UFW rule was the root cause of that day's
+  Pi-hole/Authelia outage. If an image upgrade brings back the `[::]` half,
+  remove it again.
+- **Home Assistant: OIDC only, no ForwardAuth in front**, the same as Nextcloud
+  and Paperless. It uses `hass-oidc-auth` from HACS, with the local HA login
+  kept as the break-glass path. HA trusts all of `${PROXY_SUBNET}`, because
+  Traefik's proxied requests arrive from its bridge IP rather than the LAN IP.
+  `mochapot_net` is created with that pinned subnet so the value stays true
+  after a recreate.
+- **Nextcloud's HSTS comes from a Traefik middleware**, not `.htaccess`, because
+  Apache only ever sees HTTP and upgrades regenerate `.htaccess`. The remaining
+  admin warnings are one-time `occ` settings, listed in its README.
+  `allow_local_remote_servers` is required, or Nextcloud's SSRF guard blocks
+  OIDC discovery to Authelia's private IP.
 
 ---
 

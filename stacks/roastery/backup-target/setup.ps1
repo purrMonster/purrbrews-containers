@@ -47,13 +47,12 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
 
 $User = 'restic'
 $BackupRoot = [System.IO.Path]::GetFullPath($BackupRoot).TrimEnd('\')
-# This folder's ACL is replaced outright, so it must be a folder of its own:
-# not the repo, not anywhere in a user profile, not a drive root.
-if ($BackupRoot -match '^[A-Za-z]:$' -or
-    $BackupRoot.StartsWith($env:USERPROFILE, [StringComparison]::OrdinalIgnoreCase) -or
-    $BackupRoot.StartsWith($env:SystemDrive + '\Users', [StringComparison]::OrdinalIgnoreCase) -or
+# This folder's ACL is replaced outright, so it can only ever be a folder
+# called purrbrews at the top of a drive (C:\purrbrews by default; D:\purrbrews
+# if the repository moves disks). Anything else is refused, however it got here.
+if ($BackupRoot -notmatch '^[A-Za-z]:\\purrbrews$' -or
     (Test-Path -LiteralPath (Join-Path $BackupRoot '.git'))) {
-    throw "Refusing '$BackupRoot' as the backup root: its permissions get replaced. Use a folder of its own, like C:\purrbrews."
+    throw "Refusing '$BackupRoot' as the backup root: its permissions get replaced, so only <drive>:\purrbrews is allowed."
 }
 $Repo = Join-Path $BackupRoot 'restic'
 $SshDir = Join-Path $env:ProgramData 'ssh'
