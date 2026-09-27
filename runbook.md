@@ -39,7 +39,8 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Pin n8n (`latest`), Open WebUI (`main`) and Karakeep (`release`)
 - [ ] Open WebUI → roastery's Ollama: needs machine-to-machine auth that keeps Authelia in front; nothing exists yet
 - [ ] Karakeep: `NEXTAUTH_URL` is the direct-port URL while the route is `karakeep.${DOMAIN}`; check the phone share sheet signs in through the hostname
-- [ ] Remote access over Tailscale: roll out in the order in the 2026-09-27 entry below, ending with the checks from outside the house
+- [x] Remote access over Tailscale: rolled out and checked from outside the house (2026-09-28; 2026-09-27 entry below)
+- [ ] Phone on the tailnet (only the Mac has joined so far)
 
 ---
 
@@ -116,16 +117,24 @@ bash; the full suite still wants Linux.
 
 **Rollout** (sudo and Windows admin are the owner's):
 
-- [ ] Admin console: tailnet created, `tailscale/policy.hujson` pasted, MagicDNS on (owner)
-- [ ] Laptop and phone on the tailnet; laptop key in `bootstrap/data/authorized_keys` (owner)
+- [x] Admin console: tailnet created, `tailscale/policy.hujson` pasted, MagicDNS on (owner).
+  Evidence: the nodes' tag was accepted, and `sieve.<tailnet>` resolves from roastery
+- [x] Laptop on the tailnet (the Mac, direct connection); its key reaches the nodes
+  (SSH works). The phone hasn't joined yet (backlog)
 - [x] Commit and push (2026-09-27, on `main`)
-- [ ] Every node, once, because `main`'s history was rewritten on 2026-09-27 (domain,
-  MAC and old emails scrubbed): `cd /opt/purrbrews && git fetch && git reset --hard origin/main`.
-  Their daily `--ff-only` pull fails until then, so they have not got the tailscale step yet
-- [ ] `sudo bash init/purrbrews-init.sh --only tailscale` on each node, sieve last so DNS is never the thing being changed while others join (owner)
-- [ ] `stacks\roastery\remote-access\setup.ps1`, elevated; roastery's key expiry off (owner)
-- [ ] Rebuild the bootstrap container so new nodes get the new init (`docker compose up -d --build` in `bootstrap/`)
-- [ ] From a phone hotspot: the checks in `tailscale/README.md` → "Is it working?", including the ports that must stay closed
+- [x] Every node, once, because `main`'s history was rewritten on 2026-09-27 (domain,
+  MAC and old emails scrubbed): `cd /opt/purrbrews && git fetch && git reset --hard origin/main`
+- [x] `sudo bash init/purrbrews-init.sh --only tailscale` on each node (owner). All five
+  online as `tag:purrbrews-node`, no key expiry (`tailscale status --json` on roastery, 2026-09-28)
+- [x] `stacks\roastery\remote-access\setup.ps1`, elevated; roastery's key expiry off (owner).
+  Gotcha: without `-AllowLan` it cut the owner's own LAN RDP session to 192.168.0.15 the
+  moment the firewall step ran, as designed but unannounced. Kept tailnet-only: RDP from the
+  Mac goes to `roastery` and still travels the LAN (direct connection)
+- [x] Rebuild the bootstrap container so new nodes get the new init (`purrbrews-bootstrap`
+  recreated 2026-09-28 01:44)
+- [x] The checks in `tailscale/README.md` → "Is it working?" (2026-09-28). Over mobile data,
+  the owner got RDP to roastery and `ssh barista@sieve` from the Mac. Over the tailnet from
+  roastery: 22 answers on sieve and percolator; percolator:443 and sieve:8080 time out
 
 ---
 

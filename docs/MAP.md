@@ -34,7 +34,7 @@ _Last updated: 2026-09-27_
 | Fleet rebuild (purrbrews-containers) | Stacks running; backups unfinished | [README](../README.md) | 2026-09-15 → 2026-09-16 entries |
 | One toolkit for every node (`stacks/_lib`, `node.conf`) | Done; rolling out node by node | [stacks/README.md](../stacks/README.md) | 2026-09-26 — One toolkit for every node |
 | Backups (restic sources, DB dumps, restore test) | Open | [cellar/restic](../stacks/cellar/restic/README.md) | Backlog |
-| Remote access (Tailscale on every machine, SSH + RDP) | Written; not rolled out | [tailscale](../tailscale/README.md) | 2026-09-27 — Remote access over Tailscale |
+| Remote access (Tailscale on every machine, SSH + RDP) | Done; checked from outside the house 2026-09-28 | [tailscale](../tailscale/README.md) | 2026-09-27 — Remote access over Tailscale |
 | Smart desk / smart mirror | Idea | — | — |
 
 ## Where data lives (quick reference)
