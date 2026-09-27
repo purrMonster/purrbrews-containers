@@ -6,6 +6,7 @@ because the scripts refuse to run as root on purpose.
 """
 import importlib.util
 import io
+import json
 import os
 from pathlib import Path
 import re
@@ -592,6 +593,79 @@ class Backup(unittest.TestCase):
         self.assertIn('.env.local', listing)      # the node's own settings always go
         store = subprocess.run(['bash', str(node / 'backup.sh'), 'store'], env=env, capture_output=True, text=True)
         self.assertEqual(store.returncode, 0, store.stderr)
+
+
+class RemoteAccess(unittest.TestCase):
+    """Tailscale: the init step, the tailnet policy and the auth-key guards (tailscale/README.md)."""
+
+    INIT = ROOT / 'init' / 'purrbrews-init.sh'
+    # Built at runtime so this file never contains something that looks like a key.
+    FAKE_KEY = 'tskey-' + 'auth-' + 'kExample1CNTRL-abc'
+
+    def policy(self):
+        text = (ROOT / 'tailscale' / 'policy.hujson').read_text()
+        text = re.sub(r'(^|\s)//[^\n]*', r'\1', text)        # HuJSON comments
+        text = re.sub(r',(\s*[}\]])', r'\1', text)           # and trailing commas
+        return json.loads(text)
+
+    def test_step_runs_after_the_firewall_and_before_the_network(self):
+        steps = re.search(r'^ALL_STEPS=\((.*?)\)', self.INIT.read_text(), re.M | re.S).group(1).split()
+        self.assertLess(steps.index('firewall'), steps.index('tailscale'))
+        self.assertLess(steps.index('tailscale'), steps.index('network'))
+        self.assertIn('step_tailscale() {', self.INIT.read_text())
+
+    def test_ufw_stays_the_only_gate(self):
+        # Tailscale's default netfilter mode accepts everything on tailscale0 ahead of UFW.
+        step = re.search(r'^step_tailscale\(\) \{.*?^\}', self.INIT.read_text(), re.M | re.S).group(0)
+        self.assertIn('--netfilter-mode=off', step)
+        self.assertIn('--accept-dns=false', step)
+        self.assertIn("ufw allow in on tailscale0 to any port 22 proto tcp", step)
+        self.assertNotRegex(step, r'--ssh(?!=false)')
+
+    def test_settings_tag_is_owned_in_the_policy(self):
+        example = (ROOT / 'init' / 'purrbrews-init.env.example').read_text()
+        self.assertRegex(example, r'(?m)^ENABLE_TAILSCALE=true$')
+        tag = re.search(r'(?m)^TAILSCALE_TAGS=(.*)$', example).group(1)
+        self.assertIn(f'cfg TAILSCALE_TAGS {tag})', self.INIT.read_text())   # init's default agrees
+        self.assertIn(tag, self.policy()['tagOwners'])
+
+    def test_policy_gives_the_nodes_ssh_only_and_nothing_outbound(self):
+        policy = self.policy()
+        self.assertNotIn('acls', policy)   # grants only, so there's one place to read
+        self.assertNotIn('ssh', policy)    # OpenSSH on the nodes, not Tailscale SSH
+        for grant in policy['grants']:
+            self.assertFalse([s for s in grant['src'] if s.startswith('tag:')], f'a tag may not start anything: {grant}')
+            if 'tag:purrbrews-node' in grant['dst']:
+                self.assertEqual(grant['ip'], ['tcp:22'], grant)
+            self.assertNotIn('*', grant['dst'] + grant['ip'], grant)
+        self.assertNotRegex((ROOT / 'tailscale' / 'policy.hujson').read_text(), r'[\w.+-]+@[\w-]+\.[\w.]+',
+                            'no email addresses in a public repo')
+
+    def test_every_guard_refuses_an_auth_key(self):
+        guards = {self.INIT: None, ROOT / 'bootstrap' / 'bootstrap.sh': None, ROOT / 'bootstrap' / 'entrypoint.sh': None}
+        for path in guards:
+            found = re.search(r"grep -Eq '(tskey-[^']*)'", path.read_text())
+            self.assertIsNotNone(found, f'{path.name} has no auth-key guard')
+            guards[path] = found.group(1)
+        self.assertEqual(len(set(guards.values())), 1, 'the three guards use different patterns')
+        pattern = re.compile(next(iter(guards.values())))
+        self.assertRegex(f'TS_AUTHKEY={self.FAKE_KEY}', pattern)
+        # ...and the shipped settings, docs included, never trip it.
+        self.assertNotRegex((ROOT / 'init' / 'purrbrews-init.env.example').read_text(), pattern)
+
+    def test_no_auth_key_anywhere_in_the_repo(self):
+        pattern = re.compile(r'tskey-[a-z]+-[A-Za-z0-9]')
+        for file in ROOT.rglob('*'):
+            if file.is_file() and '.git' not in file.parts and file.suffix not in ('.pyc', '.exe', '.onnx'):
+                self.assertNotRegex(file.read_text(errors='ignore'), pattern, str(file.relative_to(ROOT)))
+
+    def test_roastery_installer_is_pinned_and_rdp_is_scoped(self):
+        script = (STACKS / 'roastery' / 'remote-access' / 'setup.ps1').read_text()
+        self.assertRegex(script, r"\$MsiSha256 = '[0-9a-f]{64}'")
+        self.assertRegex(script, r"\$TailscaleVersion = '\d+\.\d+\.\d+'")
+        self.assertIn("$Tailnet = '100.64.0.0/10'", script)
+        self.assertIn('-LocalPort 3389 -RemoteAddress $from', script)
+        self.assertIn('UserAuthentication -Value 1', script)   # Network Level Authentication
 
 
 if __name__ == '__main__':

@@ -103,11 +103,25 @@ on `setup.ps1`, the policy parses as JSON once comments are stripped, and no fil
 in the repo matches the auth-key pattern (so the new guard doesn't trip on its
 own docs). `python3 -m unittest` still needs a run on a Linux box.
 
+Later the same day, on `feature/remote-access`: a `RemoteAccess` test class that
+pins the decisions above. It checks that the step runs between firewall and
+network; that `--netfilter-mode=off`, `--accept-dns=false` and the single
+`tailscale0` SSH rule stay; that the settings' tag is owned in the policy; that
+no grant starts from a tag, the node tag gets `tcp:22` only, and the policy has no
+email addresses; that the three auth-key guards share one pattern, which catches a
+key and not the shipped settings; that no key is anywhere in the repo; and that
+roastery's installer is pinned and RDP is scoped. The class passes on roastery
+(Windows Python, `PYTHONUTF8=1`), as do the two `Layout` checks that don't need
+bash; the full suite still wants Linux.
+
 **Rollout** (sudo and Windows admin are the owner's):
 
 - [ ] Admin console: tailnet created, `tailscale/policy.hujson` pasted, MagicDNS on (owner)
 - [ ] Laptop and phone on the tailnet; laptop key in `bootstrap/data/authorized_keys` (owner)
-- [ ] Commit and push; nodes pull (`git pull --ff-only` or the daily timer)
+- [x] Commit and push (2026-09-27, on `main`)
+- [ ] Every node, once, because `main`'s history was rewritten on 2026-09-27 (domain,
+  MAC and old emails scrubbed): `cd /opt/purrbrews && git fetch && git reset --hard origin/main`.
+  Their daily `--ff-only` pull fails until then, so they have not got the tailscale step yet
 - [ ] `sudo bash init/purrbrews-init.sh --only tailscale` on each node, sieve last so DNS is never the thing being changed while others join (owner)
 - [ ] `stacks\roastery\remote-access\setup.ps1`, elevated; roastery's key expiry off (owner)
 - [ ] Rebuild the bootstrap container so new nodes get the new init (`docker compose up -d --build` in `bootstrap/`)
