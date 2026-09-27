@@ -42,6 +42,30 @@ changes can be made later without re-deriving the reasoning.
 
 ---
 
+## 2026-09-27 — Wiring the backups: plan and progress
+
+The owner asked for the wiring too. Split by who can do each step: I can do
+anything as barista over SSH and in the repo; sudo on the nodes, Windows admin
+on roastery, the Google sign-in and flask are the owner's. To keep the owner's
+part short, `backup.sh` gained `install` (packages, key, units) and `enable`
+(doctor, a first backup, then the timers), and host keys are now pinned on
+first contact (`accept-new`) instead of needing a second `keys` round.
+
+- [ ] Pull on every node, `setup-secrets` on cellar (generates RESTIC_PASSWORD and
+  the crypt secrets), `ROASTERY_WOL_MAC` in cellar's `.env.local` (me)
+- [ ] `sudo ./backup.sh install` on all five nodes (owner)
+- [ ] Collect the authorize lines; write roastery's `authorized_keys` and cellar's
+  `dump-store.keys` (me)
+- [ ] RESTIC_PASSWORD onto the four other nodes (me, node to node, never through
+  the chat) and to flask with the two crypt secrets (owner)
+- [ ] `setup.ps1` on roastery, elevated (owner)
+- [ ] cellar: `dump-store-setup.sh`, `restic-init.sh` (owner, sudo)
+- [ ] `sudo ./backup.sh enable` on every node, cellar first (owner); results checked (me)
+- [ ] Drive: Google API client, `drive-setup.sh`, first `drive-sync.sh` (owner)
+- [ ] Restore test from roastery and from Drive; next morning's freshness check
+
+---
+
 ## 2026-09-27 — Backup scripts written (not tied together yet)
 
 Every script the design above needs, across all nodes. Nothing is installed,

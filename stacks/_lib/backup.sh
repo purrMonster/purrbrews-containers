@@ -6,8 +6,11 @@
 #   ./backup.sh plan              what would be dumped and backed up; no root,
 #                                 no network, changes nothing
 #   sudo ./backup.sh doctor       checks everything the nightly run needs
-#   sudo ./backup.sh keys         this node's SSH key, roastery's and cellar's
-#                                 host keys, and the lines to authorize it
+#   sudo ./backup.sh install      packages, this node's key, the systemd units
+#                                 (not enabled); prints the lines to authorize it
+#   sudo ./backup.sh keys         just the key part of install, again
+#   sudo ./backup.sh enable       doctor, one backup now, then the timers on
+#   sudo ./backup.sh disable      the timers off
 #   sudo ./backup.sh nightly      dump, push, files: what the timer runs
 #   sudo ./backup.sh dump         databases → DUMP_DIR/<node>/<app>/
 #   sudo ./backup.sh push         DUMP_DIR/<node>/ → the dump store on cellar
@@ -63,7 +66,7 @@ COMMAND="${1:-}"
 [[ $# -gt 0 ]] && shift
 
 usage() {
-  sed -n '3,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '3,19p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
   exit "${1:-1}"
 }
 
@@ -508,8 +511,18 @@ cmd_keys() {
   pub="$(cat "$BACKUP_KEY.pub")"
 
   log "Host keys"
-  pin_host roastery "$(env_value ROASTERY_LAN_IP)" || status=1
-  [[ $IS_STORE -eq 1 ]] || pin_host "dump store" "$DUMP_STORE_HOST" || status=1
+  # Not fatal: whatever doesn't answer yet is pinned on the first connection.
+  pin_host roastery "$(env_value ROASTERY_LAN_IP)" || true
+  [[ $IS_STORE -eq 1 ]] || pin_host "dump store" "$DUMP_STORE_HOST" || true
+
+  [[ -n "$NODE_IP" ]] || { warn "NODE_IP isn't set (/opt/purrbrews/.env); can't write the authorize lines."; return 1; }
+  # The lines the far ends need, also left in a world-readable file: they're
+  # public keys, and it lets them be collected without a root shell.
+  {
+    echo "roastery from=\"$NODE_IP\",restrict $pub"
+    [[ $IS_STORE -eq 1 ]] || echo "store $NODE_NAME from=\"$NODE_IP\" $pub"
+  } > "$BACKUP_ETC/backup-authorize.txt"
+  chmod 644 "$BACKUP_ETC/backup-authorize.txt"
 
   log "Authorize this node"
   echo "On roastery, one line in stacks/roastery/backup-target/authorized_keys, then"
@@ -524,7 +537,71 @@ cmd_keys() {
     echo "$NODE_NAME from=\"$NODE_IP\" $pub"
     echo
   fi
+  echo "(both are also in $BACKUP_ETC/backup-authorize.txt)"
   return $status
+}
+
+# ── install / enable / disable ───────────────────────────────────────────────
+
+# This node's own timers besides the nightly one: whatever *.timer sits in
+# its restic/ folder (cellar's hub jobs; nobody else has any).
+node_units() {
+  local f
+  for f in "$NODE_DIR"/restic/*.service "$NODE_DIR"/restic/*.timer; do
+    [[ -f "$f" ]] && printf '%s\n' "$f"
+  done
+  return 0
+}
+
+cmd_install() {
+  local pkgs=(restic rsync sqlite3 openssh-client util-linux curl) f
+  load_settings
+  [[ $IS_STORE -eq 0 ]] || pkgs+=(rclone)
+  log "Packages: ${pkgs[*]}"
+  apt-get update -q >/dev/null || warn "apt-get update failed; trying the install with what's cached"
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -q "${pkgs[@]}" >/dev/null
+  note "installed ($(restic version | cut -d' ' -f1-2))"
+  [[ $IS_STORE -eq 0 ]] || command -v rrsync >/dev/null || warn "rrsync isn't on PATH; the dump store needs it (it ships with rsync on Debian 12+)."
+
+  cmd_keys
+
+  log "systemd units (installed, not enabled)"
+  install -m 644 "$LIB"/systemd/purrbrews-backup@.service "$LIB"/systemd/purrbrews-backup@.timer /etc/systemd/system/
+  note "purrbrews-backup@.service/.timer"
+  while IFS= read -r f; do
+    install -m 644 "$f" /etc/systemd/system/
+    note "$(basename "$f")"
+  done < <(node_units)
+  systemctl daemon-reload
+  echo
+  echo "Next: authorize the lines above on roastery (and cellar), then 'sudo ./backup.sh enable'."
+}
+
+node_timers() {
+  echo "purrbrews-backup@$NODE_NAME.timer"
+  node_units | grep '\.timer$' | xargs -r -n1 basename
+}
+
+cmd_enable() {
+  local t first=1
+  [[ "${1:-}" == --no-first-run ]] && first=0
+  cmd_doctor || die "doctor found problems; nothing enabled."
+  if [[ $first -eq 1 ]]; then
+    log "A first backup now (the timer's job, run by hand)"
+    with_lock cmd_nightly
+  fi
+  log "Timers"
+  while IFS= read -r t; do
+    systemctl enable --now "$t" >/dev/null 2>&1 && note "$t on" || { warn "couldn't enable $t"; return 1; }
+  done < <(node_timers)
+  systemctl list-timers --no-pager 'purrbrews-*' 'restic-*' 'drive-*' 2>/dev/null | head -n 12
+}
+
+cmd_disable() {
+  local t
+  while IFS= read -r t; do
+    systemctl disable --now "$t" >/dev/null 2>&1 && note "$t off" || true
+  done < <(node_timers)
 }
 
 # ── doctor ───────────────────────────────────────────────────────────────────
@@ -548,14 +625,7 @@ cmd_doctor() {
   if [[ -f "$BACKUP_KNOWN_HOSTS" ]] && ssh-keygen -F "$(env_value ROASTERY_LAN_IP)" -f "$BACKUP_KNOWN_HOSTS" >/dev/null; then
     ok "roastery's host key pinned"
   else
-    fail "roastery's host key isn't pinned; run 'keys'"
-  fi
-  if [[ $IS_STORE -eq 0 ]]; then
-    if [[ -f "$BACKUP_KNOWN_HOSTS" ]] && ssh-keygen -F "$DUMP_STORE_HOST" -f "$BACKUP_KNOWN_HOSTS" >/dev/null; then
-      ok "the dump store's host key pinned"
-    else
-      fail "the dump store's host key isn't pinned; run 'keys'"
-    fi
+    ok "roastery's host key: pinned on the first connection"
   fi
 
   log "What the apps ask for"
@@ -610,6 +680,9 @@ case "$COMMAND" in
   plan)    cmd_plan ;;
   doctor)  require_root; cmd_doctor ;;
   keys)    require_root; cmd_keys ;;
+  install) require_root; cmd_install ;;
+  enable)  require_root; cmd_enable "$@" ;;
+  disable) require_root; cmd_disable ;;
   dump)    require_root; with_lock cmd_dump ;;
   push)    require_root; with_lock cmd_push ;;
   files)   require_root; with_lock cmd_files ;;

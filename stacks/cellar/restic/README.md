@@ -41,40 +41,36 @@ roastery itself if it's asleep, and reports failures to `NTFY_URL`
 
 ## Tying it together
 
-In this order; each step's check has to pass before the next.
+`sudo ./backup.sh install` and `sudo ./backup.sh enable` do most of it on each
+node; the rest is what only a person can do (sudo, Windows admin, a Google
+sign-in, flask). In this order:
 
-1. **Packages**, on every node: `sudo apt install restic rsync sqlite3`; on cellar
-   also `rclone`.
-2. **Secrets**: `./setup-secrets.sh` here generates `RESTIC_PASSWORD` and the crypt
-   password/salt and asks for the Drive client and `ROASTERY_WOL_MAC`. **Copy
-   RESTIC_PASSWORD, RCLONE_CRYPT_PASSWORD and RCLONE_CRYPT_SALT to flask now.**
-   On every other node, `./setup-secrets.sh` asks for `RESTIC_PASSWORD`: paste
-   cellar's.
-3. **Keys**: `sudo ./backup.sh keys` on every node, cellar included. It prints
-   one line for roastery and (not on cellar) one for the dump store.
-4. **roastery**: the lines go in `stacks/roastery/backup-target/authorized_keys`,
-   then `.\setup.ps1` there, elevated ([roastery/README.md](../../roastery/README.md#backup-target)).
-   Compare the host key fingerprint it prints with what `keys` pinned.
-5. **Dump store**: the other lines go in `restic/dump-store.keys` here, then
-   `sudo ./restic/dump-store-setup.sh`.
-6. **Repository**: `sudo ./restic/restic-init.sh`.
-7. **Check every node**: `sudo ./backup.sh doctor` until it says all good, then
-   `sudo ./backup.sh nightly` by hand once. On percolator the first run uploads
-   everything: do it with roastery awake and someone at it.
-8. **Drive**: the Google API client (below), `sudo ./restic/drive-setup.sh`, then
-   `sudo ./restic/drive-sync.sh` by hand (the first upload is slow).
-9. **Restore test**: `sudo ./restic/restore-test.sh`, then `--from drive`. Not done
+1. **Every node**: `sudo ./backup.sh install`: packages (restic, rsync, sqlite3;
+   rclone on cellar), the node's key, the systemd units (not enabled yet). The
+   lines to authorize it land in `/etc/purrbrews/backup-authorize.txt`.
+2. **Secrets**: `./setup-secrets.sh` on cellar makes `RESTIC_PASSWORD` and the crypt
+   password/salt and asks for the Drive client; **copy RESTIC_PASSWORD,
+   RCLONE_CRYPT_PASSWORD and RCLONE_CRYPT_SALT to flask now.** Every other node's
+   `restic/secrets.env.local` needs the same `RESTIC_PASSWORD` (its
+   `./setup-secrets.sh` asks). cellar's `.env.local` needs `ROASTERY_WOL_MAC`.
+3. **roastery**: every node's `roastery` line into
+   `stacks/roastery/backup-target/authorized_keys`, then `.\setup.ps1` there,
+   elevated ([roastery/README.md](../../roastery/README.md#backup-target)).
+4. **Dump store**: every other node's `store` line (without the word `store`)
+   into `restic/dump-store.keys` here, then `sudo ./restic/dump-store-setup.sh`.
+5. **Repository**: `sudo ./restic/restic-init.sh` here.
+6. **Every node, cellar first**: `sudo ./backup.sh enable`: doctor, one backup
+   now, then its timers (on cellar, every timer in this folder too). On percolator
+   the first run uploads everything: do it with roastery awake and someone at it.
+7. **Drive**: the Google API client (below), `sudo ./restic/drive-setup.sh`, then
+   `sudo ./restic/drive-sync.sh` by hand once (the first upload is slow). Until
+   then the nightly Drive sync and the morning check will complain, rightly.
+8. **Restore test**: `sudo ./restic/restore-test.sh`, then `--from drive`. Not done
    until both pass.
-10. **Timers**: `purrbrews-backup@<node>.timer` on every node
-    (`stacks/_lib/systemd/`), and here every `*.timer` in this folder:
-    ```sh
-    sudo cp restic/*.service restic/*.timer /etc/systemd/system/
-    sudo systemctl daemon-reload
-    sudo systemctl enable --now purrbrews-wake-roastery.timer purrbrews-backup-store.timer \
-      restic-prune.timer drive-sync.timer purrbrews-backup-check.timer purrbrews-backup-verify.timer
-    ```
-11. **The morning after**: `sudo ./restic/check-freshness.sh` says everything is
-    under 26 h.
+9. **The morning after**: `sudo ./restic/check-freshness.sh` says everything is
+   under 26 h.
+
+`sudo ./backup.sh disable` turns a node's timers off again.
 
 ## Google Drive
 

@@ -12,8 +12,10 @@
 # root (it reads every app's data, whoever owns it). One key serves both
 # roastery (SFTP) and cellar (the dump store); the far end limits what it can do.
 BACKUP_KEY="${BACKUP_KEY:-/root/.ssh/purrbrews-backup}"
-# Host keys for roastery and cellar, pinned by `backup.sh keys`. Kept apart
-# from root's own known_hosts so a stray `ssh` never changes what backups trust.
+# Host keys for roastery and cellar: pinned by `backup.sh keys` when they
+# answer, otherwise on the first connection (accept-new: a new host is
+# trusted once, a changed key is refused). Kept apart from root's own
+# known_hosts so a stray `ssh` never changes what backups trust.
 BACKUP_ETC="${BACKUP_ETC:-/etc/purrbrews}"
 BACKUP_KNOWN_HOSTS="$BACKUP_ETC/backup_known_hosts"
 # restic's local cache: speeds up every run, safe to delete.
@@ -28,7 +30,7 @@ BACKUP_LOCK="${BACKUP_LOCK:-/run/lock/purrbrews-backup.lock}"
 backup_ssh_opts() {
   BACKUP_SSH_OPTS=(-i "$BACKUP_KEY" -o IdentitiesOnly=yes -o BatchMode=yes
                    -o ConnectTimeout=10 -o ServerAliveInterval=30
-                   -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$BACKUP_KNOWN_HOSTS")
+                   -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$BACKUP_KNOWN_HOSTS")
 }
 
 # restic_env: exports RESTIC_REPOSITORY / RESTIC_PASSWORD / RESTIC_CACHE_DIR
