@@ -4,7 +4,7 @@ One page to find everything. Update it whenever a project, doc or node is added.
 Decisions and their reasons live in [`runbook.md`](../runbook.md); this page only
 points.
 
-_Last updated: 2026-09-26_
+_Last updated: 2026-09-27_
 
 ## Start here
 
@@ -14,6 +14,7 @@ _Last updated: 2026-09-26_
 | [`runbook.md`](../runbook.md) | Dated decisions (newest first) and the backlog, ticked only on evidence |
 | [`docs/network-audit.md`](network-audit.md) | September 2026 fleet audit: DNS/IPv6 findings and rollout |
 | [`stacks/README.md`](../stacks/README.md) | How every node's stacks work, and how to add an app or a node |
+| [`tailscale/README.md`](../tailscale/README.md) | Remote access: SSH to the nodes and RDP to roastery over the tailnet |
 
 ## Nodes
 
@@ -33,6 +34,7 @@ _Last updated: 2026-09-26_
 | Fleet rebuild (purrbrews-containers) | Stacks running; backups unfinished | [README](../README.md) | 2026-09-15 → 2026-09-16 entries |
 | One toolkit for every node (`stacks/_lib`, `node.conf`) | Done; rolling out node by node | [stacks/README.md](../stacks/README.md) | 2026-09-26 — One toolkit for every node |
 | Backups (restic sources, DB dumps, restore test) | Open | [cellar/restic](../stacks/cellar/restic/README.md) | Backlog |
+| Remote access (Tailscale on every machine, SSH + RDP) | Written; not rolled out | [tailscale](../tailscale/README.md) | 2026-09-27 — Remote access over Tailscale |
 | Smart desk / smart mirror | Idea | — | — |
 
 ## Where data lives (quick reference)

@@ -39,6 +39,79 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Pin n8n (`latest`), Open WebUI (`main`) and Karakeep (`release`)
 - [ ] Open WebUI → roastery's Ollama: needs machine-to-machine auth that keeps Authelia in front; nothing exists yet
 - [ ] Karakeep: `NEXTAUTH_URL` is the direct-port URL while the route is `karakeep.${DOMAIN}`; check the phone share sheet signs in through the hostname
+- [ ] Remote access over Tailscale: roll out in the order in the 2026-09-27 entry below, ending with the checks from outside the house
+
+---
+
+## 2026-09-27 — Remote access over Tailscale
+
+The owner wants SSH to the nodes and RDP to roastery from outside the house.
+Decided: **Tailscale on every machine**, not one subnet router on the rack.
+
+**Why not port forwarding:** traffic would have to cross the chained routers, and
+may not get in at all if the ISP uses CGNAT; an open RDP port is brute-forced
+around the clock.
+
+**Why a client per machine rather than one subnet router** (the owner's call,
+after the trade-offs): a subnet router is one box whose failure cuts off remote
+access to everything; it rewrites the source address, so every node's logs and
+firewall would see the router rather than the device; and access rules could only
+be written against LAN IPs. A client on each machine gives each one its own name
+(`ssh barista@sieve`), its own tag and its own rules, and no single point of
+failure. The cost is five more installs, which init now does.
+
+**What's in the repo:**
+
+- `init/purrbrews-init.sh`: a `tailscale` step between `firewall` and `network`.
+  Tailscale from its apt repo (same pattern as Docker's), joined as
+  `tag:purrbrews-node` with `--netfilter-mode=off --accept-dns=false --reset`,
+  auto-update on. UFW gets `22/tcp in on tailscale0` and `41641/udp`.
+  Settings `ENABLE_TAILSCALE` (default true) and `TAILSCALE_TAGS`.
+- Auth keys never go through the repo or the bootstrap server: sign in from the
+  printed link, or a one-off key in `/etc/purrbrews/tailscale-authkey` (root,
+  0600), deleted after use. init, `bootstrap.sh` and the bootstrap container all
+  refuse a settings file with a Tailscale key in it.
+- `tailscale/policy.hujson`: admins → nodes on 22; your own devices → each other
+  on 3389 (`autogroup:self`); nothing from the nodes. Pasted into the admin
+  console by hand, since keeping it in sync by API would need a secret in GitHub.
+- `stacks/roastery/remote-access/setup.ps1`: pinned, SHA-256-checked Tailscale
+  MSI (1.102.4), unattended mode, RDP with NLA, 3389 from `100.64.0.0/10` only
+  (`-AllowLan` adds the LAN), Windows' own allow-all RDP rules off.
+
+**Choices worth remembering:**
+
+- **`--netfilter-mode=off` is the important one.** In the default mode Tailscale
+  inserts its chains ahead of UFW's and accepts everything on `tailscale0`
+  (Tailscale's netfilter-modes doc says so), which would have opened every port on
+  every node to the tailnet regardless of UFW. With it off, UFW is again the one
+  place that decides, as the README's principles want.
+- **Nodes are tagged, roastery isn't.** Tagged devices belong to the tailnet and
+  don't expire; roastery is a personal PC, and `autogroup:self` only matches
+  devices owned by a person, which is what makes the RDP rule simple. Its key
+  expiry is turned off by hand instead.
+- **Not Tailscale SSH.** OpenSSH, the synced keys and barista's password-gated
+  sudo stay exactly as they are; the tailnet only carries the packets.
+- **`--accept-dns=false` on nodes**: Pi-hole on sieve is their resolver, and
+  MagicDNS rewriting `resolv.conf` would have put a Tailscale resolver in front.
+- **Web apps stay LAN-only** over the tailnet for now (443 is not opened on
+  `tailscale0`); that's a separate decision.
+
+**Not tested anywhere yet:** none of this has run on a node or on roastery, and the
+Linux sandbox was unavailable, so no Docker/systemd test like earlier entries.
+Checked on roastery: `bash -n` on the three changed scripts, the PowerShell parser
+on `setup.ps1`, the policy parses as JSON once comments are stripped, and no file
+in the repo matches the auth-key pattern (so the new guard doesn't trip on its
+own docs). `python3 -m unittest` still needs a run on a Linux box.
+
+**Rollout** (sudo and Windows admin are the owner's):
+
+- [ ] Admin console: tailnet created, `tailscale/policy.hujson` pasted, MagicDNS on (owner)
+- [ ] Laptop and phone on the tailnet; laptop key in `bootstrap/data/authorized_keys` (owner)
+- [ ] Commit and push; nodes pull (`git pull --ff-only` or the daily timer)
+- [ ] `sudo bash init/purrbrews-init.sh --only tailscale` on each node, sieve last so DNS is never the thing being changed while others join (owner)
+- [ ] `stacks\roastery\remote-access\setup.ps1`, elevated; roastery's key expiry off (owner)
+- [ ] Rebuild the bootstrap container so new nodes get the new init (`docker compose up -d --build` in `bootstrap/`)
+- [ ] From a phone hotspot: the checks in `tailscale/README.md` → "Is it working?", including the ports that must stay closed
 
 ---
 
