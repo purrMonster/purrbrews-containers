@@ -105,6 +105,7 @@ file next to `purrbrews-init.sh` and run `sudo bash purrbrews-init.sh sieve`.
 | `directories` | `/srv/data`, `/srv/media`, `/opt/purrbrews/.env` (NODE, NODE_IP, TZ, PUID/PGID, paths) |
 | `timers` | `purrbrews-pull.timer` (daily), `purrbrews-ssh-keys.timer` (hourly) |
 | `firewall` | UFW: deny incoming, SSH from `LAN_CIDR`; ufw-docker pinned by tag + SHA-256 |
+| `tailscale` | Tailscale from its apt repo, joined as `tag:purrbrews-node`; UFW lets the tailnet reach SSH only ([`../tailscale/README.md`](../tailscale/README.md)) |
 | `network` | static IP + cloned MAC, detached, auto-rollback |
 
 Options: `--only a,b`, `--skip a,b`, `--list-steps`, `--env FILE`, `--yes`.

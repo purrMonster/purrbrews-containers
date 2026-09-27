@@ -34,6 +34,7 @@ if grep -E '^[[:space:]]*(OPS_PASSWORD_HASH|GITHUB_TOKEN)[[:space:]]*=[[:space:]
   fail "bootstrap/data/purrbrews-init.env contains OPS_PASSWORD_HASH or GITHUB_TOKEN. It is served openly — remove them."
 fi
 if grep -q 'PRIVATE KEY' /data/purrbrews-init.env; then fail "bootstrap/data/purrbrews-init.env contains a private key."; fi
+if grep -Eq 'tskey-[a-z]+-[A-Za-z0-9]' /data/purrbrews-init.env; then fail "bootstrap/data/purrbrews-init.env contains a Tailscale auth key (tskey-…). Remove and revoke it."; fi
 
 KEYS="$(grep -Ec '^(ssh-|ecdsa-|sk-)' /data/authorized_keys)"
 say "Serving $(wc -l < /srv/www/files/SHA256SUMS) script files, $KEYS SSH key(s), fleet settings."

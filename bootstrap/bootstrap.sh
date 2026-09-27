@@ -97,6 +97,7 @@ fetch /config/purrbrews-init.env "$WORK/purrbrews-init.env"
 chmod 600 "$WORK/purrbrews-init.env"
 grep -E '^[[:space:]]*(OPS_PASSWORD_HASH|GITHUB_TOKEN)[[:space:]]*=[[:space:]]*[^[:space:]]' "$WORK/purrbrews-init.env" \
   | grep -vq 'REPLACE_ME' && die "The served settings contain a secret (OPS_PASSWORD_HASH/GITHUB_TOKEN). Remove it from bootstrap/data on roastery."
+grep -Eq 'tskey-[a-z]+-[A-Za-z0-9]' "$WORK/purrbrews-init.env" && die "The served settings contain a Tailscale auth key (tskey-…). Remove and revoke it on roastery."
 
 # Later lines win in the env parser: make key sync use roastery, pinned.
 {

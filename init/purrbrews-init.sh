@@ -17,7 +17,8 @@
 #   directories  DATA_DIR / MEDIA_DIR + PROJECT_DIR/.env
 #   timers       daily repo pull + hourly SSH key sync (systemd timers)
 #   firewall     UFW (deny in, SSH from LAN only) + pinned ufw-docker
-#   network      static IP + cloned MAC via NetworkManager, applied detached with auto-rollback
+#   tailscale    Tailscale from its apt repo; SSH over the tailnet, UFW stays the only gate
+#   network     static IP + cloned MAC via NetworkManager, applied detached with auto-rollback
 #
 # Usage:
 #   sudo ./purrbrews-init.sh [node] [options]
@@ -46,7 +47,7 @@ ETC_DIR="/etc/purrbrews"
 LOG_DIR="/var/log/purrbrews"
 
 ALL_STEPS=(hostname timezone apt ops_user ssh_keys ssh_harden power journald
-           docker repo directories timers firewall network)
+           docker repo directories timers firewall tailscale network)
 
 # ---------------------------------------------------------------------------
 # Output helpers
@@ -154,6 +155,8 @@ resolve_config() {
   KEY_SYNC_SCHEDULE="$(cfg KEY_SYNC_SCHEDULE hourly)"
   JOURNAL_MAX_USE="$(cfg JOURNAL_MAX_USE 500M)"
   DISABLE_SLEEP="$(cfg DISABLE_SLEEP true)"
+  ENABLE_TAILSCALE="$(cfg ENABLE_TAILSCALE true)"
+  TAILSCALE_TAGS="$(cfg TAILSCALE_TAGS tag:purrbrews-node)"
 
   placeholder "$NODE_IPS" && die "NODE_IPS is not set in $ENV_FILE (e.g. NODE_IPS=sieve=192.168.0.10 percolator=192.168.0.11)."
   local pair name ip mac other
@@ -261,6 +264,13 @@ preflight() {
     || die "GITHUB_TOKEN is set in $ENV_FILE, but the repo is public — remove the token (and revoke it on GitHub)."
   [[ "$REPO_URL" == https://* ]] || die "REPO_URL must be the public https:// clone URL (no SSH, no credentials)."
   [[ "$REPO_URL" != *@* ]] || die "REPO_URL must not contain credentials."
+  # The settings file is served openly by roastery; an auth key has its own root-only file.
+  if grep -Eq 'tskey-[a-z]+-[A-Za-z0-9]' "$ENV_FILE"; then
+    die "$ENV_FILE contains a Tailscale auth key (tskey-…). Remove it (and revoke it); put a key in ${ETC_DIR}/tailscale-authkey instead."
+  fi
+  [[ "$ENABLE_TAILSCALE" == true || "$ENABLE_TAILSCALE" == false ]] || die "ENABLE_TAILSCALE must be true or false."
+  [[ -z "$TAILSCALE_TAGS" || "$TAILSCALE_TAGS" =~ ^tag:[a-z0-9-]+(,tag:[a-z0-9-]+)*$ ]] \
+    || die "TAILSCALE_TAGS must be empty or look like tag:purrbrews-node[,tag:other]."
 
   local perms; perms="$(stat -c %a "$ENV_FILE")"
   if [[ -n "$OPS_PASSWORD_HASH" && "$perms" != 600 && "$perms" != 400 ]]; then
@@ -703,6 +713,84 @@ step_firewall() {
   fi
 }
 
+step_tailscale() {
+  [[ "$ENABLE_TAILSCALE" == true ]] || { log "ENABLE_TAILSCALE=false — skipping."; return; }
+
+  # From Tailscale's own apt repo, the same way the docker step adds Docker's.
+  # unattended-upgrades only takes Debian's security updates, so Tailscale's
+  # own auto-update (below) keeps it current: it's the one thing on the node
+  # that talks to the outside on purpose.
+  if ! command -v tailscale &>/dev/null; then
+    install -m 0755 -d /etc/apt/keyrings
+    local suite="$OS_CODENAME"
+    if ! curl -fsS -m 10 -o /dev/null "https://pkgs.tailscale.com/stable/debian/dists/${suite}/Release"; then
+      warn "Tailscale's repo has no '${suite}' suite — falling back to bookworm."
+      suite=bookworm
+    fi
+    curl -fsSL "https://pkgs.tailscale.com/stable/debian/${suite}.noarmor.gpg" -o /etc/apt/keyrings/tailscale.gpg
+    chmod a+r /etc/apt/keyrings/tailscale.gpg
+    cat > /etc/apt/sources.list.d/tailscale.sources <<EOF
+Types: deb
+URIs: https://pkgs.tailscale.com/stable/debian
+Suites: ${suite}
+Components: main
+Signed-By: /etc/apt/keyrings/tailscale.gpg
+EOF
+    apt-get update
+    DEBIAN_FRONTEND=noninteractive apt-get -y install tailscale
+  fi
+  systemctl enable --now tailscaled >/dev/null
+
+  # --netfilter-mode=off: by default Tailscale puts its own chains ahead of
+  # UFW's and accepts everything that arrives on tailscale0, so every port on
+  # the node would be open to the tailnet whatever UFW says. Off, UFW decides
+  # alone, and the tailnet gets SSH and nothing else. Published container
+  # ports stay shut too: ufw-docker only lets Docker's own subnets past.
+  if [[ "$ENABLE_UFW" == true ]]; then
+    ufw allow in on tailscale0 to any port 22 proto tcp comment 'purrbrews: ssh over tailscale' >/dev/null
+    ufw allow 41641/udp comment 'purrbrews: tailscale (wireguard)' >/dev/null
+  else
+    warn "ENABLE_UFW=false with --netfilter-mode=off: nothing filters tailnet traffic on this node except the tailnet policy."
+  fi
+
+  local host="${NODE,,}" keyfile="${ETC_DIR}/tailscale-authkey" state
+  # --accept-dns=false: the node keeps Pi-hole (sieve runs it) instead of MagicDNS.
+  # --reset: every run states the whole configuration, so a hand-made change can't linger.
+  local args=(up --reset "--hostname=${host}" --accept-dns=false --netfilter-mode=off --ssh=false
+              "--advertise-tags=${TAILSCALE_TAGS}")
+  state="$(tailscale status --json 2>/dev/null | jq -r '.BackendState // empty')" || true
+
+  if [[ "$state" != Running ]]; then
+    if [[ -f "$keyfile" ]]; then
+      [[ "$(stat -c '%U %a' "$keyfile")" =~ ^root\ [46]00$ ]] || die "$keyfile must be owned by root, mode 600."
+      args+=("--auth-key=file:${keyfile}")
+      log "Joining the tailnet with the key in $keyfile"
+    elif have_tty; then
+      log "Joining the tailnet: open the link below and sign in as the tailnet admin (the tag needs it)."
+    else
+      warn "Not signed in to Tailscale and no terminal to sign in from. At a terminal: sudo bash ${PROJECT_DIR}/init/purrbrews-init.sh --only tailscale"
+      return
+    fi
+  fi
+
+  if ! tailscale "${args[@]}"; then
+    die "tailscale up failed. If it says the tags aren't permitted, paste tailscale/policy.hujson into the admin console first (tailscale/README.md)."
+  fi
+  if [[ -f "$keyfile" ]]; then
+    shred -u "$keyfile" 2>/dev/null || rm -f "$keyfile"
+    ok "auth key used and deleted"
+  fi
+  tailscale set --auto-update=true || warn "couldn't turn on Tailscale's auto-update; update it with apt instead."
+
+  local ip tags
+  ip="$(tailscale ip -4 2>/dev/null | head -n1)"
+  tags="$(tailscale status --json | jq -r '(.Self.Tags // []) | join(",")')"
+  [[ -n "$ip" ]] || die "tailscale is up but has no address — check 'tailscale status'."
+  [[ -z "$TAILSCALE_TAGS" || "$tags" == "$TAILSCALE_TAGS" ]] \
+    || warn "Tailscale tags are '${tags:-none}', expected '$TAILSCALE_TAGS' — the tailnet policy won't match this node."
+  ok "tailscale: ${host} at ${ip}${tags:+ ($tags)}; SSH only, via UFW; DNS stays on Pi-hole"
+}
+
 step_network() {
   [[ "$CONFIGURE_STATIC_IP" == true ]] || { log "CONFIGURE_STATIC_IP=false — skipping."; return; }
 
@@ -804,6 +892,7 @@ summary() {
   Address      ${NODE_IP[$NODE]}/${SUBNET_CIDR}  (gateway ${GATEWAY})
   MAC          $( [[ "$CLONE_MAC" == true ]] && echo "${NODE_MAC[$NODE]} (cloned; burned-in MAC still used for Wake-on-LAN)" || echo "burned-in (CLONE_MAC=false)" )
   Login        ssh ${OPS_USER}@${NODE_IP[$NODE]}   (key only; 'sudo' asks for ${OPS_USER}'s password)
+  Remote       $( [[ "$ENABLE_TAILSCALE" == true ]] && echo "ssh ${OPS_USER}@${NODE,,} from any device on the tailnet (tailscale/README.md)" || echo "Tailscale off (ENABLE_TAILSCALE=false)" )
   Docker       sudo docker compose ...   (${OPS_USER} is deliberately not in the docker group)
   Repo         ${PROJECT_DIR}  ←  ${REPO_URL} (${REPO_BRANCH})
   Data         ${DATA_DIR}, ${MEDIA_DIR}
