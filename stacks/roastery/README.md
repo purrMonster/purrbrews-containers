@@ -87,7 +87,9 @@ through to smartctl.
 
 The fleet's restic repository lives here, on the NVMe (C:), not on D:, which is
 the same old 2.5" Seagate model we moved the backups off (runbook, 2026-09-27).
-Every node backs up into it over SFTP; cellar wakes this PC first and copies the
+Every node backs up into it over SFTP (restic goes through rclone's SFTP backend:
+Windows' sftp-server refuses the chmod restic's own backend sends); cellar wakes
+this PC first and copies the
 repository to Google Drive afterwards.
 
 [`backup-target\setup.ps1`](backup-target/setup.ps1), from an elevated

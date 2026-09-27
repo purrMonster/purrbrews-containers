@@ -45,6 +45,7 @@ restic_env() {
     [[ "$repo" =~ ^sftp:([^@:]+@)?([^:/]+):(/.*)$ ]] \
       || die "BACKUP_REPOSITORY must look like sftp:user@host:/path, not '$repo'."
     REPO_USER_HOST="${BASH_REMATCH[1]}${BASH_REMATCH[2]}"
+    REPO_USER="${BASH_REMATCH[1]%@}"; REPO_USER="${REPO_USER:-restic}"
     REPO_HOST="${BASH_REMATCH[2]}"
     REPO_PATH="${BASH_REMATCH[3]}"
   elif [[ "$repo" != /* ]]; then
@@ -62,8 +63,52 @@ restic_env() {
   export RESTIC_CACHE_DIR="$BACKUP_CACHE"
   backup_ssh_opts
   RESTIC=(restic)
-  # restic splits sftp.command on spaces, so none of these paths may have one.
-  [[ -z "$REPO_HOST" ]] || RESTIC+=(-o "sftp.command=ssh ${BACKUP_SSH_OPTS[*]} ${REPO_USER_HOST} -s sftp")
+  if [[ -n "$REPO_HOST" ]]; then
+    # Not restic's own SFTP backend: it chmods every file it writes, and
+    # Windows' OpenSSH answers that with SSH_FX_BAD_MESSAGE, so `restic init`
+    # never got past its first key (runbook, 2026-09-27). rclone's SFTP
+    # backend doesn't chmod, and with set_modtime off it sends no SETSTAT at
+    # all; restic drives it through `rclone serve restic --stdio`. Same
+    # account, key, chroot and path; the remote is defined here in the
+    # environment, so there's no rclone config to keep on every node.
+    export RESTIC_REPOSITORY="rclone:pbroastery:$REPO_PATH"
+    export RCLONE_CONFIG_PBROASTERY_TYPE=sftp
+    export RCLONE_CONFIG_PBROASTERY_HOST="$REPO_HOST"
+    export RCLONE_CONFIG_PBROASTERY_USER="$REPO_USER"
+    export RCLONE_CONFIG_PBROASTERY_KEY_FILE="$BACKUP_KEY"
+    export RCLONE_CONFIG_PBROASTERY_KNOWN_HOSTS_FILE="$BACKUP_KNOWN_HOSTS"
+    export RCLONE_CONFIG_PBROASTERY_SHELL_TYPE=none
+    export RCLONE_CONFIG_PBROASTERY_SET_MODTIME=false
+    export RCLONE_CONFIG_PBROASTERY_DISABLE_HASHCHECK=true
+  fi
+}
+
+# pin_repo_host: rclone checks the host key strictly against
+# BACKUP_KNOWN_HOSTS and has no accept-new, so the first time roastery
+# answers, its keys are added here (the same trust-on-first-use the ssh
+# options give the dump store). All key types, not just ed25519: rclone may
+# negotiate another, and a host listed with the wrong type is a "mismatch".
+# A changed key is never replaced.
+pin_repo_host() {
+  [[ -n "$REPO_HOST" ]] || return 0
+  [[ -w "$(dirname "$BACKUP_KNOWN_HOSTS")" ]] || return 0
+  local scanned line type key have added=0
+  scanned="$(ssh-keyscan -T 5 "$REPO_HOST" 2>/dev/null | sort)" || true
+  [[ -n "$scanned" ]] || return 1
+  have="$(ssh-keygen -F "$REPO_HOST" -f "$BACKUP_KNOWN_HOSTS" 2>/dev/null | grep -v '^#' || true)"
+  while read -r _ type key; do
+    [[ -n "${key:-}" ]] || continue
+    if grep -qF " $type $key" <<< "$have"; then
+      continue
+    elif grep -q " $type " <<< "$have"; then
+      warn "roastery's $type host key has CHANGED since it was pinned; not trusting it. Check before editing $BACKUP_KNOWN_HOSTS."
+      return 1
+    fi
+    printf '%s %s %s\n' "$REPO_HOST" "$type" "$key" >> "$BACKUP_KNOWN_HOSTS"
+    added=$((added + 1))
+  done <<< "$scanned"
+  chmod 644 "$BACKUP_KNOWN_HOSTS" 2>/dev/null || true
+  [[ $added -eq 0 ]] || echo "pinned $added host key(s) for $REPO_HOST"
 }
 
 port_open() {  # port_open <host> <port>: true if something accepts a TCP connection
@@ -78,6 +123,7 @@ wait_for_repo() {  # wait_for_repo [seconds]: roastery's SSH answering, or false
     sleep 10
     waited=$((waited + 10))
   done
+  pin_repo_host
 }
 
 # notify <title> <message>: an ntfy alert, best effort. NTFY_URL is the topic
@@ -127,7 +173,7 @@ wake_roastery() {
   local mac
   restic_env
   [[ -n "$REPO_HOST" ]] || return 0
-  port_open "$REPO_HOST" 22 && return 0
+  port_open "$REPO_HOST" 22 && { pin_repo_host; return 0; }
   mac="$(env_value ROASTERY_WOL_MAC)"
   is_placeholder "$mac" && { warn "ROASTERY_WOL_MAC isn't set in .env.local, so roastery can't be woken."; return 1; }
   echo "roastery is asleep; sending wake-on-LAN to its USB NIC"

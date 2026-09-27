@@ -485,7 +485,7 @@ pin_host() {  # pin_host <label> <host>: add its ed25519 key to BACKUP_KNOWN_HOS
     note "$label ($host): already pinned"
     return 0
   fi
-  scanned="$(ssh-keyscan -T 5 -t ed25519 "$host" 2>/dev/null)" || true
+  scanned="$(ssh-keyscan -T 5 "$host" 2>/dev/null | sort)" || true
   if [[ -z "$scanned" ]]; then
     warn "$label ($host) didn't answer ssh-keyscan; is it on and is its SSH server running? Run 'keys' again later."
     return 1
@@ -556,7 +556,8 @@ node_units() {
 cmd_install() {
   local pkgs=(restic rsync sqlite3 openssh-client util-linux curl) f
   load_settings
-  [[ $IS_STORE -eq 0 ]] || pkgs+=(rclone)
+  # rclone everywhere: restic reaches roastery through it (restic-env.sh).
+  pkgs+=(rclone)
   log "Packages: ${pkgs[*]}"
   apt-get update -q >/dev/null || warn "apt-get update failed; trying the install with what's cached"
   DEBIAN_FRONTEND=noninteractive apt-get install -y -q "${pkgs[@]}" >/dev/null
@@ -615,7 +616,7 @@ cmd_doctor() {
   use_docker
 
   log "Tools"
-  for c in restic rsync sqlite3 setpriv ssh gzip flock curl; do
+  for c in restic rclone rsync sqlite3 setpriv ssh ssh-keyscan gzip flock curl; do
     if command -v "$c" >/dev/null; then ok "$c"; else fail "$c isn't installed"; fi
   done
 
@@ -647,7 +648,7 @@ cmd_doctor() {
   done < <(each pg; each mongo; each sqlite; each path)
 
   log "Reaching the far ends"
-  if (restic_env && { [[ -z "$REPO_HOST" ]] || port_open "$REPO_HOST" 22; }); then
+  if (restic_env && { [[ -z "$REPO_HOST" ]] || wait_for_repo 5; }); then
     if (restic_env && "${RESTIC[@]}" cat config >/dev/null 2>&1); then
       ok "repository opens (restic cat config)"
     else

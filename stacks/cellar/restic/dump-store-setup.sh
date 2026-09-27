@@ -5,6 +5,7 @@
 #
 #   - a `dumps` system account, which only ever runs rrsync;
 #   - DUMP_DIR/<node>/ for every node that's listed, owned by it;
+#   - `AllowUsers dumps` in an sshd drop-in (init allows barista only);
 #   - its authorized_keys, rebuilt from restic/dump-store.keys: each node's
 #     key pinned to that node's address and locked into its own folder by
 #     `rrsync -wo <DUMP_DIR>/<node>`: it can write its own folder and
@@ -60,11 +61,37 @@ done < "$KEYS"
 install -m 600 -o "$USER_NAME" -g "$USER_NAME" "$tmp" "$HOME_DIR/.ssh/authorized_keys"
 
 # ── sshd ─────────────────────────────────────────────────────────────────────
-# init locks SSH down; if it restricts users, dumps has to be allowed in.
-if sshd -T 2>/dev/null | grep -qiE '^(allowusers|allowgroups) '; then
-  if ! sshd -T -C "user=$USER_NAME,host=x,addr=127.0.0.1" 2>/dev/null | grep -qi '^allowusers.*\bdumps\b'; then
-    warn "sshd has AllowUsers/AllowGroups set; add $USER_NAME there (a drop-in in /etc/ssh/sshd_config.d/) or the nodes can't push."
+# init's 00-purrbrews.conf has `AllowUsers barista`, so sshd turns dumps away
+# until it's allowed too (AllowUsers lines add up). Its own drop-in, so
+# init's file stays init's, and the rest of the account's limits come from
+# the forced command in authorized_keys.
+DROPIN=/etc/ssh/sshd_config.d/20-purrbrews-dumps.conf
+want="$(printf '%s\n' \
+  '# Written by stacks/cellar/restic/dump-store-setup.sh: the nodes push their' \
+  '# database dumps here as dumps, a key-only account locked to rrsync.' \
+  "AllowUsers $USER_NAME" \
+  "Match User $USER_NAME" \
+  '    PasswordAuthentication no' \
+  '    AllowTcpForwarding no' \
+  '    X11Forwarding no' \
+  '    PermitTTY no')"
+if [[ "$(cat "$DROPIN" 2>/dev/null)" != "$want" ]]; then
+  backup_conf=''
+  [[ -f "$DROPIN" ]] && { backup_conf="$DROPIN.bak-$(date +%Y%m%d%H%M%S)"; cp -p "$DROPIN" "$backup_conf"; }
+  printf '%s\n' "$want" > "$DROPIN"
+  chmod 644 "$DROPIN"
+  if sshd -t; then
+    systemctl reload ssh 2>/dev/null || systemctl reload sshd
+    note "sshd: $USER_NAME allowed in ($DROPIN), reloaded"
+  else
+    if [[ -n "$backup_conf" ]]; then mv -f "$backup_conf" "$DROPIN"; else rm -f "$DROPIN"; fi
+    die "sshd -t rejected $DROPIN; put back as it was. Nothing reloaded."
   fi
+else
+  note "sshd: $USER_NAME already allowed in ($DROPIN)"
+fi
+if ! sshd -T -C "user=$USER_NAME,host=x,addr=${DUMP_STORE_CHECK_ADDR:-192.168.0.11}" 2>/dev/null | grep -qiE "^allowusers .*\b$USER_NAME\b"; then
+  warn "sshd -T still doesn't list $USER_NAME under AllowUsers; the nodes won't get in."
 fi
 
 echo

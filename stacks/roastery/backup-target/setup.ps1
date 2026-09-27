@@ -29,13 +29,16 @@
 #
 param(
     [string]$KeysFile = (Join-Path $PSScriptRoot 'authorized_keys'),
-    [string]$Root = 'C:\purrbrews',
+    [string]$BackupRoot = 'C:\purrbrews',
     [string]$WakeAdapter = 'zig zag internet',
     [int]$UnattendedSleepMinutes = 180,
     [switch]$KeysOnly
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '..\..\_lib\purrbrews.ps1')
+# Not $Root: purrbrews.ps1 sets $script:Root (the repo) when it's dot-sourced,
+# which on 2026-09-27 silently turned the repo itself into the chroot and
+# locked its owner out of it (runbook).
 
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -43,7 +46,16 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
 }
 
 $User = 'restic'
-$Repo = Join-Path $Root 'restic'
+$BackupRoot = [System.IO.Path]::GetFullPath($BackupRoot).TrimEnd('\')
+# This folder's ACL is replaced outright, so it must be a folder of its own:
+# not the repo, not anywhere in a user profile, not a drive root.
+if ($BackupRoot -match '^[A-Za-z]:$' -or
+    $BackupRoot.StartsWith($env:USERPROFILE, [StringComparison]::OrdinalIgnoreCase) -or
+    $BackupRoot.StartsWith($env:SystemDrive + '\Users', [StringComparison]::OrdinalIgnoreCase) -or
+    (Test-Path -LiteralPath (Join-Path $BackupRoot '.git'))) {
+    throw "Refusing '$BackupRoot' as the backup root: its permissions get replaced. Use a folder of its own, like C:\purrbrews."
+}
+$Repo = Join-Path $BackupRoot 'restic'
 $SshDir = Join-Path $env:ProgramData 'ssh'
 $SshdConfig = Join-Path $SshDir 'sshd_config'
 $SshKeys = Join-Path $SshDir 'restic_authorized_keys'
@@ -114,7 +126,7 @@ foreach ($who in 'NT AUTHORITY\SYSTEM', 'BUILTIN\Administrators') {
     $acl.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule($who, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')))
 }
 $acl.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule($User, 'ReadAndExecute', 'None', 'None', 'Allow')))
-Set-Acl -LiteralPath $Root -AclObject $acl
+Set-Acl -LiteralPath $BackupRoot -AclObject $acl
 # The repository itself: restic may create, change and delete in here.
 $repoAcl = Get-Acl -LiteralPath $Repo
 $repoAcl.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule($User, 'Modify', 'ContainerInherit,ObjectInherit', 'None', 'Allow')))
@@ -134,7 +146,7 @@ $match = @(
     $begin,
     "Match User $User",
     '    AuthorizedKeysFile __PROGRAMDATA__/ssh/restic_authorized_keys',
-    "    ChrootDirectory $Root",
+    "    ChrootDirectory $BackupRoot",
     '    ForceCommand internal-sftp',
     '    PasswordAuthentication no',
     '    PubkeyAuthentication yes',
@@ -162,7 +174,7 @@ if ($LASTEXITCODE -ne 0) {
     Copy-Item -LiteralPath $backup -Destination $SshdConfig -Force
     throw "sshd -t rejected the new config; the old one is back ($backup)."
 }
-Write-Host "  restic: SFTP only, chrooted to $Root, keys only; AllowUsers $User (old config: $backup)"
+Write-Host "  restic: SFTP only, chrooted to $BackupRoot, keys only; AllowUsers $User (old config: $backup)"
 
 # -- 5. keys --------------------------------------------------------------------
 Install-Keys

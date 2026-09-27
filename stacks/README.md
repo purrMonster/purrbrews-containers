@@ -176,7 +176,8 @@ Decided 2026-09-27 (runbook). Every node, every night:
    with a key that can only write that one folder;
 3. **backs up its files** (`path` lines, plus its own `.env`, `.env.local`,
    every `secrets.env.local` and `/etc/purrbrews`) straight into the restic
-   repository on roastery, over SFTP, `--host <node> --tag files`.
+   repository on roastery, over SFTP (through rclone: Windows' sftp-server refuses
+   restic's chmod), `--host <node> --tag files`.
 
 cellar backs up the dump store (`--tag dumps`), wakes roastery, prunes, copies the
 repository to Google Drive and checks each morning that everything above happened;

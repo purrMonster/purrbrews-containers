@@ -124,18 +124,52 @@ part short, `backup.sh` gained `install` (packages, key, units) and `enable`
 (doctor, a first backup, then the timers), and host keys are now pinned on
 first contact (`accept-new`) instead of needing a second `keys` round.
 
-- [ ] Pull on every node, `setup-secrets` on cellar (generates RESTIC_PASSWORD and
+- [x] Pull on every node, `setup-secrets` on cellar (generates RESTIC_PASSWORD and
   the crypt secrets), `ROASTERY_WOL_MAC` in cellar's `.env.local` (me)
-- [ ] `sudo ./backup.sh install` on all five nodes (owner)
-- [ ] Collect the authorize lines; write roastery's `authorized_keys` and cellar's
-  `dump-store.keys` (me)
-- [ ] RESTIC_PASSWORD onto the four other nodes (me, node to node, never through
-  the chat) and to flask with the two crypt secrets (owner)
-- [ ] `setup.ps1` on roastery, elevated (owner)
-- [ ] cellar: `dump-store-setup.sh`, `restic-init.sh` (owner, sudo)
+- [x] `sudo ./backup.sh install` on all five nodes (owner): restic 0.18.0 everywhere
+- [x] Collect the authorize lines; write roastery's `authorized_keys` and cellar's
+  `dump-store.keys` (me). The first copy of `dump-store.keys` went through a
+  PowerShell pipe and got CRLF endings; fixed with sed before anything read it.
+- [x] RESTIC_PASSWORD onto the four other nodes (me, node to node through a pipe on
+  roastery, never printed; checked by comparing hashes: same on all five)
+- [ ] ... and to flask with the two crypt secrets (owner)
+- [ ] `setup.ps1` on roastery, elevated (owner): **ran, and went wrong** (below)
+- [ ] cellar: `dump-store-setup.sh` (done, but see below), `restic-init.sh` (failed)
 - [ ] `sudo ./backup.sh enable` on every node, cellar first (owner); results checked (me)
 - [ ] Drive: Google API client, `drive-setup.sh`, first `drive-sync.sh` (owner)
 - [ ] Restore test from roastery and from Drive; next morning's freshness check
+
+**What went wrong on the first pass, and the fixes:**
+
+1. **`setup.ps1` made the repo itself the chroot and locked its owner out.** Its
+   `-Root` parameter was `$Root`; dot-sourcing `_lib/purrbrews.ps1` sets
+   `$script:Root` (the repo path) in the same scope, which silently won. So the
+   script replaced the ACL on `C:\Users\jyotirmoyc\Desktop\Projects\purrbrews-containers`
+   (SYSTEM, Administrators, restic; inheritance off), created the repository
+   folder inside it, and pointed `ChrootDirectory` at it. A non-elevated session
+   (git, the editor, Desktop Commander) got "Access is denied". Nothing was
+   deleted. Repair, elevated: remove the stray `restic\` folder, `icacls <repo>
+   /reset /T`, stop sshd until the fixed script has run.
+   Fix: the parameter is `$BackupRoot`, and the script refuses any folder that's
+   a drive root, under `C:\Users`, or has a `.git`, because it replaces that
+   folder's permissions outright.
+2. **restic's SFTP backend can't write to Windows' OpenSSH.** Every file restic
+   writes, it chmods; Windows' sftp-server answers `SSH_FX_BAD_MESSAGE`, and
+   `restic init` retried its first key forever. Fix: restic reaches roastery
+   through `rclone serve restic --stdio` with rclone's SFTP backend
+   (`set_modtime=false`, `shell_type=none`), defined in the environment by
+   `restic-env.sh`: same account, key, chroot and path, no chmod, no SETSTAT.
+   rclone is now installed on every node. Tested in the sandbox against a real
+   sshd (init, backup, snapshot readable by plain restic); not yet against
+   Windows.
+   rclone checks host keys strictly and may negotiate a type other than the one
+   pinned, which it reports as a mismatch, so every key type roastery offers is
+   pinned now (a changed key is still refused). cellar's pinned ed25519 key
+   (`SHA256:T+Jb1G7…`) matches what `setup.ps1` printed.
+3. **cellar's sshd only allows barista** (`AllowUsers barista`, init's drop-in),
+   so the nodes couldn't have pushed dumps. `dump-store-setup.sh` now writes its
+   own drop-in, `20-purrbrews-dumps.conf` (`AllowUsers dumps`, key-only), checks
+   it with `sshd -t` and reloads; it only warned before.
 
 ---
 
