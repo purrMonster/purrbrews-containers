@@ -147,9 +147,14 @@ first contact (`accept-new`) instead of needing a second `keys` round.
 - [x] RESTIC_PASSWORD onto the four other nodes (me, node to node through a pipe on
   roastery, never printed; checked by comparing hashes: same on all five)
 - [ ] ... and to flask with the two crypt secrets (owner)
-- [ ] `setup.ps1` on roastery, elevated (owner): **ran, and went wrong** (below)
-- [ ] cellar: `dump-store-setup.sh` (done, but see below), `restic-init.sh` (failed)
-- [ ] `sudo ./backup.sh enable` on every node, cellar first (owner); results checked (me)
+- [x] `setup.ps1` on roastery, elevated (owner): went wrong on the first run (below);
+  the second run, with the fixes, put everything in `C:\purrbrews` as intended
+- [x] cellar: `dump-store-setup.sh`, `restic-init.sh` (repository `3c39d63b85` on
+  roastery, over rclone), after the fixes below
+- [ ] `sudo ./backup.sh enable` on every node, cellar first (owner); results checked (me).
+  cellar: done 2026-09-27 (first snapshot `e7db9b61`, Komodo's Mongo dump 11 MB); its
+  first scheduled night worked too (wake 01:25, backup 01:33, both `success`).
+  sieve, percolator, mochaPot, grinder: still to do
 - [ ] Drive: Google API client, `drive-setup.sh`, first `drive-sync.sh` (owner)
 - [ ] Restore test from roastery and from Drive; next morning's freshness check
 
