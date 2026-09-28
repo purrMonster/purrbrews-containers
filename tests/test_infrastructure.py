@@ -759,5 +759,36 @@ class Tunnel(unittest.TestCase):
         self.assertEqual(needed - fleet - sieve, set(), 'a new setting would break the next render on sieve')
 
 
+class Flask(unittest.TestCase):
+    """flask, the offline recovery kit (docs/flask.md): stacks/roastery/flask."""
+
+    DIR = STACKS / 'roastery' / 'flask'
+
+    def test_versions_and_signing_keys_are_pinned(self):
+        script = (self.DIR / 'make-flask.ps1').read_text()
+        for name in ['DebianVersion', 'ResticVersion', 'RcloneVersion', 'KeePassXCVersion']:
+            self.assertRegex(script, rf"\${name} = '\d+\.\d+\.\d+'")
+        keys = dict(re.findall(r"^\s+(\w+)\s+= '([0-9A-F]{40})'", script, re.M))
+        self.assertEqual({'debian', 'restic', 'rclone', 'keepassxc'} - set(keys), set())
+
+    def test_the_vault_is_never_written_or_listed(self):
+        script = (self.DIR / 'make-flask.ps1').read_text()
+        self.assertIn("'^(flask\\.kdbx.*|SHA256SUMS", script)
+        self.assertNotRegex(script, r'(Copy-Item|Remove-Item|Move-Item)[^\n]*kdbx')
+
+    def test_recovery_makes_the_crypt_remote_like_drive_setup(self):
+        crypt = 'remote=drive:purrbrews-restic filename_encryption=standard directory_name_encryption=true'
+        self.assertIn(crypt, (STACKS / 'cellar' / 'restic' / 'drive-setup.sh').read_text())
+        self.assertIn(crypt, (self.DIR / 'RECOVERY.md').read_text())
+
+    def test_powershell_files_are_ascii(self):
+        # PowerShell 5 reads a BOM-less .ps1 as ANSI: a UTF-8 dash becomes a
+        # smart quote, which it treats as a string delimiter.
+        for file in ROOT.rglob('*.ps1'):
+            if '.git' not in file.parts:
+                bad = [n for n, line in enumerate(file.read_text().splitlines(), 1) if not line.isascii()]
+                self.assertEqual(bad, [], f'{file.relative_to(ROOT)}: non-ASCII on lines {bad}')
+
+
 if __name__ == '__main__':
     unittest.main()

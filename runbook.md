@@ -114,7 +114,15 @@ unchanged between 2026-09-21 and 2026-09-28 (188, 199, 5, 197, 198), which was t
 week-long test that entry asked for. The SanDisk's real problem is heat: 67 °C.
 
 - [ ] Sticks arrive: H2testw on each, then Ventoy (owner)
-- [ ] `make-flask.ps1`, `RECOVERY.md` (me)
+- [x] `make-flask.ps1`, `RECOVERY.md` (me), in `stacks/roastery/flask/`. `-PrepareOnly` on
+  roastery, 2026-09-28: the four pinned keys imported by fingerprint, every signature
+  and checksum good (Debian Live 13.7.0 xfce, restic 0.19.1, rclone 1.75.1, KeePassXC
+  2.7.12), tools staged and `restic.exe`/`rclone.exe` run. Writing a stick isn't tested
+  yet: none was plugged in. Found on the way: Git's gpg needs `/c/...` paths, not
+  `C:/...`; and `_lib/purrbrews.ps1` printed a garbled `──` in PowerShell 5 (a UTF-8
+  character in a BOM-less file), now ASCII, with a test that every .ps1 stays ASCII.
+  The flask's restic is newer than the fleet's 0.18.0; it reads the same repository.
+- [ ] Sticks tested and Ventoy on both (owner), then `.\make-flask.ps1` with both plugged in
 - [ ] Vault filled from the tables in `docs/flask.md` (owner; values never in a chat)
 - [ ] Paper: Tier 1 keys and the master password, sealed, kept apart from both sticks (owner)
 - [ ] A boot test of the stick on roastery, and a restore test from it (with the offline HDD, no network)

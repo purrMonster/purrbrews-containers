@@ -6,8 +6,8 @@ the fleet, so it's what's left when the fleet, roastery and the Google account
 are all gone. Scripts and READMEs say "copy X to flask"; this page says what that
 means. Decided 2026-09-28 (runbook).
 
-Status: **planned, the sticks are on order.** Nothing on this page exists yet
-except the plan.
+Status: **sticks here (2026-09-28); script and recovery guide written.** Next: test
+the sticks, Ventoy, `make-flask.ps1`, the vault, the paper (runbook, 2026-09-28).
 
 ## What it must be
 
@@ -53,6 +53,7 @@ FLASK (exFAT)
 │   ├── windows-amd64/ restic.exe, rclone.exe, KeePassXC portable
 │   └── darwin-arm64/, darwin-amd64/   restic, rclone
 ├── RECOVERY.md                        what to do, written while calm
+├── VERSIONS.txt                       what was built, when, from which versions
 └── SHA256SUMS                         every file above except the vault
 ```
 
@@ -140,34 +141,53 @@ can be generated again, and they're in the backups.
 
 ## Building it
 
-`make-flask.ps1` on roastery (to be written):
+By hand, once per stick, in this order:
 
-1. Downloads the Debian Live ISO and checks it against Debian's signed
-   `SHA512SUMS`; downloads restic, rclone and KeePassXC for each platform and checks
-   their published checksums. Anything that doesn't verify stops the run.
-2. Lays out `tools/`, `RECOVERY.md` and the ISO on the stick, writes `SHA256SUMS`.
-3. With two sticks in, compares them file by file.
+1. **H2testw** on the empty stick (from heise.de): *Write + Verify*, all space.
+   Anything but "Test finished without errors" at about the stick's size, and it
+   goes back.
+2. **Ventoy** (github.com/ventoy/Ventoy/releases, `windows.zip`; check its SHA-256
+   against the release's `sha256.txt`): `Ventoy2Disk.exe` → the stick → *Option →
+   Secure Boot Support* on, partition style MBR → Install. Then rename the big
+   partition **FLASK-A** or **FLASK-B**, and write A or B on the stick itself.
 
-By hand, once per stick: install Ventoy (its own tool, one click), and fill
-`flask.kdbx` in KeePassXC from the tables above. The vault's contents never pass
-through a script, the repo or a chat.
+Then [`stacks/roastery/flask/make-flask.ps1`](../stacks/roastery/flask/make-flask.ps1)
+on roastery, with the sticks plugged in:
+
+```powershell
+cd stacks\roastery\flask
+.\make-flask.ps1                # download, verify, write every FLASK-A/B stick
+.\make-flask.ps1 -Check         # later: check each against its SHA256SUMS, compare the vaults
+```
+
+It downloads the Debian Live ISO, restic, rclone and KeePassXC at the versions
+pinned in the script, checks each against its project's signed checksums (keys
+pinned by fingerprint), and stops before touching a stick if anything doesn't
+verify. It writes only to USB disks with Ventoy and a FLASK-A/B exFAT partition,
+mirrors `tools/`, reads everything back against `SHA256SUMS`, and never touches
+`flask.kdbx`.
+
+Last, by hand: fill `flask.kdbx` in KeePassXC (`tools\windows-amd64\KeePassXC`)
+on stick A from the tables above, copy it to B, `.\make-flask.ps1 -Check`. The
+vault's contents never pass through a script, the repo or a chat.
 
 ## Using it
 
-`RECOVERY.md` (to be written) covers three cases, each ending in `restic check`
-and the restore test:
+[`RECOVERY.md`](../stacks/roastery/flask/RECOVERY.md), on each stick and in the repo:
+booting the stick and using the tools, then three cases:
 
-1. **A node or roastery is gone, the repository is fine:** rebuild the node, then
-   `backup.sh restic restore`.
-2. **roastery is gone:** restore from `drive-crypt:repo` with rclone, using
-   `rclone.conf` from the vault.
-3. **No roastery, no Drive, no network:** boot the stick, plug in the offline HDD,
-   restore from it directly.
+- **A.** One node is gone, roastery is fine: rebuild it, settings, files, then
+  databases from the dumps.
+- **B.** roastery is gone: the repository back from `drive-crypt:repo`, onto a new
+  roastery, then A.
+- **C.** Nothing online: read the offline HDD directly, or copy it to a new
+  roastery, then A.
 
 ## Upkeep
 
 - **Every year, and whenever a secret in the tables changes:** plug both sticks
-  into roastery, `sha256sum -c SHA256SUMS`, open the vault, update it, copy A to B,
-  compare. Swap in the current Debian Live ISO and tools. Unplug.
+  into roastery, `.\make-flask.ps1 -Check`, open the vault, update it, copy A to B.
+  Once a year also bump the versions at the top of `make-flask.ps1` and run it:
+  the current Debian Live ISO and tools. `-Check` again, unplug.
 - **When a Tier 1 key changes:** new paper too, and destroy the old envelope.
 - The runbook's backlog carries the next yearly date.
