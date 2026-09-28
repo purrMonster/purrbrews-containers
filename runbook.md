@@ -25,7 +25,7 @@ changes can be made later without re-deriving the reasoning.
 - [ ] cellar's Samba: `smb/docker-compose.yml` exists but nothing uses it and ufw-docker keeps 445 closed. Decide on shares and permissions, pin the image, then uncomment the rule in `smb/firewall`
 - [x] Wire cellar's restic sources to percolator's, sieve's and mochaPot's actual dumps and data: replaced by each node's own `backup` files (2026-09-27)
 - [ ] Backups to roastery, cellar as the dump store, second copy of everything on Google Drive (decided 2026-09-26; design in the 2026-09-27 entries). Scripts written 2026-09-27; next: tie them together in the order in `stacks/cellar/restic/README.md`, ending with a restore test from Drive. Replaces the old "enable cellar's roastery mirror and Google Drive sync" item
-- [ ] Replace cellar's old disk (ST1000LM035, 5–8 years old) once it's only the dump store; the SanDisk on mochaPot is the same age
+- [ ] Replace cellar's old disk (ST1000LM035, 5–8 years old) once it's only the dump store; the SanDisk on mochaPot is the same age. Superseded 2026-09-28: it's out of use on cellar and becomes the offline copy after a long self-test (2026-09-28 flask entry)
 - [ ] roastery: `immich-machine-learning` at Immich's version, Windows Firewall 3003 scoped to percolator
 - [x] Postgres dump job for percolator's databases (Nextcloud, Immich, Paperless): `pg` lines in their `backup` files (2026-09-27)
 - [ ] Remaining node: roastery itself joining the fleet; then archive purrBrews-infra
@@ -43,6 +43,84 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Phone on the tailnet (only the Mac has joined so far)
 - [ ] Tunnel from Git: two-factor in Authelia first, then the switch in `stacks/sieve/cloudflared/README.md` (2026-09-28 entry below)
 - [ ] Apps over the tailnet: roll out in the order in the 2026-09-28 entry below
+- [ ] flask: build the two sticks and the paper, `make-flask.ps1` and `RECOVERY.md` first ([docs/flask.md](docs/flask.md); 2026-09-28 flask entry below)
+- [ ] Offline copy of the restic repository: the old Seagate in a USB enclosure, synced monthly; `offline-sync.ps1` still to write (2026-09-28 flask entry)
+- [ ] roastery: move the repository off C: to a second NVMe (2026-09-28 flask entry)
+- [ ] mochaPot's SanDisk runs at 67 °C: check its airflow
+
+---
+
+## 2026-09-28 — flask, the recovery kit; where the backups' copies live
+
+**What flask is.** The scripts and READMEs have said "copy X to flask" since the
+first commits, citing a doc that has since moved out of the repo; nothing here
+defined it. The owner's original plan was an SD card as a recovery device. Now
+written down in [`docs/flask.md`](docs/flask.md): **two encrypted, bootable USB
+sticks kept unplugged, plus the Tier 1 keys on paper.**
+
+**Choices worth remembering:**
+
+- **USB sticks, not an SD card:** the owner's call. USB 3.x, 64 GB, dual connector
+  (A + C), two brands. Speed doesn't matter for a kit under 5 GB; 3.x sticks just
+  have better parts than the 2.0 ones still on sale, and the dual connector reads
+  on a phone without an adapter.
+- **Two sticks and paper, because flash in a drawer fades and fails without
+  warning.** The paper holds only the three Tier 1 keys and the vault's master
+  password; paper outlasts any stick.
+- **Never plugged into a Pi or anything online** (the owner asked). A networked box
+  holding every key is the best target in the house, and ransomware reaches
+  whatever is attached. Keeping the flash healthy is what the yearly check is for.
+- **Bootable, through Ventoy + Debian Live** (the owner's idea). The point isn't
+  the spare space: it gives a clean system to type the keys into when roastery is
+  gone or not trusted, and with the offline HDD it restores with no network at all.
+  Ventoy rather than a written ISO so the stick keeps an exFAT partition for the
+  vault and tools; exFAT because Windows, Debian, macOS, iOS and Android all read
+  it.
+- **KeePassXC vault, not a password manager account:** opens on every platform and
+  on the live system, with no account and no network.
+
+**The tiers** (names and locations in `docs/flask.md`, never values): Tier 1 is
+`RESTIC_PASSWORD` and the two rclone crypt secrets, without which nothing
+restores; everything else is also inside the backups. Tier 2 are keys that
+encrypt app data (n8n, Authelia's storage, LLDAP's seed, ...). Tier 3 are
+emergency logins for when Authelia is down; Tier 4 outside accounts. Added
+while writing it: the 2FA recovery codes for Google, Cloudflare, GitHub and the
+Tailscale identity provider, since losing the phone must not lock those.
+
+**Storage for the backups, decided alongside:**
+
+- **The offline copy is cellar's old Seagate** (ST1000LM035, 1 TB), in a USB
+  enclosure, synced monthly and unplugged. It's the only copy ransomware on
+  roastery, an over-eager prune or a lost Google account can't touch. The
+  repository is 76.6 GB (owner, 2026-09-28), so 1 TB is plenty. An old disk is
+  acceptable here because it's an extra copy: roastery and Drive still hold
+  everything. A new drive can replace it when prices drop: hard drives are sold
+  out to data centres through 2026 and a 4 TB NAS drive is about ₹26k.
+  - Checked: `lsblk` on cellar shows it unmounted, no partitions, not in fstab.
+    Scrutiny's collector on cellar still reads it (`DISK_DEVICE_2`); clear that
+    when it comes out.
+- **roastery's repository moves off C:** (the Windows NVMe) to a second NVMe in
+  the free M2B slot, the owner's pick (Crucial E100 1 TB, about ₹16k). The B450
+  AORUS PRO WIFI's M2B runs at PCIe x2 and disables the ASATA ports only, which
+  are unused; still ten times the network's speed. This protects against C:
+  failing or a Windows reinstall, not against anything that hits all of roastery;
+  that's the offline copy's job, so the offline copy comes first.
+
+**Correction to the 2026-09-26 SMART entry:** mochaPot's SanDisk has **18,926
+power-on hours**, not 665. Scrutiny's summary shows 666, but the disk's own
+attribute 9 rose by 177 in the week, 7 days' worth. So its 9,924 command timeouts
+are spread over about two years, not four weeks. Both disks' counts were
+unchanged between 2026-09-21 and 2026-09-28 (188, 199, 5, 197, 198), which was the
+week-long test that entry asked for. The SanDisk's real problem is heat: 67 °C.
+
+- [ ] Sticks arrive: H2testw on each, then Ventoy (owner)
+- [ ] `make-flask.ps1`, `RECOVERY.md` (me)
+- [ ] Vault filled from the tables in `docs/flask.md` (owner; values never in a chat)
+- [ ] Paper: Tier 1 keys and the master password, sealed, kept apart from both sticks (owner)
+- [ ] A boot test of the stick on roastery, and a restore test from it (with the offline HDD, no network)
+- [ ] Seagate: `sudo smartctl -t long /dev/sda` on cellar, result `Completed without error` (owner); then out of cellar, into the enclosure, a full surface read on roastery
+- [ ] `offline-sync.ps1` and the 35-day check (me)
+- [ ] Second NVMe in roastery; the repository to `D:\purrbrews`, `setup.ps1` again, `restic check` (owner + me)
 
 ---
 
