@@ -5,7 +5,7 @@ changes can be made later without re-deriving the reasoning.
 
 ## Backlog / open items
 
-- [ ] Confirm Secret scanning + Push protection are enabled on the public GitHub repo (repo itself already created, pushed, `origin` set)
+- [x] Confirm Secret scanning + Push protection are enabled on the public GitHub repo (repo itself already created, pushed, `origin` set). Confirmed in the repo's settings (owner, 2026-09-29)
 - [ ] Workstation: DHCP reservation, `bootstrap/data/` (settings + `authorized_keys`), `docker compose up -d --build`, firewall rule for 8443
 - [ ] First real node through `bootstrap.sh`, at the console (the network step has not yet run on real hardware)
 - [x] Add stacks node by node, each with its own `stacks/<node>/README.md` — sieve, percolator, cellar, mochaPot and grinder are all in
@@ -26,7 +26,7 @@ changes can be made later without re-deriving the reasoning.
 - [x] Wire cellar's restic sources to percolator's, sieve's and mochaPot's actual dumps and data: replaced by each node's own `backup` files (2026-09-27)
 - [ ] Backups to roastery, cellar as the dump store, second copy of everything on Google Drive (decided 2026-09-26; design in the 2026-09-27 entries). Scripts written 2026-09-27; every node's backups on since 2026-09-28; Drive set up 2026-09-29, first upload running. Next: the restore test from Drive (2026-09-27 wiring entry). Replaces the old "enable cellar's roastery mirror and Google Drive sync" item
 - [ ] Replace cellar's old disk (ST1000LM035, 5–8 years old) once it's only the dump store; the SanDisk on mochaPot is the same age. Superseded 2026-09-28: it's out of use on cellar and becomes the offline copy after a long self-test (2026-09-28 flask entry)
-- [ ] roastery: `immich-machine-learning` at Immich's version, Windows Firewall 3003 scoped to percolator
+- [x] roastery: `immich-machine-learning` at Immich's version, Windows Firewall 3003 scoped to percolator. Verified 2026-09-29 on roastery (Claude, owner approved): container `immich-machine-learning:v3.2.1-cuda` matches percolator's `immich-server:v3.2.1`; rule `immich-ml (percolator only)` enabled, remote address `192.168.0.11` only
 - [x] Postgres dump job for percolator's databases (Nextcloud, Immich, Paperless): `pg` lines in their `backup` files (2026-09-27)
 - [ ] Remaining node: roastery itself joining the fleet; then archive purrBrews-infra
 - [ ] Gatus: enable each node's ping as it is provisioned; add app checks as stacks land
@@ -40,6 +40,7 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Open WebUI → roastery's Ollama: needs machine-to-machine auth that keeps Authelia in front; nothing exists yet
 - [ ] Karakeep: `NEXTAUTH_URL` is the direct-port URL while the route is `karakeep.${DOMAIN}`; check the phone share sheet signs in through the hostname
 - [x] Remote access over Tailscale: rolled out and checked from outside the house (2026-09-28; 2026-09-27 entry below)
+- [ ] roastery after the 2026-09-27 power cut: UPS install, the old HDD, NVMe into Scrutiny (2026-09-27 power-cut entry below)
 - [ ] Phone on the tailnet (only the Mac has joined so far)
 - [ ] Tunnel from Git: two-factor in Authelia first, then the switch in `stacks/sieve/cloudflared/README.md` (2026-09-28 entry below)
 - [ ] Apps over the tailnet: roll out in the order in the 2026-09-28 entry below
@@ -330,6 +331,43 @@ bash; the full suite still wants Linux.
 - [x] The checks in `tailscale/README.md` → "Is it working?" (2026-09-28). Over mobile data,
   the owner got RDP to roastery and `ssh barista@sieve` from the Mac. Over the tailnet from
   roastery: 22 answers on sieve and percolator; percolator:443 and sieve:8080 time out
+
+---
+
+## 2026-09-27 — roastery failed to boot after a power cut
+
+**Symptom:** after a sudden power cut (Kernel-Power 41 at 12:10), roastery hung at the
+AORUS logo / Windows spinner, then went black. Automatic Repair ran and reported it
+couldn't repair the PC. The Windows installer USB hung too, which ruled out a
+Windows-only problem.
+
+**Root cause:** the old secondary HDD. It hung on every disk probe, which stalled the
+Windows boot, WinRE and Windows Setup alike.
+
+**Fix:** the HDD physically disconnected (owner). Automatic Repair still showed its
+failure, left over from the earlier failed boots, but "Continue to Windows" booted
+normally. Up since 16:35.
+
+**Follow-ups** (checked 2026-09-29 on roastery by me, unless marked owner):
+
+- [x] The backups' disk is healthy: `C:\purrbrews` is on the Samsung 1 TB NVMe
+  (MZVL21T0HCLR), which Windows reports Healthy. The failed HDD is no longer attached
+- [x] Nothing depends on the old HDD: pagefile at `C:\pagefile.sys`, every user shell
+  folder on C:, Docker's WSL distros in their default location
+- [x] Fast Startup can't run: hibernation is off (no `hiberfil.sys`). `HiberbootEnabled`
+  is still 1, which is harmless while hibernation stays off
+- [x] A clean boot: the current one (16:35) followed clean shutdowns at 14:15 and 14:32
+  (Event 1074), with no unexpected shutdown since
+- [x] Every node back after the outage: all five online in `tailscale status` from
+  roastery, and each ran a successful backup on 2026-09-28 (entries above)
+- [x] UPS ordered for roastery, the router and the switches (owner)
+- [x] `sfc /scannow` (owner, 2026-09-29): "Windows Resource Protection did not find any
+  integrity violations". DISM `/RestoreHealth` not run: it's only needed when sfc finds
+  damage it can't repair
+- [ ] UPS installed
+- [ ] Old HDD: USB dock on a Debian node, `smartctl -a -d sat` (confirms SAT
+  passthrough), `ddrescue` first if the data matters, then retire it
+- [ ] roastery's NVMe in Scrutiny, via the Windows collector
 
 ---
 
