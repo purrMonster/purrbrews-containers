@@ -511,6 +511,25 @@ class Secrets(unittest.TestCase):
         self.assertIn('ACME_EMAIL=me@example.test', text)  # the old line stays
 
 
+class PastedValues(unittest.TestCase):
+    """What a paste brings along (a \r, quotes, spaces) comes off before a secret is stored."""
+
+    def clean(self, value):
+        result = subprocess.run(['bash', '-c', 'source "$1" >/dev/null 2>&1; clean_pasted "$2"', '_',
+                                 str(STACKS / '_lib' / 'common.sh'), value], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return result.stdout
+
+    def test_quotes_spaces_and_carriage_returns(self):
+        cid = '123-abc.apps.googleusercontent.com'
+        for pasted in [cid, f"'{cid}'", f'"{cid}"', f'  {cid} ', f'{cid}\r', f' "{cid}"\r']:
+            self.assertEqual(self.clean(pasted), cid, repr(pasted))
+
+    def test_quotes_inside_a_value_stay(self):
+        self.assertEqual(self.clean('a"b'), 'a"b')
+        self.assertEqual(self.clean("it's"), "it's")
+
+
 class Backup(unittest.TestCase):
     """_lib/backup.sh and the apps' backup files."""
 

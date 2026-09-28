@@ -68,7 +68,7 @@ ask() {  # ask <text>: hidden input, empty without a terminal
     read -r -s -p "  $1: " value
     printf '\n'
   fi
-  printf '%s' "$value"
+  clean_pasted "$value"
 }
 
 apply_secret() {  # apply_secret <app> <KEY> <kind> [args...]

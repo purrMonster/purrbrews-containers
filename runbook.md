@@ -365,6 +365,12 @@ first contact (`accept-new`) instead of needing a second `keys` round.
   expected until Drive exists. The four nodes' dumps reached cellar after the 02:30
   store run, so they're in restic from tonight's (or a hand-run `backup.sh store`).
 - [ ] Drive: Google API client, `drive-setup.sh`, first `drive-sync.sh` (owner)
+  - 2026-09-29: Google API client made (owner). `./setup-secrets.sh` on cellar then
+    refused the client ID: "its value has a single quote or a newline", so the paste
+    had come with a quote around it. Nothing was stored. Fix: every prompted secret now
+    goes through `clean_pasted` (common.sh) first, which drops a \r, surrounding
+    spaces and one pair of surrounding quotes; a quote inside a value is still kept
+    and still refused. Tested in `PastedValues`.
 - [ ] Restore test from roastery and from Drive; next morning's freshness check
 
 **What went wrong on the first pass, and the fixes:**
