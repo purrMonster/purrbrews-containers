@@ -121,7 +121,7 @@ that data is gone.
 
 | Secret | Where |
 |---|---|
-| `CF_DNS_API_TOKEN` | every node's traefik |
+| `CF_DNS_API_TOKEN` | every node's traefik, a different token on each (one entry per node) |
 | `TUNNEL_TOKEN` | sieve/cloudflared |
 | `RCLONE_DRIVE_CLIENT_ID`, `RCLONE_DRIVE_CLIENT_SECRET` | cellar/restic (once Drive is set up) |
 | `/etc/purrbrews/rclone.conf` (attach the file) | cellar, root's (once Drive is set up) |

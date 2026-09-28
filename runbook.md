@@ -130,7 +130,8 @@ week-long test that entry asked for. The SanDisk's real problem is heat: 67 °C.
   `keepassxc-cli` 2.7.12's stdin behaviour checked on roastery with a throwaway vault
   and dummy values; `-DryRun` against the real nodes finds everything in docs/flask.md
   except the Drive client and `NTFY_URL` (not set yet). It also found `CF_DNS_API_TOKEN`
-  different on every node (one entry per node in the vault): per-node tokens, or drift?
+  different on every node: on purpose, a token per node (owner, 2026-09-29), so the
+  script keeps one entry per node for it without the warning.
 - [ ] Vault filled from the tables in `docs/flask.md` (owner; values never in a chat)
 - [ ] Paper: Tier 1 keys and the master password, sealed, kept apart from both sticks (owner)
 - [ ] A boot test of the stick on roastery, and a restore test from it (with the offline HDD, no network)

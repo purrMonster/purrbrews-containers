@@ -37,6 +37,9 @@ $Tiers = [ordered]@{
                'HEALTHCHECKS_PING_URL', 'NTFY_URL'
 }
 $Nodes = 'sieve', 'percolator', 'cellar', 'mochaPot', 'grinder'
+# Different on every node on purpose (the owner, 2026-09-29): one entry per node,
+# no warning. Anything else that differs between nodes is worth a look.
+$PerNode = @('CF_DNS_API_TOKEN')
 
 # -- the vault and keepassxc-cli ---------------------------------------------------
 if ($DryRun) { $Vault = '(dry run)' }
@@ -103,13 +106,13 @@ foreach ($group in $Tiers.Keys) {
     if (-not $DryRun) { $null = Invoke-Kpx @('mkdir', '-q', $Vault, $group) @($Master) }   # fails harmlessly if it's there
     foreach ($name in $Tiers[$group]) {
         if (-not $found.ContainsKey($name)) { $missing += $name; continue }
-        # The same key on several nodes (RESTIC_PASSWORD, CF_DNS_API_TOKEN) is one
-        # entry when every copy agrees, one per node when they don't.
+        # The same key on several nodes (RESTIC_PASSWORD) is one entry when every
+        # copy agrees, one per node when they don't, or when it's per node anyway.
         $byValue = $found[$name] | Group-Object { $_.Value }
-        $entries = if (@($byValue).Count -eq 1) {
+        $entries = if (@($byValue).Count -eq 1 -and $PerNode -notcontains $name) {
             @{ Title = $name; Value = $found[$name][0].Value; Notes = (($found[$name] | ForEach-Object { $_.Where }) -join ', ') }
         } else {
-            Write-Warning "  $name differs between nodes; one entry per node. Worth finding out why."
+            if ($PerNode -notcontains $name) { Write-Warning "  $name differs between nodes; one entry per node. Worth finding out why." }
             $found[$name] | ForEach-Object { @{ Title = "$name ($($_.Where))"; Value = $_.Value; Notes = $_.Where } }
         }
         foreach ($e in $entries) {
