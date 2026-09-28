@@ -122,7 +122,15 @@ week-long test that entry asked for. The SanDisk's real problem is heat: 67 °C.
   `C:/...`; and `_lib/purrbrews.ps1` printed a garbled `──` in PowerShell 5 (a UTF-8
   character in a BOM-less file), now ASCII, with a test that every .ps1 stays ASCII.
   The flask's restic is newer than the fleet's 0.18.0; it reads the same repository.
-- [ ] Sticks tested and Ventoy on both (owner), then `.\make-flask.ps1` with both plugged in
+- [ ] Sticks tested and Ventoy on both (owner), then `.\make-flask.ps1` with both plugged in.
+  2026-09-29: A done (SanDisk 3.2 Gen1, 57.3 GB): built by the owner, then `-Check` by me,
+  all 142 files match its SHA256SUMS. B not seen yet.
+- [x] `fill-vault.ps1` (me): Tiers 1-4 from the nodes into the vault over SSH and
+  `keepassxc-cli`'s standard input, so no value is shown or written anywhere else.
+  `keepassxc-cli` 2.7.12's stdin behaviour checked on roastery with a throwaway vault
+  and dummy values; `-DryRun` against the real nodes finds everything in docs/flask.md
+  except the Drive client and `NTFY_URL` (not set yet). It also found `CF_DNS_API_TOKEN`
+  different on every node (one entry per node in the vault): per-node tokens, or drift?
 - [ ] Vault filled from the tables in `docs/flask.md` (owner; values never in a chat)
 - [ ] Paper: Tier 1 keys and the master password, sealed, kept apart from both sticks (owner)
 - [ ] A boot test of the stick on roastery, and a restore test from it (with the offline HDD, no network)

@@ -36,7 +36,7 @@ _Last updated: 2026-09-28_
 | One toolkit for every node (`stacks/_lib`, `node.conf`) | Done; rolling out node by node | [stacks/README.md](../stacks/README.md) | 2026-09-26 — One toolkit for every node |
 | Backups (restic sources, DB dumps, restore test) | Open | [cellar/restic](../stacks/cellar/restic/README.md) | Backlog |
 | Remote access (Tailscale on every machine, SSH + RDP) | Done; checked from outside the house 2026-09-28 | [tailscale](../tailscale/README.md) | 2026-09-27 — Remote access over Tailscale |
-| flask (offline recovery kit: two bootable USB sticks + paper) | Planned; sticks on order | [docs/flask.md](flask.md) | 2026-09-28 — flask, the recovery kit |
+| flask (offline recovery kit: two bootable USB sticks + paper) | Stick A built and verified 2026-09-29; vault, B and paper next | [docs/flask.md](flask.md) | 2026-09-28 — flask, the recovery kit |
 | Smart desk / smart mirror | Idea | — | — |
 
 ## Where data lives (quick reference)

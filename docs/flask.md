@@ -167,9 +167,21 @@ verify. It writes only to USB disks with Ventoy and a FLASK-A/B exFAT partition,
 mirrors `tools/`, reads everything back against `SHA256SUMS`, and never touches
 `flask.kdbx`.
 
-Last, by hand: fill `flask.kdbx` in KeePassXC (`tools\windows-amd64\KeePassXC`)
-on stick A from the tables above, copy it to B, `.\make-flask.ps1 -Check`. The
-vault's contents never pass through a script, the repo or a chat.
+Then the vault. Make `flask.kdbx` on stick A in KeePassXC
+(`tools\windows-amd64\KeePassXC\KeePassXC.exe`, *Database > New Database*; that's where
+the master password is chosen), and fill it with
+[`fill-vault.ps1`](../stacks/roastery/flask/fill-vault.ps1):
+
+```powershell
+.\fill-vault.ps1 -DryRun         # which entries, from where; no vault, no values shown
+.\fill-vault.ps1                 # asks for the master password, writes Tiers 1-4
+```
+
+It reads each secret over SSH into memory and hands it to `keepassxc-cli` on
+standard input, so no value reaches the screen, a file, the clipboard or a chat.
+Run again after a secret changes: existing entries get the new value. The rest by
+hand in KeePassXC ("Outside the repo" above, and `rclone.conf` once Drive exists),
+then copy `flask.kdbx` to B and `.\make-flask.ps1 -Check`.
 
 ## Using it
 

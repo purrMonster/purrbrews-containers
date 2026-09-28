@@ -781,6 +781,14 @@ class Flask(unittest.TestCase):
         self.assertIn(crypt, (STACKS / 'cellar' / 'restic' / 'drive-setup.sh').read_text())
         self.assertIn(crypt, (self.DIR / 'RECOVERY.md').read_text())
 
+    def test_fill_vault_names_match_the_doc(self):
+        script = (self.DIR / 'fill-vault.ps1').read_text()
+        block = re.search(r'\$Tiers = \[ordered\]@\{(.*?)\n\}', script, re.S).group(1)
+        names = set(re.findall(r"'([A-Z][A-Z0-9_]+)'", block))
+        doc = (ROOT / 'docs' / 'flask.md').read_text()
+        in_doc = set(re.findall(r'^\| `([A-Z][A-Z0-9_]+)`', doc, re.M)) | set(re.findall(r'`, `([A-Z][A-Z0-9_]+)` \|', doc))
+        self.assertEqual(names, in_doc)
+
     def test_powershell_files_are_ascii(self):
         # PowerShell 5 reads a BOM-less .ps1 as ANSI: a UTF-8 dash becomes a
         # smart quote, which it treats as a string delimiter.
