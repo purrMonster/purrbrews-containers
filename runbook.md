@@ -160,10 +160,15 @@ first contact (`accept-new`) instead of needing a second `keys` round.
   the second run, with the fixes, put everything in `C:\purrbrews` as intended
 - [x] cellar: `dump-store-setup.sh`, `restic-init.sh` (repository `3c39d63b85` on
   roastery, over rclone), after the fixes below
-- [ ] `sudo ./backup.sh enable` on every node, cellar first (owner); results checked (me).
-  cellar: done 2026-09-27 (first snapshot `e7db9b61`, Komodo's Mongo dump 11 MB); its
-  first scheduled night worked too (wake 01:25, backup 01:33, both `success`).
-  sieve, percolator, mochaPot, grinder: still to do
+- [x] `sudo ./backup.sh enable` on every node, cellar first (owner); results checked (me).
+  cellar: 2026-09-27 (first snapshot `e7db9b61`, Komodo's Mongo dump 11 MB); its first
+  scheduled night worked (wake 01:25, backup 01:33, store 02:30, all `success`).
+  2026-09-28, 03:39: sieve (`55c75a05`, 21 MiB), mochaPot (`941970d8`, 63 MiB; HA is
+  still on its SQLite recorder, so the Postgres dump is empty), grinder (`32154128`,
+  2 MiB). percolator started as a background service; its first full run
+  took 03:40–03:56 and finished `success`. Drive sync and the 06:00 check failed, as
+  expected until Drive exists. The four nodes' dumps reached cellar after the 02:30
+  store run, so they're in restic from tonight's (or a hand-run `backup.sh store`).
 - [ ] Drive: Google API client, `drive-setup.sh`, first `drive-sync.sh` (owner)
 - [ ] Restore test from roastery and from Drive; next morning's freshness check
 
