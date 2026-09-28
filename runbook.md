@@ -43,6 +43,48 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Phone on the tailnet (only the Mac has joined so far)
 - [ ] Tunnel from Git: two-factor in Authelia first, then the switch in `stacks/sieve/cloudflared/README.md` (2026-09-28 entry below)
 - [ ] Apps over the tailnet: roll out in the order in the 2026-09-28 entry below
+- [ ] Bot identity for Claude's commits and pull requests: owner picks bot account or GitHub App, then the setup in the 2026-09-28 entry below
+
+---
+
+## 2026-09-28 — A bot identity for Claude's commits and pull requests
+
+The owner wants the changes Claude sessions make to come from a bot, not from
+the owner's own identity. Today they're committed as the owner (the global git
+identity on roastery) and pushed with the owner's SSH key, and the owner opens
+each PR from the link.
+
+**Recommended: a machine account** (e.g. `purrbrews-bot`), over a GitHub App.
+
+- A GitHub App gets the real `[bot]` badge, but pushing as an app needs an
+  installation token minted from its private key every hour. That's a script in
+  the path of every push, and one more thing to break.
+- GitHub allows one free machine account per person; with Write access and
+  branch protection it can only propose changes.
+- **Not decided yet:** the owner hasn't picked between the two.
+
+**The owner's part** (account creation is never Claude's):
+
+- [ ] Create the bot account, two-factor on, with an email the owner controls
+- [ ] Repo → *Settings → Collaborators*: invite it with **Write**; accept as the bot
+- [ ] Repo → *Settings → Branches*: protect `main`, require a pull request, so the
+  bot can propose and only the owner merges
+- [ ] Add the bot's SSH public key (from the step below) to the bot account
+
+**On roastery (Claude, once the account exists):**
+
+- [ ] A dedicated SSH key for the bot. Its private half never leaves roastery, and
+  it's never in the repo.
+- [ ] An SSH host alias (`github-bot`) in `~/.ssh/config`, so the bot's pushes use
+  its key and the owner's pushes keep using the owner's
+- [ ] Claude's worktrees (only) set `user.name`/`user.email` to the bot, with the
+  email being its GitHub noreply address (`<id>+<bot>@users.noreply.github.com`),
+  so no real address or domain enters history. The owner's global identity stays
+  as it is.
+- [ ] GitHub CLI logged in as the bot, its token in Windows Credential Manager (not
+  a file), so the bot opens the PR itself
+- [ ] Pre-push checks as now (no domain, MAC, auth key or old emails in the
+  outgoing commits), plus: every outgoing commit is authored by the bot
 
 ---
 
