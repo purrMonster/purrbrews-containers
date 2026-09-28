@@ -12,8 +12,10 @@
 # The values never reach the screen, a file or the clipboard: each one is read
 # over SSH (as barista, with your key) into memory and handed to keepassxc-cli
 # on its standard input. The master password is typed once, hidden. Safe to run
-# again: an entry that's there already gets the current value, so this is also
-# how the vault is brought up to date after a secret changes.
+# again: it compares each entry with the node and rewrites only the ones whose
+# value has changed (and adds new ones), so this is also how the vault is
+# brought up to date after a secret changes. Notes you've edited by hand, and
+# entries it doesn't know about, are left alone.
 #
 # Not covered, add them by hand: barista's sudo password on each node,
 # roastery's Windows password, the 2FA recovery codes, and (once Drive is set
@@ -67,6 +69,26 @@ function Invoke-Kpx([string[]]$ArgList, [string[]]$Stdin) {
     $LASTEXITCODE
 }
 
+function Get-KpxPassword([string]$Path) {
+    # An entry's current password, for comparing, never for showing. $null if
+    # there's no such entry.
+    $old = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { $out = @($script:Master | & $script:cli show -q -s -a Password $Vault $Path 2>$null) } finally { $ErrorActionPreference = $old }
+    if ($LASTEXITCODE -ne 0) { return $null }
+    $out -join "`n"
+}
+
+function Get-EntryTitle([string]$Name, [string]$Where, [string[]]$AllWheres) {
+    # keepassxc-cli reads / in an entry path as a group, so a title never has
+    # one: "CF_DNS_API_TOKEN (sieve)", or "(sieve traefik)" if that node has
+    # the key in two apps.
+    $node = ($Where -split '/')[0]
+    $sameNode = @($AllWheres | Where-Object { ($_ -split '/')[0] -eq $node }).Count
+    $label = if ($sameNode -gt 1) { $Where -replace '/', ' ' } else { $node }
+    "$Name ($label)"
+}
+
 if (-not $DryRun) {
     $secure = Read-Host "Master password for $Vault" -AsSecureString
     $Master = [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure))
@@ -101,7 +123,7 @@ foreach ($node in $Nodes) {
 
 # -- write them -----------------------------------------------------------------------
 Write-Step "Writing $Vault"
-$added = 0; $updated = 0; $failed = @(); $missing = @()
+$added = 0; $updated = 0; $same = 0; $failed = @(); $missing = @()
 foreach ($group in $Tiers.Keys) {
     if (-not $DryRun) { $null = Invoke-Kpx @('mkdir', '-q', $Vault, $group) @($Master) }   # fails harmlessly if it's there
     foreach ($name in $Tiers[$group]) {
@@ -113,14 +135,18 @@ foreach ($group in $Tiers.Keys) {
             @{ Title = $name; Value = $found[$name][0].Value; Notes = (($found[$name] | ForEach-Object { $_.Where }) -join ', ') }
         } else {
             if ($PerNode -notcontains $name) { Write-Warning "  $name differs between nodes; one entry per node. Worth finding out why." }
-            $found[$name] | ForEach-Object { @{ Title = "$name ($($_.Where))"; Value = $_.Value; Notes = $_.Where } }
+            $wheres = @($found[$name] | ForEach-Object { $_.Where })
+            $found[$name] | ForEach-Object { @{ Title = (Get-EntryTitle $name $_.Where $wheres); Value = $_.Value; Notes = $_.Where } }
         }
         foreach ($e in $entries) {
             $path = "$group/$($e.Title)"
             if ($DryRun) { Write-Host "  would write  $path  ($($e.Notes))"; continue }
-            if ((Invoke-Kpx @('show', '-q', '-a', 'Title', $Vault, $path) @($Master)) -eq 0) {
+            $current = Get-KpxPassword $path
+            if ($null -ne $current -and $current -ceq $e.Value) {
+                $same++
+            } elseif ($null -ne $current) {
                 $rc = Invoke-Kpx @('edit', '-q', '-p', $Vault, $path) @($Master, $e.Value)
-                if ($rc -eq 0) { $updated++; Write-Host "  updated  $path" } else { $failed += $path }
+                if ($rc -eq 0) { $updated++; Write-Host "  changed  $path  (the node has a new value)" } else { $failed += $path }
             } else {
                 $rc = Invoke-Kpx @('add', '-q', '-p', '--notes', $e.Notes, $Vault, $path) @($Master, $e.Value)
                 if ($rc -eq 0) { $added++; Write-Host "  added    $path  ($($e.Notes))" } else { $failed += $path }
@@ -128,11 +154,12 @@ foreach ($group in $Tiers.Keys) {
         }
     }
 }
-$Master = $null; $found = $null
+$Master = $null; $script:Master = $null; $found = $null; $current = $null
 [GC]::Collect()
 
 Write-Step 'Done'
-if ($DryRun) { Write-Host '  Dry run: nothing was written.' } else { Write-Host "  $added added, $updated updated." }
+if ($DryRun) { Write-Host '  Dry run: nothing was written.' }
+else { Write-Host "  $added added, $updated changed, $same already up to date." }
 if ($missing) { Write-Host "  Not set on any node (fine if that app or Drive isn't set up yet): $($missing -join ', ')" }
 if ($failed) { Write-Warning "  keepassxc-cli refused: $($failed -join ', ')"; exit 1 }
 Write-Host ''

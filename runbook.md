@@ -132,6 +132,11 @@ week-long test that entry asked for. The SanDisk's real problem is heat: 67 °C.
   except the Drive client and `NTFY_URL` (not set yet). It also found `CF_DNS_API_TOKEN`
   different on every node: on purpose, a token per node (owner, 2026-09-29), so the
   script keeps one entry per node for it without the warning.
+  The owner's first real run then had keepassxc-cli refuse those five: their titles
+  had the location in them, `(sieve/traefik)`, and keepassxc-cli reads a `/` in an
+  entry path as a group. Now titled `CF_DNS_API_TOKEN (sieve)` and so on (checked on
+  roastery with a throwaway vault). Also changed: a run now compares each entry with
+  the node and rewrites only values that changed; notes edited by hand are left alone.
 - [ ] Vault filled from the tables in `docs/flask.md` (owner; values never in a chat)
 - [ ] Paper: Tier 1 keys and the master password, sealed, kept apart from both sticks (owner)
 - [ ] A boot test of the stick on roastery, and a restore test from it (with the offline HDD, no network)
