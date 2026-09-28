@@ -1,0 +1,99 @@
+# render-mode: 0644
+# Rendered by ../../render-configs.sh — edit the .template. Nothing secret in
+# here, and cloudflared runs as a non-root user, so the rendered file is 0644.
+#
+# The tunnel's public routes, in Git instead of the Cloudflare dashboard
+# (a locally-managed tunnel). Not wired in yet: docker-compose.yml still runs
+# the token-based tunnel. What's left is in ../README.md → "Moving to this file".
+#
+# Which apps are here: every Traefik route in the repo except the hosts in
+# Authelia's admin-only list (percolator/authelia/config/configuration.yml.template,
+# &admin_hosts: traefik, traefik-sieve, pihole, pihole-mochapot, netalertx,
+# gatus, komodo, scrutiny, ollama), and LLDAP, n8n, ESPHome and Speedtest (the
+# reasons are next to where they'd be). All of those stay LAN/tailnet-only;
+# every app, these included, is reachable over Tailscale (tailscale/README.md).
+#
+# Each app goes to its own node's Traefik over HTTPS with the app's name as
+# SNI, so Traefik's real certificate, CrowdSec and Authelia all apply as on
+# the LAN (README: http:// loops on Traefik's redirect; no originServerName
+# means a 502 on Traefik's default certificate).
+
+# The tunnel's UUID is given on the command line, and its credentials come
+# from `cloudflared tunnel create` on sieve: never committed.
+credentials-file: /etc/cloudflared/credentials.json
+
+ingress:
+  # ── sieve ──────────────────────────────────────────────────────────────────
+  # Straight to the container, so phones get alerts even if Traefik is down.
+  - hostname: ntfy.${DOMAIN}
+    service: http://ntfy:8080
+
+  # ── percolator: identity and the daily apps ───────────────────────────────
+  # Authelia's portal has to be public for any protected app to be: every
+  # login redirect lands here.
+  - hostname: authelia.${DOMAIN}
+    service: https://${PERCOLATOR_LAN_IP}:443
+    originRequest: {originServerName: authelia.${DOMAIN}}
+  - hostname: homepage.${DOMAIN}
+    service: https://${PERCOLATOR_LAN_IP}:443
+    originRequest: {originServerName: homepage.${DOMAIN}}
+  - hostname: immich.${DOMAIN}
+    service: https://${PERCOLATOR_LAN_IP}:443
+    originRequest: {originServerName: immich.${DOMAIN}}
+  - hostname: nextcloud.${DOMAIN}
+    service: https://${PERCOLATOR_LAN_IP}:443
+    originRequest: {originServerName: nextcloud.${DOMAIN}}
+  - hostname: paperless.${DOMAIN}
+    service: https://${PERCOLATOR_LAN_IP}:443
+    originRequest: {originServerName: paperless.${DOMAIN}}
+  - hostname: vault.${DOMAIN}
+    service: https://${PERCOLATOR_LAN_IP}:443
+    originRequest: {originServerName: vault.${DOMAIN}}
+  - hostname: mealie.${DOMAIN}
+    service: https://${PERCOLATOR_LAN_IP}:443
+    originRequest: {originServerName: mealie.${DOMAIN}}
+  - hostname: vikunja.${DOMAIN}
+    service: https://${PERCOLATOR_LAN_IP}:443
+    originRequest: {originServerName: vikunja.${DOMAIN}}
+  - hostname: actualbudget.${DOMAIN}
+    service: https://${PERCOLATOR_LAN_IP}:443
+    originRequest: {originServerName: actualbudget.${DOMAIN}}
+  - hostname: freshrss.${DOMAIN}
+    service: https://${PERCOLATOR_LAN_IP}:443
+    originRequest: {originServerName: freshrss.${DOMAIN}}
+  # Left out on purpose, though not on Authelia's admin list: LLDAP's UI is the
+  # user directory itself, has no Authelia in front (its own login only), and
+  # an admin there can create accounts for everything else. Uncomment only if
+  # people must change passwords from outside:
+  # - hostname: lldap.${DOMAIN}
+  #   service: https://${PERCOLATOR_LAN_IP}:443
+  #   originRequest: {originServerName: lldap.${DOMAIN}}
+
+  # ── mochaPot: the house ────────────────────────────────────────────────────
+  # Home Assistant has its own login, no Authelia in front (the app needs that).
+  - hostname: homeassistant.${DOMAIN}
+    service: https://${MOCHAPOT_LAN_IP}:443
+    originRequest: {originServerName: homeassistant.${DOMAIN}}
+  - hostname: music.${DOMAIN}
+    service: https://${MOCHAPOT_LAN_IP}:443
+    originRequest: {originServerName: music.${DOMAIN}}
+
+  # ── grinder: automation and the rest ──────────────────────────────────────
+  - hostname: chat.${DOMAIN}
+    service: https://${GRINDER_LAN_IP}:443
+    originRequest: {originServerName: chat.${DOMAIN}}
+  - hostname: karakeep.${DOMAIN}
+    service: https://${GRINDER_LAN_IP}:443
+    originRequest: {originServerName: karakeep.${DOMAIN}}
+  - hostname: fittrackee.${DOMAIN}
+    service: https://${GRINDER_LAN_IP}:443
+    originRequest: {originServerName: fittrackee.${DOMAIN}}
+  - hostname: traccar.${DOMAIN}
+    service: https://${GRINDER_LAN_IP}:443
+    originRequest: {originServerName: traccar.${DOMAIN}}
+  # Tailnet only, by the owner's choice (2026-09-28): n8n holds credentials for
+  # everything it automates, ESPHome can reflash devices in the house, and
+  # Speedtest doesn't need the internet. Reach them over Tailscale.
+
+  # Anything else that reaches the tunnel gets a 404, never a default backend.
+  - service: http_status:404

@@ -659,6 +659,44 @@ class RemoteAccess(unittest.TestCase):
             if file.is_file() and '.git' not in file.parts and file.suffix not in ('.pyc', '.exe', '.onnx'):
                 self.assertNotRegex(file.read_text(errors='ignore'), pattern, str(file.relative_to(ROOT)))
 
+    def fleet(self):
+        return dict(line.split('=', 1) for line in (STACKS / 'fleet.env').read_text().splitlines()
+                    if re.match(r'^[A-Z_]+=', line))
+
+    def test_subnet_routes_reach_the_apps_but_not_the_home_lan(self):
+        import ipaddress
+        example = (ROOT / 'init' / 'purrbrews-init.env.example').read_text()
+        routers = re.search(r'(?m)^TAILSCALE_SUBNET_ROUTERS=(.*)$', example).group(1).split()
+        nodes = re.search(r'(?m)^NODE_IPS=(.*)$', example).group(1)
+        self.assertGreaterEqual(len(routers), 2, 'one router is a single point of failure')
+        for r in routers:
+            self.assertIn(f'{r}=', nodes)
+        route = re.search(r'(?m)^TAILSCALE_ROUTES=(.*)$', example).group(1)
+        self.assertIn(f'cfg TAILSCALE_ROUTES {route})', self.INIT.read_text())
+        self.assertEqual(list(self.policy()['autoApprovers']['routes']), [route])
+        fleet = self.fleet()
+        net, lan = ipaddress.ip_network(route), ipaddress.ip_network(fleet['LAN_CIDR'])
+        # Less specific than the house LAN, so a laptop at home keeps its direct LAN route.
+        self.assertLess(net.prefixlen, lan.prefixlen)
+        self.assertTrue(lan.subnet_of(net))
+
+    def test_web_and_dns_grants_name_exactly_the_traefik_hosts_and_pi_holes(self):
+        fleet = self.fleet()
+        web = {f'{v}/32' for k, v in fleet.items() if k.endswith('_LAN_IP')}   # five nodes + roastery
+        dns = {f"{fleet['DNS_PRIMARY']}/32", f"{fleet['DNS_SECONDARY']}/32"}
+        lan_grants = [g for g in self.policy()['grants'] if any('/' in d for d in g['dst'])]
+        self.assertEqual({frozenset(g['dst']): sorted(g['ip']) for g in lan_grants},
+                         {frozenset(web): ['tcp:443'], frozenset(dns): ['tcp:53', 'udp:53']})
+
+    def test_subnet_router_forwards_web_and_dns_only(self):
+        body = re.search(r'^tailscale_subnet_router\(\) \{.*?^\}', self.INIT.read_text(), re.M | re.S).group(0)
+        rules = re.findall(r'^\s*ufw route allow (.*?) comment', body, re.M)
+        self.assertTrue(rules)
+        for rule in rules:
+            self.assertIn('in on tailscale0', rule)
+            self.assertIn(re.search(r'port (\d+)', rule).group(1), {'443', '53'}, rule)
+        self.assertIn('-s 100.64.0.0/10 -o ${lan_if} -j MASQUERADE', body)
+
     def test_roastery_installer_is_pinned_and_rdp_is_scoped(self):
         script = (STACKS / 'roastery' / 'remote-access' / 'setup.ps1').read_text()
         self.assertRegex(script, r"\$MsiSha256 = '[0-9a-f]{64}'")
@@ -666,6 +704,59 @@ class RemoteAccess(unittest.TestCase):
         self.assertIn("$Tailnet = '100.64.0.0/10'", script)
         self.assertIn('-LocalPort 3389 -RemoteAddress $from', script)
         self.assertIn('UserAuthentication -Value 1', script)   # Network Level Authentication
+
+
+class Tunnel(unittest.TestCase):
+    """sieve's cloudflared routes: every app except the admin-only ones (config.yml.template)."""
+
+    TEMPLATE = STACKS / 'sieve' / 'cloudflared' / 'config' / 'config.yml.template'
+    # Not admin-only in Authelia, but kept off the internet anyway (reasons in the template).
+    NOT_PUBLIC = {'lldap', 'n8n', 'esphome', 'speedtest'}
+
+    def routed_hosts(self):
+        names = set()
+        for file in STACKS.rglob('*'):
+            if file.is_file() and file.suffix in ('.yml', '.yaml', '.template') and '.git' not in file.parts:
+                active = '\n'.join(l for l in file.read_text().splitlines() if not l.lstrip().startswith('#'))
+                names |= set(re.findall(r'Host\(`([a-z0-9-]+)\.(?:\$\{DOMAIN\}|\{\{ env "DOMAIN" \}\})`\)', active))
+        return names
+
+    def admin_hosts(self):
+        text = (STACKS / 'percolator' / 'authelia' / 'config' / 'configuration.yml.template').read_text()
+        block = re.search(r'domain: &admin_hosts\n(.*?)\n\s+subject:', text, re.S).group(1)
+        return set(re.findall(r"'([a-z0-9-]+)\.\$\{DOMAIN\}'", block))
+
+    def ingress(self):
+        text = self.TEMPLATE.read_text()
+        active = '\n'.join(line for line in text.splitlines() if not line.lstrip().startswith('#'))
+        return re.findall(r'- hostname: ([a-z0-9-]+)\.\$\{DOMAIN\}\n\s+service: (\S+)', active), active
+
+    def test_every_non_admin_route_is_published_and_no_admin_one_is(self):
+        rules, _ = self.ingress()
+        published = [host for host, _ in rules]
+        self.assertEqual(len(published), len(set(published)), 'a hostname is listed twice')
+        self.assertEqual(set(published), self.routed_hosts() - self.admin_hosts() - self.NOT_PUBLIC)
+        self.assertFalse(set(published) & self.admin_hosts())
+
+    def test_traefik_routes_use_https_with_their_own_name_as_sni(self):
+        rules, active = self.ingress()
+        for host, service in rules:
+            if host == 'ntfy':
+                self.assertEqual(service, 'http://ntfy:8080')
+                continue
+            self.assertRegex(service, r'^https://\$\{[A-Z]+_LAN_IP\}:443$', host)
+            self.assertIn(f'originRequest: {{originServerName: {host}.${{DOMAIN}}}}', active)
+        self.assertRegex(active.rstrip(), r'- service: http_status:404$', 'the last rule must be the 404 catch-all')
+        self.assertNotIn('noTLSVerify', active)
+
+    def test_renders_on_sieve_with_existing_settings_only(self):
+        text = self.TEMPLATE.read_text()
+        self.assertTrue(text.startswith('# render-mode: 0644\n'), 'cloudflared runs as non-root and must read it')
+        active = '\n'.join(line for line in text.splitlines() if not line.lstrip().startswith('#'))
+        needed = {a or b for a, b in renderer.VARIABLE.findall(active)}
+        fleet = set(re.findall(r'(?m)^([A-Z_]+)=', (STACKS / 'fleet.env').read_text()))
+        sieve = set(re.findall(r'(?m)^([A-Z_]+)=', (STACKS / 'sieve' / 'local.env.example').read_text()))
+        self.assertEqual(needed - fleet - sieve, set(), 'a new setting would break the next render on sieve')
 
 
 if __name__ == '__main__':
