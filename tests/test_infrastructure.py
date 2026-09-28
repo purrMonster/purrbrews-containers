@@ -525,6 +525,19 @@ class PastedValues(unittest.TestCase):
         for pasted in [cid, f"'{cid}'", f'"{cid}"', f'  {cid} ', f'{cid}\r', f' "{cid}"\r']:
             self.assertEqual(self.clean(pasted), cid, repr(pasted))
 
+    def test_a_typed_answer_comes_back_as_typed(self):
+        # ask() only reads from a terminal, so give it one.
+        import pty
+        master, slave = pty.openpty()
+        script = 'source "$1"; source "$2"; printf "[%s]" "$(ask Question)"'
+        proc = subprocess.Popen(['bash', '-c', script, '_', str(STACKS / '_lib' / 'common.sh'),
+                                 str(STACKS / '_lib' / 'secrets.sh')],
+                                stdin=slave, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        os.write(master, b'abc\n')
+        out, _ = proc.communicate(timeout=10)
+        os.close(master); os.close(slave)
+        self.assertEqual(out.decode(), '[abc]')
+
     def test_quotes_inside_a_value_stay(self):
         self.assertEqual(self.clean('a"b'), 'a"b')
         self.assertEqual(self.clean("it's"), "it's")

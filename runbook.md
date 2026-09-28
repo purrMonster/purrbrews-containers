@@ -366,11 +366,15 @@ first contact (`accept-new`) instead of needing a second `keys` round.
   store run, so they're in restic from tonight's (or a hand-run `backup.sh store`).
 - [ ] Drive: Google API client, `drive-setup.sh`, first `drive-sync.sh` (owner)
   - 2026-09-29: Google API client made (owner). `./setup-secrets.sh` on cellar then
-    refused the client ID: "its value has a single quote or a newline", so the paste
-    had come with a quote around it. Nothing was stored. Fix: every prompted secret now
-    goes through `clean_pasted` (common.sh) first, which drops a \r, surrounding
-    spaces and one pair of surrounding quotes; a quote inside a value is still kept
-    and still refused. Tested in `PastedValues`.
+    refused the client ID: "its value has a single quote or a newline". Nothing was
+    stored. My first guess, a quote from the paste, was wrong: the owner got the same
+    with a typed `abc`. The real bug, in `ask()` (secrets.sh) since it was written:
+    it printed the newline after hidden input to stdout, which the caller captures
+    as the value, so every typed answer started with a newline and was refused.
+    Prompts only ever worked without a terminal (piped). The newline now goes to
+    stderr. A test types into a real pseudo-terminal: it fails on the old code
+    (`'[\nabc]'`) and passes now. The paste cleanup (`clean_pasted`: a \r,
+    surrounding spaces, one pair of surrounding quotes) stays; it's still worth having.
 - [ ] Restore test from roastery and from Drive; next morning's freshness check
 
 **What went wrong on the first pass, and the fixes:**

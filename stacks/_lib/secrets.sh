@@ -66,7 +66,9 @@ ask() {  # ask <text>: hidden input, empty without a terminal
   local value=''
   if [[ -t 0 ]]; then
     read -r -s -p "  $1: " value
-    printf '\n'
+    # To the terminal, not stdout: the caller takes stdout as the value, and a
+    # newline there made every typed answer "have a newline" and be refused.
+    printf '\n' >&2
   fi
   clean_pasted "$value"
 }
