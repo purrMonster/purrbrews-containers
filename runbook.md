@@ -24,7 +24,7 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Confirm each node's `DISK_DEVICE` (and `DISK_DEVICE_2` on percolator and cellar) against real hardware (`lsblk -d -o NAME,TYPE,SIZE,MODEL`); these were the per-node `*_DISK_DEVICE*` keys until 2026-09-26
 - [ ] cellar's Samba: `smb/docker-compose.yml` exists but nothing uses it and ufw-docker keeps 445 closed. Decide on shares and permissions, pin the image, then uncomment the rule in `smb/firewall`
 - [x] Wire cellar's restic sources to percolator's, sieve's and mochaPot's actual dumps and data: replaced by each node's own `backup` files (2026-09-27)
-- [ ] Backups to roastery, cellar as the dump store, second copy of everything on Google Drive (decided 2026-09-26; design in the 2026-09-27 entries). Scripts written 2026-09-27; next: tie them together in the order in `stacks/cellar/restic/README.md`, ending with a restore test from Drive. Replaces the old "enable cellar's roastery mirror and Google Drive sync" item
+- [ ] Backups to roastery, cellar as the dump store, second copy of everything on Google Drive (decided 2026-09-26; design in the 2026-09-27 entries). Scripts written 2026-09-27; every node's backups on since 2026-09-28; Drive set up 2026-09-29, first upload running. Next: the restore test from Drive (2026-09-27 wiring entry). Replaces the old "enable cellar's roastery mirror and Google Drive sync" item
 - [ ] Replace cellar's old disk (ST1000LM035, 5–8 years old) once it's only the dump store; the SanDisk on mochaPot is the same age. Superseded 2026-09-28: it's out of use on cellar and becomes the offline copy after a long self-test (2026-09-28 flask entry)
 - [ ] roastery: `immich-machine-learning` at Immich's version, Windows Firewall 3003 scoped to percolator
 - [x] Postgres dump job for percolator's databases (Nextcloud, Immich, Paperless): `pg` lines in their `backup` files (2026-09-27)
@@ -375,6 +375,20 @@ first contact (`accept-new`) instead of needing a second `keys` round.
     stderr. A test types into a real pseudo-terminal: it fails on the old code
     (`'[\nabc]'`) and passes now. The paste cleanup (`clean_pasted`: a \r,
     surrounding spaces, one pair of surrounding quotes) stays; it's still worth having.
+  - 2026-09-29, after the fix: `./setup-secrets.sh` stored the client ID and secret
+    (checked: both set, values not read). `sudo ./restic/drive-setup.sh` (owner), with
+    `rclone authorize` on roastery for the Google sign-in: "drive: signed in",
+    "drive-crypt: writable", "roastery: the repository is readable over SFTP";
+    `/etc/purrbrews/rclone.conf` written 04:58.
+  - First upload: `drive-sync.service` started by hand at 04:59:56 (owner), still
+    running at 05:06; roastery was sending to cellar at about 18 MB/s, so roughly
+    75 minutes for the 76.6 GB. roastery's sleep is off (`standby-timeout-ac 0`) until
+    it's done; put it back after. The 06:00 freshness check will likely still see
+    Drive as stale and alert: expected, not a failure.
+  - [ ] Upload finished, `drive sync OK` (checking at 06:30)
+  - [ ] roastery's sleep setting back
+  - [ ] Drive client ID/secret into the vault (`fill-vault.ps1` again) and
+    `rclone.conf` attached; the vault copied to stick B, `-Check`
 - [ ] Restore test from roastery and from Drive; next morning's freshness check
 
 **What went wrong on the first pass, and the fixes:**
