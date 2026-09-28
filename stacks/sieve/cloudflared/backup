@@ -1,0 +1,3 @@
+# cloudflared: the zone certificate and the locally-managed tunnel's credentials
+# (README → "Moving to this file"). Optional until that switch has been made.
+path    cloudflared  optional

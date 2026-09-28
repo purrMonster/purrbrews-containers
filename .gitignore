@@ -52,6 +52,7 @@ stacks/percolator/traefik/config/traefik.yml
 stacks/percolator/vikunja/config/config.yml
 stacks/roastery/traefik/config/dynamic/ollama.yml
 stacks/roastery/traefik/config/traefik.yml
+stacks/sieve/cloudflared/config/config.yml
 
 # --- Runtime data -----------------------------------------------------------
 # App data lives under DATA_DIR (/srv/data) on the node, never in the repo.

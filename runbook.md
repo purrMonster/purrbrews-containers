@@ -41,6 +41,44 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Karakeep: `NEXTAUTH_URL` is the direct-port URL while the route is `karakeep.${DOMAIN}`; check the phone share sheet signs in through the hostname
 - [x] Remote access over Tailscale: rolled out and checked from outside the house (2026-09-28; 2026-09-27 entry below)
 - [ ] Phone on the tailnet (only the Mac has joined so far)
+- [ ] Tunnel from Git: two-factor in Authelia first, then the switch in `stacks/sieve/cloudflared/README.md` (2026-09-28 entry below)
+
+---
+
+## 2026-09-28 — The tunnel's routes, in Git
+
+The owner weighed Cloudflare Tunnel against Tailscale for reaching the apps from
+outside, and asked for the tunnel's config file covering every app except the
+admin-only ones. `stacks/sieve/cloudflared/config/config.yml.template` is that file.
+It isn't wired in: the running tunnel is still the token-based one, with its routes
+in the dashboard.
+
+- **What's public:** every Traefik route except Authelia's `&admin_hosts` (traefik,
+  traefik-sieve, pihole, pihole-mochapot, netalertx, gatus, komodo, scrutiny, ollama).
+  That's 20 hostnames: ntfy, authelia, the percolator apps, Home Assistant and Music
+  Assistant, and grinder's apps.
+- **LLDAP left out** although Authelia doesn't list it as admin-only: it has no
+  Authelia in front, and it's the directory every other login trusts. Commented out
+  in the template, with the reason.
+- **Each route goes to its node's Traefik over HTTPS with its own name as SNI**
+  (the two lessons already in the cloudflared README), so CrowdSec, Authelia and
+  the real certificate apply as on the LAN. Only ntfy goes straight to its
+  container, as today. Anything else gets a 404.
+- **Only existing settings** (`DOMAIN`, the `*_LAN_IP`s in `fleet.env`), so sieve's
+  next render doesn't stop on a new placeholder. The tunnel's UUID goes on the
+  command line and its credentials stay in `/srv/data/cloudflared`, now in sieve's
+  backups.
+- **Tests (`Tunnel`):** the published set must equal all routes minus the admin
+  hosts minus LLDAP, so a new app forces a decision here. HTTPS and SNI per route,
+  the 404 catch-all last, no new settings needed.
+- **Checked:** `cloudflared tunnel ingress validate` (the pinned 2026.9.1 image, on
+  roastery) says OK. `ingress rule` sends `immich.` to percolator:443 and `pihole.`
+  to the 404.
+
+**Before it goes live:** two-factor in Authelia (password-only is fine on the LAN,
+not on the internet); decide per app whether phone apps behind forward-auth need
+bypass rules; and accept Cloudflare's 100 MB request limit and that it terminates
+TLS. Tailscale stays the way in for admin pages and SSH/RDP.
 
 ---
 

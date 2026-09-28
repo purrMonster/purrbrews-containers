@@ -668,5 +668,57 @@ class RemoteAccess(unittest.TestCase):
         self.assertIn('UserAuthentication -Value 1', script)   # Network Level Authentication
 
 
+class Tunnel(unittest.TestCase):
+    """sieve's cloudflared routes: every app except the admin-only ones (config.yml.template)."""
+
+    TEMPLATE = STACKS / 'sieve' / 'cloudflared' / 'config' / 'config.yml.template'
+    NOT_PUBLIC = {'lldap'}   # not admin-only in Authelia, but the user directory: see the template
+
+    def routed_hosts(self):
+        names = set()
+        for file in STACKS.rglob('*'):
+            if file.is_file() and file.suffix in ('.yml', '.yaml', '.template') and '.git' not in file.parts:
+                active = '\n'.join(l for l in file.read_text().splitlines() if not l.lstrip().startswith('#'))
+                names |= set(re.findall(r'Host\(`([a-z0-9-]+)\.(?:\$\{DOMAIN\}|\{\{ env "DOMAIN" \}\})`\)', active))
+        return names
+
+    def admin_hosts(self):
+        text = (STACKS / 'percolator' / 'authelia' / 'config' / 'configuration.yml.template').read_text()
+        block = re.search(r'domain: &admin_hosts\n(.*?)\n\s+subject:', text, re.S).group(1)
+        return set(re.findall(r"'([a-z0-9-]+)\.\$\{DOMAIN\}'", block))
+
+    def ingress(self):
+        text = self.TEMPLATE.read_text()
+        active = '\n'.join(line for line in text.splitlines() if not line.lstrip().startswith('#'))
+        return re.findall(r'- hostname: ([a-z0-9-]+)\.\$\{DOMAIN\}\n\s+service: (\S+)', active), active
+
+    def test_every_non_admin_route_is_published_and_no_admin_one_is(self):
+        rules, _ = self.ingress()
+        published = [host for host, _ in rules]
+        self.assertEqual(len(published), len(set(published)), 'a hostname is listed twice')
+        self.assertEqual(set(published), self.routed_hosts() - self.admin_hosts() - self.NOT_PUBLIC)
+        self.assertFalse(set(published) & self.admin_hosts())
+
+    def test_traefik_routes_use_https_with_their_own_name_as_sni(self):
+        rules, active = self.ingress()
+        for host, service in rules:
+            if host == 'ntfy':
+                self.assertEqual(service, 'http://ntfy:8080')
+                continue
+            self.assertRegex(service, r'^https://\$\{[A-Z]+_LAN_IP\}:443$', host)
+            self.assertIn(f'originRequest: {{originServerName: {host}.${{DOMAIN}}}}', active)
+        self.assertRegex(active.rstrip(), r'- service: http_status:404$', 'the last rule must be the 404 catch-all')
+        self.assertNotIn('noTLSVerify', active)
+
+    def test_renders_on_sieve_with_existing_settings_only(self):
+        text = self.TEMPLATE.read_text()
+        self.assertTrue(text.startswith('# render-mode: 0644\n'), 'cloudflared runs as non-root and must read it')
+        active = '\n'.join(line for line in text.splitlines() if not line.lstrip().startswith('#'))
+        needed = {a or b for a, b in renderer.VARIABLE.findall(active)}
+        fleet = set(re.findall(r'(?m)^([A-Z_]+)=', (STACKS / 'fleet.env').read_text()))
+        sieve = set(re.findall(r'(?m)^([A-Z_]+)=', (STACKS / 'sieve' / 'local.env.example').read_text()))
+        self.assertEqual(needed - fleet - sieve, set(), 'a new setting would break the next render on sieve')
+
+
 if __name__ == '__main__':
     unittest.main()

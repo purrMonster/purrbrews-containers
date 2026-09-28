@@ -46,6 +46,47 @@ this table, so a rebuilt tunnel can be recreated from it.
 publish sieve's admin UIs at all. They have no login of their own; on the LAN they are
 behind Authelia.
 
+## Moving to this file
+
+[`config/config.yml.template`](config/config.yml.template) holds every public route
+in Git: every app except Authelia's admin-only hosts (and LLDAP; the template says
+why). `tests/test_infrastructure.py` (`Tunnel`) fails if a route is added to Traefik
+and not decided on here, or if an admin host ever lands in it. sieve renders it with
+its other templates, but nothing uses it yet. `/srv/data/cloudflared` (the zone cert
+and the tunnel's credentials) stays on sieve, is in sieve's backups
+(`cloudflared/backup`), and never enters Git.
+**Before switching:**
+
+1. **Two-factor in Authelia** (`AUTH_POLICY=two_factor` on percolator, after everyone
+   has enrolled). Today it's password-only, which is fine on the LAN and not on the
+   internet.
+2. **Phone apps.** Immich, Nextcloud, Vaultwarden and the others that sign in with
+   OIDC or their own login work through the tunnel as they are. Apps behind the
+   `authelia-forwardauth` middleware (Karakeep, FitTrackee, Traccar, Open WebUI,
+   Music Assistant) only work in a browser; their phone apps would need Authelia
+   bypass rules for their API paths, decided app by app.
+3. **Limits of Cloudflare's free plan:** 100 MB per request (long Immich videos from
+   the phone won't upload through the tunnel; they will over Tailscale or at home),
+   and Cloudflare terminates TLS, so it sees the traffic.
+
+**Switching** (on sieve; the token tunnel keeps running until the last step):
+
+```bash
+sudo install -d -m 700 -o 65532 -g 65532 /srv/data/cloudflared   # cloudflared's non-root user
+sudo docker run --rm -it -v /srv/data/cloudflared:/home/nonroot/.cloudflared \
+  cloudflare/cloudflared:2026.9.1 tunnel login          # once: authorise the zone
+sudo docker run --rm -it -v /srv/data/cloudflared:/home/nonroot/.cloudflared \
+  cloudflare/cloudflared:2026.9.1 tunnel create sieve-git   # prints the tunnel UUID
+./render-configs.sh
+sudo docker run --rm -v "$PWD/cloudflared/config:/etc/cloudflared:ro" \
+  cloudflare/cloudflared:2026.9.1 tunnel --config /etc/cloudflared/config.yml ingress validate
+```
+
+Then point each hostname's DNS at the new tunnel (`tunnel route dns sieve-git
+<host>`), change `docker-compose.yml` to mount `config/` and the credentials file and
+run `tunnel --config /etc/cloudflared/config.yml run <UUID>` instead of the token, and
+delete the old dashboard tunnel. That compose change is the one step not written yet.
+
 ## Checks
 
 ```bash
