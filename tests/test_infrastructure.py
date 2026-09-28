@@ -659,6 +659,44 @@ class RemoteAccess(unittest.TestCase):
             if file.is_file() and '.git' not in file.parts and file.suffix not in ('.pyc', '.exe', '.onnx'):
                 self.assertNotRegex(file.read_text(errors='ignore'), pattern, str(file.relative_to(ROOT)))
 
+    def fleet(self):
+        return dict(line.split('=', 1) for line in (STACKS / 'fleet.env').read_text().splitlines()
+                    if re.match(r'^[A-Z_]+=', line))
+
+    def test_subnet_routes_reach_the_apps_but_not_the_home_lan(self):
+        import ipaddress
+        example = (ROOT / 'init' / 'purrbrews-init.env.example').read_text()
+        routers = re.search(r'(?m)^TAILSCALE_SUBNET_ROUTERS=(.*)$', example).group(1).split()
+        nodes = re.search(r'(?m)^NODE_IPS=(.*)$', example).group(1)
+        self.assertGreaterEqual(len(routers), 2, 'one router is a single point of failure')
+        for r in routers:
+            self.assertIn(f'{r}=', nodes)
+        route = re.search(r'(?m)^TAILSCALE_ROUTES=(.*)$', example).group(1)
+        self.assertIn(f'cfg TAILSCALE_ROUTES {route})', self.INIT.read_text())
+        self.assertEqual(list(self.policy()['autoApprovers']['routes']), [route])
+        fleet = self.fleet()
+        net, lan = ipaddress.ip_network(route), ipaddress.ip_network(fleet['LAN_CIDR'])
+        # Less specific than the house LAN, so a laptop at home keeps its direct LAN route.
+        self.assertLess(net.prefixlen, lan.prefixlen)
+        self.assertTrue(lan.subnet_of(net))
+
+    def test_web_and_dns_grants_name_exactly_the_traefik_hosts_and_pi_holes(self):
+        fleet = self.fleet()
+        web = {f'{v}/32' for k, v in fleet.items() if k.endswith('_LAN_IP')}   # five nodes + roastery
+        dns = {f"{fleet['DNS_PRIMARY']}/32", f"{fleet['DNS_SECONDARY']}/32"}
+        lan_grants = [g for g in self.policy()['grants'] if any('/' in d for d in g['dst'])]
+        self.assertEqual({frozenset(g['dst']): sorted(g['ip']) for g in lan_grants},
+                         {frozenset(web): ['tcp:443'], frozenset(dns): ['tcp:53', 'udp:53']})
+
+    def test_subnet_router_forwards_web_and_dns_only(self):
+        body = re.search(r'^tailscale_subnet_router\(\) \{.*?^\}', self.INIT.read_text(), re.M | re.S).group(0)
+        rules = re.findall(r'^\s*ufw route allow (.*?) comment', body, re.M)
+        self.assertTrue(rules)
+        for rule in rules:
+            self.assertIn('in on tailscale0', rule)
+            self.assertIn(re.search(r'port (\d+)', rule).group(1), {'443', '53'}, rule)
+        self.assertIn('-s 100.64.0.0/10 -o ${lan_if} -j MASQUERADE', body)
+
     def test_roastery_installer_is_pinned_and_rdp_is_scoped(self):
         script = (STACKS / 'roastery' / 'remote-access' / 'setup.ps1').read_text()
         self.assertRegex(script, r"\$MsiSha256 = '[0-9a-f]{64}'")
@@ -672,7 +710,8 @@ class Tunnel(unittest.TestCase):
     """sieve's cloudflared routes: every app except the admin-only ones (config.yml.template)."""
 
     TEMPLATE = STACKS / 'sieve' / 'cloudflared' / 'config' / 'config.yml.template'
-    NOT_PUBLIC = {'lldap'}   # not admin-only in Authelia, but the user directory: see the template
+    # Not admin-only in Authelia, but kept off the internet anyway (reasons in the template).
+    NOT_PUBLIC = {'lldap', 'n8n', 'esphome', 'speedtest'}
 
     def routed_hosts(self):
         names = set()

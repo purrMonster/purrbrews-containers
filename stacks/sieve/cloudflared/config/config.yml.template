@@ -9,7 +9,9 @@
 # Which apps are here: every Traefik route in the repo except the hosts in
 # Authelia's admin-only list (percolator/authelia/config/configuration.yml.template,
 # &admin_hosts: traefik, traefik-sieve, pihole, pihole-mochapot, netalertx,
-# gatus, komodo, scrutiny, ollama). Those stay LAN/tailnet-only.
+# gatus, komodo, scrutiny, ollama), and LLDAP, n8n, ESPHome and Speedtest (the
+# reasons are next to where they'd be). All of those stay LAN/tailnet-only;
+# every app, these included, is reachable over Tailscale (tailscale/README.md).
 #
 # Each app goes to its own node's Traefik over HTTPS with the app's name as
 # SNI, so Traefik's real certificate, CrowdSec and Authelia all apply as on
@@ -89,15 +91,9 @@ ingress:
   - hostname: traccar.${DOMAIN}
     service: https://${GRINDER_LAN_IP}:443
     originRequest: {originServerName: traccar.${DOMAIN}}
-  - hostname: n8n.${DOMAIN}
-    service: https://${GRINDER_LAN_IP}:443
-    originRequest: {originServerName: n8n.${DOMAIN}}
-  - hostname: esphome.${DOMAIN}
-    service: https://${GRINDER_LAN_IP}:443
-    originRequest: {originServerName: esphome.${DOMAIN}}
-  - hostname: speedtest.${DOMAIN}
-    service: https://${GRINDER_LAN_IP}:443
-    originRequest: {originServerName: speedtest.${DOMAIN}}
+  # Tailnet only, by the owner's choice (2026-09-28): n8n holds credentials for
+  # everything it automates, ESPHome can reflash devices in the house, and
+  # Speedtest doesn't need the internet. Reach them over Tailscale.
 
   # Anything else that reaches the tunnel gets a 404, never a default backend.
   - service: http_status:404

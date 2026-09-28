@@ -49,8 +49,9 @@ behind Authelia.
 ## Moving to this file
 
 [`config/config.yml.template`](config/config.yml.template) holds every public route
-in Git: every app except Authelia's admin-only hosts (and LLDAP; the template says
-why). `tests/test_infrastructure.py` (`Tunnel`) fails if a route is added to Traefik
+in Git: every app except Authelia's admin-only hosts and LLDAP, n8n, ESPHome and
+Speedtest (the template says why). Those are reachable over Tailscale instead, like
+everything else. `tests/test_infrastructure.py` (`Tunnel`) fails if a route is added to Traefik
 and not decided on here, or if an admin host ever lands in it. sieve renders it with
 its other templates, but nothing uses it yet. `/srv/data/cloudflared` (the zone cert
 and the tunnel's credentials) stays on sieve, is in sieve's backups
@@ -63,7 +64,8 @@ and the tunnel's credentials) stays on sieve, is in sieve's backups
 2. **Phone apps.** Immich, Nextcloud, Vaultwarden and the others that sign in with
    OIDC or their own login work through the tunnel as they are. Apps behind the
    `authelia-forwardauth` middleware (Karakeep, FitTrackee, Traccar, Open WebUI,
-   Music Assistant) only work in a browser; their phone apps would need Authelia
+   Music Assistant) only work in a browser through the tunnel (over Tailscale they
+   still need Authelia too, since it's the same Traefik route); their phone apps would need Authelia
    bypass rules for their API paths, decided app by app.
 3. **Limits of Cloudflare's free plan:** 100 MB per request (long Immich videos from
    the phone won't upload through the tunnel; they will over Tailscale or at home),

@@ -157,6 +157,8 @@ resolve_config() {
   DISABLE_SLEEP="$(cfg DISABLE_SLEEP true)"
   ENABLE_TAILSCALE="$(cfg ENABLE_TAILSCALE true)"
   TAILSCALE_TAGS="$(cfg TAILSCALE_TAGS tag:purrbrews-node)"
+  TAILSCALE_SUBNET_ROUTERS="$(cfg TAILSCALE_SUBNET_ROUTERS "cellar grinder")"
+  TAILSCALE_ROUTES="$(cfg TAILSCALE_ROUTES 192.168.0.0/23)"
 
   placeholder "$NODE_IPS" && die "NODE_IPS is not set in $ENV_FILE (e.g. NODE_IPS=sieve=192.168.0.10 percolator=192.168.0.11)."
   local pair name ip mac other
@@ -271,6 +273,12 @@ preflight() {
   [[ "$ENABLE_TAILSCALE" == true || "$ENABLE_TAILSCALE" == false ]] || die "ENABLE_TAILSCALE must be true or false."
   [[ -z "$TAILSCALE_TAGS" || "$TAILSCALE_TAGS" =~ ^tag:[a-z0-9-]+(,tag:[a-z0-9-]+)*$ ]] \
     || die "TAILSCALE_TAGS must be empty or look like tag:purrbrews-node[,tag:other]."
+  local r
+  for r in $TAILSCALE_SUBNET_ROUTERS; do
+    canonical_node "$r" >/dev/null || die "TAILSCALE_SUBNET_ROUTERS names '$r', which is not in NODE_IPS."
+  done
+  [[ -z "$TAILSCALE_SUBNET_ROUTERS" || "$TAILSCALE_ROUTES" =~ ^[0-9]+(\.[0-9]+){3}/[0-9]{1,2}(,[0-9]+(\.[0-9]+){3}/[0-9]{1,2})*$ ]] \
+    || die "TAILSCALE_ROUTES must be comma-separated CIDRs, e.g. 192.168.0.0/23."
 
   local perms; perms="$(stat -c %a "$ENV_FILE")"
   if [[ -n "$OPS_PASSWORD_HASH" && "$perms" != 600 && "$perms" != 400 ]]; then
@@ -753,11 +761,26 @@ EOF
     warn "ENABLE_UFW=false with --netfilter-mode=off: nothing filters tailnet traffic on this node except the tailnet policy."
   fi
 
+  local router=false r
+  for r in $TAILSCALE_SUBNET_ROUTERS; do
+    [[ "$(canonical_node "$r")" == "$NODE" ]] && router=true
+  done
+  if [[ "$router" == true ]]; then
+    tailscale_subnet_router
+  elif [[ -f /etc/systemd/system/purrbrews-tailscale-nat.service ]]; then
+    systemctl disable --now purrbrews-tailscale-nat.service >/dev/null 2>&1 || true
+    rm -f /etc/systemd/system/purrbrews-tailscale-nat.service
+    systemctl daemon-reload
+    warn "No longer a subnet router: NAT removed. Delete its 'tailnet →' rules by hand (sudo ufw status numbered)."
+  fi
+
   local host="${NODE,,}" keyfile="${ETC_DIR}/tailscale-authkey" state
   # --accept-dns=false: the node keeps Pi-hole (sieve runs it) instead of MagicDNS.
   # --reset: every run states the whole configuration, so a hand-made change can't linger.
   local args=(up --reset "--hostname=${host}" --accept-dns=false --netfilter-mode=off --ssh=false
               "--advertise-tags=${TAILSCALE_TAGS}")
+  # Subnet routers carry the apps (443) and Pi-hole (53) to the tailnet; see tailscale_subnet_router.
+  if [[ "$router" == true ]]; then args+=("--advertise-routes=${TAILSCALE_ROUTES}"); else args+=(--advertise-routes=); fi
   state="$(tailscale status --json 2>/dev/null | jq -r '.BackendState // empty')" || true
 
   if [[ "$state" != Running ]]; then
@@ -789,6 +812,57 @@ EOF
   [[ -z "$TAILSCALE_TAGS" || "$tags" == "$TAILSCALE_TAGS" ]] \
     || warn "Tailscale tags are '${tags:-none}', expected '$TAILSCALE_TAGS' — the tailnet policy won't match this node."
   ok "tailscale: ${host} at ${ip}${tags:+ ($tags)}; SSH only, via UFW; DNS stays on Pi-hole"
+  [[ "$router" == true ]] && ok "subnet router for ${TAILSCALE_ROUTES}: web (443) and DNS (53) only, NATed onto the LAN"
+  return 0
+}
+
+# The apps over the tailnet (tailscale/README.md → "Apps over the tailnet").
+# A tailnet device reaches https://<app>.${DOMAIN} at the app's usual LAN
+# address through this node, and Pi-hole through split DNS. Three pieces,
+# because --netfilter-mode=off means Tailscale sets none of them up itself:
+#   - forwarding on;
+#   - UFW forwards 443 and 53 from tailscale0, nothing else (which LAN hosts
+#     may be reached is the tailnet policy's job: the grants name them);
+#   - NAT onto the LAN, so every node sees the request coming from this
+#     node's LAN address and its existing "from the LAN" rules apply as they
+#     are. A oneshot unit adds the rule, since UFW's before.rules would
+#     duplicate a nat rule on every reload.
+tailscale_subnet_router() {
+  [[ "$ENABLE_UFW" == true ]] || die "A subnet router needs UFW to limit what it forwards; set ENABLE_UFW=true or drop $NODE from TAILSCALE_SUBNET_ROUTERS."
+  local lan_if
+  lan_if="$(ip -4 route show default | awk '{for(i=1;i<=NF;i++) if($i=="dev"){print $(i+1); exit}}')"
+  [[ -n "$lan_if" ]] || die "No default route — can't tell which interface is the LAN."
+
+  printf '# Managed by purrbrews-init.sh: this node is a Tailscale subnet router.\nnet.ipv4.ip_forward = 1\n' \
+    > /etc/sysctl.d/99-purrbrews-tailscale.conf
+  sysctl -q -p /etc/sysctl.d/99-purrbrews-tailscale.conf
+
+  # "to any" for 443 because this node's own Traefik is a container: after
+  # Docker's DNAT the destination is a container address, not the LAN.
+  ufw route allow in on tailscale0 proto tcp to any port 443 comment 'purrbrews: tailnet → web (subnet router)' >/dev/null
+  ufw route allow in on tailscale0 out on "$lan_if" proto tcp to "$LAN_CIDR" port 53 comment 'purrbrews: tailnet → Pi-hole (subnet router)' >/dev/null
+  ufw route allow in on tailscale0 out on "$lan_if" proto udp to "$LAN_CIDR" port 53 comment 'purrbrews: tailnet → Pi-hole (subnet router)' >/dev/null
+
+  local rule="POSTROUTING -s 100.64.0.0/10 -o ${lan_if} -j MASQUERADE"
+  cat > /etc/systemd/system/purrbrews-tailscale-nat.service <<EOF
+[Unit]
+Description=PurrBrews: NAT tailnet traffic this subnet router forwards onto the LAN
+Wants=network-online.target
+After=network-online.target ufw.service docker.service tailscaled.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'iptables -t nat -C ${rule} 2>/dev/null || iptables -t nat -A ${rule}'
+ExecStop=/bin/sh -c 'iptables -t nat -D ${rule} 2>/dev/null || true'
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  systemctl daemon-reload
+  systemctl enable purrbrews-tailscale-nat.service >/dev/null
+  systemctl restart purrbrews-tailscale-nat.service
+  iptables -t nat -C $rule 2>/dev/null || die "the NAT rule isn't in place — check 'systemctl status purrbrews-tailscale-nat'."
 }
 
 step_network() {

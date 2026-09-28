@@ -42,6 +42,59 @@ changes can be made later without re-deriving the reasoning.
 - [x] Remote access over Tailscale: rolled out and checked from outside the house (2026-09-28; 2026-09-27 entry below)
 - [ ] Phone on the tailnet (only the Mac has joined so far)
 - [ ] Tunnel from Git: two-factor in Authelia first, then the switch in `stacks/sieve/cloudflared/README.md` (2026-09-28 entry below)
+- [ ] Apps over the tailnet: roll out in the order in the 2026-09-28 entry below
+
+---
+
+## 2026-09-28 — Every app over the tailnet, admin pages included
+
+The owner wants every app reachable over Tailscale, the admin pages too; the
+Cloudflare tunnel (entry below) carries only the public subset.
+
+**How:** cellar and grinder become subnet routers for `192.168.0.0/23`, forwarding
+web (443) and DNS (53) only, NATed onto the LAN. Tailscale's split DNS sends
+`${DOMAIN}` lookups to the two Pi-holes. So `https://<app>.${DOMAIN}` works the same
+away as at home, with the real certificate, and Authelia still decides: admin
+pages still need the admin group.
+
+**Choices worth remembering:**
+
+- **A /23, not the house's /24.** Devices pick the most specific route, and
+  Tailscale's docs say the subnet route wins over the LAN when they're equal. A
+  /24 would send a laptop's traffic at home through a router node, and break SSH
+  and the backdoor ports to LAN addresses while Tailscale is on. With a /23, the
+  laptop's own /24 wins at home. The price: away, on a network that is itself
+  192.168.0.x or .1.x, the app names don't load (SSH by tailnet name still works).
+- **NAT, so no node changes.** Every node sees the requests coming from cellar's or
+  grinder's LAN address, and its existing "443 from the LAN" rules apply. With
+  `--netfilter-mode=off` Tailscale adds no NAT itself, so a oneshot unit
+  (`purrbrews-tailscale-nat`) adds the MASQUERADE rule. UFW's `before.rules` was
+  the alternative, but a nat rule there duplicates on every `ufw reload`.
+- **Two routers**, so either can be down. Not sieve or mochaPot: the Pi-holes run
+  host-networked there, and a router's own DNS would need extra INPUT rules.
+- **The policy is the fine filter:** only the six Traefik hosts (the nodes and
+  roastery) on 443, and the Pi-holes on 53. UFW on the routers forwards any
+  destination on 443 (their own Traefik is a container, so after Docker's DNAT the
+  destination isn't a LAN address), and only the LAN on 53.
+  `autoApprovers` approves the route for tagged nodes, so no console click.
+- **What stays off:** the backdoor ports, the backup SFTP, the rest of the LAN.
+
+**Tests:** at least two routers, all real nodes; the route is one CIDR in the
+settings, init's default and the policy's `autoApprovers`, and it is less specific
+than `LAN_CIDR` and contains it; the web and DNS grants name exactly the `*_LAN_IP`s
+and the two DNS servers from `fleet.env`; the router forwards 443 and 53 only.
+
+**Not tested anywhere yet:** no node has run this. Checked on roastery: `bash -n`,
+and the tests above.
+
+**Rollout** (sudo and the console are the owner's):
+
+- [ ] Paste the new `tailscale/policy.hujson` (adds `autoApprovers` and two grants)
+- [ ] Admin console → DNS: custom nameservers `192.168.0.10` and `192.168.0.13`, restricted to the domain
+- [ ] cellar and grinder: `git pull`, then `sudo bash init/purrbrews-init.sh --only tailscale`
+- [ ] Console shows both advertising `192.168.0.0/23`, approved
+- [ ] Away from home: an app and an admin page load through Authelia, a backdoor port stays closed (`tailscale/README.md` → "Is it working?")
+- [ ] At home with Tailscale on: `ssh barista@192.168.0.10` still works directly
 
 ---
 
@@ -55,11 +108,15 @@ in the dashboard.
 
 - **What's public:** every Traefik route except Authelia's `&admin_hosts` (traefik,
   traefik-sieve, pihole, pihole-mochapot, netalertx, gatus, komodo, scrutiny, ollama).
-  That's 20 hostnames: ntfy, authelia, the percolator apps, Home Assistant and Music
-  Assistant, and grinder's apps.
+  That's 17 hostnames: ntfy, authelia, the percolator apps, Home Assistant and Music
+  Assistant, and grinder's chat, karakeep, fittrackee and traccar.
 - **LLDAP left out** although Authelia doesn't list it as admin-only: it has no
   Authelia in front, and it's the directory every other login trusts. Commented out
   in the template, with the reason.
+- **n8n, ESPHome and Speedtest left out** too (owner's call, same day): n8n holds
+  credentials for everything it automates, ESPHome can reflash devices, Speedtest
+  has no reason to be public. Every excluded app is reachable over the tailnet
+  (entry above).
 - **Each route goes to its node's Traefik over HTTPS with its own name as SNI**
   (the two lessons already in the cloudflared README), so CrowdSec, Authelia and
   the real certificate apply as on the LAN. Only ntfy goes straight to its
@@ -69,11 +126,11 @@ in the dashboard.
   command line and its credentials stay in `/srv/data/cloudflared`, now in sieve's
   backups.
 - **Tests (`Tunnel`):** the published set must equal all routes minus the admin
-  hosts minus LLDAP, so a new app forces a decision here. HTTPS and SNI per route,
+  hosts minus those four, so a new app forces a decision here. HTTPS and SNI per route,
   the 404 catch-all last, no new settings needed.
 - **Checked:** `cloudflared tunnel ingress validate` (the pinned 2026.9.1 image, on
-  roastery) says OK. `ingress rule` sends `immich.` to percolator:443 and `pihole.`
-  to the 404.
+  roastery) says OK. `ingress rule` sends `immich.` to percolator:443, and `pihole.`
+  and `n8n.` to the 404.
 
 **Before it goes live:** two-factor in Authelia (password-only is fine on the LAN,
 not on the internet); decide per app whether phone apps behind forward-auth need
