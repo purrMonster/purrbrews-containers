@@ -10,8 +10,8 @@ changes can be made later without re-deriving the reasoning.
 - [ ] First real node through `bootstrap.sh`, at the console (the network step has not yet run on real hardware)
 - [x] Add stacks node by node, each with its own `stacks/<node>/README.md` — sieve, percolator, cellar, mochaPot and grinder are all in
 - [x] Pi-hole static leases from `purrbrews-mac.sh`: automated by `stacks/sieve/setup-secrets.sh` (2026-09-15)
-- [ ] sieve: Cloudflare DNS token, tunnel + `ntfy.${DOMAIN}` route, healthchecks.io check, then the bring-up in `stacks/sieve/README.md`
-- [ ] sieve: prove both alert paths with a deliberate break (stop NetAlertX → ntfy; stop ntfy → ntfy.sh)
+- [x] sieve: Cloudflare DNS token, tunnel + `ntfy.${DOMAIN}` route, healthchecks.io check, then the bring-up in `stacks/sieve/README.md` Done: all running; the ntfy route and healthchecks.io proven 2026-09-29 (entry below)
+- [x] sieve: prove both alert paths with a deliberate break (stop NetAlertX → ntfy; stop ntfy → ntfy.sh) Done 2026-09-29, both delivered; ntfy.sh titles fixed the same day, retest in that entry
 - [ ] sieve: router DNS → 192.168.0.10, then hand DHCP to Pi-hole (router DHCP left configured but off)
 - [x] percolator: Authelia's 9091 published (UFW: `FORWARD_AUTH_CLIENTS`), session domain `${DOMAIN}`, admin-only rules for `pihole`, `gatus`, `netalertx`, `traefik-sieve` — done in percolator's stack (2026-09-16)
 - [ ] percolator: Cloudflare token, then the bring-up in `stacks/percolator/README.md`; `sudo ./firewall.sh`
@@ -21,7 +21,7 @@ changes can be made later without re-deriving the reasoning.
 - [x] Migrate Komodo Periphery + Scrutiny collector fleet-wide (sieve, percolator, mochaPot, grinder, roastery) — built from cellar's own service blocks, since `stacks/_templates/komodo-periphery/` never actually landed in the repo (2026-09-16)
 - [x] `firewall.sh` for cellar, mochaPot and grinder — none had one before; every published port on them was reachable from the whole LAN with no `ufw route allow` gate (Docker's iptables DNAT bypasses plain `ufw`) (2026-09-16, full fleet repass)
 - [ ] Confirm Komodo Periphery's cross-host auth (pinning Core's public key alone) on a real bring-up — only reasoned about and sandbox-built, not tested cross-host; may need its own passkey/API key from Core's UI
-- [ ] Confirm each node's `DISK_DEVICE` (and `DISK_DEVICE_2` on percolator and cellar) against real hardware (`lsblk -d -o NAME,TYPE,SIZE,MODEL`); these were the per-node `*_DISK_DEVICE*` keys until 2026-09-26
+- [x] Confirm each node's `DISK_DEVICE` (and `DISK_DEVICE_2` on percolator and cellar) against real hardware (`lsblk -d -o NAME,TYPE,SIZE,MODEL`); these were the per-node `*_DISK_DEVICE*` keys until 2026-09-26 Done 2026-09-29: all seven match `lsblk`, every collector reporting in Scrutiny
 - [ ] cellar's Samba: `smb/docker-compose.yml` exists but nothing uses it and ufw-docker keeps 445 closed. Decide on shares and permissions, pin the image, then uncomment the rule in `smb/firewall`
 - [x] Wire cellar's restic sources to percolator's, sieve's and mochaPot's actual dumps and data: replaced by each node's own `backup` files (2026-09-27)
 - [ ] Backups to roastery, cellar as the dump store, second copy of everything on Google Drive (decided 2026-09-26; design in the 2026-09-27 entries). Scripts written 2026-09-27; every node's backups on since 2026-09-28; Drive set up 2026-09-29, first upload running. Next: the restore test from Drive (2026-09-27 wiring entry). Replaces the old "enable cellar's roastery mirror and Google Drive sync" item
@@ -29,7 +29,7 @@ changes can be made later without re-deriving the reasoning.
 - [x] roastery: `immich-machine-learning` at Immich's version, Windows Firewall 3003 scoped to percolator. Verified 2026-09-29 on roastery (Claude, owner approved): container `immich-machine-learning:v3.2.1-cuda` matches percolator's `immich-server:v3.2.1`; rule `immich-ml (percolator only)` enabled, remote address `192.168.0.11` only
 - [x] Postgres dump job for percolator's databases (Nextcloud, Immich, Paperless): `pg` lines in their `backup` files (2026-09-27)
 - [ ] Remaining node: roastery itself joining the fleet; then archive purrBrews-infra
-- [ ] Gatus: enable each node's ping as it is provisioned; add app checks as stacks land
+- [ ] Gatus: add app checks as stacks land (node pings for percolator, cellar, mochaPot and grinder enabled 2026-09-29)
 - [ ] Optional: paste `purrbrews-mac.sh list --format pihole` into Pi-hole's static DHCP list
 - [x] Roll out the 2026-09-26 cleanup on every node: every node pulled it (2026-09-26, per the owner)
 - [ ] Work through the 2026-09-26 live-check plan (entry below)
@@ -48,6 +48,62 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Offline copy of the restic repository: the old Seagate in a USB enclosure, synced monthly; `offline-sync.ps1` still to write (2026-09-28 flask entry)
 - [ ] roastery: move the repository off C: to a second NVMe (2026-09-28 flask entry)
 - [ ] mochaPot's SanDisk runs at 67 °C: check its airflow
+
+---
+
+## 2026-09-29 — The alert paths, proven by breaking them
+
+Section 3 of the open-items plan, run by the owner on sieve with me reading the
+results. Times are IST.
+
+**Results**
+
+- `DISK_DEVICE`: all seven values match `lsblk` on their nodes (sieve `sda`;
+  percolator `nvme0` + `sda`; cellar `nvme0` + `sda`, the Seagate; mochaPot `sda`;
+  grinder `nvme0`). Every node has at most one SATA disk, so `sdX` names can't swap
+  (a USB disk plugged in at boot could; plug the HDD dock in after boot). Scrutiny
+  lists all seven, updated today. Its two "Failed" cards are the known attribute-188
+  thresholds, not SMART failures (2026-09-26 and 2026-09-28 entries).
+- Test A, stop NetAlertX: `network/netalertx` alert at 19:55 on the self-hosted
+  topic, received in Chrome on roastery and on the iPhone over mobile data. That also
+  proves the tunnel route for ntfy. `[STATUS] < 400` showed green on the dead service
+  (status 0); the `[CONNECTED] == true` condition from 2026-09-26 is what caught it.
+- Test B, stop ntfy: `network/ntfy` alert delivered by ntfy.sh. Its title arrived as
+  the literal `[ALERT_TRIGGERED_OR_RESOLVED]: [ENDPOINT_NAME]`: Gatus doesn't fill
+  placeholders in headers, so DOWN and back up looked the same. Fixed in this
+  commit: the ntfy.sh alert goes as JSON, title in the body.
+- healthchecks.io: `gatus-sieve` (period 5 min) held 3,638 pings. Gatus stopped, the
+  check alerted at 21:04 with the last ping 15 minutes earlier. Its notifications
+  reach the phone without anything at home. A stray check called TEST, never pinged,
+  to delete (owner).
+
+**Found on the way**
+
+- The tunnel's ntfy route in the Cloudflare dashboard pointed at `https://sieve`.
+  cloudflared sent SNI "sieve", Traefik answered with its default certificate, and
+  every request from outside failed verification. Fixed in the dashboard (owner) to
+  HTTP `ntfy:8080`, as the tunnel's design says. The dashboard had drifted from Git;
+  the tunnel-from-Git item removes that possibility.
+- Gatus's `ntfy (public)` check never used the tunnel: Pi-hole resolves the name to
+  sieve's LAN address, so it stayed green while the route was broken. It now
+  resolves through 1.1.1.1, like a phone on mobile data.
+- The iPhone's ntfy.sh subscription had an extra character at the end of the topic,
+  so it never saw a critical alert. Re-subscribed by pasting (owner). Topics and
+  tokens get pasted, never typed.
+- cellar's Scrutiny hub had no collector schedule, so it collected once a day while
+  the other nodes collect every 6 hours. Now the same.
+
+**This commit:** the ntfy.sh alert as JSON; `ntfy (public)` through 1.1.1.1; node
+pings on for percolator, cellar, mochaPot and grinder (roastery stays out, it sleeps);
+cellar's collector schedule. Tests pass (58 passed, 9 skipped).
+
+- [ ] Retest B: stop ntfy, the ntfy.sh title reads "DOWN"; start it, "back up" (owner)
+- [ ] Node ping test: unplug grinder's cable for 8 minutes, alert on the self-hosted topic (owner)
+- [ ] `ntfy (public)` green through the tunnel after the change (Cloudflare can
+  challenge requests it thinks are bots; if so, this needs a WAF skip rule)
+- [ ] iPhone: an alert with the phone locked and the app closed. If it doesn't arrive,
+  set `upstream-base-url: "https://ntfy.sh"` on sieve's ntfy
+- [ ] Delete the TEST check in healthchecks.io (owner)
 
 ---
 

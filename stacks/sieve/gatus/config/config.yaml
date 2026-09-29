@@ -34,13 +34,21 @@ alerting:
       success-threshold: 2
       send-on-resolved: true
   custom:
-    url: https://ntfy.sh/${NTFY_CRITICAL_TOPIC}
+    # JSON to ntfy.sh's root: Gatus fills placeholders in the url and body, not
+    # in headers, so the title has to travel in the body. (As headers it arrived
+    # as the literal "[ALERT_TRIGGERED_OR_RESOLVED]: [ENDPOINT_NAME]", and DOWN and
+    # back up looked the same; found 2026-09-29.) Gatus escapes quotes in the
+    # placeholder values, so the JSON stays valid.
+    url: https://ntfy.sh
     method: POST
-    headers:
-      Title: "PurrBrews [ALERT_TRIGGERED_OR_RESOLVED]: [ENDPOINT_NAME]"
-      Priority: "5"
-      Tags: rotating_light
-    body: "[ENDPOINT_GROUP]/[ENDPOINT_NAME]: [ALERT_DESCRIPTION] [RESULT_ERRORS]"
+    body: |
+      {
+        "topic": "${NTFY_CRITICAL_TOPIC}",
+        "title": "PurrBrews [ALERT_TRIGGERED_OR_RESOLVED]: [ENDPOINT_NAME]",
+        "message": "[ENDPOINT_GROUP]/[ENDPOINT_NAME]: [ALERT_DESCRIPTION] [RESULT_ERRORS]",
+        "priority": 5,
+        "tags": ["rotating_light"]
+      }
     placeholders:
       ALERT_TRIGGERED_OR_RESOLVED:
         TRIGGERED: "DOWN"
@@ -152,6 +160,11 @@ endpoints:
     group: network
     url: https://ntfy.${DOMAIN}/v1/health
     interval: 5m
+    # Resolve like a phone on mobile data. Through Pi-hole the name gets sieve's
+    # LAN address, and the check never touched the tunnel: on 2026-09-29 the
+    # tunnel's ntfy route was broken and this stayed green.
+    client:
+      dns-resolver: udp://1.1.1.1:53
     conditions:
       - "[STATUS] == 200"
       - "[BODY].healthy == true"
@@ -189,13 +202,13 @@ endpoints:
         description: no internet from sieve
 
   # ── Fleet ─────────────────────────────────────────────────────────────────
-  # Node reachability. Set enabled: true as each node is provisioned, and add its
-  # app checks here when its stacks land.
+  # Node reachability, all four enabled 2026-09-29. roastery stays out: it sleeps
+  # and wakes by Wake-on-LAN, so a ping would alert every night. Add each node's
+  # app checks here as its stacks land.
   - name: percolator
     group: fleet
     url: icmp://192.168.0.11
     interval: 2m
-    enabled: false
     conditions: ["[CONNECTED] == true"]
     alerts: [{type: ntfy}]
 
@@ -203,7 +216,6 @@ endpoints:
     group: fleet
     url: icmp://192.168.0.12
     interval: 2m
-    enabled: false
     conditions: ["[CONNECTED] == true"]
     alerts: [{type: ntfy}]
 
@@ -211,7 +223,6 @@ endpoints:
     group: fleet
     url: icmp://192.168.0.13
     interval: 2m
-    enabled: false
     conditions: ["[CONNECTED] == true"]
     alerts: [{type: ntfy}]
 
@@ -219,6 +230,5 @@ endpoints:
     group: fleet
     url: icmp://192.168.0.14
     interval: 2m
-    enabled: false
     conditions: ["[CONNECTED] == true"]
     alerts: [{type: ntfy}]
