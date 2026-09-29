@@ -97,12 +97,15 @@ results. Times are IST.
 pings on for percolator, cellar, mochaPot and grinder (roastery stays out, it sleeps);
 cellar's collector schedule. Tests pass (58 passed, 9 skipped).
 
-- [ ] Retest B: stop ntfy, the ntfy.sh title reads "DOWN"; start it, "back up" (owner)
-- [ ] Node ping test: unplug grinder's cable for 8 minutes, alert on the self-hosted topic (owner)
-- [ ] `ntfy (public)` green through the tunnel after the change (Cloudflare can
-  challenge requests it thinks are bots; if so, this needs a WAF skip rule)
-- [ ] iPhone: an alert with the phone locked and the app closed. If it doesn't arrive,
-  set `upstream-base-url: "https://ntfy.sh"` on sieve's ntfy
+- [x] Retest B: stop ntfy, the ntfy.sh title reads "DOWN"; start it, "back up" (owner).
+  Both titles arrived filled in after the JSON change: "PurrBrews DOWN: ntfy" at 22:15,
+  "PurrBrews back up: ntfy" at 22:17, and the error text no longer shows escaped quotes
+- [x] Node ping test: unplug grinder's cable for 8 minutes, alert on the self-hosted topic
+  (owner). `fleet/grinder` triggered 21:49, resolved 22:11
+- [x] `ntfy (public)` green through the tunnel after the change. Cloudflare didn't
+  challenge Gatus, so no WAF rule needed
+- [x] iPhone: an alert with the phone locked and the app closed. The grinder alert
+  from the self-hosted ntfy arrived that way, so iPhone delivery works as configured
 - [ ] Delete the TEST check in healthchecks.io (owner)
 
 ---
