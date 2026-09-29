@@ -42,13 +42,32 @@ on the paper.
 3. In Ventoy's menu pick `debian-live-…-xfce.iso` → *Boot in normal mode* →
    *Live system*. It needs no password; if something asks, the user is `user`,
    the password `live`.
-4. Open the stick in the file manager (it mounts as `/media/user/FLASK-A`), then
-   a terminal:
+4. **The kit mounts itself** at `/mnt/flask`, read-only, and a file manager opens
+   on it (Ventoy injects a small script at boot; `make-flask.ps1` puts it there).
+   In the applications menu: **flask: KeePassXC (vault)** opens `flask.kdbx`, and
+   **flask: open the kit** reopens the folder. In a terminal, `restic` and
+   `rclone` just work: they run from the stick.
+
+**If `/mnt/flask` is empty** (the injection didn't run), mount it by hand. This is
+also on the paper, because this file is on the partition you can't open yet:
 
 ```bash
-cp -r /media/user/FLASK-A/tools/linux-amd64 /tmp/t && chmod +x /tmp/t/*
-export PATH=/tmp/t:$PATH
-cd /tmp/t && ./KeePassXC-*.AppImage --appimage-extract-and-run &   # the vault
+lsblk -o NAME,SIZE,FSTYPE,LABEL          # FLASK-A: e.g. sdb1, exfat, ~57G
+ls /dev/mapper/                          # Ventoy's copy of it, e.g. sdb1
+sudo udevadm trigger                     # only if it's missing, then ls again
+sudo mkdir -p /mnt/flask
+sudo mount -o ro,uid=1000,gid=1000 /dev/mapper/sdb1 /mnt/flask
+```
+
+Mounting `/dev/sdb1` itself fails ("busy"): the live system is running from that
+partition. The `/dev/mapper/` copy is how Ventoy lets you read it.
+
+**KeePassXC without the menu:** it's an AppImage, and the live system has no
+libfuse2 (offline, it can't be installed), so run it unpacked instead:
+
+```bash
+cp /mnt/flask/tools/linux-amd64/KeePassXC-*.AppImage /tmp/kp && chmod +x /tmp/kp
+cd /tmp && ./kp --appimage-extract-and-run /mnt/flask/flask.kdbx &
 ```
 
 Nothing you do in the live system is kept after a reboot. That's the point;
@@ -183,9 +202,9 @@ robocopy C:\restic-from-drive C:\purrbrews\restic /E
 ## C. Nothing online: the offline HDD
 
 1. **Boot this stick** (above), or use any PC you trust.
-2. Plug in the `PB-OFFLINE` disk. In the live system it mounts as
-   `/media/user/PB-OFFLINE` (NTFS; if it doesn't, `sudo mount -t ntfs3 -o ro
-   /dev/sdXN /mnt`, with the partition from `lsblk`).
+2. Plug in the `PB-OFFLINE` disk and click it in the file manager: it mounts as
+   `/media/user/PB-OFFLINE` (NTFS). If it doesn't, `sudo mount -t ntfs3 -o ro
+   /dev/sdXN /mnt`, with the partition from `lsblk`.
 3. **Read it where it is**, never write to it:
 
 ```bash
