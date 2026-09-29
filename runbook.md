@@ -385,7 +385,12 @@ first contact (`accept-new`) instead of needing a second `keys` round.
     75 minutes for the 76.6 GB. roastery's sleep is off (`standby-timeout-ac 0`) until
     it's done; put it back after. The 06:00 freshness check will likely still see
     Drive as stale and alert: expected, not a failure.
-  - [ ] Upload finished, `drive sync OK` (checking at 06:30)
+  - [x] Upload finished: `drive-sync.service` exited 06:11:04, `Result=success`, status 0,
+    and `/var/lib/purrbrews/drive-sync.ok` written at the same second (checked 12:27).
+    71 minutes for the 76.6 GB. The 06:00 freshness check failed, as expected, since
+    the upload was still running; tomorrow's is the first that counts.
+  - [ ] Restore test from Drive (`sudo ./restic/restore-test.sh --from drive`), and
+    `sudo ./restic/check-freshness.sh` passing
   - [ ] roastery's sleep setting back
   - [ ] Drive client ID/secret into the vault (`fill-vault.ps1` again) and
     `rclone.conf` attached; the vault copied to stick B, `-Check`
