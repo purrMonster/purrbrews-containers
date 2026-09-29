@@ -46,13 +46,14 @@ alerting:
         "topic": "${NTFY_CRITICAL_TOPIC}",
         "title": "PurrBrews [ALERT_TRIGGERED_OR_RESOLVED]: [ENDPOINT_NAME]",
         "message": "[ENDPOINT_GROUP]/[ENDPOINT_NAME]: [ALERT_DESCRIPTION] [RESULT_ERRORS]",
-        "priority": 5,
-        "tags": ["rotating_light"]
+        "priority": 5
       }
     placeholders:
       ALERT_TRIGGERED_OR_RESOLVED:
-        TRIGGERED: "DOWN"
-        RESOLVED: "back up"
+        # The emoji live here, not in a fixed tag, so a recovery doesn't look
+        # like an outage on a lock screen.
+        TRIGGERED: "🚨 DOWN"
+        RESOLVED: "✅ back up"
     default-alert:
       failure-threshold: 3
       success-threshold: 2
