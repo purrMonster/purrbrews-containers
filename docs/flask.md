@@ -29,7 +29,7 @@ the sticks, Ventoy, `make-flask.ps1`, the vault, the paper (runbook, 2026-09-28)
 |---|---|---|
 | **Stick A** | at home, away from the rack | everything below |
 | **Stick B** | a different place (another flat, a relative's) | the same, checked identical |
-| **Paper** | a sealed envelope, not with either stick | the Tier 1 keys (text and QR) and the vault's master password |
+| **Paper** | a sealed envelope, not with either stick | the Tier 1 keys (text and QR), the vault's master password, and the five-line hand mount (below) |
 
 ## Hardware
 
@@ -54,12 +54,39 @@ FLASK (exFAT)
 │   └── darwin-arm64/, darwin-amd64/   restic, rclone
 ├── RECOVERY.md                        what to do, written while calm
 ├── VERSIONS.txt                       what was built, when, from which versions
+├── ventoy/
+│   ├── ventoy.json                    tells Ventoy to inject the archive into the live ISO
+│   └── flask_injection.tar.gz         the files it injects (below)
 └── SHA256SUMS                         every file above except the vault
 ```
 
 The live system runs with nothing installed and no network: restic and rclone are
 single files, KeePassXC runs as an AppImage. Ventoy's persistence stays off, so
 every boot starts clean.
+
+**What the live system gets at boot** (Ventoy's
+[LiveInjection](https://www.ventoy.net/en/doc_live_injection.html); the files are in
+[`stacks/roastery/flask/live/`](../stacks/roastery/flask/live)): the Debian ISO itself
+is untouched, so its signature still holds.
+
+- `mount-flask`, run at login: mounts the kit **read-only at `/mnt/flask`** and opens it.
+  Plain `mount /dev/sdX1` fails there ("busy"), because the live system runs from that
+  partition; Ventoy (1.1.01+) exposes it again as `/dev/mapper/sdX1`, which mounts.
+- **flask: KeePassXC (vault)** in the menu: runs the AppImage with
+  `--appimage-extract-and-run`. The live system has no libfuse2, and offline it can't
+  be installed; unpacked into `/tmp`, the AppImage doesn't need it.
+- `restic` and `rclone` on the PATH, running from the stick.
+
+**On the paper, with the Tier 1 keys**, the hand mount, in case the injection ever
+doesn't run (the instructions on the stick are on the partition you can't open yet):
+
+```
+lsblk -o NAME,SIZE,FSTYPE,LABEL        # find FLASK-A, e.g. sdb1
+sudo udevadm trigger; ls /dev/mapper/
+sudo mkdir -p /mnt/flask
+sudo mount -o ro,uid=1000,gid=1000 /dev/mapper/sdb1 /mnt/flask
+KeePassXC: cp the AppImage to /tmp, run it with --appimage-extract-and-run
+```
 
 **Booting it:** Ventoy asks once per machine to enrol its key when Secure Boot is
 on (or turn Secure Boot off for the recovery). Apple Silicon Macs can't boot it:

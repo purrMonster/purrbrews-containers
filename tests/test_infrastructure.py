@@ -813,6 +813,30 @@ class Flask(unittest.TestCase):
         self.assertIn(crypt, (STACKS / 'cellar' / 'restic' / 'drive-setup.sh').read_text())
         self.assertIn(crypt, (self.DIR / 'RECOVERY.md').read_text())
 
+    def test_live_injection_is_pinned(self):
+        script = (self.DIR / 'make-flask.ps1').read_text()
+        self.assertRegex(script, r"\$LiveInjectionVersion = '\d+\.\d+'")
+        self.assertRegex(script, r"\$LiveInjectionSha256 = '[0-9a-f]{64}'")
+        self.assertIn('Assert-Hash (Join-Path $ld $liTar) $LiveInjectionSha256', script)
+
+    def test_live_system_files(self):
+        live = self.DIR / 'live'
+        files = [f for f in live.rglob('*') if f.is_file()]
+        self.assertTrue(files)
+        for f in files:
+            data = f.read_bytes()
+            self.assertNotIn(b'\r', data, f'{f}: CRLF would break it in the live system')
+            if data.startswith(b'#!/bin/sh'):
+                result = subprocess.run(['sh', '-n', str(f)], capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, f'{f}: {result.stderr}')
+            if f.suffix == '.desktop':
+                self.assertTrue(data.startswith(b'[Desktop Entry]'), f)
+        mount = (live / 'usr/local/sbin/mount-flask').read_text()
+        self.assertIn('/dev/mapper/$name', mount)
+        self.assertIn('mount -o ro,', mount)
+        keepass = (live / 'usr/local/bin/flask-keepassxc').read_text()
+        self.assertIn('--appimage-extract-and-run', keepass)   # no libfuse2 offline
+
     def test_fill_vault_names_match_the_doc(self):
         script = (self.DIR / 'fill-vault.ps1').read_text()
         block = re.search(r'\$Tiers = \[ordered\]@\{(.*?)\n\}', script, re.S).group(1)

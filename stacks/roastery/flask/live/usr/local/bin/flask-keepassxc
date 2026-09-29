@@ -1,0 +1,16 @@
+#!/bin/sh
+# flask-keepassxc: open the vault with the KeePassXC from the stick.
+#
+# The live system has no libfuse2, and offline it can't be installed, so the
+# AppImage can't mount itself. --appimage-extract-and-run unpacks it into /tmp
+# (RAM on a live system) and runs it from there instead: no FUSE needed.
+set -eu
+[ -d /mnt/flask/tools ] || sudo /usr/local/sbin/mount-flask
+app="$(ls /mnt/flask/tools/linux-amd64/KeePassXC-*-x86_64.AppImage 2>/dev/null | head -n 1)"
+[ -n "$app" ] || { echo "flask-keepassxc: no KeePassXC AppImage on the stick" >&2; exit 1; }
+cp "$app" /tmp/keepassxc.AppImage
+chmod +x /tmp/keepassxc.AppImage
+cd /tmp
+# The stick is read-only: KeePassXC opens the vault read-only. To change it,
+# do that on roastery, not here.
+exec /tmp/keepassxc.AppImage --appimage-extract-and-run /mnt/flask/flask.kdbx

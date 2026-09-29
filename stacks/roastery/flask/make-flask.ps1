@@ -17,6 +17,11 @@
 #   tools\windows-amd64\                restic.exe, rclone.exe, KeePassXC\ (portable)
 #   tools\darwin-arm64\, darwin-amd64\  restic, rclone
 #   RECOVERY.md, VERSIONS.txt
+#   ventoy\ventoy.json, ventoy\flask_injection.tar.gz
+#                                       Ventoy LiveInjection: at boot, copies live\ (beside
+#                                       this script) into the live system, which then
+#                                       mounts the kit at /mnt/flask and has KeePassXC,
+#                                       restic and rclone in its menu and PATH
 #   SHA256SUMS                          every file above; `sha256sum -c SHA256SUMS` on Linux
 #
 # flask.kdbx is never read, written or listed in SHA256SUMS: the vault is filled
@@ -38,7 +43,11 @@ param(
     [string]$DebianVersion = '13.7.0',
     [string]$ResticVersion = '0.19.1',
     [string]$RcloneVersion = '1.75.1',
-    [string]$KeePassXCVersion = '2.7.12'
+    [string]$KeePassXCVersion = '2.7.12',
+    # Ventoy's LiveInjection framework. Its releases aren't signed, so the
+    # archive is pinned by SHA-256 (from the release, 2026-09-29).
+    [string]$LiveInjectionVersion = '1.1',
+    [string]$LiveInjectionSha256 = '59eef2d8ae13185c702cf99efeb86f9ec77beb98a790ca9491251973411cfd62'
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '..\..\_lib\purrbrews.ps1')
@@ -49,7 +58,7 @@ $Keys = @{
     rclone    = 'FBF737ECE9F8AB18604BD2AC93935E02FF3B54FA'   # Nick Craig-Wood (rclone.org/release_signing)
     keepassxc = 'BF5A669F2272CF4324C1FDA8CFB4C2166397D0D2'   # KeePassXC master key (keepassxc.org/verifying-signatures)
 }
-$Excluded = '^(flask\.kdbx.*|SHA256SUMS|System Volume Information[\\/].*|ventoy[\\/].*)$'
+$Excluded = '^(flask\.kdbx.*|SHA256SUMS|System Volume Information[\\/].*)$'
 
 # -- helpers --------------------------------------------------------------------
 function Find-Exe([string]$Name) {
@@ -272,6 +281,13 @@ try {
         } catch { Remove-Item -LiteralPath (Join-Path $kd $f) -Force; throw }
     }
 
+    Write-Step "Ventoy LiveInjection $LiveInjectionVersion"
+    $ld = Join-Path $Downloads "live-injection-$LiveInjectionVersion"
+    New-Item -ItemType Directory -Force -Path $ld | Out-Null
+    $liTar = "live-injection-$LiveInjectionVersion.tar.gz"
+    Get-Download "https://github.com/ventoy/LiveInjection/releases/download/$LiveInjectionVersion/$liTar" (Join-Path $ld $liTar)
+    Assert-Hash (Join-Path $ld $liTar) $LiveInjectionSha256
+
     # -- stage: the tools tree exactly as it goes on the stick --------------------
     Write-Step 'Staging the tools'
     $Stage = Join-Path $Cache 'stage'
@@ -307,12 +323,55 @@ try {
     if ($inner.Count -eq 1 -and $inner[0].PSIsContainer) { $kpx = $inner[0].FullName }
     Copy-Item -Path (Join-Path $kpx '*') -Destination (New-Item -ItemType Directory -Force -Path (Join-Path $tools 'windows-amd64\KeePassXC')).FullName -Recurse
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'RECOVERY.md') (Join-Path $Stage 'RECOVERY.md')
+
+    # Ventoy LiveInjection, packed the way its pack.sh does: an outer archive
+    # holding a live_injection_<id>/ folder with the framework's hook.sh and
+    # distro/ hooks, plus sysroot.tar.gz (our live\ files, copied over / at boot).
+    # Windows' own tar (bsdtar), not Git's, which would want MSYS paths.
+    Write-Step 'Staging the live-system injection'
+    $bsdtar = Join-Path $env:SystemRoot 'System32\tar.exe'
+    $li = Join-Path $script:Work 'li'
+    New-Item -ItemType Directory -Force -Path $li | Out-Null
+    $r = Invoke-Exe $bsdtar @('-xzf', (Join-Path $ld $liTar), '-C', $li)
+    if ($r.Code -ne 0) { throw "Couldn't unpack $liTar." }
+    $liSrc = Join-Path $li "live-injection-$LiveInjectionVersion\internal"
+    $liId = 'live_injection_7ed136ec_7a61_4b54_adc3_ae494d5106ea'   # the folder name its hooks look for
+    $liOut = Join-Path $li "out\$liId"
+    New-Item -ItemType Directory -Force -Path $liOut | Out-Null
+    Copy-Item -LiteralPath (Join-Path $liSrc 'hook.sh') $liOut
+    Copy-Item -LiteralPath (Join-Path $liSrc 'distro') $liOut -Recurse
+    # Our files, with LF endings whatever git did on checkout: a \r after
+    # #!/bin/sh and the scripts don't run.
+    $live = Join-Path $PSScriptRoot 'live'
+    $sysroot = Join-Path $li 'sys\sysroot'
+    foreach ($f in Get-ChildItem -LiteralPath $live -Recurse -File) {
+        $rel = $f.FullName.Substring($live.Length + 1)
+        $dest = Join-Path $sysroot $rel
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $dest) | Out-Null
+        $text = [IO.File]::ReadAllText($f.FullName) -replace "`r`n", "`n"
+        [IO.File]::WriteAllText($dest, $text, (New-Object Text.UTF8Encoding($false)))
+    }
+    $r = Invoke-Exe $bsdtar @('-czf', (Join-Path $liOut 'sysroot.tar.gz'), '-C', (Join-Path $li 'sys'), 'sysroot')
+    if ($r.Code -ne 0) { throw 'Couldn''t pack sysroot.tar.gz.' }
+    $vdir = New-Item -ItemType Directory -Force -Path (Join-Path $Stage 'ventoy')
+    $r = Invoke-Exe $bsdtar @('-czf', (Join-Path $vdir.FullName 'flask_injection.tar.gz'), '-C', (Join-Path $li 'out'), $liId)
+    if ($r.Code -ne 0) { throw 'Couldn''t pack flask_injection.tar.gz.' }
+    # make-flask owns ventoy.json: it points the injection at this build's ISO.
+    Write-LFFile (Join-Path $vdir.FullName 'ventoy.json') @(
+        '{',
+        '    "injection": [',
+        "        { `"image`": `"/$iso`", `"archive`": `"/ventoy/flask_injection.tar.gz`" }",
+        '    ]',
+        '}')
+    Write-Host "  ventoy\flask_injection.tar.gz: $(@(Get-ChildItem -LiteralPath $live -Recurse -File).Count) files into the live system"
+
     Write-LFFile (Join-Path $Stage 'VERSIONS.txt') @(
         "flask built $(Get-Date -Format 'yyyy-MM-dd') by stacks/roastery/flask/make-flask.ps1",
         "Debian Live $DebianVersion (xfce)   $iso",
         "restic      $ResticVersion",
         "rclone      $RcloneVersion",
         "KeePassXC   $KeePassXCVersion",
+        "Ventoy LiveInjection $LiveInjectionVersion (mount-flask, flask-keepassxc, restic/rclone wrappers)",
         'Every file was checked against its project''s signed checksums; SHA256SUMS lists them all.')
     Write-Host "  staged in $Stage"
 } finally {
@@ -338,6 +397,12 @@ foreach ($s in $sticks) {
     $r = Invoke-Exe 'robocopy.exe' @((Join-Path $Stage 'tools'), (Join-Path $s.Root 'tools'), '/MIR', '/R:2', '/W:2', '/NJH', '/NJS', '/NDL', '/NFL', '/NP')
     if ($r.Code -ge 8) { $r.Out | ForEach-Object { Write-Host "    $_" }; throw "robocopy failed writing tools to $($s.Label)." }
     foreach ($f in 'RECOVERY.md', 'VERSIONS.txt') { Copy-Item -LiteralPath (Join-Path $Stage $f) (Join-Path $s.Root $f) -Force }
+    # ventoy\ isn't mirrored: anything else you keep there (another plugin's
+    # config) stays. Only our two files are written.
+    New-Item -ItemType Directory -Force -Path (Join-Path $s.Root 'ventoy') | Out-Null
+    foreach ($f in 'ventoy.json', 'flask_injection.tar.gz') {
+        Copy-Item -LiteralPath (Join-Path $Stage "ventoy\$f") (Join-Path $s.Root "ventoy\$f") -Force
+    }
     Get-ChildItem -LiteralPath $s.Root -Filter 'debian-live-*.iso' -File | Where-Object Name -ne $iso | Remove-Item -Force
     $target = Join-Path $s.Root $iso
     if (-not (Test-Path -LiteralPath $target) -or (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLower() -ne $isoSum) {

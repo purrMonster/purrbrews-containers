@@ -140,6 +140,31 @@ week-long test that entry asked for. The SanDisk's real problem is heat: 67 °C.
 - [ ] Vault filled from the tables in `docs/flask.md` (owner; values never in a chat)
 - [ ] Paper: Tier 1 keys and the master password, sealed, kept apart from both sticks (owner)
 - [ ] A boot test of the stick on roastery, and a restore test from it (with the offline HDD, no network)
+  - 2026-09-29, first boot test (owner): Debian Live booted from stick A. Two gaps
+    my plan had missed. (1) The kit's partition wouldn't mount: the live system runs
+    from it, so the kernel reports it busy. Ventoy (1.1.01+) exposes it again as
+    `/dev/mapper/<partition>`; `sudo mount -o ro /dev/mapper/sdX1 /mnt/flask` worked
+    (owner). (`VTOY_LINUX_REMOUNT`, in older guides, was removed in 1.1.01.) (2) The
+    KeePassXC AppImage wanted libfuse2, which the owner installed from the internet;
+    offline that's impossible, so the vault couldn't be opened in the one situation
+    the stick is for.
+  - Fix (me): Ventoy LiveInjection. `make-flask.ps1` now builds
+    `ventoy/flask_injection.tar.gz` + `ventoy/ventoy.json` from
+    `stacks/roastery/flask/live/`: `mount-flask` at login (mapper device, read-only,
+    `/mnt/flask`, opens it), a menu entry that runs KeePassXC with
+    `--appimage-extract-and-run` (no FUSE), and restic/rclone on the PATH. The ISO is
+    untouched. The LiveInjection framework (1.1) isn't signed upstream, so it's pinned
+    by SHA-256. RECOVERY.md and docs/flask.md updated; the hand mount goes on the paper
+    too, since RECOVERY.md sits on the partition that won't mount. Tests: the live files
+    are LF, `sh -n` clean, and use the mapper device, read-only and extract-and-run.
+    `-PrepareOnly` on roastery built it: 7 files in `sysroot.tar.gz`, no CR bytes,
+    `ventoy.json` pointing at `/debian-live-13.7.0-amd64-xfce.iso`. One thing found in
+    the framework's hooks: it makes everything mode 777 and `cp -a`s the folders too, so
+    `/etc` and `/usr` would come out world-writable; `mount-flask` puts them back to 755
+    first thing. Not yet run on a real stick.
+  - [ ] Rebuild both sticks with `.\make-flask.ps1`, then boot A **with the network
+    cable out**: the kit opens by itself, "flask: KeePassXC" opens the vault, and
+    `restic version` runs (owner)
 - [ ] Seagate: `sudo smartctl -t long /dev/sda` on cellar, result `Completed without error` (owner); then out of cellar, into the enclosure, a full surface read on roastery
 - [ ] `offline-sync.ps1` and the 35-day check (me)
 - [ ] Second NVMe in roastery; the repository to `D:\purrbrews`, `setup.ps1` again, `restic check` (owner + me)
