@@ -11,6 +11,7 @@ _Last updated: 2026-09-29_
 | Doc | What it's for |
 |---|---|
 | [`README.md`](../README.md) | What the fleet is, how a node is built, design principles |
+| [`AGENTS.md`](../AGENTS.md) | Rules for every AI agent working here: scope, git, evidence, nodes, handoff |
 | [`runbook.md`](../runbook.md) | Dated decisions (newest first) and the backlog, ticked only on evidence |
 | [`docs/network-audit.md`](network-audit.md) | September 2026 fleet audit: DNS/IPv6 findings and rollout |
 | [`stacks/README.md`](../stacks/README.md) | How every node's stacks work, and how to add an app or a node |

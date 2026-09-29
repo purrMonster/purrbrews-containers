@@ -6,10 +6,13 @@
 # help: Open WebUI can't do the Authelia login. That needs machine-to-machine
 # auth that keeps Authelia in front; see the README's known gaps.
 #
-# Image: ghcr.io/open-webui/open-webui:main. Unpinned, still to fix.
+# Image: pinned 2026-09-29 by digest to the `main` build that was running
+# (reports 0.11.3, but it isn't the v0.11.3 release: different digest, and it may
+# carry newer database migrations, so moving to the release could be a
+# downgrade). Move to a release tag the next time one is newer than this.
 services:
   openwebui:
-    image: ghcr.io/open-webui/open-webui:main
+    image: ghcr.io/open-webui/open-webui:main@sha256:1a6399d237dc392a2313e0ca826020b3fd5d22536357840eb63393d18dc8b924
     container_name: openwebui
     environment:
       OLLAMA_BASE_URL: http://${ROASTERY_LAN_IP}:11434

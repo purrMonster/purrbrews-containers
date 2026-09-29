@@ -6,21 +6,21 @@ changes can be made later without re-deriving the reasoning.
 ## Backlog / open items
 
 - [x] Confirm Secret scanning + Push protection are enabled on the public GitHub repo (repo itself already created, pushed, `origin` set). Confirmed in the repo's settings (owner, 2026-09-29)
-- [ ] Workstation: DHCP reservation, `bootstrap/data/` (settings + `authorized_keys`), `docker compose up -d --build`, firewall rule for 8443
-- [ ] First real node through `bootstrap.sh`, at the console (the network step has not yet run on real hardware)
+- [x] Workstation: DHCP reservation, `bootstrap/data/` (settings + `authorized_keys`), `docker compose up -d --build`, firewall rule for 8443 Done: `purrbrews-bootstrap` healthy on roastery (192.168.0.15), inbound rule for 8443 enabled (checked 2026-09-29)
+- [ ] First real node through `bootstrap.sh`, at the console (the network step has not yet run on real hardware) All five nodes run; whether the first went through `bootstrap.sh` at the console is for the owner to confirm (owner)
 - [x] Add stacks node by node, each with its own `stacks/<node>/README.md` — sieve, percolator, cellar, mochaPot and grinder are all in
 - [x] Pi-hole static leases from `purrbrews-mac.sh`: automated by `stacks/sieve/setup-secrets.sh` (2026-09-15)
 - [x] sieve: Cloudflare DNS token, tunnel + `ntfy.${DOMAIN}` route, healthchecks.io check, then the bring-up in `stacks/sieve/README.md` Done: all running; the ntfy route and healthchecks.io proven 2026-09-29 (entry below)
 - [x] sieve: prove both alert paths with a deliberate break (stop NetAlertX → ntfy; stop ntfy → ntfy.sh) Done 2026-09-29, both delivered; ntfy.sh titles fixed the same day, retest in that entry
-- [ ] sieve: router DNS → 192.168.0.10, then hand DHCP to Pi-hole (router DHCP left configured but off)
+- [x] sieve: router DNS → 192.168.0.10, then hand DHCP to Pi-hole (router DHCP left configured but off) Done: Pi-hole's DHCP active with the router 192.168.0.1 as gateway, 23 leases; roastery gets DNS 192.168.0.10 and .13 (checked 2026-09-29)
 - [x] percolator: Authelia's 9091 published (UFW: `FORWARD_AUTH_CLIENTS`), session domain `${DOMAIN}`, admin-only rules for `pihole`, `gatus`, `netalertx`, `traefik-sieve` — done in percolator's stack (2026-09-16)
-- [ ] percolator: Cloudflare token, then the bring-up in `stacks/percolator/README.md`; `sudo ./firewall.sh`
-- [ ] First ForwardAuth round trip from sieve's Traefik to Authelia on real hardware (sandbox-tested with real Authelia 2026-09-16)
+- [x] percolator: Cloudflare token, then the bring-up in `stacks/percolator/README.md`; `sudo ./firewall.sh` Done: Traefik, Authelia, CrowdSec and the apps up 3 days with valid certificates; `ufw-docker` installed; `FORWARD_AUTH_CLIENTS` on the node includes roastery (checked 2026-09-29). `ufw status` itself needs sudo, not read
+- [x] First ForwardAuth round trip from sieve's Traefik to Authelia on real hardware (sandbox-tested with real Authelia 2026-09-16) Done 2026-09-29: `gatus` (sieve's Traefik) and `homepage` both answer 302 to Authelia with a valid certificate
 - [x] cellar's, mochaPot's and grinder's stacks added, each with its own Traefik (2026-09-16)
 - [x] Register cellar, mochaPot and grinder with percolator: `FORWARD_AUTH_CLIENTS` and `admin_hosts` extended, cellar's Traefik built for real (2026-09-16, full fleet repass)
 - [x] Migrate Komodo Periphery + Scrutiny collector fleet-wide (sieve, percolator, mochaPot, grinder, roastery) — built from cellar's own service blocks, since `stacks/_templates/komodo-periphery/` never actually landed in the repo (2026-09-16)
 - [x] `firewall.sh` for cellar, mochaPot and grinder — none had one before; every published port on them was reachable from the whole LAN with no `ufw route allow` gate (Docker's iptables DNAT bypasses plain `ufw`) (2026-09-16, full fleet repass)
-- [ ] Confirm Komodo Periphery's cross-host auth (pinning Core's public key alone) on a real bring-up — only reasoned about and sandbox-built, not tested cross-host; may need its own passkey/API key from Core's UI
+- [x] Confirm Komodo Periphery's cross-host auth (pinning Core's public key alone) on a real bring-up — only reasoned about and sandbox-built, not tested cross-host; may need its own passkey/API key from Core's UI Done 2026-09-29: every node's Periphery logs "Logged in to Komodo Core 192.168.0.12:9120"; grinder reconnected on its own after the 2026-09-29 cable test
 - [x] Confirm each node's `DISK_DEVICE` (and `DISK_DEVICE_2` on percolator and cellar) against real hardware (`lsblk -d -o NAME,TYPE,SIZE,MODEL`); these were the per-node `*_DISK_DEVICE*` keys until 2026-09-26 Done 2026-09-29: all seven match `lsblk`, every collector reporting in Scrutiny
 - [ ] cellar's Samba: `smb/docker-compose.yml` exists but nothing uses it and ufw-docker keeps 445 closed. Decide on shares and permissions, pin the image, then uncomment the rule in `smb/firewall`
 - [x] Wire cellar's restic sources to percolator's, sieve's and mochaPot's actual dumps and data: replaced by each node's own `backup` files (2026-09-27)
@@ -35,8 +35,8 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Work through the 2026-09-26 live-check plan (entry below)
 - [ ] Setup keeps a node's existing values, so a changed default in `local.env.example` never reaches a node that's already set up (how percolator's `FORWARD_AUTH_CLIENTS` went stale). Have setup-secrets list keys whose value differs from the example, so the drift is at least visible
 - [ ] Decide: keep barista in the `docker` group (added 2026-09-26; root without a password) or take it out again once the live-check fixes are done
-- [ ] cellar: confirm Komodo still logs in after `KOMODO_DISABLE_USER_REGISTRATION` went to `true`
-- [ ] Pin n8n (`latest`), Open WebUI (`main`) and Karakeep (`release`)
+- [ ] cellar: confirm Komodo still logs in after `KOMODO_DISABLE_USER_REGISTRATION` went to `true` Core has `KOMODO_DISABLE_USER_REGISTRATION=true` and `KOMODO_LOCAL_AUTH=true` (checked 2026-09-29); the login itself is for the owner (owner)
+- [x] Pin n8n (`latest`), Open WebUI (`main`) and Karakeep (`release`) Done 2026-09-29: n8n `2.39.7` and Karakeep `0.33.2`, each the same digest as what was running; Open WebUI by digest (its `main` build isn't the v0.11.3 release)
 - [ ] Open WebUI → roastery's Ollama: needs machine-to-machine auth that keeps Authelia in front; nothing exists yet
 - [ ] Karakeep: `NEXTAUTH_URL` is the direct-port URL while the route is `karakeep.${DOMAIN}`; check the phone share sheet signs in through the hostname
 - [x] Remote access over Tailscale: rolled out and checked from outside the house (2026-09-28; 2026-09-27 entry below)
@@ -48,6 +48,38 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Offline copy of the restic repository: the old Seagate in a USB enclosure, synced monthly; `offline-sync.ps1` still to write (2026-09-28 flask entry)
 - [ ] roastery: move the repository off C: to a second NVMe (2026-09-28 flask entry)
 - [ ] mochaPot's SanDisk runs at 67 °C: check its airflow
+- [ ] Still floating: Home Assistant and ESPHome (`stable`), Unbound (`main`); Samba (`latest`) goes with the Samba decision
+- [ ] Node checkouts: percolator has an untracked `.env.local.bak-20260926` (secrets; delete once sure), mochaPot a stray `bootstrap/--no-check-certificate` file and `tests/test_network_gateway.sh` (owner)
+
+---
+
+## 2026-09-29 — Clearing the noise (section 4)
+
+Checked over SSH from roastery as `barista`, read-only, except where marked.
+
+- **Stale backlog items**, ticked above with their evidence: the workstation, DHCP
+  and DNS on Pi-hole, percolator's bring-up, ForwardAuth, Komodo's cross-host auth.
+  Two stay open for the owner: whether the first node went through `bootstrap.sh`
+  at the console, and a Komodo login now that registration is off.
+- **Image pins** on grinder. n8n and Karakeep are pinned to the version tags whose
+  registry digests match the running images, so the pin changes nothing that runs.
+  Open WebUI's `main` build reports 0.11.3 but isn't the v0.11.3 release (different
+  digest), and a `main` build can carry newer database migrations than the release,
+  so moving to it could be a downgrade. Pinned by digest instead.
+- **`local.env.example` drift:** percolator's example listed four ForwardAuth
+  clients; the node itself has roastery too, since roastery's Traefik protects
+  Ollama. The example now matches.
+- **barista is in `docker` and `sudo` on all five nodes**, and sudo asks for a
+  password. The docker group is the only reason agents can inspect and manage
+  stacks without one, which is also why it's effectively root. Still the owner's
+  decision (backlog).
+- **`AGENTS.md`**: the working rules for every agent, from this week's lessons: one
+  writer for this file, ticks only on evidence, push only on the owner's word, the
+  repo is public, nodes read-only by default, other projects stay out, a handoff at
+  the end of every session. Linked from `docs/MAP.md`.
+- **Nodes behind `main`:** percolator, mochaPot and grinder were at `87c1379`.
+- Not done here: comparing ChatGPT's collaboration proposal. It isn't in any repo;
+  the owner has to paste it.
 
 ---
 
