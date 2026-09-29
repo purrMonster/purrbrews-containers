@@ -1,0 +1,1129 @@
+From 80b61d13b60c934fd3275f37020db2ad49874fbb Mon Sep 17 00:00:00 2001
+From: jyotirmoyc <jyotirmoy.github@jyotirmoy.cc>
+Date: Mon, 28 Sep 2026 15:07:46 +0530
+Subject: [PATCH 1/2] flask: define the recovery kit; offline copy and roastery
+ storage plan
+
+docs/flask.md says what flask is (two encrypted, bootable USB sticks plus
+paper), which secrets go on it by tier, how it's built and kept. Runbook:
+the decisions, the offline copy on cellar's old Seagate, a second NVMe for
+roastery, and a correction to the SanDisk's power-on hours.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_011YcxndUhX7kkKT4vHz4HhW
+---
+ docs/MAP.md                    |   4 +-
+ docs/flask.md                  | 173 +++++++++++++++++++++++++++++++++
+ runbook.md                     |  80 ++++++++++++++-
+ stacks/cellar/restic/README.md |   3 +-
+ 4 files changed, 257 insertions(+), 3 deletions(-)
+ create mode 100644 docs/flask.md
+
+diff --git a/docs/MAP.md b/docs/MAP.md
+index 097ab44..6384c5f 100644
+--- a/docs/MAP.md
++++ b/docs/MAP.md
+@@ -4,7 +4,7 @@ One page to find everything. Update it whenever a project, doc or node is added.
+ Decisions and their reasons live in [`runbook.md`](../runbook.md); this page only
+ points.
+ 
+-_Last updated: 2026-09-27_
++_Last updated: 2026-09-28_
+ 
+ ## Start here
+ 
+@@ -15,6 +15,7 @@ _Last updated: 2026-09-27_
+ | [`docs/network-audit.md`](network-audit.md) | September 2026 fleet audit: DNS/IPv6 findings and rollout |
+ | [`stacks/README.md`](../stacks/README.md) | How every node's stacks work, and how to add an app or a node |
+ | [`tailscale/README.md`](../tailscale/README.md) | Remote access: SSH to the nodes and RDP to roastery over the tailnet |
++| [`docs/flask.md`](flask.md) | flask, the offline recovery kit: what's on it, which secrets, how it's kept |
+ 
+ ## Nodes
+ 
+@@ -35,6 +36,7 @@ _Last updated: 2026-09-27_
+ | One toolkit for every node (`stacks/_lib`, `node.conf`) | Done; rolling out node by node | [stacks/README.md](../stacks/README.md) | 2026-09-26 — One toolkit for every node |
+ | Backups (restic sources, DB dumps, restore test) | Open | [cellar/restic](../stacks/cellar/restic/README.md) | Backlog |
+ | Remote access (Tailscale on every machine, SSH + RDP) | Done; checked from outside the house 2026-09-28 | [tailscale](../tailscale/README.md) | 2026-09-27 — Remote access over Tailscale |
++| flask (offline recovery kit: two bootable USB sticks + paper) | Planned; sticks on order | [docs/flask.md](flask.md) | 2026-09-28 — flask, the recovery kit |
+ | Smart desk / smart mirror | Idea | — | — |
+ 
+ ## Where data lives (quick reference)
+diff --git a/docs/flask.md b/docs/flask.md
+new file mode 100644
+index 0000000..c495220
+--- /dev/null
++++ b/docs/flask.md
+@@ -0,0 +1,173 @@
++# flask
++
++**flask is the fleet's recovery kit: two encrypted, bootable USB sticks kept
++unplugged, plus the Tier 1 keys on paper.** It's the one thing that isn't part of
++the fleet, so it's what's left when the fleet, roastery and the Google account
++are all gone. Scripts and READMEs say "copy X to flask"; this page says what that
++means. Decided 2026-09-28 (runbook).
++
++Status: **planned, the sticks are on order.** Nothing on this page exists yet
++except the plan.
++
++## What it must be
++
++- **Offline.** It's never left plugged in, never on a network, never on a Pi or a
++  node. Anything online can be reached by whatever gets into the network, and one
++  box with every key is the best target there is. Unplugged, nobody can reach it.
++- **Outside the fleet.** Not Vaultwarden on percolator: its data is inside the
++  restic repository, so you'd need the password to get the password.
++- **More than one copy, in more than one place.** Flash left in a drawer fades
++  and fails without warning. Two sticks from different brands, kept apart, plus
++  paper.
++- **Encrypted, with the master password in your head.** A stick found in a drawer
++  must be useless. The only other copy of the master password is the sealed
++  paper.
++
++## The three copies
++
++| Copy | Where | Holds |
++|---|---|---|
++| **Stick A** | at home, away from the rack | everything below |
++| **Stick B** | a different place (another flat, a relative's) | the same, checked identical |
++| **Paper** | a sealed envelope, not with either stick | the Tier 1 keys (text and QR) and the vault's master password |
++
++## Hardware
++
++- Two **64 GB USB 3.x** sticks, **dual connector (USB-A + USB-C)**, metal body,
++  **different brands** (Samsung, SanDisk or Kingston), bought from the brand's
++  store or Amazon itself. Fake-capacity sticks are common on marketplaces.
++- The first day: **H2testw** on each (fills the whole stick and reads it back),
++  before anything goes on it.
++
++## Layout of each stick
++
++[Ventoy](https://www.ventoy.net) on the stick, so it both boots and keeps a normal
++**exFAT** partition that Windows, Debian, macOS, iOS and Android all read.
++
++```
++FLASK (exFAT)
++├── debian-live-<ver>-amd64-xfce.iso   boots any x86 PC into a clean desktop
++├── flask.kdbx                         the vault (KeePassXC)
++├── tools/
++│   ├── linux-amd64/   restic, rclone, KeePassXC AppImage
++│   ├── windows-amd64/ restic.exe, rclone.exe, KeePassXC portable
++│   └── darwin-arm64/, darwin-amd64/   restic, rclone
++├── RECOVERY.md                        what to do, written while calm
++└── SHA256SUMS                         every file above except the vault
++```
++
++The live system runs with nothing installed and no network: restic and rclone are
++single files, KeePassXC runs as an AppImage. Ventoy's persistence stays off, so
++every boot starts clean.
++
++**Booting it:** Ventoy asks once per machine to enrol its key when Secure Boot is
++on (or turn Secure Boot off for the recovery). Apple Silicon Macs can't boot it:
++use the Mac binaries and the vault from the stick instead. Phones open the vault
++only (KeePassium or Strongbox on iOS, KeePassDX on Android), and only your own
++phone.
++
++## What goes in the vault
++
++Names only here; the values are in each node's gitignored
++`stacks/<node>/<app>/secrets.env.local`. Read them yourself in your own terminal,
++never through a chat:
++
++```bash
++ssh barista@192.168.0.12 "grep -E '^(RESTIC_PASSWORD|RCLONE_CRYPT_PASSWORD|RCLONE_CRYPT_SALT)=' \
++  /opt/purrbrews/stacks/cellar/restic/secrets.env.local"
++```
++
++**Tier 1: without these, nothing restores.** Also on the paper.
++
++| Secret | Where |
++|---|---|
++| `RESTIC_PASSWORD` | cellar/restic (the same on every node) |
++| `RCLONE_CRYPT_PASSWORD`, `RCLONE_CRYPT_SALT` | cellar/restic |
++
++Every other secret below is also inside the restic backups, so with Tier 1 and
++either the repository or the Drive copy you can get the rest back. The vault holds
++them so a partial failure doesn't need a full restore first.
++
++**Tier 2: keys that encrypt app data.** Restore the data with a different key and
++that data is gone.
++
++| Secret | Where | Lose it and |
++|---|---|---|
++| `N8N_ENCRYPTION_KEY` | grinder/n8n | every stored credential in n8n is unreadable |
++| `AUTHELIA_STORAGE_ENCRYPTION_KEY` | percolator/authelia | every 2FA device has to be enrolled again |
++| `LLDAP_KEY_SEED`, `LLDAP_JWT_SECRET` | percolator/lldap | the seed makes LLDAP's server key: every user's password stops working |
++| `PAPERLESS_SECRET_KEY` | percolator/paperless | sessions and signed links |
++| `FRESHRSS_OIDC_CRYPTO_KEY` | percolator/freshrss | FreshRSS's OIDC sign-in |
++| `SPEEDTEST_TRACKER_APP_KEY` | grinder/speedtest-tracker | its encrypted settings |
++| `KOMODO_DATABASE_PASSWORD`, `KOMODO_JWT_SECRET` | cellar/komodo | Komodo's database and sessions |
++
++**Tier 3: emergency logins, for when Authelia or LLDAP is down.**
++
++| Secret | Where |
++|---|---|
++| `LLDAP_ADMIN_PASSWORD` | percolator/lldap |
++| `PAPERLESS_ADMIN_PASSWORD` | percolator/paperless |
++| `NEXTCLOUD_ADMIN_PASSWORD` | percolator/nextcloud |
++| `VAULTWARDEN_ADMIN_PASSWORD` | percolator/vaultwarden |
++| `KOMODO_INIT_ADMIN_PASSWORD` | cellar/komodo |
++| `PIHOLE_WEBPASSWORD` | mochaPot/pihole |
++| `NTFY_ADMIN_PASSWORD` | sieve/ntfy |
++| `ESPHOME_DASHBOARD_PASSWORD` | grinder/esphome |
++| `SPEEDTEST_TRACKER_ADMIN_PASSWORD` | grinder/speedtest-tracker |
++| `SMB_BARISTA_PASSWORD` | cellar/smb |
++
++**Tier 4: outside accounts.** Re-creatable, but slowly.
++
++| Secret | Where |
++|---|---|
++| `CF_DNS_API_TOKEN` | every node's traefik |
++| `TUNNEL_TOKEN` | sieve/cloudflared |
++| `RCLONE_DRIVE_CLIENT_ID`, `RCLONE_DRIVE_CLIENT_SECRET` | cellar/restic (once Drive is set up) |
++| `/etc/purrbrews/rclone.conf` (attach the file) | cellar, root's (once Drive is set up) |
++| `HEALTHCHECKS_PING_URL` | sieve/gatus |
++| `NTFY_URL` | every node's restic |
++
++**Outside the repo:**
++
++- barista's sudo password on each node;
++- roastery's Windows administrator password;
++- sign-in and **2FA recovery codes** for the accounts the fleet depends on: the
++  Google account that holds the Drive copy, Cloudflare, GitHub, and the identity
++  provider behind Tailscale. Losing the phone must not lock you out of these.
++
++**Not needed:** database passwords, OIDC client secrets and session secrets. They
++can be generated again, and they're in the backups.
++
++## Building it
++
++`make-flask.ps1` on roastery (to be written):
++
++1. Downloads the Debian Live ISO and checks it against Debian's signed
++   `SHA512SUMS`; downloads restic, rclone and KeePassXC for each platform and checks
++   their published checksums. Anything that doesn't verify stops the run.
++2. Lays out `tools/`, `RECOVERY.md` and the ISO on the stick, writes `SHA256SUMS`.
++3. With two sticks in, compares them file by file.
++
++By hand, once per stick: install Ventoy (its own tool, one click), and fill
++`flask.kdbx` in KeePassXC from the tables above. The vault's contents never pass
++through a script, the repo or a chat.
++
++## Using it
++
++`RECOVERY.md` (to be written) covers three cases, each ending in `restic check`
++and the restore test:
++
++1. **A node or roastery is gone, the repository is fine:** rebuild the node, then
++   `backup.sh restic restore`.
++2. **roastery is gone:** restore from `drive-crypt:repo` with rclone, using
++   `rclone.conf` from the vault.
++3. **No roastery, no Drive, no network:** boot the stick, plug in the offline HDD,
++   restore from it directly.
++
++## Upkeep
++
++- **Every year, and whenever a secret in the tables changes:** plug both sticks
++  into roastery, `sha256sum -c SHA256SUMS`, open the vault, update it, copy A to B,
++  compare. Swap in the current Debian Live ISO and tools. Unplug.
++- **When a Tier 1 key changes:** new paper too, and destroy the old envelope.
++- The runbook's backlog carries the next yearly date.
+diff --git a/runbook.md b/runbook.md
+index 752f7c8..a08a79d 100644
+--- a/runbook.md
++++ b/runbook.md
+@@ -25,7 +25,7 @@ changes can be made later without re-deriving the reasoning.
+ - [ ] cellar's Samba: `smb/docker-compose.yml` exists but nothing uses it and ufw-docker keeps 445 closed. Decide on shares and permissions, pin the image, then uncomment the rule in `smb/firewall`
+ - [x] Wire cellar's restic sources to percolator's, sieve's and mochaPot's actual dumps and data: replaced by each node's own `backup` files (2026-09-27)
+ - [ ] Backups to roastery, cellar as the dump store, second copy of everything on Google Drive (decided 2026-09-26; design in the 2026-09-27 entries). Scripts written 2026-09-27; next: tie them together in the order in `stacks/cellar/restic/README.md`, ending with a restore test from Drive. Replaces the old "enable cellar's roastery mirror and Google Drive sync" item
+-- [ ] Replace cellar's old disk (ST1000LM035, 5–8 years old) once it's only the dump store; the SanDisk on mochaPot is the same age
++- [ ] Replace cellar's old disk (ST1000LM035, 5–8 years old) once it's only the dump store; the SanDisk on mochaPot is the same age. Superseded 2026-09-28: it's out of use on cellar and becomes the offline copy after a long self-test (2026-09-28 flask entry)
+ - [ ] roastery: `immich-machine-learning` at Immich's version, Windows Firewall 3003 scoped to percolator
+ - [x] Postgres dump job for percolator's databases (Nextcloud, Immich, Paperless): `pg` lines in their `backup` files (2026-09-27)
+ - [ ] Remaining node: roastery itself joining the fleet; then archive purrBrews-infra
+@@ -43,6 +43,84 @@ changes can be made later without re-deriving the reasoning.
+ - [ ] Phone on the tailnet (only the Mac has joined so far)
+ - [ ] Tunnel from Git: two-factor in Authelia first, then the switch in `stacks/sieve/cloudflared/README.md` (2026-09-28 entry below)
+ - [ ] Apps over the tailnet: roll out in the order in the 2026-09-28 entry below
++- [ ] flask: build the two sticks and the paper, `make-flask.ps1` and `RECOVERY.md` first ([docs/flask.md](docs/flask.md); 2026-09-28 flask entry below)
++- [ ] Offline copy of the restic repository: the old Seagate in a USB enclosure, synced monthly; `offline-sync.ps1` still to write (2026-09-28 flask entry)
++- [ ] roastery: move the repository off C: to a second NVMe (2026-09-28 flask entry)
++- [ ] mochaPot's SanDisk runs at 67 °C: check its airflow
++
++---
++
++## 2026-09-28 — flask, the recovery kit; where the backups' copies live
++
++**What flask is.** The scripts and READMEs have said "copy X to flask" since the
++first commits, citing a doc that has since moved out of the repo; nothing here
++defined it. The owner's original plan was an SD card as a recovery device. Now
++written down in [`docs/flask.md`](docs/flask.md): **two encrypted, bootable USB
++sticks kept unplugged, plus the Tier 1 keys on paper.**
++
++**Choices worth remembering:**
++
++- **USB sticks, not an SD card:** the owner's call. USB 3.x, 64 GB, dual connector
++  (A + C), two brands. Speed doesn't matter for a kit under 5 GB; 3.x sticks just
++  have better parts than the 2.0 ones still on sale, and the dual connector reads
++  on a phone without an adapter.
++- **Two sticks and paper, because flash in a drawer fades and fails without
++  warning.** The paper holds only the three Tier 1 keys and the vault's master
++  password; paper outlasts any stick.
++- **Never plugged into a Pi or anything online** (the owner asked). A networked box
++  holding every key is the best target in the house, and ransomware reaches
++  whatever is attached. Keeping the flash healthy is what the yearly check is for.
++- **Bootable, through Ventoy + Debian Live** (the owner's idea). The point isn't
++  the spare space: it gives a clean system to type the keys into when roastery is
++  gone or not trusted, and with the offline HDD it restores with no network at all.
++  Ventoy rather than a written ISO so the stick keeps an exFAT partition for the
++  vault and tools; exFAT because Windows, Debian, macOS, iOS and Android all read
++  it.
++- **KeePassXC vault, not a password manager account:** opens on every platform and
++  on the live system, with no account and no network.
++
++**The tiers** (names and locations in `docs/flask.md`, never values): Tier 1 is
++`RESTIC_PASSWORD` and the two rclone crypt secrets, without which nothing
++restores; everything else is also inside the backups. Tier 2 are keys that
++encrypt app data (n8n, Authelia's storage, LLDAP's seed, ...). Tier 3 are
++emergency logins for when Authelia is down; Tier 4 outside accounts. Added
++while writing it: the 2FA recovery codes for Google, Cloudflare, GitHub and the
++Tailscale identity provider, since losing the phone must not lock those.
++
++**Storage for the backups, decided alongside:**
++
++- **The offline copy is cellar's old Seagate** (ST1000LM035, 1 TB), in a USB
++  enclosure, synced monthly and unplugged. It's the only copy ransomware on
++  roastery, an over-eager prune or a lost Google account can't touch. The
++  repository is 76.6 GB (owner, 2026-09-28), so 1 TB is plenty. An old disk is
++  acceptable here because it's an extra copy: roastery and Drive still hold
++  everything. A new drive can replace it when prices drop: hard drives are sold
++  out to data centres through 2026 and a 4 TB NAS drive is about ₹26k.
++  - Checked: `lsblk` on cellar shows it unmounted, no partitions, not in fstab.
++    Scrutiny's collector on cellar still reads it (`DISK_DEVICE_2`); clear that
++    when it comes out.
++- **roastery's repository moves off C:** (the Windows NVMe) to a second NVMe in
++  the free M2B slot, the owner's pick (Crucial E100 1 TB, about ₹16k). The B450
++  AORUS PRO WIFI's M2B runs at PCIe x2 and disables the ASATA ports only, which
++  are unused; still ten times the network's speed. This protects against C:
++  failing or a Windows reinstall, not against anything that hits all of roastery;
++  that's the offline copy's job, so the offline copy comes first.
++
++**Correction to the 2026-09-26 SMART entry:** mochaPot's SanDisk has **18,926
++power-on hours**, not 665. Scrutiny's summary shows 666, but the disk's own
++attribute 9 rose by 177 in the week, 7 days' worth. So its 9,924 command timeouts
++are spread over about two years, not four weeks. Both disks' counts were
++unchanged between 2026-09-21 and 2026-09-28 (188, 199, 5, 197, 198), which was the
++week-long test that entry asked for. The SanDisk's real problem is heat: 67 °C.
++
++- [ ] Sticks arrive: H2testw on each, then Ventoy (owner)
++- [ ] `make-flask.ps1`, `RECOVERY.md` (me)
++- [ ] Vault filled from the tables in `docs/flask.md` (owner; values never in a chat)
++- [ ] Paper: Tier 1 keys and the master password, sealed, kept apart from both sticks (owner)
++- [ ] A boot test of the stick on roastery, and a restore test from it (with the offline HDD, no network)
++- [ ] Seagate: `sudo smartctl -t long /dev/sda` on cellar, result `Completed without error` (owner); then out of cellar, into the enclosure, a full surface read on roastery
++- [ ] `offline-sync.ps1` and the 35-day check (me)
++- [ ] Second NVMe in roastery; the repository to `D:\purrbrews`, `setup.ps1` again, `restic check` (owner + me)
+ 
+ ---
+ 
+diff --git a/stacks/cellar/restic/README.md b/stacks/cellar/restic/README.md
+index a618156..3c2320f 100644
+--- a/stacks/cellar/restic/README.md
++++ b/stacks/cellar/restic/README.md
+@@ -50,7 +50,8 @@ sign-in, flask). In this order:
+    lines to authorize it land in `/etc/purrbrews/backup-authorize.txt`.
+ 2. **Secrets**: `./setup-secrets.sh` on cellar makes `RESTIC_PASSWORD` and the crypt
+    password/salt and asks for the Drive client; **copy RESTIC_PASSWORD,
+-   RCLONE_CRYPT_PASSWORD and RCLONE_CRYPT_SALT to flask now.** Every other node's
++   RCLONE_CRYPT_PASSWORD and RCLONE_CRYPT_SALT to flask now**
++   ([docs/flask.md](../../../docs/flask.md)). Every other node's
+    `restic/secrets.env.local` needs the same `RESTIC_PASSWORD` (its
+    `./setup-secrets.sh` asks). cellar's `.env.local` needs `ROASTERY_WOL_MAC`.
+ 3. **roastery**: every node's `roastery` line into
+-- 
+2.43.0
+
+
+From 642680811b6bdc95175c0b339bcde7277a983f5e Mon Sep 17 00:00:00 2001
+From: jyotirmoyc <jyotirmoy.github@jyotirmoy.cc>
+Date: Mon, 28 Sep 2026 21:22:06 +0530
+Subject: [PATCH 2/2] flask: make-flask.ps1 and RECOVERY.md
+
+make-flask.ps1 downloads the Debian Live ISO, restic, rclone and KeePassXC at
+pinned versions, checks each against its project's signed checksums (keys
+pinned by fingerprint), and writes only to USB sticks with Ventoy and a
+FLASK-A/B exFAT partition, reading everything back. -Check is the yearly
+check. RECOVERY.md goes on each stick: booting it, then one node lost,
+roastery lost (from Drive), and nothing online (the offline HDD).
+
+Also: _lib/purrbrews.ps1 printed a garbled heading in PowerShell 5 (UTF-8
+in a BOM-less .ps1); it's ASCII now, with a test that keeps every .ps1 so.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_011YcxndUhX7kkKT4vHz4HhW
+---
+ docs/flask.md                        |  62 +++--
+ runbook.md                           |  10 +-
+ stacks/_lib/purrbrews.ps1            |   2 +-
+ stacks/roastery/flask/RECOVERY.md    | 213 ++++++++++++++++
+ stacks/roastery/flask/make-flask.ps1 | 357 +++++++++++++++++++++++++++
+ tests/test_infrastructure.py         |  31 +++
+ 6 files changed, 652 insertions(+), 23 deletions(-)
+ create mode 100644 stacks/roastery/flask/RECOVERY.md
+ create mode 100644 stacks/roastery/flask/make-flask.ps1
+
+diff --git a/docs/flask.md b/docs/flask.md
+index c495220..cf4be50 100644
+--- a/docs/flask.md
++++ b/docs/flask.md
+@@ -6,8 +6,8 @@ the fleet, so it's what's left when the fleet, roastery and the Google account
+ are all gone. Scripts and READMEs say "copy X to flask"; this page says what that
+ means. Decided 2026-09-28 (runbook).
+ 
+-Status: **planned, the sticks are on order.** Nothing on this page exists yet
+-except the plan.
++Status: **sticks here (2026-09-28); script and recovery guide written.** Next: test
++the sticks, Ventoy, `make-flask.ps1`, the vault, the paper (runbook, 2026-09-28).
+ 
+ ## What it must be
+ 
+@@ -53,6 +53,7 @@ FLASK (exFAT)
+ │   ├── windows-amd64/ restic.exe, rclone.exe, KeePassXC portable
+ │   └── darwin-arm64/, darwin-amd64/   restic, rclone
+ ├── RECOVERY.md                        what to do, written while calm
++├── VERSIONS.txt                       what was built, when, from which versions
+ └── SHA256SUMS                         every file above except the vault
+ ```
+ 
+@@ -140,34 +141,53 @@ can be generated again, and they're in the backups.
+ 
+ ## Building it
+ 
+-`make-flask.ps1` on roastery (to be written):
++By hand, once per stick, in this order:
+ 
+-1. Downloads the Debian Live ISO and checks it against Debian's signed
+-   `SHA512SUMS`; downloads restic, rclone and KeePassXC for each platform and checks
+-   their published checksums. Anything that doesn't verify stops the run.
+-2. Lays out `tools/`, `RECOVERY.md` and the ISO on the stick, writes `SHA256SUMS`.
+-3. With two sticks in, compares them file by file.
++1. **H2testw** on the empty stick (from heise.de): *Write + Verify*, all space.
++   Anything but "Test finished without errors" at about the stick's size, and it
++   goes back.
++2. **Ventoy** (github.com/ventoy/Ventoy/releases, `windows.zip`; check its SHA-256
++   against the release's `sha256.txt`): `Ventoy2Disk.exe` → the stick → *Option →
++   Secure Boot Support* on, partition style MBR → Install. Then rename the big
++   partition **FLASK-A** or **FLASK-B**, and write A or B on the stick itself.
+ 
+-By hand, once per stick: install Ventoy (its own tool, one click), and fill
+-`flask.kdbx` in KeePassXC from the tables above. The vault's contents never pass
+-through a script, the repo or a chat.
++Then [`stacks/roastery/flask/make-flask.ps1`](../stacks/roastery/flask/make-flask.ps1)
++on roastery, with the sticks plugged in:
++
++```powershell
++cd stacks\roastery\flask
++.\make-flask.ps1                # download, verify, write every FLASK-A/B stick
++.\make-flask.ps1 -Check         # later: check each against its SHA256SUMS, compare the vaults
++```
++
++It downloads the Debian Live ISO, restic, rclone and KeePassXC at the versions
++pinned in the script, checks each against its project's signed checksums (keys
++pinned by fingerprint), and stops before touching a stick if anything doesn't
++verify. It writes only to USB disks with Ventoy and a FLASK-A/B exFAT partition,
++mirrors `tools/`, reads everything back against `SHA256SUMS`, and never touches
++`flask.kdbx`.
++
++Last, by hand: fill `flask.kdbx` in KeePassXC (`tools\windows-amd64\KeePassXC`)
++on stick A from the tables above, copy it to B, `.\make-flask.ps1 -Check`. The
++vault's contents never pass through a script, the repo or a chat.
+ 
+ ## Using it
+ 
+-`RECOVERY.md` (to be written) covers three cases, each ending in `restic check`
+-and the restore test:
++[`RECOVERY.md`](../stacks/roastery/flask/RECOVERY.md), on each stick and in the repo:
++booting the stick and using the tools, then three cases:
+ 
+-1. **A node or roastery is gone, the repository is fine:** rebuild the node, then
+-   `backup.sh restic restore`.
+-2. **roastery is gone:** restore from `drive-crypt:repo` with rclone, using
+-   `rclone.conf` from the vault.
+-3. **No roastery, no Drive, no network:** boot the stick, plug in the offline HDD,
+-   restore from it directly.
++- **A.** One node is gone, roastery is fine: rebuild it, settings, files, then
++  databases from the dumps.
++- **B.** roastery is gone: the repository back from `drive-crypt:repo`, onto a new
++  roastery, then A.
++- **C.** Nothing online: read the offline HDD directly, or copy it to a new
++  roastery, then A.
+ 
+ ## Upkeep
+ 
+ - **Every year, and whenever a secret in the tables changes:** plug both sticks
+-  into roastery, `sha256sum -c SHA256SUMS`, open the vault, update it, copy A to B,
+-  compare. Swap in the current Debian Live ISO and tools. Unplug.
++  into roastery, `.\make-flask.ps1 -Check`, open the vault, update it, copy A to B.
++  Once a year also bump the versions at the top of `make-flask.ps1` and run it:
++  the current Debian Live ISO and tools. `-Check` again, unplug.
+ - **When a Tier 1 key changes:** new paper too, and destroy the old envelope.
+ - The runbook's backlog carries the next yearly date.
+diff --git a/runbook.md b/runbook.md
+index a08a79d..71e99a0 100644
+--- a/runbook.md
++++ b/runbook.md
+@@ -114,7 +114,15 @@ unchanged between 2026-09-21 and 2026-09-28 (188, 199, 5, 197, 198), which was t
+ week-long test that entry asked for. The SanDisk's real problem is heat: 67 °C.
+ 
+ - [ ] Sticks arrive: H2testw on each, then Ventoy (owner)
+-- [ ] `make-flask.ps1`, `RECOVERY.md` (me)
++- [x] `make-flask.ps1`, `RECOVERY.md` (me), in `stacks/roastery/flask/`. `-PrepareOnly` on
++  roastery, 2026-09-28: the four pinned keys imported by fingerprint, every signature
++  and checksum good (Debian Live 13.7.0 xfce, restic 0.19.1, rclone 1.75.1, KeePassXC
++  2.7.12), tools staged and `restic.exe`/`rclone.exe` run. Writing a stick isn't tested
++  yet: none was plugged in. Found on the way: Git's gpg needs `/c/...` paths, not
++  `C:/...`; and `_lib/purrbrews.ps1` printed a garbled `──` in PowerShell 5 (a UTF-8
++  character in a BOM-less file), now ASCII, with a test that every .ps1 stays ASCII.
++  The flask's restic is newer than the fleet's 0.18.0; it reads the same repository.
++- [ ] Sticks tested and Ventoy on both (owner), then `.\make-flask.ps1` with both plugged in
+ - [ ] Vault filled from the tables in `docs/flask.md` (owner; values never in a chat)
+ - [ ] Paper: Tier 1 keys and the master password, sealed, kept apart from both sticks (owner)
+ - [ ] A boot test of the stick on roastery, and a restore test from it (with the offline HDD, no network)
+diff --git a/stacks/_lib/purrbrews.ps1 b/stacks/_lib/purrbrews.ps1
+index 29af08d..f0d8341 100644
+--- a/stacks/_lib/purrbrews.ps1
++++ b/stacks/_lib/purrbrews.ps1
+@@ -196,7 +196,7 @@ function Invoke-Compose($Node, [string[]]$Arguments) {
+             $bad = @(Find-Placeholder ($json | Out-String | ConvertFrom-Json) 'config')
+             if ($bad.Count -gt 0) { throw "${app}: unfilled placeholders in $($bad -join ', '). Values withheld." }
+         }
+-        if ($apps.Count -gt 1) { Write-Host "── $app" }
++        if ($apps.Count -gt 1) { Write-Host "-- $app" }
+         & docker @composeArgs @rest
+         if ($LASTEXITCODE -ne 0) { throw "${app}: docker compose exited with $LASTEXITCODE." }
+     }
+diff --git a/stacks/roastery/flask/RECOVERY.md b/stacks/roastery/flask/RECOVERY.md
+new file mode 100644
+index 0000000..48e2399
+--- /dev/null
++++ b/stacks/roastery/flask/RECOVERY.md
+@@ -0,0 +1,213 @@
++# RECOVERY
++
++You're reading this because something is gone. Take it slowly: nothing below
++deletes anything, and every restore goes into a scratch folder first unless it
++says otherwise. This file lives on each flask stick and in the repo at
++`stacks/roastery/flask/RECOVERY.md`; the repo's copy is the current one, if
++GitHub is still there for you.
++
++**Where the backups are** (newest first):
++
++| Copy | Where | Needs |
++|---|---|---|
++| The repository | roastery, `C:\purrbrews\restic` (later `D:\purrbrews\restic`) | `RESTIC_PASSWORD` |
++| Google Drive | `drive-crypt:repo` (the folder `purrbrews-restic`, names encrypted) | the Google account, `RCLONE_CRYPT_PASSWORD`, `RCLONE_CRYPT_SALT`, `RESTIC_PASSWORD` |
++| Offline HDD | the disk labelled `PB-OFFLINE`, folder `restic\` | `RESTIC_PASSWORD` |
++| Database dumps | cellar, `/srv/dumps/<node>/` | nothing; they're plain files (and in all three above) |
++
++Every secret is in `flask.kdbx` on this stick. Tier 1 (the three above) is also
++on the paper.
++
++**Pick your case:**
++
++- One node is gone, roastery is fine → **A**
++- roastery (or its disk) is gone → **B**, then **A** for each node
++- No roastery, no Drive, no internet → **C**, then **A**
++
++---
++
++## Before any case: tools and the vault
++
++**On Windows** (roastery or any PC you trust): `tools\windows-amd64\` has
++`restic.exe`, `rclone.exe` and `KeePassXC\KeePassXC.exe`. Run them from the stick.
++
++**On a PC you don't trust, or with nothing working: boot this stick.**
++
++1. Plug it in, power on, open the boot menu (F12, F11, F8 or Esc, depending on
++   the PC) and pick the USB stick.
++2. First time on a PC with Secure Boot: Ventoy shows a blue *Verification
++   failed* screen. Choose **Enroll key from disk** → `VTOYEFI` →
++   `ENROLL_THIS_KEY_IN_MOKMANAGER.cer` → Continue → Yes → Reboot, and boot the
++   stick again. (Or turn Secure Boot off in the firmware for now.)
++3. In Ventoy's menu pick `debian-live-…-xfce.iso` → *Boot in normal mode* →
++   *Live system*. It needs no password; if something asks, the user is `user`,
++   the password `live`.
++4. Open the stick in the file manager (it mounts as `/media/user/FLASK-A`), then
++   a terminal:
++
++```bash
++cp -r /media/user/FLASK-A/tools/linux-amd64 /tmp/t && chmod +x /tmp/t/*
++export PATH=/tmp/t:$PATH
++cd /tmp/t && ./KeePassXC-*.AppImage --appimage-extract-and-run &   # the vault
++```
++
++Nothing you do in the live system is kept after a reboot. That's the point;
++save what you restore to a real disk.
++
++**Give restic its password without it landing in the shell history:**
++
++```bash
++read -rs RESTIC_PASSWORD && export RESTIC_PASSWORD      # paste, Enter
++```
++
++On Windows: `$env:RESTIC_PASSWORD = Read-Host -MaskInput` (PowerShell 7) or
++paste it into `$env:RESTIC_PASSWORD = '...'` and close the window after.
++
++---
++
++## A. One node is gone; roastery still has the repository
++
++This is the normal case, and you don't need to boot the stick for it.
++
++1. **Rebuild the node** from the repo: `README.md` → bootstrap, then
++   `purrbrews-init` for that node, then `./setup-secrets.sh`. Don't start its
++   apps yet.
++2. **Let it reach roastery again.** A new install has a new backup key:
++   `sudo ./backup.sh install` on the node prints the lines to authorize (also in
++   `/etc/purrbrews/backup-authorize.txt`). Put its `roastery` line in
++   `stacks/roastery/backup-target/authorized_keys` on roastery and run
++   `.\setup.ps1 -KeysOnly` there, elevated. If the node was cellar, the other
++   nodes' `store` lines go into its `restic/dump-store.keys` again, then
++   `sudo ./restic/dump-store-setup.sh`.
++3. **See what there is:** `sudo ./backup.sh restic snapshots --host <node>`.
++4. **Settings first**, into a scratch folder, then copied into place:
++
++```bash
++sudo ./backup.sh restic restore latest --host <node> --tag files \
++  --target /var/tmp/restore --include /opt/purrbrews --include /etc/purrbrews
++sudo ls -la /var/tmp/restore/opt/purrbrews/stacks/<node>/        # check before copying
++sudo cp -a /var/tmp/restore/opt/purrbrews/.env /opt/purrbrews/.env
++sudo cp -a /var/tmp/restore/opt/purrbrews/stacks/<node>/.env.local /opt/purrbrews/stacks/<node>/
++for f in /var/tmp/restore/opt/purrbrews/stacks/<node>/*/secrets.env.local; do
++  sudo cp -a "$f" "/opt/purrbrews/stacks/<node>/$(basename "$(dirname "$f")")/"; done
++```
++
++   These carry the Tier 2 keys that match the data, so the data restored next
++   can be read. `/etc/purrbrews` holds the old pinned host keys and, on cellar,
++   `rclone.conf`: copy those back only if you need them (cellar: yes).
++5. **App files**, straight into place (the node is fresh, nothing to lose):
++
++```bash
++./compose.sh --all down
++sudo ./backup.sh plan                                  # which paths each app backs up
++sudo ./backup.sh restic restore latest --host <node> --tag files --target / \
++  --include /srv/data
++```
++
++6. **Databases**, from the dumps on cellar (or from restic, tag `dumps`):
++
++```bash
++sudo ./backup.sh restic restore latest --tag dumps --target /var/tmp/restore \
++  --include /srv/dumps/<node>
++ls /var/tmp/restore/srv/dumps/<node>/*/
++```
++
++   Start only each database container (`./compose.sh <app> up -d <db service>`),
++   then, with the names from that app's `backup` file:
++
++   - Postgres: `docker exec -i <container> pg_restore -U <user> -d <database> --clean --if-exists < <name>.pgdump`
++   - SQLite: `gzip -dc <name>.sql.gz | sqlite3 <path>.new`, stop the app, move it over the old file, `chown` it back to the file's owner
++   - Mongo: `docker exec -i <container> mongorestore --archive --gzip --drop -u <user> -p <password> --authenticationDatabase admin < <name>.mongo.gz`
++
++7. **Start everything:** `./compose.sh --all up -d`, sign in to each app, then
++   `sudo ./backup.sh enable` so it's backed up again tonight.
++8. Write it in the runbook: what broke, what came back, what didn't.
++
++---
++
++## B. roastery is gone: the repository from Google Drive
++
++The goal is to put the repository back where the nodes expect it, then do **A**.
++
++1. **A Windows PC to be the new roastery.** Clone the repo, then
++   `stacks\roastery\backup-target\setup.ps1`, elevated. It makes the `restic`
++   account, `C:\purrbrews\restic` and the SSH server.
++2. **rclone, pointed at Drive.** Easiest: the `rclone.conf` attached in the vault
++   (cellar's own, with the Drive token). Save it as `rclone.conf` next to
++   `rclone.exe` and add `--config rclone.conf` to the commands below. Its
++   `roastery` remote is useless now; `drive` and `drive-crypt` are what matter.
++   If the token has expired, or the attachment isn't there, make the two remotes
++   again (Google sign-in opens in the browser):
++
++```powershell
++.\rclone.exe config create drive drive scope=drive client_id=<RCLONE_DRIVE_CLIENT_ID> client_secret=<RCLONE_DRIVE_CLIENT_SECRET>
++.\rclone.exe config create drive-crypt crypt remote=drive:purrbrews-restic filename_encryption=standard directory_name_encryption=true password=<RCLONE_CRYPT_PASSWORD> password2=<RCLONE_CRYPT_SALT> --obscure
++```
++
++   These settings must match `stacks/cellar/restic/drive-setup.sh` exactly, or
++   the names won't decrypt. (Without the client ID, leave `client_id` and
++   `client_secret` out: rclone's shared client works for a one-off download.)
++3. **Check you can read it**, then copy it down:
++
++```powershell
++.\rclone.exe lsd drive-crypt:repo                       # data, index, keys, snapshots, config
++.\rclone.exe copy drive-crypt:repo C:\restic-from-drive --transfers 8 -P
++```
++
++   `drive-crypt:deleted` has files pruned in the last 30 days, in case you need
++   an older snapshot than `repo` still has.
++4. **Check the copy** before trusting it:
++
++```powershell
++.\restic.exe -r C:\restic-from-drive snapshots
++.\restic.exe -r C:\restic-from-drive check --read-data-subset=10%
++```
++
++5. **Put it in place** and let `setup.ps1` fix its permissions:
++
++```powershell
++robocopy C:\restic-from-drive C:\purrbrews\restic /E
++.\setup.ps1                                             # again, elevated
++```
++
++6. **Authorize the nodes again.** The new roastery's `authorized_keys` is empty;
++   every node still has its lines in `/etc/purrbrews/backup-authorize.txt`.
++   Collect the `roastery` lines into `stacks/roastery/backup-target/authorized_keys`,
++   then `.\setup.ps1 -KeysOnly`. If roastery's address changed, update
++   `ROASTERY_LAN_IP` and `BACKUP_REPOSITORY` in `stacks/fleet.env` and push.
++7. On any node: `sudo ./backup.sh restic snapshots` lists everything. Now **A**
++   for whatever else is gone, and cellar's `drive-sync` carries on as before.
++
++---
++
++## C. Nothing online: the offline HDD
++
++1. **Boot this stick** (above), or use any PC you trust.
++2. Plug in the `PB-OFFLINE` disk. In the live system it mounts as
++   `/media/user/PB-OFFLINE` (NTFS; if it doesn't, `sudo mount -t ntfs3 -o ro
++   /dev/sdXN /mnt`, with the partition from `lsblk`).
++3. **Read it where it is**, never write to it:
++
++```bash
++restic -r /media/user/PB-OFFLINE/restic snapshots
++restic -r /media/user/PB-OFFLINE/restic restore latest --host <node> --tag files \
++  --target /media/user/<a real disk>/restore --include <path>
++```
++
++   restic needs to write its cache and locks; `--no-lock` lets it read a
++   read-only mount (`restic --no-lock -r ... snapshots`).
++4. To serve the nodes again, copy `restic\` from the HDD to the new roastery's
++   `C:\purrbrews\restic` and continue from **B** step 4.
++
++The offline copy is as old as its last monthly sync: check the date of the newest
++snapshot, and look for anything newer on cellar's dump store or on Drive once
++they're back.
++
++---
++
++## After any recovery
++
++- `sudo ./restic/restore-test.sh` on cellar, and `--from drive`.
++- Anything in the vault that changed (a new key, a rebuilt node's sudo password):
++  update `flask.kdbx` on A, copy it to B, `.\make-flask.ps1 -Check`.
++- A runbook entry, dated, with what you'd do differently.
+diff --git a/stacks/roastery/flask/make-flask.ps1 b/stacks/roastery/flask/make-flask.ps1
+new file mode 100644
+index 0000000..f6f6997
+--- /dev/null
++++ b/stacks/roastery/flask/make-flask.ps1
+@@ -0,0 +1,357 @@
++# make-flask.ps1: build or check flask, the offline recovery kit (docs/flask.md).
++# Runs on roastery from a normal PowerShell; no admin needed.
++#
++#   .\make-flask.ps1                 download, verify, and write every flask stick plugged in
++#   .\make-flask.ps1 -PrepareOnly    download and verify only; no stick needed
++#   .\make-flask.ps1 -Check          no downloads: check each stick against its SHA256SUMS
++#                                    and compare the two vaults (the yearly check)
++#
++# A flask stick is a USB disk with Ventoy on it (its VTOYEFI partition is how
++# this tells) and an exFAT data partition labelled FLASK-A or FLASK-B. Nothing
++# else is ever written to, so an internal disk or an unlabelled stick is safe.
++#
++# What goes on each stick (docs/flask.md, "Layout of each stick"):
++#
++#   debian-live-<ver>-amd64-xfce.iso   Ventoy boots it
++#   tools\linux-amd64\                  restic, rclone, KeePassXC AppImage
++#   tools\windows-amd64\                restic.exe, rclone.exe, KeePassXC\ (portable)
++#   tools\darwin-arm64\, darwin-amd64\  restic, rclone
++#   RECOVERY.md, VERSIONS.txt
++#   SHA256SUMS                          every file above; `sha256sum -c SHA256SUMS` on Linux
++#
++# flask.kdbx is never read, written or listed in SHA256SUMS: the vault is filled
++# by hand in KeePassXC. -Check only compares its hash between the sticks, so
++# you know whether B still matches A.
++#
++# Trust: every download is checked against its project's signed checksums, and
++# the signature against the key fingerprints pinned below (from each project's
++# own docs, 2026-09-28). A key is fetched from a keyserver but only accepted if
++# its fingerprint matches. Anything that doesn't verify stops the run before a
++# stick is touched. gpg and bzip2 come with Git for Windows.
++#
++# The versions are pinned too; bump them at the yearly check (runbook).
++#
++param(
++    [switch]$PrepareOnly,
++    [switch]$Check,
++    [string]$Cache = (Join-Path $env:LOCALAPPDATA 'purrbrews\flask'),
++    [string]$DebianVersion = '13.7.0',
++    [string]$ResticVersion = '0.19.1',
++    [string]$RcloneVersion = '1.75.1',
++    [string]$KeePassXCVersion = '2.7.12'
++)
++$ErrorActionPreference = 'Stop'
++. (Join-Path $PSScriptRoot '..\..\_lib\purrbrews.ps1')
++
++$Keys = @{
++    debian    = 'DF9B9C49EAA9298432589D76DA87E80D6294BE9B'   # Debian CD signing key (debian.org/CD/verify)
++    restic    = 'CF8F18F2844575973F79D4E191A6868BD3F7A907'   # Alexander Neumann (restic docs, Installation)
++    rclone    = 'FBF737ECE9F8AB18604BD2AC93935E02FF3B54FA'   # Nick Craig-Wood (rclone.org/release_signing)
++    keepassxc = 'BF5A669F2272CF4324C1FDA8CFB4C2166397D0D2'   # KeePassXC master key (keepassxc.org/verifying-signatures)
++}
++$Excluded = '^(flask\.kdbx.*|SHA256SUMS|System Volume Information[\\/].*|ventoy[\\/].*)$'
++
++# -- helpers --------------------------------------------------------------------
++function Find-Exe([string]$Name) {
++    foreach ($dir in "$env:ProgramFiles\Git\usr\bin", "$env:ProgramFiles\Git\mingw64\bin") {
++        $p = Join-Path $dir "$Name.exe"
++        if (Test-Path -LiteralPath $p) { return $p }
++    }
++    $c = Get-Command $Name -ErrorAction SilentlyContinue
++    if ($c) { return $c.Source }
++    throw "$Name isn't installed. It comes with Git for Windows (winget install Git.Git)."
++}
++
++function Invoke-Exe([string]$Exe, [string[]]$ArgList) {
++    # Native tools write progress to stderr; PowerShell 5 would turn that into
++    # errors under 'Stop', so collect it as text and judge by the exit code.
++    $old = $ErrorActionPreference
++    $ErrorActionPreference = 'Continue'
++    try { $out = @(& $Exe @ArgList 2>&1 | ForEach-Object { "$_" }) } finally { $ErrorActionPreference = $old }
++    [pscustomobject]@{ Code = $LASTEXITCODE; Out = $out }
++}
++
++function Unix([string]$Path) {
++    # Git's gpg and bzip2 are MSYS programs: C:\x\y must be /c/x/y, or they take
++    # it for a relative path.
++    if ($Path -match '^([A-Za-z]):\\(.*)$') { return '/' + $Matches[1].ToLower() + '/' + ($Matches[2] -replace '\\', '/') }
++    $Path -replace '\\', '/'
++}
++
++function Get-Download([string]$Url, [string]$Dest) {
++    if (Test-Path -LiteralPath $Dest) { return }
++    $part = "$Dest.part"
++    # Not through Invoke-Exe: curl's progress bar should reach the screen, and an
++    # unredirected stderr does, even in PowerShell 5. -C - resumes a broken download.
++    Write-Host "  downloading $(Split-Path -Leaf $Dest)"
++    $old = $ErrorActionPreference
++    $ErrorActionPreference = 'Continue'
++    try { & $script:Curl -fL --retry 3 -C - --progress-bar -o $part $Url; $code = $LASTEXITCODE } finally { $ErrorActionPreference = $old }
++    if ($code -ne 0) { throw "Download failed (curl $code): $Url" }
++    Move-Item -LiteralPath $part -Destination $Dest -Force
++}
++
++function Import-PinnedKey([string]$Fingerprint) {
++    $file = Join-Path $script:Work "$Fingerprint.asc"
++    $url = "https://keyserver.ubuntu.com/pks/lookup?op=get&options=mr&search=0x$Fingerprint"
++    $r = Invoke-Exe $script:Curl @('-fsSL', '--retry', '3', '-o', $file, $url)
++    if ($r.Code -ne 0) { throw "Couldn't fetch key $Fingerprint from keyserver.ubuntu.com." }
++    $null = Invoke-Exe $script:Gpg @('--homedir', $script:GpgHome, '--batch', '--import', (Unix $file))
++    $r = Invoke-Exe $script:Gpg @('--homedir', $script:GpgHome, '--batch', '--with-colons', '--fingerprint', $Fingerprint)
++    $fprs = $r.Out | Where-Object { $_ -like 'fpr:*' } | ForEach-Object { ($_ -split ':')[9] }
++    if ($r.Code -ne 0 -or $fprs -notcontains $Fingerprint) { throw "Key $Fingerprint didn't import as that fingerprint; not trusting it." }
++}
++
++function Assert-Signature([string[]]$GpgArgs, [string[]]$Allowed, [string]$What) {
++    # Good only if gpg says GOODSIG and VALIDSIG's primary-key fingerprint (its
++    # last field) is one we pinned. Not good enough: any key in the keyring.
++    $r = Invoke-Exe $script:Gpg (@('--homedir', $script:GpgHome, '--batch', '--status-fd', '1') + $GpgArgs)
++    $good = $r.Out | Where-Object { $_.StartsWith('[GNUPG:] GOODSIG ') }
++    $primary = $r.Out | Where-Object { $_.StartsWith('[GNUPG:] VALIDSIG ') } | ForEach-Object { ($_ -split ' ')[-1] }
++    if ($r.Code -ne 0 -or -not $good -or -not ($primary | Where-Object { $Allowed -contains $_ })) {
++        $r.Out | Where-Object { -not $_.StartsWith('[GNUPG:]') } | ForEach-Object { Write-Host "    $_" }
++        throw "$What`: signature not good, or not by a pinned key. Stopping; no stick was touched."
++    }
++    Write-Host "  $What`: signature good ($($primary | Select-Object -First 1))"
++}
++
++function Read-Sums([string]$Path) {
++    $sums = @{}
++    foreach ($line in [IO.File]::ReadAllLines($Path)) {
++        if ($line -match '^([0-9a-fA-F]{64}|[0-9a-fA-F]{128})\s+\*?(?:\./)?(\S+)$') { $sums[$Matches[2]] = $Matches[1].ToLower() }
++    }
++    $sums
++}
++
++function Assert-Hash([string]$Path, [string]$Expected, [string]$Algorithm = 'SHA256') {
++    $name = Split-Path -Leaf $Path
++    if (-not $Expected) { throw "No published checksum for $name." }
++    $got = (Get-FileHash -LiteralPath $Path -Algorithm $Algorithm).Hash.ToLower()
++    if ($got -ne $Expected) {
++        Remove-Item -LiteralPath $Path -Force
++        throw "$name`: checksum mismatch (deleted; run again to download it fresh)."
++    }
++    Write-Host "  $name`: $Algorithm matches"
++}
++
++function Get-FlaskSticks {
++    foreach ($vol in Get-Volume | Where-Object { $_.FileSystemLabel -match '^FLASK-[AB]$' -and $_.DriveLetter }) {
++        $part = Get-Partition -DriveLetter $vol.DriveLetter
++        $disk = Get-Disk -Number $part.DiskNumber
++        $labels = Get-Partition -DiskNumber $disk.Number | Get-Volume -ErrorAction SilentlyContinue | ForEach-Object { $_.FileSystemLabel }
++        if ($disk.BusType -ne 'USB') { Write-Warning "$($vol.FileSystemLabel) isn't on a USB disk; skipped."; continue }
++        if ($labels -notcontains 'VTOYEFI') { Write-Warning "$($vol.FileSystemLabel) has no Ventoy on it (no VTOYEFI partition); install Ventoy first. Skipped."; continue }
++        if ($vol.FileSystem -ne 'exFAT') { Write-Warning "$($vol.FileSystemLabel) is $($vol.FileSystem), not exFAT; skipped."; continue }
++        [pscustomobject]@{ Label = $vol.FileSystemLabel; Root = "$($vol.DriveLetter):\"; Disk = "$($disk.FriendlyName) #$($disk.Number)" }
++    }
++}
++
++function Get-TreeSums([string]$Root) {
++    # relative/path -> sha256, for every file under $Root except the excluded ones.
++    $sums = [ordered]@{}
++    Get-ChildItem -LiteralPath $Root -Recurse -File -Force -ErrorAction SilentlyContinue | Sort-Object FullName | ForEach-Object {
++        $rel = $_.FullName.Substring($Root.TrimEnd('\').Length + 1) -replace '\\', '/'
++        if ($rel -notmatch $Excluded) { $sums[$rel] = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLower() }
++    }
++    $sums
++}
++
++function Test-Stick($Stick) {
++    $sumsFile = Join-Path $Stick.Root 'SHA256SUMS'
++    if (-not (Test-Path -LiteralPath $sumsFile)) { Write-Warning "  $($Stick.Label): no SHA256SUMS; it has never been built."; return $false }
++    $want = Read-Sums $sumsFile
++    $have = Get-TreeSums $Stick.Root
++    $bad = @()
++    foreach ($k in $want.Keys) { if ($have[$k] -ne $want[$k]) { $bad += "changed or missing: $k" } }
++    # Something you added by hand (a second ISO, say) is only a note: it isn't
++    # part of the kit, and nothing here should make you delete it.
++    foreach ($k in $have.Keys) { if (-not $want.ContainsKey($k)) { Write-Host "  $($Stick.Label): not part of the kit (left alone): $k" } }
++    if ($bad) { $bad | ForEach-Object { Write-Warning "  $($Stick.Label): $_" }; return $false }
++    Write-Host "  $($Stick.Label): all $($want.Count) files match SHA256SUMS"
++    $true
++}
++
++function Compare-Vaults($Sticks) {
++    $vaults = @{}
++    foreach ($s in $Sticks) {
++        $v = Join-Path $s.Root 'flask.kdbx'
++        if (Test-Path -LiteralPath $v) { $vaults[$s.Label] = (Get-FileHash -LiteralPath $v -Algorithm SHA256).Hash }
++        else { Write-Warning "  $($s.Label): no flask.kdbx yet." }
++    }
++    if ($vaults.Count -eq 2) {
++        if (@($vaults.Values | Select-Object -Unique).Count -eq 1) { Write-Host '  flask.kdbx: the same on both sticks' }
++        else { Write-Warning '  flask.kdbx differs between the sticks: copy the newer one (A, by the runbook) over the other.' }
++    }
++}
++
++# -- sticks ---------------------------------------------------------------------
++$sticks = @(Get-FlaskSticks)
++if ($Check) {
++    Write-Step 'Checking the sticks'
++    if (-not $sticks) { throw 'No flask stick plugged in (FLASK-A or FLASK-B, with Ventoy).' }
++    $ok = $true
++    foreach ($s in $sticks) { if (-not (Test-Stick $s)) { $ok = $false } }
++    Compare-Vaults $sticks
++    if (-not $ok) { throw 'At least one stick failed its check: rebuild it with .\make-flask.ps1, then refill or copy its vault.' }
++    Write-Host ''
++    Write-Host 'All good. Unplug them and put them back in their places.'
++    return
++}
++if (-not $PrepareOnly -and -not $sticks) {
++    throw 'No flask stick plugged in (FLASK-A or FLASK-B, with Ventoy). -PrepareOnly downloads and verifies without one.'
++}
++
++# -- download and verify ----------------------------------------------------------
++$script:Curl = Find-Exe 'curl'
++$script:Gpg = Find-Exe 'gpg'
++$Bzip2 = Find-Exe 'bzip2'
++$Downloads = Join-Path $Cache 'downloads'
++$script:Work = Join-Path $Cache "work-$PID"
++$script:GpgHome = Unix (Join-Path $script:Work 'gnupg')
++New-Item -ItemType Directory -Force -Path $Downloads, (Join-Path $script:Work 'gnupg') | Out-Null
++
++try {
++    Write-Step 'Signing keys (pinned fingerprints)'
++    foreach ($k in $Keys.Values) { Import-PinnedKey $k }
++    Write-Host "  $($Keys.Count) keys imported, fingerprints match"
++
++    # Debian Live: the current release sits in debian-cd/, older ones in archive/.
++    Write-Step "Debian Live $DebianVersion (xfce)"
++    $iso = "debian-live-$DebianVersion-amd64-xfce.iso"
++    $dd = Join-Path $Downloads "debian-$DebianVersion"
++    New-Item -ItemType Directory -Force -Path $dd | Out-Null
++    $bases = "https://cdimage.debian.org/debian-cd/$DebianVersion-live/amd64/iso-hybrid",
++             "https://cdimage.debian.org/cdimage/archive/$DebianVersion-live/amd64/iso-hybrid"
++    $base = $null
++    foreach ($b in $bases) {
++        try { Get-Download "$b/SHA512SUMS" (Join-Path $dd 'SHA512SUMS'); $base = $b; break } catch { }
++    }
++    if (-not $base) { throw "Debian $DebianVersion live isn't on cdimage.debian.org (current or archive)." }
++    Get-Download "$base/SHA512SUMS.sign" (Join-Path $dd 'SHA512SUMS.sign')
++    Assert-Signature @('--verify', (Unix (Join-Path $dd 'SHA512SUMS.sign')), (Unix (Join-Path $dd 'SHA512SUMS'))) @($Keys.debian) 'Debian SHA512SUMS'
++    Get-Download "$base/$iso" (Join-Path $dd $iso)
++    Assert-Hash (Join-Path $dd $iso) (Read-Sums (Join-Path $dd 'SHA512SUMS'))[$iso] 'SHA512'
++    $IsoPath = Join-Path $dd $iso
++
++    Write-Step "restic $ResticVersion"
++    $rd = Join-Path $Downloads "restic-$ResticVersion"
++    New-Item -ItemType Directory -Force -Path $rd | Out-Null
++    $rbase = "https://github.com/restic/restic/releases/download/v$ResticVersion"
++    Get-Download "$rbase/SHA256SUMS" (Join-Path $rd 'SHA256SUMS')
++    Get-Download "$rbase/SHA256SUMS.asc" (Join-Path $rd 'SHA256SUMS.asc')
++    Assert-Signature @('--verify', (Unix (Join-Path $rd 'SHA256SUMS.asc')), (Unix (Join-Path $rd 'SHA256SUMS'))) @($Keys.restic) 'restic SHA256SUMS'
++    $rsums = Read-Sums (Join-Path $rd 'SHA256SUMS')
++    $restic = @{ 'linux-amd64' = "restic_${ResticVersion}_linux_amd64.bz2"; 'darwin-arm64' = "restic_${ResticVersion}_darwin_arm64.bz2";
++                 'darwin-amd64' = "restic_${ResticVersion}_darwin_amd64.bz2"; 'windows-amd64' = "restic_${ResticVersion}_windows_amd64.zip" }
++    foreach ($f in $restic.Values) { Get-Download "$rbase/$f" (Join-Path $rd $f); Assert-Hash (Join-Path $rd $f) $rsums[$f] }
++
++    Write-Step "rclone $RcloneVersion"
++    $cd = Join-Path $Downloads "rclone-$RcloneVersion"
++    New-Item -ItemType Directory -Force -Path $cd | Out-Null
++    $cbase = "https://downloads.rclone.org/v$RcloneVersion"
++    Get-Download "$cbase/SHA256SUMS" (Join-Path $cd 'SHA256SUMS.signed')
++    # Clearsigned: read the hashes from what gpg says was signed, not from the file.
++    $plain = Join-Path $script:Work 'rclone-SHA256SUMS'
++    Assert-Signature @('-o', (Unix $plain), '--decrypt', (Unix (Join-Path $cd 'SHA256SUMS.signed'))) @($Keys.rclone) 'rclone SHA256SUMS'
++    $csums = Read-Sums $plain
++    $rclone = @{ 'linux-amd64' = "rclone-v$RcloneVersion-linux-amd64.zip"; 'darwin-arm64' = "rclone-v$RcloneVersion-osx-arm64.zip";
++                 'darwin-amd64' = "rclone-v$RcloneVersion-osx-amd64.zip"; 'windows-amd64' = "rclone-v$RcloneVersion-windows-amd64.zip" }
++    foreach ($f in $rclone.Values) { Get-Download "$cbase/$f" (Join-Path $cd $f); Assert-Hash (Join-Path $cd $f) $csums[$f] }
++
++    Write-Step "KeePassXC $KeePassXCVersion"
++    $kd = Join-Path $Downloads "keepassxc-$KeePassXCVersion"
++    New-Item -ItemType Directory -Force -Path $kd | Out-Null
++    $kbase = "https://github.com/keepassxreboot/keepassxc/releases/download/$KeePassXCVersion"
++    $appimage = "KeePassXC-$KeePassXCVersion-x86_64.AppImage"
++    $winzip = "KeePassXC-$KeePassXCVersion-Win64.zip"
++    foreach ($f in $appimage, $winzip) {
++        Get-Download "$kbase/$f.sig" (Join-Path $kd "$f.sig")
++        Get-Download "$kbase/$f" (Join-Path $kd $f)
++        try {
++            Assert-Signature @('--verify', (Unix (Join-Path $kd "$f.sig")), (Unix (Join-Path $kd $f))) @($Keys.keepassxc) $f
++        } catch { Remove-Item -LiteralPath (Join-Path $kd $f) -Force; throw }
++    }
++
++    # -- stage: the tools tree exactly as it goes on the stick --------------------
++    Write-Step 'Staging the tools'
++    $Stage = Join-Path $Cache 'stage'
++    if (Test-Path -LiteralPath $Stage) { Remove-Item -LiteralPath $Stage -Recurse -Force }
++    $tools = Join-Path $Stage 'tools'
++    foreach ($p in 'linux-amd64', 'darwin-arm64', 'darwin-amd64', 'windows-amd64') {
++        $dir = Join-Path $tools $p
++        New-Item -ItemType Directory -Force -Path $dir | Out-Null
++        # restic
++        $src = Join-Path $rd $restic[$p]
++        if ($src.EndsWith('.zip')) {
++            $x = Join-Path $script:Work "restic-$p"
++            Expand-Archive -LiteralPath $src -DestinationPath $x -Force
++            Copy-Item -LiteralPath (Get-ChildItem -LiteralPath $x -Recurse -Filter 'restic*.exe' | Select-Object -First 1).FullName (Join-Path $dir 'restic.exe')
++        } else {
++            $tmp = Join-Path $script:Work $restic[$p]
++            Copy-Item -LiteralPath $src $tmp
++            $r = Invoke-Exe $Bzip2 @('-d', '-f', (Unix $tmp))
++            if ($r.Code -ne 0) { throw "bzip2 couldn't unpack $($restic[$p])." }
++            Move-Item -LiteralPath ($tmp -replace '\.bz2$', '') (Join-Path $dir 'restic')
++        }
++        # rclone
++        $x = Join-Path $script:Work "rclone-$p"
++        Expand-Archive -LiteralPath (Join-Path $cd $rclone[$p]) -DestinationPath $x -Force
++        $exe = if ($p -eq 'windows-amd64') { 'rclone.exe' } else { 'rclone' }
++        Copy-Item -LiteralPath (Get-ChildItem -LiteralPath $x -Recurse -File | Where-Object Name -eq $exe | Select-Object -First 1).FullName (Join-Path $dir $exe)
++    }
++    Copy-Item -LiteralPath (Join-Path $kd $appimage) (Join-Path $tools "linux-amd64\$appimage")
++    Expand-Archive -LiteralPath (Join-Path $kd $winzip) -DestinationPath (Join-Path $script:Work 'kpx') -Force
++    # The zip holds one KeePassXC-<ver>-Win64 folder; copy what's inside it.
++    $kpx = Join-Path $script:Work 'kpx'
++    $inner = @(Get-ChildItem -LiteralPath $kpx)
++    if ($inner.Count -eq 1 -and $inner[0].PSIsContainer) { $kpx = $inner[0].FullName }
++    Copy-Item -Path (Join-Path $kpx '*') -Destination (New-Item -ItemType Directory -Force -Path (Join-Path $tools 'windows-amd64\KeePassXC')).FullName -Recurse
++    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'RECOVERY.md') (Join-Path $Stage 'RECOVERY.md')
++    Write-LFFile (Join-Path $Stage 'VERSIONS.txt') @(
++        "flask built $(Get-Date -Format 'yyyy-MM-dd') by stacks/roastery/flask/make-flask.ps1",
++        "Debian Live $DebianVersion (xfce)   $iso",
++        "restic      $ResticVersion",
++        "rclone      $RcloneVersion",
++        "KeePassXC   $KeePassXCVersion",
++        'Every file was checked against its project''s signed checksums; SHA256SUMS lists them all.')
++    Write-Host "  staged in $Stage"
++} finally {
++    if (Test-Path -LiteralPath $script:Work) {
++        try { $null = Invoke-Exe (Find-Exe 'gpgconf') @('--homedir', $script:GpgHome, '--kill', 'all') } catch { }
++        Remove-Item -LiteralPath $script:Work -Recurse -Force -ErrorAction SilentlyContinue
++    }
++}
++
++if ($PrepareOnly) {
++    Write-Host ''
++    Write-Host "Everything downloaded and verified. Plug in the sticks and run .\make-flask.ps1 to write them."
++    return
++}
++
++# -- write each stick ---------------------------------------------------------------
++$stageSums = Get-TreeSums $Stage
++$isoSum = (Get-FileHash -LiteralPath $IsoPath -Algorithm SHA256).Hash.ToLower()
++foreach ($s in $sticks) {
++    Write-Step "Writing $($s.Label) ($($s.Root), $($s.Disk))"
++    # tools\ is mirrored (old versions go); nothing else on the stick is removed
++    # except older Debian ISOs. flask.kdbx is never touched.
++    $r = Invoke-Exe 'robocopy.exe' @((Join-Path $Stage 'tools'), (Join-Path $s.Root 'tools'), '/MIR', '/R:2', '/W:2', '/NJH', '/NJS', '/NDL', '/NFL', '/NP')
++    if ($r.Code -ge 8) { $r.Out | ForEach-Object { Write-Host "    $_" }; throw "robocopy failed writing tools to $($s.Label)." }
++    foreach ($f in 'RECOVERY.md', 'VERSIONS.txt') { Copy-Item -LiteralPath (Join-Path $Stage $f) (Join-Path $s.Root $f) -Force }
++    Get-ChildItem -LiteralPath $s.Root -Filter 'debian-live-*.iso' -File | Where-Object Name -ne $iso | Remove-Item -Force
++    $target = Join-Path $s.Root $iso
++    if (-not (Test-Path -LiteralPath $target) -or (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLower() -ne $isoSum) {
++        Write-Host "  copying $iso (a few minutes)"
++        Copy-Item -LiteralPath $IsoPath $target -Force
++    }
++    $lines = @("$isoSum  $iso") + @($stageSums.Keys | ForEach-Object { "$($stageSums[$_])  $_" })
++    Write-LFFile (Join-Path $s.Root 'SHA256SUMS') $lines
++    # Read everything back from the stick: a bad write shows up now, not on the worst day.
++    if (-not (Test-Stick $s)) { throw "$($s.Label) doesn't read back what was written. Try another USB port; if it happens again, replace the stick." }
++}
++
++Write-Step 'Vaults'
++Compare-Vaults $sticks
++Write-Host ''
++Write-Host 'Done. Next (docs/flask.md): fill flask.kdbx in KeePassXC on A, copy it to B, run .\make-flask.ps1 -Check,'
++Write-Host 'then eject both from the tray before pulling them out.'
+diff --git a/tests/test_infrastructure.py b/tests/test_infrastructure.py
+index b44e3f4..15d8d41 100644
+--- a/tests/test_infrastructure.py
++++ b/tests/test_infrastructure.py
+@@ -759,5 +759,36 @@ class Tunnel(unittest.TestCase):
+         self.assertEqual(needed - fleet - sieve, set(), 'a new setting would break the next render on sieve')
+ 
+ 
++class Flask(unittest.TestCase):
++    """flask, the offline recovery kit (docs/flask.md): stacks/roastery/flask."""
++
++    DIR = STACKS / 'roastery' / 'flask'
++
++    def test_versions_and_signing_keys_are_pinned(self):
++        script = (self.DIR / 'make-flask.ps1').read_text()
++        for name in ['DebianVersion', 'ResticVersion', 'RcloneVersion', 'KeePassXCVersion']:
++            self.assertRegex(script, rf"\${name} = '\d+\.\d+\.\d+'")
++        keys = dict(re.findall(r"^\s+(\w+)\s+= '([0-9A-F]{40})'", script, re.M))
++        self.assertEqual({'debian', 'restic', 'rclone', 'keepassxc'} - set(keys), set())
++
++    def test_the_vault_is_never_written_or_listed(self):
++        script = (self.DIR / 'make-flask.ps1').read_text()
++        self.assertIn("'^(flask\\.kdbx.*|SHA256SUMS", script)
++        self.assertNotRegex(script, r'(Copy-Item|Remove-Item|Move-Item)[^\n]*kdbx')
++
++    def test_recovery_makes_the_crypt_remote_like_drive_setup(self):
++        crypt = 'remote=drive:purrbrews-restic filename_encryption=standard directory_name_encryption=true'
++        self.assertIn(crypt, (STACKS / 'cellar' / 'restic' / 'drive-setup.sh').read_text())
++        self.assertIn(crypt, (self.DIR / 'RECOVERY.md').read_text())
++
++    def test_powershell_files_are_ascii(self):
++        # PowerShell 5 reads a BOM-less .ps1 as ANSI: a UTF-8 dash becomes a
++        # smart quote, which it treats as a string delimiter.
++        for file in ROOT.rglob('*.ps1'):
++            if '.git' not in file.parts:
++                bad = [n for n, line in enumerate(file.read_text().splitlines(), 1) if not line.isascii()]
++                self.assertEqual(bad, [], f'{file.relative_to(ROOT)}: non-ASCII on lines {bad}')
++
++
+ if __name__ == '__main__':
+     unittest.main()
+-- 
+2.43.0
+
