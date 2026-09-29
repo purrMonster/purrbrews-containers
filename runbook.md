@@ -513,7 +513,9 @@ first contact (`accept-new`) instead of needing a second `keys` round.
     the upload was still running; tomorrow's is the first that counts.
   - [ ] Restore test from Drive (`sudo ./restic/restore-test.sh --from drive`), and
     `sudo ./restic/check-freshness.sh` passing
-  - [ ] roastery's sleep setting back
+  - [x] roastery's sleep setting: decided 2026-09-29 (owner), roastery stays awake.
+    AC standby stays at Never. The 01:25 Wake-on-LAN timer stays as a harmless
+    fallback; it does nothing while roastery is already on
   - [ ] Drive client ID/secret into the vault (`fill-vault.ps1` again) and
     `rclone.conf` attached; the vault copied to stick B, `-Check`
 - [ ] Restore test from roastery and from Drive; next morning's freshness check
