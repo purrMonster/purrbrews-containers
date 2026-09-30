@@ -50,6 +50,9 @@ changes can be made later without re-deriving the reasoning.
 - [ ] mochaPot's SanDisk runs at 67 °C: check its airflow
 - [ ] Still floating: Home Assistant and ESPHome (`stable`), Unbound (`main`); Samba (`latest`) goes with the Samba decision
 - [ ] Node checkouts: percolator has an untracked `.env.local.bak-20260926` (secrets; delete once sure), mochaPot a stray `bootstrap/--no-check-certificate` file and `tests/test_network_gateway.sh` (owner)
+- [ ] Home Assistant: bring the lights and devices in. The backbone runs on mochaPot (Traefik, OIDC, Postgres), nothing is paired yet. Integrations and pairing first; areas and automations once the home layout is final (owner, 2026-09-30)
+- [ ] ESP32 sensors and voice speakers: build them with ESPHome (grinder), and a voice pipeline in Home Assistant's Assist with Ollama on roastery as the conversation backend. Local intents first so lights don't depend on the GPU; needs the roastery sleep/wake decision below (owner, 2026-09-30)
+- [ ] roastery sleep vs Wake-on-LAN: design a wake-on-demand setup before it ever sleeps again. Keep it awake during SFTP, Ollama and Immich ML work (Windows puts an unattended wake back to sleep after ~2 min); a model router on grinder that wakes roastery and answers from a small CPU model meanwhile (also solves Open WebUI's machine-to-machine auth); an Immich ML fallback; a remote wake over the tailnet; a power reading first. Until then roastery stays awake (2026-09-29 decision)
 
 ---
 
