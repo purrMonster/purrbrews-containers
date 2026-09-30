@@ -47,7 +47,7 @@ changes can be made later without re-deriving the reasoning.
 - [ ] flask: build the two sticks and the paper, `make-flask.ps1` and `RECOVERY.md` first ([docs/flask.md](docs/flask.md); 2026-09-28 flask entry below)
 - [ ] Offline copy of the restic repository: the old Seagate in a USB enclosure, synced monthly; `offline-sync.ps1` still to write (2026-09-28 flask entry)
 - [ ] roastery: move the repository off C: to a second NVMe (2026-09-28 flask entry)
-- [ ] mochaPot's SanDisk runs at 67 °C: check its airflow
+- [ ] mochaPot's SanDisk runs at 67 °C: check its airflow. Checked 2026-09-30: it's an M.2 **SATA** drive (not NVMe) in the slot on the underside of the board, over the CPU, with no heatsink. The disk itself is nearly idle (about 9 KB/s written, no I/O pressure) and the CPU package sits at 47 °C, so the heat is trapped rather than made by the disk. The biggest steady load is the kiosk (Chromium in `cage`, ~40% of a core, display always on). Options: raise the laptop so the underside breathes, a thermal pad to the bottom cover, screen off when idle; if the disk is replaced, a SATA M.2 runs cooler than NVMe in that spot
 - [ ] Still floating: Home Assistant and ESPHome (`stable`), Unbound (`main`); Samba (`latest`) goes with the Samba decision
 - [ ] Node checkouts: percolator has an untracked `.env.local.bak-20260926` (secrets; delete once sure), mochaPot a stray `bootstrap/--no-check-certificate` file and `tests/test_network_gateway.sh` (owner)
 - [ ] Home Assistant: bring the lights and devices in. The backbone runs on mochaPot (Traefik, OIDC, Postgres), nothing is paired yet. Integrations and pairing first; areas and automations once the home layout is final (owner, 2026-09-30)
