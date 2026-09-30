@@ -24,7 +24,7 @@ changes can be made later without re-deriving the reasoning.
 - [x] Confirm each node's `DISK_DEVICE` (and `DISK_DEVICE_2` on percolator and cellar) against real hardware (`lsblk -d -o NAME,TYPE,SIZE,MODEL`); these were the per-node `*_DISK_DEVICE*` keys until 2026-09-26 Done 2026-09-29: all seven match `lsblk`, every collector reporting in Scrutiny
 - [ ] cellar's Samba: `smb/docker-compose.yml` exists but nothing uses it and ufw-docker keeps 445 closed. Decide on shares and permissions, pin the image, then uncomment the rule in `smb/firewall`
 - [x] Wire cellar's restic sources to percolator's, sieve's and mochaPot's actual dumps and data: replaced by each node's own `backup` files (2026-09-27)
-- [ ] Backups to roastery, cellar as the dump store, second copy of everything on Google Drive (decided 2026-09-26; design in the 2026-09-27 entries). Scripts written 2026-09-27; every node's backups on since 2026-09-28; Drive set up 2026-09-29, first upload running. Next: the restore test from Drive (2026-09-27 wiring entry). Replaces the old "enable cellar's roastery mirror and Google Drive sync" item
+- [ ] Backups to roastery, cellar as the dump store, second copy of everything on Google Drive (decided 2026-09-26; design in the 2026-09-27 entries). Scripts written 2026-09-27; every node's backups on since 2026-09-28; Drive set up 2026-09-29, first upload running. Restore tests from roastery and from Drive passed 2026-09-29; the first full night clean 2026-09-30. Next: the Drive client and `rclone.conf` into the vault, stick B, and the first monthly verify on 2026-10-01 (2026-09-27 wiring entry). Replaces the old "enable cellar's roastery mirror and Google Drive sync" item
 - [ ] Replace cellar's old disk (ST1000LM035, 5–8 years old) once it's only the dump store; the SanDisk on mochaPot is the same age. Superseded 2026-09-28: it's out of use on cellar and becomes the offline copy after a long self-test (2026-09-28 flask entry)
 - [x] roastery: `immich-machine-learning` at Immich's version, Windows Firewall 3003 scoped to percolator. Verified 2026-09-29 on roastery (Claude, owner approved): container `immich-machine-learning:v3.2.1-cuda` matches percolator's `immich-server:v3.2.1`; rule `immich-ml (percolator only)` enabled, remote address `192.168.0.11` only
 - [x] Postgres dump job for percolator's databases (Nextcloud, Immich, Paperless): `pg` lines in their `backup` files (2026-09-27)
@@ -543,14 +543,28 @@ first contact (`accept-new`) instead of needing a second `keys` round.
     and `/var/lib/purrbrews/drive-sync.ok` written at the same second (checked 12:27).
     71 minutes for the 76.6 GB. The 06:00 freshness check failed, as expected, since
     the upload was still running; tomorrow's is the first that counts.
-  - [ ] Restore test from Drive (`sudo ./restic/restore-test.sh --from drive`), and
-    `sudo ./restic/check-freshness.sh` passing
+  - [x] Restore tests on cellar, `sudo ./restic/restore-test.sh` and `--from drive`:
+    both passed on the evening of 2026-09-29 (owner; output not recorded here). The
+    06:00 freshness check on 2026-09-30 finished `success`, the first with Drive current
   - [x] roastery's sleep setting: decided 2026-09-29 (owner), roastery stays awake.
     AC standby stays at Never. The 01:25 Wake-on-LAN timer stays as a harmless
     fallback; it does nothing while roastery is already on
   - [ ] Drive client ID/secret into the vault (`fill-vault.ps1` again) and
     `rclone.conf` attached; the vault copied to stick B, `-Check`
-- [ ] Restore test from roastery and from Drive; next morning's freshness check
+- [x] Restore test from roastery and from Drive; next morning's freshness check
+  (both above)
+  - 2026-09-30, the first full night with everything on, checked 10:04 over SSH (me):
+    every unit `Result=success`, status 0. Wake 01:25; nightly backups on cellar
+    01:30, sieve 01:31, mochaPot 01:32, percolator 01:32, grinder 01:35 (3–25 s each,
+    incremental); store 02:30; drive-sync 03:30–03:31; freshness check 06:00.
+  - The one failure: `restic-prune.service` on Sunday 2026-09-27 at 03:30:20, exit 1,
+    "run with sudo: the repository is reached with root's backup key". That was the
+    catch-up run when the timers were switched on. The installed unit matches the
+    repo (no `User=`, so a timer run is root); barista could read the line in the
+    journal, which points to a run as barista rather than by systemd. Not confirmed.
+    Rerun 2026-09-30 by the owner (`sudo systemctl start restic-prune.service`):
+    "prune OK" at 10:33:31. Nothing removed: three nights of snapshots, each still
+    a keeper. Next prune Sunday 2026-10-04 03:00; first monthly verify 2026-10-01 04:30
 
 **What went wrong on the first pass, and the fixes:**
 
