@@ -19,6 +19,8 @@ services:
       COLLECTOR_CRON_SCHEDULE: "0 */6 * * *"
     volumes:
       - /run/udev:/run/udev:ro
+      # Reads this disk without its stuck statistics log (see collector.yaml).
+      - ./collector.yaml:/opt/scrutiny/config/collector.yaml:ro
     devices:
       - ${DISK_DEVICE:?set DISK_DEVICE in .env.local}
     restart: unless-stopped
