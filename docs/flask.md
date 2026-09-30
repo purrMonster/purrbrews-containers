@@ -210,6 +210,36 @@ Run again after a secret changes: existing entries get the new value. The rest b
 hand in KeePassXC ("Outside the repo" above, and `rclone.conf` once Drive exists),
 then copy `flask.kdbx` to B and `.\make-flask.ps1 -Check`.
 
+## Testing it
+
+Boot the stick in a VirtualBox VM on roastery: no reboot, and a VM with no network
+adapter is exactly the offline test. VirtualBox can't boot a passed-through USB
+device, so the VM gets the whole stick as a raw disk. Elevated PowerShell:
+
+```powershell
+Get-Disk | Where-Object BusType -eq USB | Format-Table Number, FriendlyName, Size
+Get-Partition -DiskNumber 1 | Get-Volume        # FLASK-A or FLASK-B, and VTOYEFI? (1 = the number above)
+Set-Disk -Number 1 -IsOffline $true             # Windows lets go of it
+New-Item -ItemType Directory -Force "$env:LOCALAPPDATA\purrbrews\flask\vm" | Out-Null
+& "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe" createmedium disk `
+  --filename "$env:LOCALAPPDATA\purrbrews\flask\vm\flask-a.vmdk" `
+  --format VMDK --variant RawDisk --property RawDrive=\\.\PhysicalDrive1
+```
+
+VirtualBox itself run as administrator: a Debian 64-bit VM, EFI on, 4 GB, no disk
+in the wizard, then `flask-a.vmdk` on the SATA controller and the network adapter
+off. Boot, check the three things (the kit opens itself, **flask: KeePassXC** opens
+the vault, `restic version` runs), power off, `Set-Disk -Number 1 -IsOffline $false`.
+
+- The disk number changes with the port and other drives. Check it every time; if
+  it moved, delete the `.vmdk` and make it again. A stale one could point at
+  roastery's own disk.
+- Fixes can be tried inside the running live system first (`sudo nano
+  /usr/local/bin/flask-keepassxc`), then go into `stacks/roastery/flask/live/` and one
+  rebuild.
+- A VM doesn't test the firmware: the boot menu key and Secure Boot's key
+  enrolment. The last test of a rebuild is one boot on a real PC, not roastery.
+
 ## Using it
 
 [`RECOVERY.md`](../stacks/roastery/flask/RECOVERY.md), on each stick and in the repo:

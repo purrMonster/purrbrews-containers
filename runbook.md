@@ -44,7 +44,7 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Phone on the tailnet (only the Mac has joined so far)
 - [ ] Tunnel from Git: two-factor in Authelia first, then the switch in `stacks/sieve/cloudflared/README.md` (2026-09-28 entry below)
 - [ ] Apps over the tailnet: roll out in the order in the 2026-09-28 entry below
-- [ ] flask: build the two sticks and the paper, `make-flask.ps1` and `RECOVERY.md` first ([docs/flask.md](docs/flask.md); 2026-09-28 flask entry below)
+- [ ] flask: build the two sticks and the paper, `make-flask.ps1` and `RECOVERY.md` first ([docs/flask.md](docs/flask.md); 2026-09-28 flask entry below). 2026-09-30: A built and booted twice; next, rebuild with the boot injection and test it offline (in a VM on roastery, then one real PC), then B, the vault's Drive entries and the paper
 - [ ] Offline copy of the restic repository: the old Seagate in a USB enclosure, synced monthly; `offline-sync.ps1` still to write (2026-09-28 flask entry)
 - [ ] roastery: move the repository off C: to a second NVMe (2026-09-28 flask entry)
 - [x] mochaPot's SanDisk runs at 67 °C: check its airflow. **Not real heat: the disk runs at 36 °C.** Checked 2026-09-30 with smartctl inside `scrutiny-collector` (the host has no smartctl): attribute 194 raw is `36 (Min/Max 14/67)`, SCT status says current 36 °C, but device statistics report "Current Temperature 67", identical to its "Highest Temperature" and flat for days. That stuck value is what Scrutiny shows. Treat Scrutiny's temperature for this disk as unreliable; `smartctl -A` is the source of truth. (It's an M.2 SATA drive, not NVMe, in a slot under the board with no heatsink; the disk is nearly idle and the CPU at 47 °C, so nothing to fix.) Power-on hours confirmed at 18,975. Scrutiny fixed the same day: `smartctl --xall` (Scrutiny's default) reads the stuck log and gives 67 °C and 668 hours, which was also the "28 days"; `--all` gives 36 °C and 18,975 hours. mochaPot's collector now uses `--all` for this disk (`scrutiny-collector/collector.yaml`)
@@ -260,6 +260,27 @@ week-long test that entry asked for. The SanDisk's real problem is heat: 67 °C.
   - [ ] Rebuild both sticks with `.\make-flask.ps1`, then boot A **with the network
     cable out**: the kit opens by itself, "flask: KeePassXC" opens the vault, and
     `restic version` runs (owner)
+  - 2026-09-30, second boot of A (owner): `/mnt/flask` mounted. KeePassXC still
+    wouldn't start: run directly, the AppImage wants libfuse2; `--appimage-extract`
+    in `/mnt/flask/tools/linux-amd64` failed with "Read-only file system", since it
+    unpacks into the current folder, and the kit is mounted read-only. The files
+    were dated 2026-09-28, so the stick most likely predates the injection build
+    (not confirmed: `VERSIONS.txt` and `/usr/local/bin/flask-keepassxc` weren't
+    checked). By hand it works as RECOVERY.md says: copy the AppImage to `/tmp`, run
+    it with `--appimage-extract-and-run`. The rebuild above is still to do.
+  - 2026-09-30, a persistent install instead of the live system? The owner asked;
+    I advised against it and the owner went on with the live system. Why: `-Check`
+    can only vouch for a stick that doesn't change; an installed system left in a
+    drawer is a year out of date when it's needed, with no network to catch up;
+    persistence keeps shell history, KeePassXC's settings and caches unencrypted on
+    the stick; a running OS wears cheap flash; and flask gets booted on PCs nobody
+    trusts. Whatever has to be there at every boot goes into
+    `stacks/roastery/flask/live/`, injected at boot and rebuilt with the stick.
+  - 2026-09-30, testing without rebooting roastery: VirtualBox with the whole stick
+    as a raw disk (docs/flask.md, "Testing it"). Stick A is disk 1 on roastery. The
+    first try failed harmlessly on a placeholder `N` I'd left in the commands. VM
+    boot result not in yet. A VM can't test the firmware (boot menu, Secure Boot
+    enrolment), so one real boot on another PC stays the final test.
 - [ ] Seagate: `sudo smartctl -t long /dev/sda` on cellar, result `Completed without error` (owner); then out of cellar, into the enclosure, a full surface read on roastery
 - [ ] `offline-sync.ps1` and the 35-day check (me)
 - [ ] Second NVMe in roastery; the repository to `D:\purrbrews`, `setup.ps1` again, `restic check` (owner + me)
