@@ -11,6 +11,7 @@ the side, so not a fleet node: no `init/purrbrews-init.sh`, no `/opt/purrbrews`,
 | immich-ml | `./compose.ps1 immich-ml up -d` | `:3003`, percolator only (Windows Firewall) |
 | Komodo Periphery | `./compose.ps1 komodo-periphery up -d` | dials out to cellar |
 | [Traefik → Ollama](traefik/README.md) | `.\traefik\start.ps1`, native | `ollama.${DOMAIN}`, admins, via Authelia |
+| [meowGram](meowgram/README.md) | its own repo's compose, Docker Desktop | `meow.${DOMAIN}` through the same Traefik; Authelia OIDC |
 | [Backup target](#backup-target) | OpenSSH (SFTP), `backup-target\setup.ps1` | `C:\purrbrews\restic`, the fleet's restic repository |
 | [Remote access](#remote-access) | Tailscale + Remote Desktop, `remote-access\setup.ps1` | `mstsc /v:roastery` from the tailnet |
 

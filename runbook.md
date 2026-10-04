@@ -37,6 +37,7 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Decide: keep barista in the `docker` group (added 2026-09-26; root without a password) or take it out again once the live-check fixes are done
 - [ ] cellar: confirm Komodo still logs in after `KOMODO_DISABLE_USER_REGISTRATION` went to `true` Core has `KOMODO_DISABLE_USER_REGISTRATION=true` and `KOMODO_LOCAL_AUTH=true` (checked 2026-09-29); the login itself is for the owner (owner)
 - [x] Pin n8n (`latest`), Open WebUI (`main`) and Karakeep (`release`) Done 2026-09-29: n8n `2.39.7` and Karakeep `0.33.2`, each the same digest as what was running; Open WebUI by digest (its `main` build isn't the v0.11.3 release)
+- [ ] meowGram: route and Authelia client prepared on branch `meowgram-sso` (2026-10-04 entry); merge and bring up, then the open items in `stacks/roastery/meowgram/README.md` (backups, web build, the audience check)
 - [ ] Open WebUI → roastery's Ollama: needs machine-to-machine auth that keeps Authelia in front; nothing exists yet
 - [ ] Karakeep: `NEXTAUTH_URL` is the direct-port URL while the route is `karakeep.${DOMAIN}`; check the phone share sheet signs in through the hostname
 - [x] Remote access over Tailscale: rolled out and checked from outside the house (2026-09-28; 2026-09-27 entry below)
@@ -55,6 +56,58 @@ changes can be made later without re-deriving the reasoning.
 - [ ] roastery sleep vs Wake-on-LAN: design a wake-on-demand setup before it ever sleeps again. Keep it awake during SFTP, Ollama and Immich ML work (Windows puts an unattended wake back to sleep after ~2 min); a model router on grinder that wakes roastery and answers from a small CPU model meanwhile (also solves Open WebUI's machine-to-machine auth); an Immich ML fallback; a remote wake over the tailnet; a power reading first. Until then roastery stays awake (2026-09-29 decision)
 
 ---
+
+## 2026-10-04 — meowGram behind roastery's Traefik, with an Authelia OIDC client; roastery's Traefik stays up
+
+The owner built **meowGram** (a cat-lounge chat: Flutter client, Go backend,
+Postgres) in its own repo, `purrMonster/meowGram`, and runs it on roastery in
+Docker Desktop for now, as `meow.${DOMAIN}`. Asked for its Traefik and Authelia
+config. Prepared on branch `meowgram-sso`, not merged.
+
+**roastery's Traefik had stopped again.** Not a crash: the `traefik` scheduled task
+still had Windows' 3-day limit (`ExecutionTimeLimit PT72H`; noted in the 2026-09-26
+live-check item, never changed). Started at boot 2026-09-30 13:31, killed 72 hours
+later, result `0x41306`. The owner unticked the limit in Task Scheduler. Checked:
+`PT0S`, task running, Traefik on 80/443.
+
+**Exposure found and fixed (owner approved).** meowGram's compose published
+Postgres (5432) and the backend (8080) on every interface, and Postgres had the dev
+default password that's in the meowGram repo. Both answered from cellar. Now: a
+generated password (set with `ALTER USER` over psql's stdin, never shown), ports
+bound to 127.0.0.1, both in a gitignored `deploy/.env`; containers recreated.
+Checked: both closed from cellar, both healthy, the backend connected (0 messages,
+so nothing was at stake). The backend's issuer was `http://localhost:9091`, which
+inside the container is the container itself, so no token could ever have
+verified; now `https://authelia.${DOMAIN}`, with its JWKS URL and `CORS_ORIGINS`
+to match.
+
+**The route:** a file route, `stacks/roastery/traefik/config/dynamic/meow.yml.template`,
+to `http://127.0.0.1:8080`, like Ollama's: roastery's Traefik is native, so there
+are no container labels for it to read. No ForwardAuth (the phone and desktop apps
+can't follow it). DNS comes from the route as for every other; a tunnel entry to
+`${ROASTERY_LAN_IP}:443` like every non-admin app (the test requires it).
+
+**The Authelia client, and why it isn't like the others:** `public: true`, no
+secret, PKCE S256; `access_token_signed_response_alg: RS256`, because the backend
+verifies the access token with go-oidc and the other clients' tokens are opaque; a
+`meowgram` claims policy (`preferred_username`, `name`, `email` in the access
+token, or people show up as their `sub`); `audience: https://meow.${DOMAIN}`,
+granted implicitly (Authelia warns an RFC 9068 token without `aud` gets rejected);
+`offline_access` and `refresh_token`; OIDC CORS for origins in redirect URIs, since
+the web app calls the token endpoint from the browser. Redirect URIs
+`https://meow.${DOMAIN}` and `http://127.0.0.1:8088/callback`.
+
+Checked: the rendered template (dummy values) passes Authelia 4.39.27's own
+`authelia validate-config` without errors or warnings; the route renders to valid
+YAML; tests pass (63, 8 skipped). Not live yet: needs the merge, the renders and
+the Authelia recreate (`stacks/roastery/meowgram/README.md`).
+
+**Open, mostly in the meowGram repo:** the backend verifies with
+`SkipClientIDCheck`, so it takes any JWT Authelia signs (other apps' ID tokens
+included); it should require the audience. Its build script targets a domain that
+isn't the fleet's, `auth.` and client `meowgram-client`. The token rides in
+`/ws?token=`. Nothing serves the web build. The chat database on roastery has no
+backup; moving it to percolator later fixes the last two.
 
 ## 2026-09-29 — Clearing the noise (section 4)
 
@@ -862,7 +915,7 @@ until decided otherwise (backlog).
     service accounts, and roastery's ollama route points at it.
   - Done: rendered and Authelia recreated on percolator (config validated with the
     same image first). `komodo.${DOMAIN}` now shows Komodo's login.
-- [ ] **ollama.${DOMAIN} refuses**: roastery's native Traefik isn't running (Ollama
+- [x] **ollama.${DOMAIN} refuses**: roastery's native Traefik isn't running (Ollama
   itself answers on localhost). Plan: confirm, and decide whether it should start
   on its own.
   - Cause: it does start on its own: the `traefik` scheduled task runs `start.ps1`
@@ -873,6 +926,10 @@ until decided otherwise (backlog).
   - The same task has Windows' default 72-hour execution limit, so even once it
     starts it would be killed after three days. Set it to no limit when fixing the
     above (task settings, "Stop the task if it runs longer than").
+  - 2026-10-04: that limit is what stopped it again. Started at boot 2026-09-30
+    13:31, killed 72 hours later (last result `0x41306`, terminated, not a crash).
+    Owner set the task to no limit; checked: `ExecutionTimeLimit` `PT0S`, the task
+    running (`0x41301`) and Traefik listening on 80/443 (2026-10-04 entry).
 - [x] **Gatus: "ntfy (public)" and "traefik certificate + sso" time out** from sieve,
   while both answer from the LAN. Plan: check what the gatus container resolves and
   reaches for those names.

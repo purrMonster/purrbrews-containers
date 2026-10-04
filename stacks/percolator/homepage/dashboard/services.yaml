@@ -35,6 +35,10 @@
         href: https://freshrss.{{HOMEPAGE_VAR_DOMAIN}}
         icon: freshrss.svg
         description: News feeds
+    - meowGram:
+        href: https://meow.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: mdi-cat
+        description: The household's chat
 
 # Admin tiles are visible to everyone who reaches Homepage; the pages behind
 # them are admins-only in Authelia.

@@ -58,6 +58,9 @@ ingress:
   - hostname: actualbudget.${DOMAIN}
     service: https://${PERCOLATOR_LAN_IP}:443
     originRequest: {originServerName: actualbudget.${DOMAIN}}
+  - hostname: meow.${DOMAIN}
+    service: https://${ROASTERY_LAN_IP}:443
+    originRequest: {originServerName: meow.${DOMAIN}}
   - hostname: freshrss.${DOMAIN}
     service: https://${PERCOLATOR_LAN_IP}:443
     originRequest: {originServerName: freshrss.${DOMAIN}}
