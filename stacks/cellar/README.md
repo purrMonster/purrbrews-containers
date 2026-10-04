@@ -11,7 +11,8 @@ when it doesn't, lives here.
 |---|---|---|
 | [Komodo](komodo/) | `komodo.${DOMAIN}` (admins), or `:9120` | Container management for the whole fleet (Core, Mongo, cellar's own agent) |
 | [Scrutiny](scrutiny/) | `scrutiny.${DOMAIN}` (admins), or `:8080` | SMART disk health; the hub every node's collector reports to |
-| [Traefik](traefik/) | — | HTTPS for the two above |
+| [Traefik](traefik/) | — | HTTPS for the two above, and persianPerch |
+| [persianPerch](persian-perch/) | `perch.${DOMAIN}` (admins) | The fleet's watcher: containers, backups, disks, endpoints, files dropped, the house. Read-only; alerts to ntfy |
 | [Samba](smb/) | `\\cellar\household`, `\\cellar\archive` | File shares. Built, not in use yet (no firewall rule) |
 | [NFS](nfs/README.md) | `cellar:/srv/media/archive` | Archive export, host-native. Nothing mounts it yet |
 | [restic](restic/README.md) | — | The backup chain's hub, host-native: the dump store, waking roastery, the Drive copy, the morning check. Scripts written, not switched on yet |
@@ -34,9 +35,10 @@ Then, in order (`node.conf`), checking each before the next:
 | 2 | `./compose.sh scrutiny up -d` | both disks listed at `http://192.168.0.12:8080` |
 | 3 | `./compose.sh traefik up -d` | certificates issued in `sudo docker logs traefik`; `https://komodo.${DOMAIN}` asks for an Authelia login |
 | 4 | `./compose.sh smb up -d` | only when the shares are wanted; add the rule in `smb/firewall` first |
+| 5 | `./compose.sh persian-perch up -d --build` | its [README](persian-perch/README.md) checklist; read persianPerch's `integration/ROLLOUT.md` before the first run |
 | — | `sudo ./nfs/setup-nfs.sh`, then [restic/README.md](restic/README.md) | host-native, whenever needed |
 
-`./compose.sh --all up -d` does 1–4 in that order once everything has been up once.
+`./compose.sh --all up -d` does 1–5 in that order once everything has been up once.
 
 ## Things worth knowing
 
