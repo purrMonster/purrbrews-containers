@@ -65,3 +65,7 @@
     - Traefik (sieve):
         href: https://traefik-sieve.{{HOMEPAGE_VAR_DOMAIN}}
         icon: traefik.svg
+    - persianPerch:
+        href: https://perch.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: mdi-cat
+        description: The fleet's watcher (cellar)
