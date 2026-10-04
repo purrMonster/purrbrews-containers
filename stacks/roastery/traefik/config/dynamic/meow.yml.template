@@ -1,0 +1,18 @@
+# Rendered by ../../render-configs.ps1 into config/dynamic/meow.yml (gitignored).
+# meowGram's backend, running in Docker Desktop on roastery from its own repo
+# (stacks/roastery/meowgram/README.md), published on 127.0.0.1:8080 only.
+# No ForwardAuth: the phone and desktop apps can't follow it. The app signs in
+# with Authelia OIDC itself and the backend checks every request's token.
+http:
+  routers:
+    meow:
+      rule: 'Host(`meow.${DOMAIN}`)'
+      entryPoints: [websecure]
+      service: meow
+      tls:
+        certResolver: cloudflare
+  services:
+    meow:
+      loadBalancer:
+        servers:
+          - url: 'http://127.0.0.1:8080'

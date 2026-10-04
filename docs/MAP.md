@@ -52,3 +52,4 @@ _Last updated: 2026-09-29_
 | Passwords | Vaultwarden | percolator |
 | Recipes | Mealie | percolator |
 | Budget | Actual Budget | percolator |
+| Chat | meowGram (own repo) | roastery, for now |
