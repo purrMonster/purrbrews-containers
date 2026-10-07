@@ -49,13 +49,130 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Offline copy of the restic repository: the old Seagate in a USB enclosure, synced monthly; `offline-sync.ps1` still to write (2026-09-28 flask entry)
 - [ ] roastery: move the repository off C: to a second NVMe (2026-09-28 flask entry)
 - [x] mochaPot's SanDisk runs at 67 °C: check its airflow. **Not real heat: the disk runs at 36 °C.** Checked 2026-09-30 with smartctl inside `scrutiny-collector` (the host has no smartctl): attribute 194 raw is `36 (Min/Max 14/67)`, SCT status says current 36 °C, but device statistics report "Current Temperature 67", identical to its "Highest Temperature" and flat for days. That stuck value is what Scrutiny shows. Treat Scrutiny's temperature for this disk as unreliable; `smartctl -A` is the source of truth. (It's an M.2 SATA drive, not NVMe, in a slot under the board with no heatsink; the disk is nearly idle and the CPU at 47 °C, so nothing to fix.) Power-on hours confirmed at 18,975. Scrutiny fixed the same day: `smartctl --xall` (Scrutiny's default) reads the stuck log and gives 67 °C and 668 hours, which was also the "28 days"; `--all` gives 36 °C and 18,975 hours. mochaPot's collector now uses `--all` for this disk (`scrutiny-collector/collector.yaml`)
-- [ ] Still floating: Home Assistant and ESPHome (`stable`), Unbound (`main`); Samba (`latest`) goes with the Samba decision
+- [ ] Still floating: Unbound (`main`) and Samba (`latest`), both on purpose (their compose files say why). Home Assistant pinned to 2026.10.0 and ESPHome to 2026.9.1 on branch `hardening-2026-10-08`, the versions `stable` resolved to that day (same digests); `tests/` now fails on any other floating tag. Before merging, check the running versions: `docker inspect homeassistant esphome --format '{{.Config.Image}}'` and HA's About page; if a node already runs something newer, bump the pin rather than go back (HA's migrations only go forward)
 - [ ] Node checkouts: percolator has an untracked `.env.local.bak-20260926` (secrets; delete once sure), mochaPot a stray `bootstrap/--no-check-certificate` file and `tests/test_network_gateway.sh` (owner)
 - [ ] Home Assistant: bring the lights and devices in. The backbone runs on mochaPot (Traefik, OIDC, Postgres), nothing is paired yet. Integrations and pairing first; areas and automations once the home layout is final (owner, 2026-09-30)
 - [ ] ESP32 sensors and voice speakers: build them with ESPHome (grinder), and a voice pipeline in Home Assistant's Assist with Ollama on roastery as the conversation backend. Local intents first so lights don't depend on the GPU; needs the roastery sleep/wake decision below (owner, 2026-09-30)
 - [ ] roastery sleep vs Wake-on-LAN: design a wake-on-demand setup before it ever sleeps again. Keep it awake during SFTP, Ollama and Immich ML work (Windows puts an unattended wake back to sleep after ~2 min); a model router on grinder that wakes roastery and answers from a small CPU model meanwhile (also solves Open WebUI's machine-to-machine auth); an Immich ML fallback; a remote wake over the tailnet; a power reading first. Until then roastery stays awake (2026-09-29 decision)
+- [ ] Roll out branch `hardening-2026-10-08` node by node (2026-10-08 entry): per node, `git pull`, then `./compose.sh <app> up -d` for each changed app, `docker ps` until every changed container says `(healthy)`, and that node's checks from the entry. Tick per node, with what was seen
+- [ ] Gatus's new checks green on sieve: `dnssec validation`, `secondary dns (mochaPot)`, `secondary dns local override (mochaPot)` (2026-10-08 entry)
+- [ ] percolator: `sudo logrotate -d /etc/logrotate.d/purrbrews-traefik` after the next `./compose.sh traefik up -d`; a day later `ls /srv/data/traefik/logs` shows a rotated file and CrowdSec still reading (`docker exec crowdsec cscli metrics show acquisition`)
+- [ ] percolator: `https://vault.${DOMAIN}/admin` asks for an Authelia login and lets only an admin through; the vault, its browser extension and the phone app still sign in as before
+- [ ] grinder: `./compose.sh embedding-worker build --no-cache && ./compose.sh embedding-worker up -d`, then one n8n run that embeds; Dependabot's alert closes once main has the new requirements.txt
 
 ---
+
+## 2026-10-08 — A repass of every stack: data safety, healthchecks, pins
+
+The owner asked for every stack to be gone through, one at a time, for anything
+that makes the fleet more robust: security, but mostly that it keeps working and
+says so when it doesn't. Done on branch `hardening-2026-10-08` (off `main`, one
+change per commit). **Nothing on any node was touched**; every change below
+needs the rollout in the Backlog.
+
+**How it was checked.** This session had a Docker engine, so instead of reading
+images' docs every change was run against the real, pinned image where that was
+possible: the stack brought up from its actual compose file with dummy secrets,
+the healthcheck watched until Docker said `healthy`, and the failure case forced
+where it could be. What couldn't be checked here is said per item. One sandbox
+limit coloured several results: its kernel has no IPv6 at all, so apps that
+listen on `::` by default failed to start here (that's how the IPv4 bindings
+below were found).
+
+### Data safety (the ones that matter most)
+
+- **cellar's drive-sync could mirror an empty or different repository over the
+  Drive copy.** It makes Drive match roastery; after yesterday's wipe only an
+  accident of the rebuild (new host key, empty `authorized_keys`) kept an empty
+  folder from replacing the offsite copy that night. It now refuses when
+  roastery's restic `config` is missing or unreadable, or differs from Drive's
+  (a fresh `restic init`), and the alert says why. New test, real restic and
+  rclone: sync, wipe, re-init, restore from Drive. The old script fails it.
+- **NetAlertX's database was copied live** (`path`), which can tear it and lose
+  the whole device inventory. Now a `sqlite` dump; tested against a running
+  NetAlertX: the exact `backup.sh` command, ends `COMMIT;`, restores 15 tables.
+- **Actual Budget's per-budget `group-*.sqlite` files were copied live** too
+  (they're the sync log; actual's `util/paths.ts`). Now dumped.
+- **A glob's dump lost its path when only one file matched** (FreshRSS's one
+  user came out as `users.sql.gz`). Glob lines now always name dumps by path.
+  New test; fails on the old code.
+- **percolator's Traefik access log was never rotated** (its README said so):
+  it would have filled `/srv`. `prepare.sh` now installs a logrotate rule
+  (daily or past 100 MB, 14 kept, `USR1` to reopen) and logrotate itself if
+  missing. Tested with Debian's logrotate 3.22: no line lost across rotations.
+
+### Security
+
+- **Vaultwarden's `/admin` was reachable from the internet** (vault is published
+  through the tunnel), behind only its own token. A second router puts
+  `/admin` behind Authelia, admins only; two resource rules in Authelia's config.
+  `authelia validate-config` passes; `check-policy` gives admins `one_factor`,
+  household `deny` on `/admin` and `one_factor` on `/`; Traefik with the labels
+  sends `/admin*` through ForwardAuth and the rest straight to the vault.
+- **grinder's embedding-worker: sentence-transformers 3.1.1 → 5.6.0** (Dependabot's
+  critical alert, CVE-2026-68770). Embeddings bit-identical to 3.1.1, so the
+  vectors in postgres-vector stay valid. torch now CPU-only and pinned. Image
+  built and run offline here: healthy, same vector.
+- **Traefik on cellar, grinder and mochaPot** got `no-new-privileges` (as
+  percolator's and sieve's already had) and a ping healthcheck.
+
+### It works, and says so
+
+New healthchecks, each run until healthy against the real image (failure case
+in brackets where forced): Unbound (`drill-hc`; it exits 0 even on SERVFAIL, so
+liveness only), cloudflared (`tunnel ready`; 503 → exit 1 with no tunnel),
+Nextcloud (`status.php` JSON; maintenance mode fails it, though it answers 200),
+Actual, FreshRSS, Komodo's Mongo and Core, Scrutiny, Home Assistant, Music
+Assistant, embedding-worker, n8n, Meilisearch, Karakeep's Chrome, FitTrackee and
+Traccar. Komodo Core and Karakeep now wait for their dependencies to be
+*healthy*, not just started. Not added: Vikunja (its `healthcheck` command runs a
+full init with migrations against the live SQLite every time), Gatus (no shell
+or HTTP client in the image; healthchecks.io watches it), Speedtest Tracker
+(couldn't be verified here). immich-ml's comment was wrong: its image has its
+own healthcheck.
+
+- **Gatus**: DNSSEC must still validate (`dnssec-failed.org` must SERVFAIL;
+  otherwise validation could switch off with every check green), and mochaPot's
+  Pi-hole, every client's fallback resolver, is now watched. Config loads in
+  Gatus (21 endpoints).
+- **IPv4 bindings**: Actual (exits 0 silently on `::` without IPv6), Komodo Core
+  (can't start its server) and n8n (refuses to start). The nodes keep IPv6 in the
+  kernel today, so these are the same guard as `PAPERLESS_BIND_ADDR`, not live fixes.
+- **CrowdSec** mounts its acquisition file instead of the folder: on a fresh
+  config directory (a rebuild) the folder mount made its first start exit 23.
+- **mochaPot's kiosk** waits up to five minutes for its dashboard at boot, so a
+  power cut no longer leaves Chromium on "can't be reached". Its crash recovery
+  is by design (`exec cage` + getty's `Restart=always`, checked in systemd's
+  unit), still to be seen on the hardware.
+- **Pins**: Home Assistant 2026.10.0 and ESPHome 2026.9.1, what `stable` was today
+  (same digests). A new test fails on any floating tag but Unbound's and Samba's.
+
+### Not done, proposed
+
+- **Memory limits** per container: worth having (one runaway app can OOM a node)
+  but they need real usage numbers (`docker stats` on each node for a day) to be
+  set safely; guessed limits would cause the outages they're meant to prevent.
+- **Version bumps** where images are old: Meilisearch v1.10 (2024; Karakeep can
+  rebuild its index), Traccar 6.2 (2024). Each is an upgrade with release notes to
+  read, not a pin.
+- **Paperless**: `data/index` (the search index, rebuildable with
+  `document_index reindex`) could be excluded from backups.
+- The `traefik` scheduled task on roastery as a script in the repo (it was made
+  by hand and died with the wipe).
+
+### Housekeeping
+
+- Ran the suite as a non-root user too (the scripts refuse root, so 8 tests had
+  never run here): 65 passed. As root with restic, rclone and sqlite3 installed:
+  62 passed, 8 skipped.
+- My mistake: one `git commit --amend` folded mochaPot's README note ("Home
+  Assistant is pinned") into the ESPHome commit (`066f49d`). Local and unpushed,
+  so nothing public changed; left as is rather than rewrite history again.
+- This branch and `roastery-llama-swap` both edit this file's top, so whichever
+  merges second has a small conflict here to resolve by keeping both.
+
+**Undo:** each change is its own commit; revert the one that misbehaves.
+**Next:** the Backlog's rollout lines, node by node.
 
 ## 2026-10-04 — meowGram behind roastery's Traefik, with an Authelia OIDC client; roastery's Traefik stays up
 
