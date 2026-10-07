@@ -70,6 +70,7 @@ stacks/cellar/restic/cache/
 stacks/mochaPot/kiosk/profile/
 stacks/roastery/immich-ml/model-cache/
 stacks/roastery/traefik/traefik.exe
+stacks/roastery/game-mode/state.json
 
 # --- Claude collaboration workspace -----------------------------------------
 claude/
