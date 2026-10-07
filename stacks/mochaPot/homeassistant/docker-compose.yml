@@ -9,11 +9,14 @@
 # The recorder, trusted proxies and OIDC all live in configuration.yaml, not
 # here; README.md has the snippets.
 #
-# Image: ghcr.io/home-assistant/home-assistant:stable, which HA recommends
-# tracking. postgres:16.
+# Image: ghcr.io/home-assistant/home-assistant:2026.10.0, what `stable` was on
+# 2026-10-08 (same digest). Pinned, so a routine `--all pull` can't upgrade
+# it mid-month: HA's database migrations only go forward, and a release that
+# breaks an integration should be a choice. To upgrade: read the release
+# notes, bump the tag, pull, up. postgres:16.
 services:
   homeassistant:
-    image: ghcr.io/home-assistant/home-assistant:stable
+    image: ghcr.io/home-assistant/home-assistant:2026.10.0
     container_name: homeassistant
     network_mode: host
     # Explicit, because Docker copies the host's resolv.conf once, at create
@@ -31,6 +34,15 @@ services:
     depends_on:
       postgres-homeassistant:
         condition: service_healthy
+    # HA has no health endpoint; /manifest.json is served by its own web
+    # server without a login (the API answers 401). A long start period: a
+    # big setup takes minutes to load its integrations.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-m", "5", "http://localhost:8123/manifest.json"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 5m
     restart: unless-stopped
     # Host-networked, so Traefik can't discover an address: give it the URL.
     # Labels unquoted, like everywhere else; dns-records.py skipped quoted
