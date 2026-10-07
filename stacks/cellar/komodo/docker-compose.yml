@@ -27,6 +27,16 @@ services:
     volumes:
       - ${DATA_DIR:?}/komodo/mongo-data:/data/db
       - ${DATA_DIR:?}/komodo/mongo-config:/data/configdb
+    # ping needs no credentials, so the check holds no secret. Core waits for
+    # it below: before, it only waited for the container to exist, and a slow
+    # Mongo start (recovery after a power cut) left Core failing its first
+    # connection.
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--norc", "--eval", "quit(db.adminCommand('ping').ok ? 0 : 1)"]
+      interval: 60s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
     restart: unless-stopped
 
   komodo-core:
@@ -34,7 +44,8 @@ services:
     container_name: komodo-core
     init: true
     depends_on:
-      - mongo
+      mongo:
+        condition: service_healthy
     # Published for two reasons: the other nodes' Periphery agents connect
     # here (Docker networks don't span hosts), and it's the way in when
     # Traefik or Authelia is down. firewall limits it to the LAN.
@@ -49,6 +60,10 @@ services:
       - "traefik.http.services.komodo.loadbalancer.server.port=9120"
     environment:
       TZ: ${TZ}
+      # Default "[::]": on a kernel without IPv6 Core can't start its HTTP
+      # server (os error 97). The fleet is IPv4-only, and everything reaches
+      # Core over IPv4.
+      KOMODO_BIND_IP: 0.0.0.0
       KOMODO_DATABASE_ADDRESS: mongo:27017
       KOMODO_DATABASE_USERNAME: ${KOMODO_DATABASE_USERNAME}
       KOMODO_DATABASE_PASSWORD: ${KOMODO_DATABASE_PASSWORD}
@@ -75,6 +90,14 @@ services:
     volumes:
       - ${DATA_DIR:?}/komodo/keys:/config/keys
       - ${DATA_DIR:?}/komodo/backups:/backups
+    # /version is answered by the API itself (other paths fall through to the
+    # UI's index.html with a 200, so they'd pass with the API dead).
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-m", "5", "http://localhost:9120/version"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     restart: unless-stopped
 
   komodo-periphery:
