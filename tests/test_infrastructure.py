@@ -626,6 +626,50 @@ class Backup(unittest.TestCase):
         store = subprocess.run(['bash', str(node / 'backup.sh'), 'store'], env=env, capture_output=True, text=True)
         self.assertEqual(store.returncode, 0, store.stderr)
 
+    @unittest.skipUnless(AS_ROOT and all(shutil.which(c) for c in ['restic', 'sqlite3', 'setpriv']),
+                         'needs root, restic, sqlite3 and setpriv')
+    def test_glob_dumps_are_named_by_path(self):
+        # A restore needs to know which file a dump came from (which budget
+        # group, which FreshRSS user), even when the glob matched only one.
+        tmp = Path(tempfile.mkdtemp(dir='/tmp'))
+        self.addCleanup(shutil.rmtree, tmp)
+        tmp.chmod(0o755)
+        root = copy_repo(tmp)
+        data, repo, dumps = tmp / 'data', tmp / 'repo', tmp / 'dumps'
+        sql = 'pragma journal_mode=wal; create table m(x); insert into m values ({});'
+        files = {'actualbudget/server-files/account.sqlite': 1, 'actualbudget/user-files/group-abc.sqlite': 2,
+                 'actualbudget/user-files/group-def.sqlite': 3, 'freshrss/data/users/alice/db.sqlite': 4}
+        for rel, n in files.items():
+            (data / rel).parent.mkdir(parents=True, exist_ok=True)
+            subprocess.run(['sqlite3', str(data / rel), sql.format(n)], check=True, capture_output=True)
+        (data / 'actualbudget/user-files/file-abc.blob').write_text('budget')
+        (data / 'freshrss/extensions').mkdir(parents=True)
+        (root / '.env').write_text(f'NODE_IP=192.168.0.11\nDATA_DIR={data}\n')
+        node = root / 'stacks/percolator'
+        node.joinpath('node.conf').write_text('APPS=(actualbudget freshrss)\n')
+        (node / '.env.local').write_text(f'BACKUP_REPOSITORY={repo}\nDUMP_DIR={dumps}\nDUMP_STORE_HOST=192.168.0.11\n')
+        (node / 'restic/secrets.env.local').write_text('RESTIC_PASSWORD=test\n')
+        env = dict(os.environ, BACKUP_KEY=str(tmp / 'key'), BACKUP_ETC=str(tmp / 'etc'),
+                   BACKUP_CACHE=str(tmp / 'cache'), BACKUP_LOCK=str(tmp / 'lock'), RESTIC_PASSWORD='test',
+                   PATH=f"{fake_bin(tmp / 'bin')}:{os.environ['PATH']}")
+        subprocess.run(['restic', '-q', '-r', str(repo), 'init'], env=env, check=True, capture_output=True)
+        result = subprocess.run(['bash', str(node / 'backup.sh'), 'nightly'], env=env, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        made = sorted(p.relative_to(dumps / 'percolator').as_posix() for p in dumps.rglob('*.sql.gz'))
+        self.assertEqual(made, [
+            'actualbudget/account.sql.gz',
+            'actualbudget/groups-actualbudget_user-files_group-abc.sqlite.sql.gz',
+            'actualbudget/groups-actualbudget_user-files_group-def.sqlite.sql.gz',
+            'freshrss/users-freshrss_data_users_alice_db.sqlite.sql.gz'])
+        group = subprocess.run(['bash', '-c', f"gzip -dc {dumps}/percolator/actualbudget/groups-*group-def*"],
+                               capture_output=True, text=True).stdout
+        self.assertIn('INSERT INTO m VALUES(3);', group)
+        listing = subprocess.run(['restic', '-r', str(repo), 'ls', 'latest', '--tag', 'files'],
+                                 env=env, capture_output=True, text=True, check=True).stdout
+        self.assertIn('file-abc.blob', listing)
+        self.assertNotIn('group-abc.sqlite', listing)   # live databases: the dumps have them
+        self.assertNotIn('db.sqlite', listing)
+
 
 class RemoteAccess(unittest.TestCase):
     """Tailscale: the init step, the tailnet policy and the auth-key guards (tailscale/README.md)."""
