@@ -4,7 +4,7 @@ One page to find everything. Update it whenever a project, doc or node is added.
 Decisions and their reasons live in [`runbook.md`](../runbook.md); this page only
 points.
 
-_Last updated: 2026-09-29_
+_Last updated: 2026-10-07_
 
 ## Start here
 
@@ -27,7 +27,7 @@ _Last updated: 2026-09-29_
 | cellar | .12 | Backups (restic), shares, Scrutiny hub, Komodo | [stacks/cellar](../stacks/cellar/README.md) |
 | mochaPot | .13 | Home Assistant, Music Assistant, secondary Pi-hole, kiosk | [stacks/mochaPot](../stacks/mochaPot/README.md) |
 | grinder | .14 | Automation + AI indexing (n8n, pgvector, embeddings, Open WebUI, Karakeep) | [stacks/grinder](../stacks/grinder/README.md) |
-| roastery | — | Windows workstation: bootstrap server, Ollama (3080), Immich ML | [stacks/roastery](../stacks/roastery/README.md) |
+| roastery | — | Windows workstation: bootstrap server, llama-swap (local LLMs, 3080) with game mode, Immich ML | [stacks/roastery](../stacks/roastery/README.md) |
 
 ## Projects
 
@@ -38,6 +38,7 @@ _Last updated: 2026-09-29_
 | Backups (restic sources, DB dumps, restore test) | Every node backing up nightly; Drive set up 2026-09-29, first upload running; restore test from Drive open | [cellar/restic](../stacks/cellar/restic/README.md) | Backlog |
 | Remote access (Tailscale on every machine, SSH + RDP) | Done; checked from outside the house 2026-09-28 | [tailscale](../tailscale/README.md) | 2026-09-27 — Remote access over Tailscale |
 | flask (offline recovery kit: two bootable USB sticks + paper) | Stick A built and verified 2026-09-29; vault, B and paper next | [docs/flask.md](flask.md) | 2026-09-28 — flask, the recovery kit |
+| Local LLMs on roastery (llama-swap replaces Ollama; game mode) | Built on branch `roastery-llama-swap`, not yet running on roastery | [llama-swap](../stacks/roastery/llama-swap/README.md), [game mode](../stacks/roastery/game-mode/README.md) | 2026-10-07 — roastery wiped; llama-swap replaces Ollama |
 | Smart desk / smart mirror | Idea | — | — |
 
 ## Where data lives (quick reference)
