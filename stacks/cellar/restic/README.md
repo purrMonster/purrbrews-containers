@@ -30,7 +30,7 @@ cellar does.
 | `wake-roastery.sh` | `purrbrews-wake-roastery`, 01:25 | wake-on-LAN, waits for SSH |
 | `../backup.sh store` | `purrbrews-backup-store`, 02:30 | the dump store → restic (`--tag dumps`) |
 | `restic-prune.sh` | `restic-prune`, Sun 03:00 | forget 7 daily / 4 weekly / 12 monthly, prune |
-| `drive-sync.sh` | `drive-sync`, 03:30 | repository → Drive, deletions kept 30 days |
+| `drive-sync.sh` | `drive-sync`, 03:30 | repository → Drive, deletions kept 30 days. Refuses when roastery has no repository, or a different one than Drive (its `config` file differs), so a wiped or re-initialised roastery can't be mirrored over the offsite copy |
 | `check-freshness.sh` | `purrbrews-backup-check`, 06:00 | every snapshot, dump and the Drive copy under 26 h |
 | `verify.sh` | `purrbrews-backup-verify`, 1st 04:30 | `restic check --read-data-subset=5%` |
 | `restore-test.sh` | none, by hand | restores dumps and sample files, checks them |

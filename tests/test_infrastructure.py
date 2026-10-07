@@ -626,6 +626,58 @@ class Backup(unittest.TestCase):
         store = subprocess.run(['bash', str(node / 'backup.sh'), 'store'], env=env, capture_output=True, text=True)
         self.assertEqual(store.returncode, 0, store.stderr)
 
+    @unittest.skipUnless(AS_ROOT and all(shutil.which(c) for c in ['restic', 'rclone', 'flock']),
+                         'needs root, restic, rclone and flock')
+    def test_drive_sync_never_mirrors_an_empty_or_different_repository(self):
+        # cellar's drive-sync makes Drive match roastery. After roastery was
+        # wiped (2026-10-07), an empty or re-initialised repository there must
+        # stop the sync instead of replacing the offsite copy.
+        tmp = Path(tempfile.mkdtemp(dir='/tmp'))
+        self.addCleanup(shutil.rmtree, tmp)
+        root = copy_repo(tmp)
+        roastery, drive, etc = tmp / 'roastery', tmp / 'drive', tmp / 'etc'
+        etc.mkdir()
+        (etc / 'rclone.conf').write_text('[roastery]\ntype = alias\nremote = /\n\n'
+                                         f'[drive-crypt]\ntype = alias\nremote = {drive}\n')
+        (root / '.env').write_text(f'NODE_IP=192.168.0.12\nDATA_DIR={tmp / "data"}\n')
+        node = root / 'stacks/cellar'
+        (node / '.env.local').write_text(f'BACKUP_REPOSITORY={roastery}\nDUMP_DIR={tmp / "dumps"}\n'
+                                         'DUMP_STORE_HOST=192.168.0.12\n')
+        (node / 'restic/secrets.env.local').write_text('RESTIC_PASSWORD=test\n')
+        env = dict(os.environ, BACKUP_ETC=str(etc), BACKUP_LOCK=str(tmp / 'lock'), BACKUP_CACHE=str(tmp / 'cache'),
+                   RESTIC_PASSWORD='test', PATH=f"{fake_bin(tmp / 'bin')}:{os.environ['PATH']}")
+
+        def init():
+            subprocess.run(['restic', '-q', '-r', str(roastery), 'init'], env=env, check=True, capture_output=True)
+
+        def sync():
+            return subprocess.run(['bash', str(node / 'restic/drive-sync.sh')], env=env, capture_output=True, text=True)
+
+        init()
+        first = sync()
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        original = (drive / 'repo/config').read_bytes()
+        files_before = sorted(p.relative_to(drive) for p in (drive / 'repo').rglob('*'))
+
+        shutil.rmtree(roastery)                    # wiped: the folder is back, empty
+        roastery.mkdir()
+        wiped = sync()
+        self.assertNotEqual(wiped.returncode, 0)
+        self.assertIn('no restic repository', wiped.stdout + wiped.stderr)
+        self.assertEqual((drive / 'repo/config').read_bytes(), original)
+
+        shutil.rmtree(roastery)                    # rebuilt with a fresh `restic init`
+        init()
+        other = sync()
+        self.assertNotEqual(other.returncode, 0)
+        self.assertIn('not the one on Drive', other.stdout + other.stderr)
+        self.assertEqual(sorted(p.relative_to(drive) for p in (drive / 'repo').rglob('*')), files_before)
+
+        shutil.rmtree(roastery)                    # put back from Drive (RECOVERY.md part B)
+        shutil.copytree(drive / 'repo', roastery)
+        back = sync()
+        self.assertEqual(back.returncode, 0, back.stdout + back.stderr)
+
     @unittest.skipUnless(AS_ROOT and all(shutil.which(c) for c in ['restic', 'sqlite3', 'setpriv']),
                          'needs root, restic, sqlite3 and setpriv')
     def test_glob_dumps_are_named_by_path(self):

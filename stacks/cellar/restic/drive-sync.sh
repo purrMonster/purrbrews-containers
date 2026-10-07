@@ -25,6 +25,7 @@ RCLONE_CONF="$BACKUP_ETC/rclone.conf"
 KEEP_DELETED=30d
 STATE=/var/lib/purrbrews
 rc() { rclone --config "$RCLONE_CONF" "$@"; }
+REASON=''
 
 run() {
   restic_env
@@ -42,6 +43,25 @@ run() {
     sleep 60; waited=$((waited + 60))
   done
 
+  # Never mirror the wrong thing over the offsite copy. A sync makes Drive
+  # match roastery, so an empty or re-initialised repository there (a wiped
+  # or rebuilt roastery, 2026-10-07) would replace the Drive copy, with only
+  # the 30-day undo in drive-crypt:deleted between it and gone. restic writes
+  # a repository's config once, at init, and never again: roastery must
+  # have one, and if Drive has one too, it must be the same file.
+  local empty src dst
+  empty="$(printf '' | sha256sum)"
+  src="$(rc cat "roastery:$REPO_PATH/config" 2>/dev/null | sha256sum)" || src="$empty"
+  if [[ "$src" == "$empty" ]]; then
+    REASON="roastery has no restic repository at $REPO_PATH (no config file). Not mirroring an empty folder over the Drive copy; flask/RECOVERY.md part B puts it back."
+    warn "$REASON"; return 1
+  fi
+  dst="$(rc cat drive-crypt:repo/config 2>/dev/null | sha256sum)" || dst="$empty"
+  if [[ "$dst" != "$empty" && "$dst" != "$src" ]]; then
+    REASON="roastery's repository is not the one on Drive (their config files differ): it was re-initialised. Not syncing; restore the Drive copy to roastery first, or move drive-crypt:repo aside by hand if replacing it is really meant."
+    warn "$REASON"; return 1
+  fi
+
   rc sync "roastery:$REPO_PATH" drive-crypt:repo \
     --backup-dir "drive-crypt:deleted/$(date +%F)" \
     --transfers 4 --checkers 8 --tpslimit 10 \
@@ -56,6 +76,6 @@ if with_lock run; then
   touch "$STATE/drive-sync.ok"
   echo "drive sync OK"
 else
-  notify "backup: Drive sync FAILED" "The offsite copy wasn't updated tonight. journalctl -u drive-sync on cellar"
+  notify "backup: Drive sync FAILED" "The offsite copy wasn't updated tonight. ${REASON:-journalctl -u drive-sync on cellar}"
   die "drive sync failed."
 fi
