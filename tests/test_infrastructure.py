@@ -354,6 +354,25 @@ class Layout(unittest.TestCase):
                 if fields[1] in ('copy', 'mirror'):
                     self.assertTrue((spec.parent.parent / fields[2]).is_dir(), f'{spec}: {line}')
 
+    # Floating tags, each a decision written down in its compose file. Anything
+    # else must name a version or a digest, so a routine pull changes nothing.
+    FLOATING_ON_PURPOSE = {
+        'klutchell/unbound:main',                  # no version tags upstream; freshness chosen
+        'ghcr.io/servercontainers/samba:latest',   # unused; pinned when something depends on it
+    }
+
+    def test_images_are_pinned(self):
+        floating = re.compile(r':(latest|stable|main|master|release|edge|nightly|dev|beta|rc)$')
+        for compose in STACKS.glob('*/*/docker-compose.yml'):
+            for image in re.findall(r'^\s*(?:image|x-image):\s*(?:&\w+\s+)?(\S+)', compose.read_text(), re.M):
+                if image.startswith('*') or image.endswith(':local') or '@sha256:' in image:
+                    continue
+                name = image.rsplit('/', 1)[-1]
+                with self.subTest(image=image, file=str(compose.relative_to(ROOT))):
+                    self.assertIn(':', name, 'no tag at all means latest')
+                    if image not in self.FLOATING_ON_PURPOSE:
+                        self.assertIsNone(floating.search(image), 'floating tag: pin a version or a digest')
+
     def test_no_references_to_docs_that_are_not_here(self):
         for file in ROOT.rglob('*'):
             if not file.is_file() or '.git' in file.parts or file.suffix in ('.pyc', '.exe') or file.name == 'test_infrastructure.py':
