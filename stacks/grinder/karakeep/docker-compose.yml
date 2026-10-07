@@ -24,9 +24,13 @@ services:
       - ${DATA_DIR:?}/karakeep:/data
     ports:
       - "3030:3000"
+    # Waits for both to answer, not just to exist: screenshots and search
+    # quietly fail for anything saved before they're up.
     depends_on:
-      - meilisearch
-      - chrome
+      meilisearch:
+        condition: service_healthy
+      chrome:
+        condition: service_healthy
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
@@ -49,6 +53,13 @@ services:
       - --remote-debugging-address=0.0.0.0
       - --remote-debugging-port=9222
       - --hide-scrollbars
+    # The DevTools endpoint Karakeep connects to; busybox wget is in the image.
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9222/json/version"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
     restart: unless-stopped
 
   meilisearch:
@@ -59,6 +70,13 @@ services:
       MEILI_MASTER_KEY: ${KARAKEEP_MEILI_MASTER_KEY}
     volumes:
       - ${DATA_DIR:?}/karakeep-meilisearch:/meili_data
+    # /health needs no key: {"status":"available"}.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-m", "5", "http://localhost:7700/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
     restart: unless-stopped
 
 networks:
