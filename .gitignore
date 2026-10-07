@@ -51,7 +51,7 @@ stacks/percolator/traefik/config/dynamic.yml
 stacks/percolator/traefik/config/traefik.yml
 stacks/percolator/vikunja/config/config.yml
 stacks/roastery/traefik/config/dynamic/meow.yml
-stacks/roastery/traefik/config/dynamic/ollama.yml
+stacks/roastery/traefik/config/dynamic/llama-swap.yml
 stacks/roastery/traefik/config/traefik.yml
 stacks/sieve/cloudflared/config/config.yml
 

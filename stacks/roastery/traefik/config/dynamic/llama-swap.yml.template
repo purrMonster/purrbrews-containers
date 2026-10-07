@@ -1,10 +1,16 @@
-# Rendered by ../../render-configs.ps1 into config/dynamic/ollama.yml (gitignored).
-# Ollama has no auth, so it listens on localhost only and this is the only way
-# in: LAN clients, then an Authelia login (admins, or the ollama_api_group
-# service accounts; see percolator's Authelia template).
+# Rendered by ../../render-configs.ps1 into config/dynamic/llama-swap.yml (gitignored).
+# llama-swap (../../../llama-swap) has no auth, so it publishes on localhost
+# only and this is the only way in: LAN clients, then an Authelia login
+# (admins, or the ollama_api_group service accounts; see percolator's Authelia
+# template).
+#
+# The hostname is still ollama.${DOMAIN}: Authelia's rules, the Pi-hole
+# records, the tunnel config and the tests all know it by that name, and
+# renaming it is a fleet-wide change of its own (runbook, 2026-10-07). It now
+# speaks the OpenAI API (/v1/...), not Ollama's (/api/tags is gone).
 http:
   middlewares:
-    ollama-lan:
+    llm-lan:
       ipAllowList:
         sourceRange:
           - '${LAN_CIDR}'
@@ -23,15 +29,16 @@ http:
           - Remote-Email
           - Remote-Name
   routers:
-    ollama:
+    llm:
       rule: 'Host(`ollama.${DOMAIN}`)'
       entryPoints: [websecure]
-      middlewares: [ollama-lan, authelia]
-      service: ollama
+      middlewares: [llm-lan, authelia]
+      service: llama-swap
       tls:
         certResolver: cloudflare
   services:
-    ollama:
+    llama-swap:
       loadBalancer:
         servers:
-          - url: 'http://127.0.0.1:11434'
+          # Docker Desktop's published 127.0.0.1:9292 (llama-swap/docker-compose.yml).
+          - url: 'http://127.0.0.1:9292'

@@ -43,7 +43,7 @@ foreach ($name in $settings.Keys) {
     [Environment]::SetEnvironmentVariable($name, $settings[$name], 'Process')
 }
 $binary = (Resolve-Path -LiteralPath $TraefikExe).Path
-foreach ($relative in @('config/traefik.yml', 'config/dynamic/ollama.yml')) {
+foreach ($relative in @('config/traefik.yml', 'config/dynamic/llama-swap.yml')) {
     $path = Join-Path $PSScriptRoot $relative
     if (!(Test-Path -LiteralPath $path)) { throw "Missing $relative. Run roastery/setup-secrets.ps1 first." }
     if ((Get-Content -LiteralPath $path -Raw) -match 'REPLACE_ME|\$\{') {
