@@ -37,6 +37,9 @@ so it raises no alert of its own.
 
 - **network:**
   - Pi-hole recursion through Unbound, and the `*.${DOMAIN}` override;
+  - DNSSEC still validating: `dnssec-failed.org` must fail with `SERVFAIL`;
+  - mochaPot's Pi-hole, every client's second resolver: recursion and the
+    fleet's host names, since clients only try it when sieve has failed;
   - the Pi-hole and NetAlertX web UIs;
   - Traefik's ping, and a real request to `https://gatus.${DOMAIN}` resolved through
     Pi-hole. That request checks the certificate has more than 10 days left and that
