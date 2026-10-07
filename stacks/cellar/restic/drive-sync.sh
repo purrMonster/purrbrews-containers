@@ -53,7 +53,7 @@ run() {
   empty="$(printf '' | sha256sum)"
   src="$(rc cat "roastery:$REPO_PATH/config" 2>/dev/null | sha256sum)" || src="$empty"
   if [[ "$src" == "$empty" ]]; then
-    REASON="roastery has no restic repository at $REPO_PATH (no config file). Not mirroring an empty folder over the Drive copy; flask/RECOVERY.md part B puts it back."
+    REASON="roastery has no restic repository at $REPO_PATH (no readable config file). Not mirroring an empty or unreadable folder over the Drive copy; if it was wiped, flask/RECOVERY.md part B puts it back."
     warn "$REASON"; return 1
   fi
   dst="$(rc cat drive-crypt:repo/config 2>/dev/null | sha256sum)" || dst="$empty"
