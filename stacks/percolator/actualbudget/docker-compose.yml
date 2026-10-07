@@ -7,6 +7,10 @@ services:
     restart: unless-stopped
     environment:
       TZ: ${TZ}
+      # Default is "::"; where a container has no IPv6 the server logs
+      # "Listening" and then exits 0 (seen 2026-10-08). Same reason as
+      # PAPERLESS_BIND_ADDR.
+      ACTUAL_HOSTNAME: 0.0.0.0
       # Sign in with Authelia. The FIRST account to sign in becomes the
       # server owner permanently — sign in as the intended owner first.
       ACTUAL_OPENID_DISCOVERY_URL: https://authelia.${DOMAIN}
@@ -16,6 +20,13 @@ services:
       ACTUAL_USER_CREATION_MODE: login
     volumes:
       - ${DATA_DIR}/actualbudget:/data
+    # The image's own script: GET /health must say {"status":"UP"}.
+    healthcheck:
+      test: ["CMD", "node", "/app/scripts/health-check.js"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     networks:
       - proxy
     labels:
