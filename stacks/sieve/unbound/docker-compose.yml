@@ -20,6 +20,16 @@ services:
       # Additive: merged into the image's default config (root hints, DNSSEC,
       # caching, serve-expired). This file only narrows who may query.
       - ./config:/etc/unbound/custom.conf.d:ro
+    # drill-hc is the image's shell-less wrapper around drill (upstream's own
+    # example). It exits 0 whenever Unbound answers, SERVFAIL included, so this
+    # is liveness only: a hung or dead resolver goes unhealthy. Recursion and
+    # DNSSEC are Gatus's checks. Exec form: the image has no shell.
+    healthcheck:
+      test: ["CMD", "drill-hc", "@127.0.0.1", "dnssec.works"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
     # Not read_only: Unbound rewrites its DNSSEC trust anchor (root.key) as the root
     # key rolls over (RFC 5011).
     cap_drop: [ALL]
