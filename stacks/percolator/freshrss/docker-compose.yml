@@ -24,6 +24,14 @@ services:
     volumes:
       - ${DATA_DIR}/freshrss/data:/var/www/FreshRSS/data
       - ${DATA_DIR}/freshrss/extensions:/var/www/FreshRSS/extensions
+    # FreshRSS's own check (upstream's Docker docs use it): its /api/ page
+    # must come back as a FreshRSS page.
+    healthcheck:
+      test: ["CMD", "php", "/var/www/FreshRSS/cli/health.php"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     networks:
       - proxy
     labels:
