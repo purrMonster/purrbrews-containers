@@ -1,0 +1,83 @@
+# Dependabot: pull requests when a pinned image or package has a new version.
+#
+# Every image in this repo is pinned (tests/ insists), so nothing updates by
+# itself; until 2026-10-08 nothing even said an update existed (Diun was
+# removed on 2026-09-18 for telling no one). This is that channel, in the
+# fleet's own way: a bump is a PR to read, nodes only see it after a merge and
+# their daily pull, and even then nothing restarts until `compose.sh up`.
+#
+# Reading a PR: the release notes come first. Some images must move in pairs
+# and arrive as separate PRs; merge them together:
+#   - immich-app/immich-server (percolator) and
+#     immich-app/immich-machine-learning (roastery): same version, always.
+#   - moghtech/komodo-core and moghtech/komodo-periphery: same version.
+# Database images never get major bumps here (see ignore): a major Postgres,
+# Mongo or Redis upgrade is a dump-and-restore, done by hand. Nor Nextcloud:
+# it can only go up one major at a time, and a PR would skip straight to
+# the newest. Names below are Dependabot's: the image without its registry
+# (checked against its parser, 2026-10-08).
+version: 2
+updates:
+  - package-ecosystem: docker-compose
+    directories:
+      - "/stacks/*/*"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Kolkata
+    # A release has a week to get its hotfix before it's proposed here.
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 10
+    groups:
+      # One PR per image, covering every node that runs it: all five
+      # Traefiks, every Periphery, the Scrutiny hub and its collectors.
+      per-image:
+        group-by: dependency-name
+        patterns: ["*"]
+    ignore:
+      - dependency-name: "postgres"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "postgis/postgis"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "pgvector/pgvector"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "immich-app/postgres"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "mongo"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "redis"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "valkey/valkey"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "nextcloud"
+        update-types: ["version-update:semver-major"]
+    commit-message:
+      prefix: "deps"
+    labels: ["dependencies", "images"]
+
+  # grinder's embedding worker: its Python packages and its base image.
+  - package-ecosystem: pip
+    directory: "/stacks/grinder/embedding-worker"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Kolkata
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "deps"
+    labels: ["dependencies", "python"]
+
+  - package-ecosystem: docker
+    directory: "/stacks/grinder/embedding-worker"
+    schedule:
+      interval: monthly
+      timezone: Asia/Kolkata
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "deps"
+    labels: ["dependencies", "images"]

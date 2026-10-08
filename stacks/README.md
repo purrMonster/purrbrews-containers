@@ -190,6 +190,21 @@ node's `restic/secrets.conf` asks for the repository password (the same
 everywhere, made on cellar) and the ntfy URL for failure alerts. One key per
 node (`/root/.ssh/purrbrews-backup`), pinned host keys in `/etc/purrbrews`.
 
+## Updates
+
+Every image is pinned (a test fails on a floating tag), so nothing updates on
+its own. [Dependabot](../.github/dependabot.yml) opens a pull request each Monday
+when a pinned image has a new version, one PR per image covering every node that
+runs it, after the release has been out a week. Merging changes nothing running:
+nodes pull `main`, and an app only moves on `./compose.sh <app> up -d`.
+
+- Read the release notes before merging. Pairs that must match arrive as separate
+  PRs: Immich server with roastery's ML, Komodo Core with every Periphery.
+- Database majors (Postgres, Mongo, Redis/Valkey) and Nextcloud majors never come
+  as PRs: those are dump-and-restore or one-major-at-a-time upgrades, by hand.
+- A security fix still waits out the week's cooldown; a critical one is a
+  hand-made PR.
+
 ## Ingress: a Traefik on every node
 
 Each node runs its own Traefik for its own apps, so a broken proxy or a dead node

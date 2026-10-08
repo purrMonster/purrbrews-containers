@@ -373,6 +373,25 @@ class Layout(unittest.TestCase):
                     if image not in self.FLOATING_ON_PURPOSE:
                         self.assertIsNone(floating.search(image), 'floating tag: pin a version or a digest')
 
+    def test_dependabot_sees_every_compose_file_and_its_ignores_match(self):
+        import fnmatch
+        import yaml
+        config = yaml.safe_load((ROOT / '.github/dependabot.yml').read_text())
+        compose = next(u for u in config['updates'] if u['package-ecosystem'] == 'docker-compose')
+        names = set()
+        for file in STACKS.glob('*/*/docker-compose.yml'):
+            folder = '/' + file.parent.relative_to(ROOT).as_posix()
+            self.assertTrue(any(fnmatch.fnmatch(folder, d) for d in compose['directories']), folder)
+            for service in (yaml.safe_load(file.read_text()).get('services') or {}).values():
+                image = service.get('image')
+                if isinstance(image, str):
+                    path = image.split('@')[0].rsplit(':', 1)[0] if ':' in image.split('/')[-1] else image.split('@')[0]
+                    first = path.split('/')[0]
+                    # Dependabot names an image without its registry.
+                    names.add(path.split('/', 1)[1] if ('.' in first or ':' in first) and '/' in path else path)
+        for rule in compose.get('ignore', []):
+            self.assertIn(rule['dependency-name'], names, 'an ignore rule that matches no image guards nothing')
+
     # Routes Gatus deliberately doesn't check end to end (the reasons are in
     # sieve/gatus/config/config.yaml). Everything else must have a check.
     NOT_WATCHED = {'ollama', 'meow'}
