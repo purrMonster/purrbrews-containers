@@ -41,6 +41,7 @@ _Last updated: 2026-10-08_
 | Remote access (Tailscale on every machine, SSH + RDP) | Done; checked from outside the house 2026-09-28 | [tailscale](../tailscale/README.md) | 2026-09-27 — Remote access over Tailscale |
 | flask (offline recovery kit: two bootable USB sticks + paper) | Stick A built and verified 2026-09-29; vault, B and paper next | [docs/flask.md](flask.md) | 2026-09-28 — flask, the recovery kit |
 | Local LLMs on roastery (llama-swap replaces Ollama; game mode) | Built on branch `roastery-llama-swap`, not yet running on roastery | [llama-swap](../stacks/roastery/llama-swap/README.md), [game mode](../stacks/roastery/game-mode/README.md) | 2026-10-07 — roastery wiped; llama-swap replaces Ollama |
+| Fleet mail (relay to Purelymail as `purrBrews@`; reading the mailbox with n8n + local AI next) | Relay built and tested on branch `mail-relay`, not yet running; needs the Purelymail app password | [mail-relay](../stacks/percolator/mail-relay/README.md) | 2026-10-08 — Fleet mail through Purelymail |
 | Smart desk / smart mirror | Idea | — | — |
 
 ## Where data lives (quick reference)

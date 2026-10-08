@@ -10,6 +10,7 @@ and one sign-in.
 |---|---|---|
 | [Traefik](traefik/) | `traefik.${DOMAIN}` (admins) | HTTPS for everything, one wildcard certificate |
 | [CrowdSec](crowdsec/) | — | Blocks abusive clients at Traefik |
+| [Mail relay](mail-relay/) | — (port 587) | The fleet's outgoing mail, via Purelymail as `purrBrews@${DOMAIN}` |
 | [LLDAP](lldap/) | `lldap.${DOMAIN}` | Household accounts and groups |
 | [Authelia](authelia/) | `authelia.${DOMAIN}` | Single sign-on for every app |
 | [Vaultwarden](vaultwarden/) | `vault.${DOMAIN}` | Passwords |
@@ -98,6 +99,7 @@ signal (in its README) before the next. "Container started" is not a success sig
 |---|---|---|
 | 1 | `./compose.sh traefik up -d` | no ACME errors in `sudo docker logs traefik`; any `https://<anything>.${DOMAIN}` shows a valid wildcard padlock (a 404 page is fine at this point) |
 | 2 | `./compose.sh crowdsec up -d` | `sudo docker exec crowdsec cscli bouncers list` shows `traefik` with a recent last pull |
+| 2b | `./compose.sh mail-relay up -d` (after the Purelymail app password: [its README](mail-relay/README.md)) | `mail-relay` is `healthy`; `/srv/data/mail-relay/tls-public/ca.crt` exists |
 | 3 | `./compose.sh lldap up -d` then `./lldap-bootstrap.sh` | groups exist, `barista` created — **save the printed one-time password** |
 | 4 | `./compose.sh authelia up -d` | log in at `https://authelia.${DOMAIN}` as `barista`; the Traefik dashboard opens; from sieve, `curl -s -o /dev/null -w '%{http_code}' http://192.168.0.11:9091/api/health` gives `200` |
 | 5+ | `./compose.sh <app> up -d` for vaultwarden, nextcloud, immich, paperless, mealie, vikunja, actualbudget, freshrss, homepage | the app's README checklist |
@@ -150,6 +152,7 @@ the secret in their own settings too; paste the new one there.
 |---|---|---|
 | 80, 443 | all interfaces (UFW: LAN only) | Traefik |
 | 9091 | all interfaces (UFW: `FORWARD_AUTH_CLIENTS` only) | Authelia, ForwardAuth for other nodes' Traefik |
+| 587 | all interfaces (UFW: `MAIL_RELAY_CLIENTS` only) | Mail relay, for other nodes' apps |
 | 17170 | 127.0.0.1 | LLDAP admin UI (break-glass: `ssh -L 17170:127.0.0.1:17170 barista@percolator`) |
 | 22 | host (UFW: LAN only) | sshd, from init |
 
@@ -170,6 +173,7 @@ Everything lives under `/srv/data/<app>/` on the NVMe:
 | `paperless/{data,media,export}`, `paperless/postgres` | documents, database | **yes** (database as a dump) |
 | `mealie`, `vikunja`, `actualbudget`, `freshrss` | SQLite + files | **yes** |
 | `crowdsec`, `traefik/logs`, `*/valkey`, `authelia/redis` | caches, logs, queues | no |
+| `mail-relay/spool`, `mail-relay/tls*` | queued mail; the relay's own CA (remade if lost: see its README) | no |
 
 Never copy a running Postgres data directory as a backup; dump it
 (`pg_dump`) and back up the dump. The dump job is not built yet (see the runbook).
