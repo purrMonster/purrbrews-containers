@@ -1,0 +1,4 @@
+#!/bin/sh
+# rclone from the flask stick (injected by make-flask.ps1).
+[ -x /mnt/flask/tools/linux-amd64/rclone ] || sudo /usr/local/sbin/mount-flask
+exec /mnt/flask/tools/linux-amd64/rclone "$@"

@@ -1,0 +1,16 @@
+# Scrutiny collector overrides for mochaPot's disk.
+#
+# The SanDisk SD8SN8U's device-statistics log is stuck: its "Current
+# Temperature" always equals its lifetime high (67 °C) and its power-on
+# counter reads 668 hours. Scrutiny's default `--xall` reads that log, so the
+# dashboard showed 67 °C and "28 days". `--all` skips it and reports the real
+# values from the SMART attributes: 36 °C and 18,975 hours. Found 2026-09-30.
+#
+# Only this disk is overridden. /dev/sda is mochaPot's only disk (DISK_DEVICE);
+# the file can't read .env.local, so change both together if that ever moves.
+version: 1
+devices:
+  - device: /dev/sda
+    type: 'sat'
+    commands:
+      metrics_smart_args: '--all --json -T permissive'

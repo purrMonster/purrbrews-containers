@@ -86,6 +86,16 @@ env_value() {  # env_value <KEY> [app]: effective value across ENV_FILES
 
 is_placeholder() { [[ -z "$1" || "$1" == *REPLACE_ME* ]]; }
 
+clean_pasted() {  # clean_pasted <value>: what a paste usually brings along, taken off
+  # A Windows clipboard adds a \r; a copy from a JSON file or a web page often
+  # takes the quotes around the value, or a space. None of those belong to a
+  # secret, and a quote left in makes env_put refuse the value.
+  local v="${1//$'\r'/}"
+  v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"
+  if [[ ${#v} -ge 2 && ( ( "$v" == \"*\" ) || ( "$v" == \'*\' ) ) ]]; then v="${v:1:${#v}-2}"; fi
+  printf '%s' "$v"
+}
+
 env_quote() {
   # Plain values stay unquoted: Komodo's onboarding key only worked once it was
   # written without quotes. Anything with $, spaces or shell punctuation gets
@@ -100,7 +110,7 @@ env_quote() {
 env_put() {  # env_put <file> <KEY> <value>: replace in place (keeps order) or append
   local file="$1" key="$2" value="$3" line tmp
   [[ "$value" != *"'"* && "$value" != *$'\n'* ]] \
-    || die "not storing $key: its value has a single quote or a newline."
+    || die "not storing $key: its value has a single quote or a newline in it (nothing was changed). Paste only the value itself, then run this again."
   line="${key}=$(env_quote "$value")"
   [[ -f "$file" ]] || (umask 077 && : > "$file")
   tmp="$(mktemp "${file}.XXXXXX")"

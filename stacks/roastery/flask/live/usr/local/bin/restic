@@ -1,0 +1,4 @@
+#!/bin/sh
+# restic from the flask stick (injected by make-flask.ps1).
+[ -x /mnt/flask/tools/linux-amd64/restic ] || sudo /usr/local/sbin/mount-flask
+exec /mnt/flask/tools/linux-amd64/restic "$@"

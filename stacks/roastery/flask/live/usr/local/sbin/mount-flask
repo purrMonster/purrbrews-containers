@@ -1,0 +1,56 @@
+#!/bin/sh
+# mount-flask: mount a flask stick's kit read-only at /mnt/flask.
+#
+# Injected into the Debian live system by Ventoy (make-flask.ps1 builds the
+# archive; docs/flask.md). Run at login by /etc/xdg/autostart/flask-mount.desktop,
+# and safe to run again by hand: sudo mount-flask
+#
+# Why not just mount /dev/sdX1: when Ventoy boots the ISO from the stick, the
+# live system runs from that partition and the kernel won't mount it twice.
+# Ventoy (1.1.01+) exposes it again as /dev/mapper/sdX1, which does mount.
+# On any other Linux (not booted from the stick) the partition mounts directly.
+set -u
+mnt=/mnt/flask
+
+# Ventoy's injection makes everything it copies mode 777 and copies the modes of
+# the folders too, so /etc and /usr come out world-writable. Put them back.
+chmod 755 /etc /etc/xdg /etc/xdg/autostart /usr /usr/local /usr/local/bin \
+  /usr/local/sbin /usr/local/share /usr/local/share/applications 2>/dev/null
+chmod 755 /usr/local/sbin/mount-flask /usr/local/bin/flask-keepassxc \
+  /usr/local/bin/restic /usr/local/bin/rclone 2>/dev/null
+chmod 644 /etc/xdg/autostart/flask-mount.desktop \
+  /usr/local/share/applications/flask-keepassxc.desktop \
+  /usr/local/share/applications/flask-kit.desktop 2>/dev/null
+mountpoint -q "$mnt" && exit 0
+
+part=''
+i=0
+while [ $i -lt 15 ] && [ -z "$part" ]; do
+  for label in FLASK-A FLASK-B; do
+    part="$(blkid -L "$label" 2>/dev/null || true)"
+    [ -n "$part" ] && break
+  done
+  [ -n "$part" ] || sleep 1
+  i=$((i + 1))
+done
+[ -n "$part" ] || { echo "mount-flask: no partition labelled FLASK-A or FLASK-B" >&2; exit 1; }
+
+name="$(basename "$part")"
+dev=''
+i=0
+while [ $i -lt 10 ]; do
+  if [ -e "/dev/mapper/$name" ]; then dev="/dev/mapper/$name"; break; fi
+  udevadm trigger >/dev/null 2>&1; udevadm settle >/dev/null 2>&1; sleep 1
+  i=$((i + 1))
+done
+[ -n "$dev" ] || dev="$part"
+
+mkdir -p "$mnt"
+# Read-only: the running system is using this partition. Owned by the live
+# user and executable, so the tools run straight from the stick.
+if mount -o ro,uid=1000,gid=1000,fmask=0022,dmask=0022 "$dev" "$mnt"; then
+  echo "mount-flask: $dev ($part) on $mnt, read-only"
+else
+  echo "mount-flask: couldn't mount $dev; try: sudo mount -o ro $dev $mnt" >&2
+  exit 1
+fi

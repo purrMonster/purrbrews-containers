@@ -196,7 +196,7 @@ function Invoke-Compose($Node, [string[]]$Arguments) {
             $bad = @(Find-Placeholder ($json | Out-String | ConvertFrom-Json) 'config')
             if ($bad.Count -gt 0) { throw "${app}: unfilled placeholders in $($bad -join ', '). Values withheld." }
         }
-        if ($apps.Count -gt 1) { Write-Host "── $app" }
+        if ($apps.Count -gt 1) { Write-Host "-- $app" }
         & docker @composeArgs @rest
         if ($LASTEXITCODE -ne 0) { throw "${app}: docker compose exited with $LASTEXITCODE." }
     }

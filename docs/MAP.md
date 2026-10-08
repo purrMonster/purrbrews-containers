@@ -4,17 +4,19 @@ One page to find everything. Update it whenever a project, doc or node is added.
 Decisions and their reasons live in [`runbook.md`](../runbook.md); this page only
 points.
 
-_Last updated: 2026-09-27_
+_Last updated: 2026-09-29_
 
 ## Start here
 
 | Doc | What it's for |
 |---|---|
 | [`README.md`](../README.md) | What the fleet is, how a node is built, design principles |
+| [`AGENTS.md`](../AGENTS.md) | Rules for every AI agent working here: scope, git, evidence, nodes, handoff |
 | [`runbook.md`](../runbook.md) | Dated decisions (newest first) and the backlog, ticked only on evidence |
 | [`docs/network-audit.md`](network-audit.md) | September 2026 fleet audit: DNS/IPv6 findings and rollout |
 | [`stacks/README.md`](../stacks/README.md) | How every node's stacks work, and how to add an app or a node |
 | [`tailscale/README.md`](../tailscale/README.md) | Remote access: SSH to the nodes and RDP to roastery over the tailnet |
+| [`docs/flask.md`](flask.md) | flask, the offline recovery kit: what's on it, which secrets, how it's kept |
 
 ## Nodes
 
@@ -33,8 +35,9 @@ _Last updated: 2026-09-27_
 |---|---|---|---|
 | Fleet rebuild (purrbrews-containers) | Stacks running; backups unfinished | [README](../README.md) | 2026-09-15 → 2026-09-16 entries |
 | One toolkit for every node (`stacks/_lib`, `node.conf`) | Done; rolling out node by node | [stacks/README.md](../stacks/README.md) | 2026-09-26 — One toolkit for every node |
-| Backups (restic sources, DB dumps, restore test) | Open | [cellar/restic](../stacks/cellar/restic/README.md) | Backlog |
+| Backups (restic sources, DB dumps, restore test) | Every node backing up nightly; Drive set up 2026-09-29, first upload running; restore test from Drive open | [cellar/restic](../stacks/cellar/restic/README.md) | Backlog |
 | Remote access (Tailscale on every machine, SSH + RDP) | Done; checked from outside the house 2026-09-28 | [tailscale](../tailscale/README.md) | 2026-09-27 — Remote access over Tailscale |
+| flask (offline recovery kit: two bootable USB sticks + paper) | Stick A built and verified 2026-09-29; vault, B and paper next | [docs/flask.md](flask.md) | 2026-09-28 — flask, the recovery kit |
 | Smart desk / smart mirror | Idea | — | — |
 
 ## Where data lives (quick reference)
@@ -49,3 +52,4 @@ _Last updated: 2026-09-27_
 | Passwords | Vaultwarden | percolator |
 | Recipes | Mealie | percolator |
 | Budget | Actual Budget | percolator |
+| Chat | meowGram (own repo) | roastery, for now |

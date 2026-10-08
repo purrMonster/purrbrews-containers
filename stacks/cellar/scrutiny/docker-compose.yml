@@ -35,6 +35,10 @@ services:
       # NVMe (the OS and restic's cache) and the HDD (the restic repository).
       - ${DISK_DEVICE:?set DISK_DEVICE in .env.local}
       - ${DISK_DEVICE_2:?set DISK_DEVICE_2 in .env.local}
+    environment:
+      # Same schedule as the collectors on the other nodes (every 6 hours, UTC).
+      # Without it the hub collects once a day, so cellar's disks lagged.
+      COLLECTOR_CRON_SCHEDULE: "0 */6 * * *"
     restart: unless-stopped
 
 networks:

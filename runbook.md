@@ -5,41 +5,43 @@ changes can be made later without re-deriving the reasoning.
 
 ## Backlog / open items
 
-- [ ] Confirm Secret scanning + Push protection are enabled on the public GitHub repo (repo itself already created, pushed, `origin` set)
-- [ ] Workstation: DHCP reservation, `bootstrap/data/` (settings + `authorized_keys`), `docker compose up -d --build`, firewall rule for 8443
-- [ ] First real node through `bootstrap.sh`, at the console (the network step has not yet run on real hardware)
+- [x] Confirm Secret scanning + Push protection are enabled on the public GitHub repo (repo itself already created, pushed, `origin` set). Confirmed in the repo's settings (owner, 2026-09-29)
+- [x] Workstation: DHCP reservation, `bootstrap/data/` (settings + `authorized_keys`), `docker compose up -d --build`, firewall rule for 8443 Done: `purrbrews-bootstrap` healthy on roastery (192.168.0.15), inbound rule for 8443 enabled (checked 2026-09-29)
+- [ ] First real node through `bootstrap.sh`, at the console (the network step has not yet run on real hardware) All five nodes run; whether the first went through `bootstrap.sh` at the console is for the owner to confirm (owner)
 - [x] Add stacks node by node, each with its own `stacks/<node>/README.md` — sieve, percolator, cellar, mochaPot and grinder are all in
 - [x] Pi-hole static leases from `purrbrews-mac.sh`: automated by `stacks/sieve/setup-secrets.sh` (2026-09-15)
-- [ ] sieve: Cloudflare DNS token, tunnel + `ntfy.${DOMAIN}` route, healthchecks.io check, then the bring-up in `stacks/sieve/README.md`
-- [ ] sieve: prove both alert paths with a deliberate break (stop NetAlertX → ntfy; stop ntfy → ntfy.sh)
-- [ ] sieve: router DNS → 192.168.0.10, then hand DHCP to Pi-hole (router DHCP left configured but off)
+- [x] sieve: Cloudflare DNS token, tunnel + `ntfy.${DOMAIN}` route, healthchecks.io check, then the bring-up in `stacks/sieve/README.md` Done: all running; the ntfy route and healthchecks.io proven 2026-09-29 (entry below)
+- [x] sieve: prove both alert paths with a deliberate break (stop NetAlertX → ntfy; stop ntfy → ntfy.sh) Done 2026-09-29, both delivered; ntfy.sh titles fixed the same day, retest in that entry
+- [x] sieve: router DNS → 192.168.0.10, then hand DHCP to Pi-hole (router DHCP left configured but off) Done: Pi-hole's DHCP active with the router 192.168.0.1 as gateway, 23 leases; roastery gets DNS 192.168.0.10 and .13 (checked 2026-09-29)
 - [x] percolator: Authelia's 9091 published (UFW: `FORWARD_AUTH_CLIENTS`), session domain `${DOMAIN}`, admin-only rules for `pihole`, `gatus`, `netalertx`, `traefik-sieve` — done in percolator's stack (2026-09-16)
-- [ ] percolator: Cloudflare token, then the bring-up in `stacks/percolator/README.md`; `sudo ./firewall.sh`
-- [ ] First ForwardAuth round trip from sieve's Traefik to Authelia on real hardware (sandbox-tested with real Authelia 2026-09-16)
+- [x] percolator: Cloudflare token, then the bring-up in `stacks/percolator/README.md`; `sudo ./firewall.sh` Done: Traefik, Authelia, CrowdSec and the apps up 3 days with valid certificates; `ufw-docker` installed; `FORWARD_AUTH_CLIENTS` on the node includes roastery (checked 2026-09-29). `ufw status` itself needs sudo, not read
+- [x] First ForwardAuth round trip from sieve's Traefik to Authelia on real hardware (sandbox-tested with real Authelia 2026-09-16) Done 2026-09-29: `gatus` (sieve's Traefik) and `homepage` both answer 302 to Authelia with a valid certificate
 - [x] cellar's, mochaPot's and grinder's stacks added, each with its own Traefik (2026-09-16)
 - [x] Register cellar, mochaPot and grinder with percolator: `FORWARD_AUTH_CLIENTS` and `admin_hosts` extended, cellar's Traefik built for real (2026-09-16, full fleet repass)
 - [x] Migrate Komodo Periphery + Scrutiny collector fleet-wide (sieve, percolator, mochaPot, grinder, roastery) — built from cellar's own service blocks, since `stacks/_templates/komodo-periphery/` never actually landed in the repo (2026-09-16)
 - [x] `firewall.sh` for cellar, mochaPot and grinder — none had one before; every published port on them was reachable from the whole LAN with no `ufw route allow` gate (Docker's iptables DNAT bypasses plain `ufw`) (2026-09-16, full fleet repass)
-- [ ] Confirm Komodo Periphery's cross-host auth (pinning Core's public key alone) on a real bring-up — only reasoned about and sandbox-built, not tested cross-host; may need its own passkey/API key from Core's UI
-- [ ] Confirm each node's `DISK_DEVICE` (and `DISK_DEVICE_2` on percolator and cellar) against real hardware (`lsblk -d -o NAME,TYPE,SIZE,MODEL`); these were the per-node `*_DISK_DEVICE*` keys until 2026-09-26
+- [x] Confirm Komodo Periphery's cross-host auth (pinning Core's public key alone) on a real bring-up — only reasoned about and sandbox-built, not tested cross-host; may need its own passkey/API key from Core's UI Done 2026-09-29: every node's Periphery logs "Logged in to Komodo Core 192.168.0.12:9120"; grinder reconnected on its own after the 2026-09-29 cable test
+- [x] Confirm each node's `DISK_DEVICE` (and `DISK_DEVICE_2` on percolator and cellar) against real hardware (`lsblk -d -o NAME,TYPE,SIZE,MODEL`); these were the per-node `*_DISK_DEVICE*` keys until 2026-09-26 Done 2026-09-29: all seven match `lsblk`, every collector reporting in Scrutiny
 - [ ] cellar's Samba: `smb/docker-compose.yml` exists but nothing uses it and ufw-docker keeps 445 closed. Decide on shares and permissions, pin the image, then uncomment the rule in `smb/firewall`
 - [x] Wire cellar's restic sources to percolator's, sieve's and mochaPot's actual dumps and data: replaced by each node's own `backup` files (2026-09-27)
-- [ ] Backups to roastery, cellar as the dump store, second copy of everything on Google Drive (decided 2026-09-26; design in the 2026-09-27 entries). Scripts written 2026-09-27; next: tie them together in the order in `stacks/cellar/restic/README.md`, ending with a restore test from Drive. Replaces the old "enable cellar's roastery mirror and Google Drive sync" item
-- [ ] Replace cellar's old disk (ST1000LM035, 5–8 years old) once it's only the dump store; the SanDisk on mochaPot is the same age
-- [ ] roastery: `immich-machine-learning` at Immich's version, Windows Firewall 3003 scoped to percolator
+- [ ] Backups to roastery, cellar as the dump store, second copy of everything on Google Drive (decided 2026-09-26; design in the 2026-09-27 entries). Scripts written 2026-09-27; every node's backups on since 2026-09-28; Drive set up 2026-09-29, first upload running. Restore tests from roastery and from Drive passed 2026-09-29; the first full night clean 2026-09-30. Next: the Drive client and `rclone.conf` into the vault, stick B, and the first monthly verify on 2026-10-01 (2026-09-27 wiring entry). Replaces the old "enable cellar's roastery mirror and Google Drive sync" item
+- [ ] Replace cellar's old disk (ST1000LM035, 5–8 years old) once it's only the dump store; the SanDisk on mochaPot is the same age. Superseded 2026-09-28: it's out of use on cellar and becomes the offline copy after a long self-test (2026-09-28 flask entry)
+- [x] roastery: `immich-machine-learning` at Immich's version, Windows Firewall 3003 scoped to percolator. Verified 2026-09-29 on roastery (Claude, owner approved): container `immich-machine-learning:v3.2.1-cuda` matches percolator's `immich-server:v3.2.1`; rule `immich-ml (percolator only)` enabled, remote address `192.168.0.11` only
 - [x] Postgres dump job for percolator's databases (Nextcloud, Immich, Paperless): `pg` lines in their `backup` files (2026-09-27)
 - [ ] Remaining node: roastery itself joining the fleet; then archive purrBrews-infra
-- [ ] Gatus: enable each node's ping as it is provisioned; add app checks as stacks land
+- [ ] Gatus: add app checks as stacks land (node pings for percolator, cellar, mochaPot and grinder enabled 2026-09-29)
 - [ ] Optional: paste `purrbrews-mac.sh list --format pihole` into Pi-hole's static DHCP list
 - [x] Roll out the 2026-09-26 cleanup on every node: every node pulled it (2026-09-26, per the owner)
 - [ ] Work through the 2026-09-26 live-check plan (entry below)
 - [ ] Setup keeps a node's existing values, so a changed default in `local.env.example` never reaches a node that's already set up (how percolator's `FORWARD_AUTH_CLIENTS` went stale). Have setup-secrets list keys whose value differs from the example, so the drift is at least visible
 - [ ] Decide: keep barista in the `docker` group (added 2026-09-26; root without a password) or take it out again once the live-check fixes are done
-- [ ] cellar: confirm Komodo still logs in after `KOMODO_DISABLE_USER_REGISTRATION` went to `true`
-- [ ] Pin n8n (`latest`), Open WebUI (`main`) and Karakeep (`release`)
+- [ ] cellar: confirm Komodo still logs in after `KOMODO_DISABLE_USER_REGISTRATION` went to `true` Core has `KOMODO_DISABLE_USER_REGISTRATION=true` and `KOMODO_LOCAL_AUTH=true` (checked 2026-09-29); the login itself is for the owner (owner)
+- [x] Pin n8n (`latest`), Open WebUI (`main`) and Karakeep (`release`) Done 2026-09-29: n8n `2.39.7` and Karakeep `0.33.2`, each the same digest as what was running; Open WebUI by digest (its `main` build isn't the v0.11.3 release)
+- [ ] meowGram: route and Authelia client prepared on branch `meowgram-sso` (2026-10-04 entry); merge and bring up, then the open items in `stacks/roastery/meowgram/README.md` (backups, web build, the audience check)
 - [ ] Open WebUI → roastery's Ollama: needs machine-to-machine auth that keeps Authelia in front; nothing exists yet
 - [ ] Karakeep: `NEXTAUTH_URL` is the direct-port URL while the route is `karakeep.${DOMAIN}`; check the phone share sheet signs in through the hostname
 - [x] Remote access over Tailscale: rolled out and checked from outside the house (2026-09-28; 2026-09-27 entry below)
+- [ ] roastery after the 2026-09-27 power cut: UPS install, the old HDD, NVMe into Scrutiny (2026-09-27 power-cut entry below)
 - [ ] Phone on the tailnet (only the Mac has joined so far)
 - [ ] Tunnel from Git: two-factor in Authelia first, then the switch in `stacks/sieve/cloudflared/README.md` (2026-09-28 entry below)
 - [ ] Apps over the tailnet: roll out in the order in the 2026-09-28 entry below
@@ -85,6 +87,298 @@ each PR from the link.
   a file), so the bot opens the PR itself
 - [ ] Pre-push checks as now (no domain, MAC, auth key or old emails in the
   outgoing commits), plus: every outgoing commit is authored by the bot
+- [ ] flask: build the two sticks and the paper, `make-flask.ps1` and `RECOVERY.md` first ([docs/flask.md](docs/flask.md); 2026-09-28 flask entry below). 2026-09-30: A built and booted twice; next, rebuild with the boot injection and test it offline (in a VM on roastery, then one real PC), then B, the vault's Drive entries and the paper
+- [ ] Offline copy of the restic repository: the old Seagate in a USB enclosure, synced monthly; `offline-sync.ps1` still to write (2026-09-28 flask entry)
+- [ ] roastery: move the repository off C: to a second NVMe (2026-09-28 flask entry)
+- [x] mochaPot's SanDisk runs at 67 °C: check its airflow. **Not real heat: the disk runs at 36 °C.** Checked 2026-09-30 with smartctl inside `scrutiny-collector` (the host has no smartctl): attribute 194 raw is `36 (Min/Max 14/67)`, SCT status says current 36 °C, but device statistics report "Current Temperature 67", identical to its "Highest Temperature" and flat for days. That stuck value is what Scrutiny shows. Treat Scrutiny's temperature for this disk as unreliable; `smartctl -A` is the source of truth. (It's an M.2 SATA drive, not NVMe, in a slot under the board with no heatsink; the disk is nearly idle and the CPU at 47 °C, so nothing to fix.) Power-on hours confirmed at 18,975. Scrutiny fixed the same day: `smartctl --xall` (Scrutiny's default) reads the stuck log and gives 67 °C and 668 hours, which was also the "28 days"; `--all` gives 36 °C and 18,975 hours. mochaPot's collector now uses `--all` for this disk (`scrutiny-collector/collector.yaml`)
+- [ ] Still floating: Home Assistant and ESPHome (`stable`), Unbound (`main`); Samba (`latest`) goes with the Samba decision
+- [ ] Node checkouts: percolator has an untracked `.env.local.bak-20260926` (secrets; delete once sure), mochaPot a stray `bootstrap/--no-check-certificate` file and `tests/test_network_gateway.sh` (owner)
+- [ ] Home Assistant: bring the lights and devices in. The backbone runs on mochaPot (Traefik, OIDC, Postgres), nothing is paired yet. Integrations and pairing first; areas and automations once the home layout is final (owner, 2026-09-30)
+- [ ] ESP32 sensors and voice speakers: build them with ESPHome (grinder), and a voice pipeline in Home Assistant's Assist with Ollama on roastery as the conversation backend. Local intents first so lights don't depend on the GPU; needs the roastery sleep/wake decision below (owner, 2026-09-30)
+- [ ] roastery sleep vs Wake-on-LAN: design a wake-on-demand setup before it ever sleeps again. Keep it awake during SFTP, Ollama and Immich ML work (Windows puts an unattended wake back to sleep after ~2 min); a model router on grinder that wakes roastery and answers from a small CPU model meanwhile (also solves Open WebUI's machine-to-machine auth); an Immich ML fallback; a remote wake over the tailnet; a power reading first. Until then roastery stays awake (2026-09-29 decision)
+
+---
+
+## 2026-10-04 — meowGram behind roastery's Traefik, with an Authelia OIDC client; roastery's Traefik stays up
+
+The owner built **meowGram** (a cat-lounge chat: Flutter client, Go backend,
+Postgres) in its own repo, `purrMonster/meowGram`, and runs it on roastery in
+Docker Desktop for now, as `meow.${DOMAIN}`. Asked for its Traefik and Authelia
+config. Prepared on branch `meowgram-sso`, not merged.
+
+**roastery's Traefik had stopped again.** Not a crash: the `traefik` scheduled task
+still had Windows' 3-day limit (`ExecutionTimeLimit PT72H`; noted in the 2026-09-26
+live-check item, never changed). Started at boot 2026-09-30 13:31, killed 72 hours
+later, result `0x41306`. The owner unticked the limit in Task Scheduler. Checked:
+`PT0S`, task running, Traefik on 80/443.
+
+**Exposure found and fixed (owner approved).** meowGram's compose published
+Postgres (5432) and the backend (8080) on every interface, and Postgres had the dev
+default password that's in the meowGram repo. Both answered from cellar. Now: a
+generated password (set with `ALTER USER` over psql's stdin, never shown), ports
+bound to 127.0.0.1, both in a gitignored `deploy/.env`; containers recreated.
+Checked: both closed from cellar, both healthy, the backend connected (0 messages,
+so nothing was at stake). The backend's issuer was `http://localhost:9091`, which
+inside the container is the container itself, so no token could ever have
+verified; now `https://authelia.${DOMAIN}`, with its JWKS URL and `CORS_ORIGINS`
+to match.
+
+**The route:** a file route, `stacks/roastery/traefik/config/dynamic/meow.yml.template`,
+to `http://127.0.0.1:8080`, like Ollama's: roastery's Traefik is native, so there
+are no container labels for it to read. No ForwardAuth (the phone and desktop apps
+can't follow it). DNS comes from the route as for every other; a tunnel entry to
+`${ROASTERY_LAN_IP}:443` like every non-admin app (the test requires it).
+
+**The Authelia client, and why it isn't like the others:** `public: true`, no
+secret, PKCE S256; `access_token_signed_response_alg: RS256`, because the backend
+verifies the access token with go-oidc and the other clients' tokens are opaque; a
+`meowgram` claims policy (`preferred_username`, `name`, `email` in the access
+token, or people show up as their `sub`); `audience: https://meow.${DOMAIN}`,
+granted implicitly (Authelia warns an RFC 9068 token without `aud` gets rejected);
+`offline_access` and `refresh_token`; OIDC CORS for origins in redirect URIs, since
+the web app calls the token endpoint from the browser. Redirect URIs
+`https://meow.${DOMAIN}` and `http://127.0.0.1:8088/callback`.
+
+Checked: the rendered template (dummy values) passes Authelia 4.39.27's own
+`authelia validate-config` without errors or warnings; the route renders to valid
+YAML; tests pass (63, 8 skipped). Not live yet: needs the merge, the renders and
+the Authelia recreate (`stacks/roastery/meowgram/README.md`).
+
+**Open, mostly in the meowGram repo:** the backend verifies with
+`SkipClientIDCheck`, so it takes any JWT Authelia signs (other apps' ID tokens
+included); it should require the audience. Its build script targets a domain that
+isn't the fleet's, `auth.` and client `meowgram-client`. The token rides in
+`/ws?token=`. Nothing serves the web build. The chat database on roastery has no
+backup; moving it to percolator later fixes the last two.
+
+## 2026-09-29 — Clearing the noise (section 4)
+
+Checked over SSH from roastery as `barista`, read-only, except where marked.
+
+- **Stale backlog items**, ticked above with their evidence: the workstation, DHCP
+  and DNS on Pi-hole, percolator's bring-up, ForwardAuth, Komodo's cross-host auth.
+  Two stay open for the owner: whether the first node went through `bootstrap.sh`
+  at the console, and a Komodo login now that registration is off.
+- **Image pins** on grinder. n8n and Karakeep are pinned to the version tags whose
+  registry digests match the running images, so the pin changes nothing that runs.
+  Open WebUI's `main` build reports 0.11.3 but isn't the v0.11.3 release (different
+  digest), and a `main` build can carry newer database migrations than the release,
+  so moving to it could be a downgrade. Pinned by digest instead.
+- **`local.env.example` drift:** percolator's example listed four ForwardAuth
+  clients; the node itself has roastery too, since roastery's Traefik protects
+  Ollama. The example now matches.
+- **barista is in `docker` and `sudo` on all five nodes**, and sudo asks for a
+  password. The docker group is the only reason agents can inspect and manage
+  stacks without one, which is also why it's effectively root. Still the owner's
+  decision (backlog).
+- **`AGENTS.md`**: the working rules for every agent, from this week's lessons: one
+  writer for this file, ticks only on evidence, push only on the owner's word, the
+  repo is public, nodes read-only by default, other projects stay out, a handoff at
+  the end of every session. Linked from `docs/MAP.md`.
+- **Nodes behind `main`:** percolator, mochaPot and grinder were at `87c1379`.
+- Not done here: comparing ChatGPT's collaboration proposal. It isn't in any repo;
+  the owner has to paste it.
+
+---
+
+## 2026-09-29 — The alert paths, proven by breaking them
+
+Section 3 of the open-items plan, run by the owner on sieve with me reading the
+results. Times are IST.
+
+**Results**
+
+- `DISK_DEVICE`: all seven values match `lsblk` on their nodes (sieve `sda`;
+  percolator `nvme0` + `sda`; cellar `nvme0` + `sda`, the Seagate; mochaPot `sda`;
+  grinder `nvme0`). Every node has at most one SATA disk, so `sdX` names can't swap
+  (a USB disk plugged in at boot could; plug the HDD dock in after boot). Scrutiny
+  lists all seven, updated today. Its two "Failed" cards are the known attribute-188
+  thresholds, not SMART failures (2026-09-26 and 2026-09-28 entries).
+- Test A, stop NetAlertX: `network/netalertx` alert at 19:55 on the self-hosted
+  topic, received in Chrome on roastery and on the iPhone over mobile data. That also
+  proves the tunnel route for ntfy. `[STATUS] < 400` showed green on the dead service
+  (status 0); the `[CONNECTED] == true` condition from 2026-09-26 is what caught it.
+- Test B, stop ntfy: `network/ntfy` alert delivered by ntfy.sh. Its title arrived as
+  the literal `[ALERT_TRIGGERED_OR_RESOLVED]: [ENDPOINT_NAME]`: Gatus doesn't fill
+  placeholders in headers, so DOWN and back up looked the same. Fixed in this
+  commit: the ntfy.sh alert goes as JSON, title in the body.
+- healthchecks.io: `gatus-sieve` (period 5 min) held 3,638 pings. Gatus stopped, the
+  check alerted at 21:04 with the last ping 15 minutes earlier. Its notifications
+  reach the phone without anything at home. A stray check called TEST, never pinged,
+  to delete (owner).
+
+**Found on the way**
+
+- The tunnel's ntfy route in the Cloudflare dashboard pointed at `https://sieve`.
+  cloudflared sent SNI "sieve", Traefik answered with its default certificate, and
+  every request from outside failed verification. Fixed in the dashboard (owner) to
+  HTTP `ntfy:8080`, as the tunnel's design says. The dashboard had drifted from Git;
+  the tunnel-from-Git item removes that possibility.
+- Gatus's `ntfy (public)` check never used the tunnel: Pi-hole resolves the name to
+  sieve's LAN address, so it stayed green while the route was broken. It now
+  resolves through 1.1.1.1, like a phone on mobile data.
+- The iPhone's ntfy.sh subscription had an extra character at the end of the topic,
+  so it never saw a critical alert. Re-subscribed by pasting (owner). Topics and
+  tokens get pasted, never typed.
+- cellar's Scrutiny hub had no collector schedule, so it collected once a day while
+  the other nodes collect every 6 hours. Now the same.
+
+**This commit:** the ntfy.sh alert as JSON; `ntfy (public)` through 1.1.1.1; node
+pings on for percolator, cellar, mochaPot and grinder (roastery stays out, it sleeps);
+cellar's collector schedule. Tests pass (58 passed, 9 skipped).
+
+- [x] Retest B: stop ntfy, the ntfy.sh title reads "DOWN"; start it, "back up" (owner).
+  Both titles arrived filled in after the JSON change: "PurrBrews DOWN: ntfy" at 22:15,
+  "PurrBrews back up: ntfy" at 22:17, and the error text no longer shows escaped quotes
+- [x] Node ping test: unplug grinder's cable for 8 minutes, alert on the self-hosted topic
+  (owner). `fleet/grinder` triggered 21:49, resolved 22:11
+- [x] `ntfy (public)` green through the tunnel after the change. Cloudflare didn't
+  challenge Gatus, so no WAF rule needed
+- [x] iPhone: an alert with the phone locked and the app closed. The grinder alert
+  from the self-hosted ntfy arrived that way, so iPhone delivery works as configured
+- [ ] Delete the TEST check in healthchecks.io (owner)
+
+---
+
+## 2026-09-28 — flask, the recovery kit; where the backups' copies live
+
+**What flask is.** The scripts and READMEs have said "copy X to flask" since the
+first commits, citing a doc that has since moved out of the repo; nothing here
+defined it. The owner's original plan was an SD card as a recovery device. Now
+written down in [`docs/flask.md`](docs/flask.md): **two encrypted, bootable USB
+sticks kept unplugged, plus the Tier 1 keys on paper.**
+
+**Choices worth remembering:**
+
+- **USB sticks, not an SD card:** the owner's call. USB 3.x, 64 GB, dual connector
+  (A + C), two brands. Speed doesn't matter for a kit under 5 GB; 3.x sticks just
+  have better parts than the 2.0 ones still on sale, and the dual connector reads
+  on a phone without an adapter.
+- **Two sticks and paper, because flash in a drawer fades and fails without
+  warning.** The paper holds only the three Tier 1 keys and the vault's master
+  password; paper outlasts any stick.
+- **Never plugged into a Pi or anything online** (the owner asked). A networked box
+  holding every key is the best target in the house, and ransomware reaches
+  whatever is attached. Keeping the flash healthy is what the yearly check is for.
+- **Bootable, through Ventoy + Debian Live** (the owner's idea). The point isn't
+  the spare space: it gives a clean system to type the keys into when roastery is
+  gone or not trusted, and with the offline HDD it restores with no network at all.
+  Ventoy rather than a written ISO so the stick keeps an exFAT partition for the
+  vault and tools; exFAT because Windows, Debian, macOS, iOS and Android all read
+  it.
+- **KeePassXC vault, not a password manager account:** opens on every platform and
+  on the live system, with no account and no network.
+
+**The tiers** (names and locations in `docs/flask.md`, never values): Tier 1 is
+`RESTIC_PASSWORD` and the two rclone crypt secrets, without which nothing
+restores; everything else is also inside the backups. Tier 2 are keys that
+encrypt app data (n8n, Authelia's storage, LLDAP's seed, ...). Tier 3 are
+emergency logins for when Authelia is down; Tier 4 outside accounts. Added
+while writing it: the 2FA recovery codes for Google, Cloudflare, GitHub and the
+Tailscale identity provider, since losing the phone must not lock those.
+
+**Storage for the backups, decided alongside:**
+
+- **The offline copy is cellar's old Seagate** (ST1000LM035, 1 TB), in a USB
+  enclosure, synced monthly and unplugged. It's the only copy ransomware on
+  roastery, an over-eager prune or a lost Google account can't touch. The
+  repository is 76.6 GB (owner, 2026-09-28), so 1 TB is plenty. An old disk is
+  acceptable here because it's an extra copy: roastery and Drive still hold
+  everything. A new drive can replace it when prices drop: hard drives are sold
+  out to data centres through 2026 and a 4 TB NAS drive is about ₹26k.
+  - Checked: `lsblk` on cellar shows it unmounted, no partitions, not in fstab.
+    Scrutiny's collector on cellar still reads it (`DISK_DEVICE_2`); clear that
+    when it comes out.
+- **roastery's repository moves off C:** (the Windows NVMe) to a second NVMe in
+  the free M2B slot, the owner's pick (Crucial E100 1 TB, about ₹16k). The B450
+  AORUS PRO WIFI's M2B runs at PCIe x2 and disables the ASATA ports only, which
+  are unused; still ten times the network's speed. This protects against C:
+  failing or a Windows reinstall, not against anything that hits all of roastery;
+  that's the offline copy's job, so the offline copy comes first.
+
+**Correction to the 2026-09-26 SMART entry:** mochaPot's SanDisk has **18,926
+power-on hours**, not 665. Scrutiny's summary shows 666, but the disk's own
+attribute 9 rose by 177 in the week, 7 days' worth. So its 9,924 command timeouts
+are spread over about two years, not four weeks. Both disks' counts were
+unchanged between 2026-09-21 and 2026-09-28 (188, 199, 5, 197, 198), which was the
+week-long test that entry asked for. The SanDisk's real problem is heat: 67 °C.
+
+- [ ] Sticks arrive: H2testw on each, then Ventoy (owner)
+- [x] `make-flask.ps1`, `RECOVERY.md` (me), in `stacks/roastery/flask/`. `-PrepareOnly` on
+  roastery, 2026-09-28: the four pinned keys imported by fingerprint, every signature
+  and checksum good (Debian Live 13.7.0 xfce, restic 0.19.1, rclone 1.75.1, KeePassXC
+  2.7.12), tools staged and `restic.exe`/`rclone.exe` run. Writing a stick isn't tested
+  yet: none was plugged in. Found on the way: Git's gpg needs `/c/...` paths, not
+  `C:/...`; and `_lib/purrbrews.ps1` printed a garbled `──` in PowerShell 5 (a UTF-8
+  character in a BOM-less file), now ASCII, with a test that every .ps1 stays ASCII.
+  The flask's restic is newer than the fleet's 0.18.0; it reads the same repository.
+- [ ] Sticks tested and Ventoy on both (owner), then `.\make-flask.ps1` with both plugged in.
+  2026-09-29: A done (SanDisk 3.2 Gen1, 57.3 GB): built by the owner, then `-Check` by me,
+  all 142 files match its SHA256SUMS. B not seen yet.
+- [x] `fill-vault.ps1` (me): Tiers 1-4 from the nodes into the vault over SSH and
+  `keepassxc-cli`'s standard input, so no value is shown or written anywhere else.
+  `keepassxc-cli` 2.7.12's stdin behaviour checked on roastery with a throwaway vault
+  and dummy values; `-DryRun` against the real nodes finds everything in docs/flask.md
+  except the Drive client and `NTFY_URL` (not set yet). It also found `CF_DNS_API_TOKEN`
+  different on every node: on purpose, a token per node (owner, 2026-09-29), so the
+  script keeps one entry per node for it without the warning.
+  The owner's first real run then had keepassxc-cli refuse those five: their titles
+  had the location in them, `(sieve/traefik)`, and keepassxc-cli reads a `/` in an
+  entry path as a group. Now titled `CF_DNS_API_TOKEN (sieve)` and so on (checked on
+  roastery with a throwaway vault). Also changed: a run now compares each entry with
+  the node and rewrites only values that changed; notes edited by hand are left alone.
+- [ ] Vault filled from the tables in `docs/flask.md` (owner; values never in a chat)
+- [ ] Paper: Tier 1 keys and the master password, sealed, kept apart from both sticks (owner)
+- [ ] A boot test of the stick on roastery, and a restore test from it (with the offline HDD, no network)
+  - 2026-09-29, first boot test (owner): Debian Live booted from stick A. Two gaps
+    my plan had missed. (1) The kit's partition wouldn't mount: the live system runs
+    from it, so the kernel reports it busy. Ventoy (1.1.01+) exposes it again as
+    `/dev/mapper/<partition>`; `sudo mount -o ro /dev/mapper/sdX1 /mnt/flask` worked
+    (owner). (`VTOY_LINUX_REMOUNT`, in older guides, was removed in 1.1.01.) (2) The
+    KeePassXC AppImage wanted libfuse2, which the owner installed from the internet;
+    offline that's impossible, so the vault couldn't be opened in the one situation
+    the stick is for.
+  - Fix (me): Ventoy LiveInjection. `make-flask.ps1` now builds
+    `ventoy/flask_injection.tar.gz` + `ventoy/ventoy.json` from
+    `stacks/roastery/flask/live/`: `mount-flask` at login (mapper device, read-only,
+    `/mnt/flask`, opens it), a menu entry that runs KeePassXC with
+    `--appimage-extract-and-run` (no FUSE), and restic/rclone on the PATH. The ISO is
+    untouched. The LiveInjection framework (1.1) isn't signed upstream, so it's pinned
+    by SHA-256. RECOVERY.md and docs/flask.md updated; the hand mount goes on the paper
+    too, since RECOVERY.md sits on the partition that won't mount. Tests: the live files
+    are LF, `sh -n` clean, and use the mapper device, read-only and extract-and-run.
+    `-PrepareOnly` on roastery built it: 7 files in `sysroot.tar.gz`, no CR bytes,
+    `ventoy.json` pointing at `/debian-live-13.7.0-amd64-xfce.iso`. One thing found in
+    the framework's hooks: it makes everything mode 777 and `cp -a`s the folders too, so
+    `/etc` and `/usr` would come out world-writable; `mount-flask` puts them back to 755
+    first thing. Not yet run on a real stick.
+  - [ ] Rebuild both sticks with `.\make-flask.ps1`, then boot A **with the network
+    cable out**: the kit opens by itself, "flask: KeePassXC" opens the vault, and
+    `restic version` runs (owner)
+  - 2026-09-30, second boot of A (owner): `/mnt/flask` mounted. KeePassXC still
+    wouldn't start: run directly, the AppImage wants libfuse2; `--appimage-extract`
+    in `/mnt/flask/tools/linux-amd64` failed with "Read-only file system", since it
+    unpacks into the current folder, and the kit is mounted read-only. The files
+    were dated 2026-09-28, so the stick most likely predates the injection build
+    (not confirmed: `VERSIONS.txt` and `/usr/local/bin/flask-keepassxc` weren't
+    checked). By hand it works as RECOVERY.md says: copy the AppImage to `/tmp`, run
+    it with `--appimage-extract-and-run`. The rebuild above is still to do.
+  - 2026-09-30, a persistent install instead of the live system? The owner asked;
+    I advised against it and the owner went on with the live system. Why: `-Check`
+    can only vouch for a stick that doesn't change; an installed system left in a
+    drawer is a year out of date when it's needed, with no network to catch up;
+    persistence keeps shell history, KeePassXC's settings and caches unencrypted on
+    the stick; a running OS wears cheap flash; and flask gets booted on PCs nobody
+    trusts. Whatever has to be there at every boot goes into
+    `stacks/roastery/flask/live/`, injected at boot and rebuilt with the stick.
+  - 2026-09-30, testing without rebooting roastery: VirtualBox with the whole stick
+    as a raw disk (docs/flask.md, "Testing it"). Stick A is disk 1 on roastery. The
+    first try failed harmlessly on a placeholder `N` I'd left in the commands. VM
+    boot result not in yet. A VM can't test the firmware (boot menu, Secure Boot
+    enrolment), so one real boot on another PC stays the final test.
+- [ ] Seagate: `sudo smartctl -t long /dev/sda` on cellar, result `Completed without error` (owner); then out of cellar, into the enclosure, a full surface read on roastery
+- [ ] `offline-sync.ps1` and the 35-day check (me)
+- [ ] Second NVMe in roastery; the repository to `D:\purrbrews`, `setup.ps1` again, `restic check` (owner + me)
 
 ---
 
@@ -275,6 +569,43 @@ bash; the full suite still wants Linux.
 
 ---
 
+## 2026-09-27 — roastery failed to boot after a power cut
+
+**Symptom:** after a sudden power cut (Kernel-Power 41 at 12:10), roastery hung at the
+AORUS logo / Windows spinner, then went black. Automatic Repair ran and reported it
+couldn't repair the PC. The Windows installer USB hung too, which ruled out a
+Windows-only problem.
+
+**Root cause:** the old secondary HDD. It hung on every disk probe, which stalled the
+Windows boot, WinRE and Windows Setup alike.
+
+**Fix:** the HDD physically disconnected (owner). Automatic Repair still showed its
+failure, left over from the earlier failed boots, but "Continue to Windows" booted
+normally. Up since 16:35.
+
+**Follow-ups** (checked 2026-09-29 on roastery by me, unless marked owner):
+
+- [x] The backups' disk is healthy: `C:\purrbrews` is on the Samsung 1 TB NVMe
+  (MZVL21T0HCLR), which Windows reports Healthy. The failed HDD is no longer attached
+- [x] Nothing depends on the old HDD: pagefile at `C:\pagefile.sys`, every user shell
+  folder on C:, Docker's WSL distros in their default location
+- [x] Fast Startup can't run: hibernation is off (no `hiberfil.sys`). `HiberbootEnabled`
+  is still 1, which is harmless while hibernation stays off
+- [x] A clean boot: the current one (16:35) followed clean shutdowns at 14:15 and 14:32
+  (Event 1074), with no unexpected shutdown since
+- [x] Every node back after the outage: all five online in `tailscale status` from
+  roastery, and each ran a successful backup on 2026-09-28 (entries above)
+- [x] UPS ordered for roastery, the router and the switches (owner)
+- [x] `sfc /scannow` (owner, 2026-09-29): "Windows Resource Protection did not find any
+  integrity violations". DISM `/RestoreHealth` not run: it's only needed when sfc finds
+  damage it can't repair
+- [ ] UPS installed
+- [ ] Old HDD: USB dock on a Debian node, `smartctl -a -d sat` (confirms SAT
+  passthrough), `ddrescue` first if the data matters, then retire it
+- [ ] roastery's NVMe in Scrutiny, via the Windows collector
+
+---
+
 ## 2026-09-27 — Wiring the backups: plan and progress
 
 The owner asked for the wiring too. Split by who can do each step: I can do
@@ -307,7 +638,52 @@ first contact (`accept-new`) instead of needing a second `keys` round.
   expected until Drive exists. The four nodes' dumps reached cellar after the 02:30
   store run, so they're in restic from tonight's (or a hand-run `backup.sh store`).
 - [ ] Drive: Google API client, `drive-setup.sh`, first `drive-sync.sh` (owner)
-- [ ] Restore test from roastery and from Drive; next morning's freshness check
+  - 2026-09-29: Google API client made (owner). `./setup-secrets.sh` on cellar then
+    refused the client ID: "its value has a single quote or a newline". Nothing was
+    stored. My first guess, a quote from the paste, was wrong: the owner got the same
+    with a typed `abc`. The real bug, in `ask()` (secrets.sh) since it was written:
+    it printed the newline after hidden input to stdout, which the caller captures
+    as the value, so every typed answer started with a newline and was refused.
+    Prompts only ever worked without a terminal (piped). The newline now goes to
+    stderr. A test types into a real pseudo-terminal: it fails on the old code
+    (`'[\nabc]'`) and passes now. The paste cleanup (`clean_pasted`: a \r,
+    surrounding spaces, one pair of surrounding quotes) stays; it's still worth having.
+  - 2026-09-29, after the fix: `./setup-secrets.sh` stored the client ID and secret
+    (checked: both set, values not read). `sudo ./restic/drive-setup.sh` (owner), with
+    `rclone authorize` on roastery for the Google sign-in: "drive: signed in",
+    "drive-crypt: writable", "roastery: the repository is readable over SFTP";
+    `/etc/purrbrews/rclone.conf` written 04:58.
+  - First upload: `drive-sync.service` started by hand at 04:59:56 (owner), still
+    running at 05:06; roastery was sending to cellar at about 18 MB/s, so roughly
+    75 minutes for the 76.6 GB. roastery's sleep is off (`standby-timeout-ac 0`) until
+    it's done; put it back after. The 06:00 freshness check will likely still see
+    Drive as stale and alert: expected, not a failure.
+  - [x] Upload finished: `drive-sync.service` exited 06:11:04, `Result=success`, status 0,
+    and `/var/lib/purrbrews/drive-sync.ok` written at the same second (checked 12:27).
+    71 minutes for the 76.6 GB. The 06:00 freshness check failed, as expected, since
+    the upload was still running; tomorrow's is the first that counts.
+  - [x] Restore tests on cellar, `sudo ./restic/restore-test.sh` and `--from drive`:
+    both passed on the evening of 2026-09-29 (owner; output not recorded here). The
+    06:00 freshness check on 2026-09-30 finished `success`, the first with Drive current
+  - [x] roastery's sleep setting: decided 2026-09-29 (owner), roastery stays awake.
+    AC standby stays at Never. The 01:25 Wake-on-LAN timer stays as a harmless
+    fallback; it does nothing while roastery is already on
+  - [ ] Drive client ID/secret into the vault (`fill-vault.ps1` again) and
+    `rclone.conf` attached; the vault copied to stick B, `-Check`
+- [x] Restore test from roastery and from Drive; next morning's freshness check
+  (both above)
+  - 2026-09-30, the first full night with everything on, checked 10:04 over SSH (me):
+    every unit `Result=success`, status 0. Wake 01:25; nightly backups on cellar
+    01:30, sieve 01:31, mochaPot 01:32, percolator 01:32, grinder 01:35 (3–25 s each,
+    incremental); store 02:30; drive-sync 03:30–03:31; freshness check 06:00.
+  - The one failure: `restic-prune.service` on Sunday 2026-09-27 at 03:30:20, exit 1,
+    "run with sudo: the repository is reached with root's backup key". That was the
+    catch-up run when the timers were switched on. The installed unit matches the
+    repo (no `User=`, so a timer run is root); barista could read the line in the
+    journal, which points to a run as barista rather than by systemd. Not confirmed.
+    Rerun 2026-09-30 by the owner (`sudo systemctl start restic-prune.service`):
+    "prune OK" at 10:33:31. Nothing removed: three nights of snapshots, each still
+    a keeper. Next prune Sunday 2026-10-04 03:00; first monthly verify 2026-10-01 04:30
 
 **What went wrong on the first pass, and the fixes:**
 
@@ -581,7 +957,7 @@ until decided otherwise (backlog).
     service accounts, and roastery's ollama route points at it.
   - Done: rendered and Authelia recreated on percolator (config validated with the
     same image first). `komodo.${DOMAIN}` now shows Komodo's login.
-- [ ] **ollama.${DOMAIN} refuses**: roastery's native Traefik isn't running (Ollama
+- [x] **ollama.${DOMAIN} refuses**: roastery's native Traefik isn't running (Ollama
   itself answers on localhost). Plan: confirm, and decide whether it should start
   on its own.
   - Cause: it does start on its own: the `traefik` scheduled task runs `start.ps1`
@@ -592,6 +968,10 @@ until decided otherwise (backlog).
   - The same task has Windows' default 72-hour execution limit, so even once it
     starts it would be killed after three days. Set it to no limit when fixing the
     above (task settings, "Stop the task if it runs longer than").
+  - 2026-10-04: that limit is what stopped it again. Started at boot 2026-09-30
+    13:31, killed 72 hours later (last result `0x41306`, terminated, not a crash).
+    Owner set the task to no limit; checked: `ExecutionTimeLimit` `PT0S`, the task
+    running (`0x41301`) and Traefik listening on 80/443 (2026-10-04 entry).
 - [x] **Gatus: "ntfy (public)" and "traefik certificate + sso" time out** from sieve,
   while both answer from the LAN. Plan: check what the gatus container resolves and
   reaches for those names.

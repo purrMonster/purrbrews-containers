@@ -511,6 +511,38 @@ class Secrets(unittest.TestCase):
         self.assertIn('ACME_EMAIL=me@example.test', text)  # the old line stays
 
 
+class PastedValues(unittest.TestCase):
+    """What a paste brings along (a \r, quotes, spaces) comes off before a secret is stored."""
+
+    def clean(self, value):
+        result = subprocess.run(['bash', '-c', 'source "$1" >/dev/null 2>&1; clean_pasted "$2"', '_',
+                                 str(STACKS / '_lib' / 'common.sh'), value], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return result.stdout
+
+    def test_quotes_spaces_and_carriage_returns(self):
+        cid = '123-abc.apps.googleusercontent.com'
+        for pasted in [cid, f"'{cid}'", f'"{cid}"', f'  {cid} ', f'{cid}\r', f' "{cid}"\r']:
+            self.assertEqual(self.clean(pasted), cid, repr(pasted))
+
+    def test_a_typed_answer_comes_back_as_typed(self):
+        # ask() only reads from a terminal, so give it one.
+        import pty
+        master, slave = pty.openpty()
+        script = 'source "$1"; source "$2"; printf "[%s]" "$(ask Question)"'
+        proc = subprocess.Popen(['bash', '-c', script, '_', str(STACKS / '_lib' / 'common.sh'),
+                                 str(STACKS / '_lib' / 'secrets.sh')],
+                                stdin=slave, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        os.write(master, b'abc\n')
+        out, _ = proc.communicate(timeout=10)
+        os.close(master); os.close(slave)
+        self.assertEqual(out.decode(), '[abc]')
+
+    def test_quotes_inside_a_value_stay(self):
+        self.assertEqual(self.clean('a"b'), 'a"b')
+        self.assertEqual(self.clean("it's"), "it's")
+
+
 class Backup(unittest.TestCase):
     """_lib/backup.sh and the apps' backup files."""
 
@@ -757,6 +789,69 @@ class Tunnel(unittest.TestCase):
         fleet = set(re.findall(r'(?m)^([A-Z_]+)=', (STACKS / 'fleet.env').read_text()))
         sieve = set(re.findall(r'(?m)^([A-Z_]+)=', (STACKS / 'sieve' / 'local.env.example').read_text()))
         self.assertEqual(needed - fleet - sieve, set(), 'a new setting would break the next render on sieve')
+
+
+class Flask(unittest.TestCase):
+    """flask, the offline recovery kit (docs/flask.md): stacks/roastery/flask."""
+
+    DIR = STACKS / 'roastery' / 'flask'
+
+    def test_versions_and_signing_keys_are_pinned(self):
+        script = (self.DIR / 'make-flask.ps1').read_text()
+        for name in ['DebianVersion', 'ResticVersion', 'RcloneVersion', 'KeePassXCVersion']:
+            self.assertRegex(script, rf"\${name} = '\d+\.\d+\.\d+'")
+        keys = dict(re.findall(r"^\s+(\w+)\s+= '([0-9A-F]{40})'", script, re.M))
+        self.assertEqual({'debian', 'restic', 'rclone', 'keepassxc'} - set(keys), set())
+
+    def test_the_vault_is_never_written_or_listed(self):
+        script = (self.DIR / 'make-flask.ps1').read_text()
+        self.assertIn("'^(flask\\.kdbx.*|SHA256SUMS", script)
+        self.assertNotRegex(script, r'(Copy-Item|Remove-Item|Move-Item)[^\n]*kdbx')
+
+    def test_recovery_makes_the_crypt_remote_like_drive_setup(self):
+        crypt = 'remote=drive:purrbrews-restic filename_encryption=standard directory_name_encryption=true'
+        self.assertIn(crypt, (STACKS / 'cellar' / 'restic' / 'drive-setup.sh').read_text())
+        self.assertIn(crypt, (self.DIR / 'RECOVERY.md').read_text())
+
+    def test_live_injection_is_pinned(self):
+        script = (self.DIR / 'make-flask.ps1').read_text()
+        self.assertRegex(script, r"\$LiveInjectionVersion = '\d+\.\d+'")
+        self.assertRegex(script, r"\$LiveInjectionSha256 = '[0-9a-f]{64}'")
+        self.assertIn('Assert-Hash (Join-Path $ld $liTar) $LiveInjectionSha256', script)
+
+    def test_live_system_files(self):
+        live = self.DIR / 'live'
+        files = [f for f in live.rglob('*') if f.is_file()]
+        self.assertTrue(files)
+        for f in files:
+            data = f.read_bytes()
+            self.assertNotIn(b'\r', data, f'{f}: CRLF would break it in the live system')
+            if data.startswith(b'#!/bin/sh'):
+                result = subprocess.run(['sh', '-n', str(f)], capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, f'{f}: {result.stderr}')
+            if f.suffix == '.desktop':
+                self.assertTrue(data.startswith(b'[Desktop Entry]'), f)
+        mount = (live / 'usr/local/sbin/mount-flask').read_text()
+        self.assertIn('/dev/mapper/$name', mount)
+        self.assertIn('mount -o ro,', mount)
+        keepass = (live / 'usr/local/bin/flask-keepassxc').read_text()
+        self.assertIn('--appimage-extract-and-run', keepass)   # no libfuse2 offline
+
+    def test_fill_vault_names_match_the_doc(self):
+        script = (self.DIR / 'fill-vault.ps1').read_text()
+        block = re.search(r'\$Tiers = \[ordered\]@\{(.*?)\n\}', script, re.S).group(1)
+        names = set(re.findall(r"'([A-Z][A-Z0-9_]+)'", block))
+        doc = (ROOT / 'docs' / 'flask.md').read_text()
+        in_doc = set(re.findall(r'^\| `([A-Z][A-Z0-9_]+)`', doc, re.M)) | set(re.findall(r'`, `([A-Z][A-Z0-9_]+)` \|', doc))
+        self.assertEqual(names, in_doc)
+
+    def test_powershell_files_are_ascii(self):
+        # PowerShell 5 reads a BOM-less .ps1 as ANSI: a UTF-8 dash becomes a
+        # smart quote, which it treats as a string delimiter.
+        for file in ROOT.rglob('*.ps1'):
+            if '.git' not in file.parts:
+                bad = [n for n, line in enumerate(file.read_text().splitlines(), 1) if not line.isascii()]
+                self.assertEqual(bad, [], f'{file.relative_to(ROOT)}: non-ASCII on lines {bad}')
 
 
 if __name__ == '__main__':

@@ -1,7 +1,7 @@
 # Rendered by ../../render-configs.sh — edit the .template.
 #
 # Policy: ${AUTH_POLICY} for human access and OIDC (.env.local AUTH_POLICY).
-# Ollama and Nextcloud service accounts use explicit one_factor rules.
+# Ollama, Nextcloud and persianPerch (Gatus's API) service accounts use explicit one_factor rules.
 # Nextcloud bot accounts are denied access to other ForwardAuth/OIDC apps.
 # Move human access to two-factor after everyone has enrolled.
 #
@@ -72,6 +72,13 @@ access_control:
         - 'group:ollama_api_group'
       policy: one_factor
 
+    # persianPerch's service account: password authentication for Gatus's API only (sieve's
+    # gatus-api route, the same shape as Ollama above).
+    - domain: 'gatus-api.${DOMAIN}'
+      subject:
+        - 'group:perch_api_group'
+      policy: one_factor
+
     # Rules are checked in order, and a rule whose subject doesn't match is
     # skipped, not final. So admin-only hosts need two rules: allow admins,
     # then deny everyone else, or the household catch-all below lets them in.
@@ -89,6 +96,9 @@ access_control:
         - 'scrutiny.${DOMAIN}'
         # Other Ollama clients require an admin login.
         - 'ollama.${DOMAIN}'
+        # persianPerch (cellar), and Gatus's API for its service account: admins otherwise.
+        - 'perch.${DOMAIN}'
+        - 'gatus-api.${DOMAIN}'
       subject: ['group:${LLDAP_ADMIN_GROUP}']
       policy: ${AUTH_POLICY}
     - domain: *admin_hosts
@@ -149,6 +159,17 @@ identity_providers:
             subject:
               - 'group:${LLDAP_ADMIN_GROUP}'
               - 'group:${LLDAP_HOUSEHOLD_GROUP}'
+    # meowGram's backend checks the access token itself (a JWT, see its
+    # client below), so the name it shows people has to be in that token.
+    claims_policies:
+      meowgram:
+        access_token: ['preferred_username', 'name', 'email']
+    # meowGram's web app talks to Authelia from the browser (a public client:
+    # token, refresh, revoke), so those endpoints answer cross-origin requests,
+    # only from origins in a client's redirect_uris.
+    cors:
+      endpoints: ['authorization', 'token', 'revocation', 'userinfo']
+      allowed_origins_from_client_redirect_uris: true
     clients:
       - client_id: 'nextcloud'
         client_name: 'Nextcloud'
@@ -302,3 +323,31 @@ identity_providers:
         access_token_signed_response_alg: 'none'
         userinfo_signed_response_alg: 'none'
         token_endpoint_auth_method: 'client_secret_basic'
+
+      - client_id: 'meowgram'
+        client_name: 'meowGram'
+        # meowGram (own repo, runs on roastery for now; stacks/roastery/meowgram).
+        # A public client: the Flutter app runs on people's devices and in the
+        # browser, so it can't keep a secret. PKCE stands in for it.
+        public: true
+        token_endpoint_auth_method: 'none'
+        authorization_policy: 'household'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          # Web and the home-screen PWA: the app's own origin, no path.
+          - 'https://meow.${DOMAIN}'
+          # Desktop: the RFC 8252 loopback listener the app opens on 8088.
+          - 'http://127.0.0.1:8088/callback'
+        scopes: ['openid', 'profile', 'email', 'offline_access']
+        response_types: ['code']
+        grant_types: ['authorization_code', 'refresh_token']
+        # The backend verifies the access token against /jwks.json, so it has to
+        # be a signed JWT, not the opaque token the other clients get.
+        access_token_signed_response_alg: 'RS256'
+        claims_policy: 'meowgram'
+        # RFC 9068 tokens need an `aud`. Granted without the app asking for it,
+        # so the backend can (and should) refuse tokens meant for anything else.
+        audience: ['https://meow.${DOMAIN}']
+        requested_audience_mode: 'implicit'
+        userinfo_signed_response_alg: 'none'

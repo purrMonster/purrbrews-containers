@@ -2,10 +2,11 @@
 # upstream's own compose: the app, a headless Chrome for screenshots and
 # archiving, and Meilisearch for full-text search.
 #
-# Image: ghcr.io/karakeep-app/karakeep:release. Unpinned, still to fix.
+# Image: ghcr.io/karakeep-app/karakeep:0.33.2, pinned 2026-09-29 to the version
+# that was running (same digest as the `release` it replaced).
 services:
   karakeep:
-    image: ghcr.io/karakeep-app/karakeep:release
+    image: ghcr.io/karakeep-app/karakeep:0.33.2
     container_name: karakeep
     environment:
       TZ: ${TZ}

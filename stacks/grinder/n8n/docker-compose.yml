@@ -1,11 +1,11 @@
 # n8n: workflow automation, and the thing that ties grinder's other apps
 # together. Its own state is SQLite; pipeline data goes to postgres-vector.
 #
-# Image: n8nio/n8n:latest. Unpinned, which breaks my own rule; it's on the
-# list with Open WebUI and Karakeep.
+# Image: n8nio/n8n:2.39.7, pinned 2026-09-29 to the version that was running
+# (same digest as the `latest` it replaced).
 services:
   n8n:
-    image: n8nio/n8n:latest
+    image: n8nio/n8n:2.39.7
     container_name: n8n
     environment:
       TZ: ${TZ}

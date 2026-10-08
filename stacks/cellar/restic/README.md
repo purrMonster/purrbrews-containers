@@ -50,7 +50,8 @@ sign-in, flask). In this order:
    lines to authorize it land in `/etc/purrbrews/backup-authorize.txt`.
 2. **Secrets**: `./setup-secrets.sh` on cellar makes `RESTIC_PASSWORD` and the crypt
    password/salt and asks for the Drive client; **copy RESTIC_PASSWORD,
-   RCLONE_CRYPT_PASSWORD and RCLONE_CRYPT_SALT to flask now.** Every other node's
+   RCLONE_CRYPT_PASSWORD and RCLONE_CRYPT_SALT to flask now**
+   ([docs/flask.md](../../../docs/flask.md)). Every other node's
    `restic/secrets.env.local` needs the same `RESTIC_PASSWORD` (its
    `./setup-secrets.sh` asks). cellar's `.env.local` needs `ROASTERY_WOL_MAC`.
 3. **roastery**: every node's `roastery` line into
