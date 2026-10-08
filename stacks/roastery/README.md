@@ -10,10 +10,45 @@ the side, so not a fleet node: no `init/purrbrews-init.sh`, no `/opt/purrbrews`,
 | [purrbrews-bootstrap](../../bootstrap/README.md) | container | serves node setup on `:8443` |
 | immich-ml | `./compose.ps1 immich-ml up -d` | `:3003`, percolator only (Windows Firewall) |
 | Komodo Periphery | `./compose.ps1 komodo-periphery up -d` | dials out to cellar |
-| [Traefik → Ollama](traefik/README.md) | `.\traefik\start.ps1`, native | `ollama.${DOMAIN}`, admins, via Authelia |
+| [llama-swap](llama-swap/README.md) | `./compose.ps1 llama-swap up -d` | local LLMs on the 3080, `127.0.0.1:9292` only |
+| [Traefik → llama-swap](traefik/README.md) | `.\traefik\start.ps1`, native | `ollama.${DOMAIN}` (old name kept), admins, via Authelia |
+| [Game mode](game-mode/README.md) | scheduled task, `game-mode\install.ps1` | llama-swap to its CPU-only profile while a game runs |
 | [meowGram](meowgram/README.md) | its own repo's compose, Docker Desktop | `meow.${DOMAIN}` through the same Traefik; Authelia OIDC |
 | [Backup target](#backup-target) | OpenSSH (SFTP), `backup-target\setup.ps1` | `C:\purrbrews\restic`, the fleet's restic repository |
 | [Remote access](#remote-access) | Tailscale + Remote Desktop, `remote-access\setup.ps1` | `mstsc /v:roastery` from the tailnet |
+
+## Rebuilding roastery from a fresh Windows install
+
+Everything roastery runs is in this repo except the secrets, the backup
+repository and the model files, so a reinstall is this list, in this order.
+The first time through was the 2026-10-07 wipe (runbook).
+
+1. **The backup repository first.** It lived on C:, so it's gone with the
+   install; Google Drive has the copy cellar's `drive-sync` made the night
+   before (cellar's 06:00 check says whether that run succeeded). Follow
+   [flask/RECOVERY.md, part B](flask/RECOVERY.md) before anything else, and
+   **don't authorize any node's key until the repository is back**: until
+   then the nodes can't log in, so cellar's nightly Drive sync fails instead
+   of mirroring an empty folder over the Drive copy. Expect backup-failure
+   alerts every night until it's done.
+2. **Windows basics:** the NVIDIA driver, `wsl --install` then `wsl --update`,
+   Docker Desktop with the WSL2 backend and *Start Docker Desktop when you sign
+   in*, Git. Clone this repo and run `.\setup-secrets.ps1` here.
+3. **Remote access:** `remote-access\setup.ps1` ([below](#remote-access)). The
+   old roastery is still in the tailnet's admin console: remove it before the
+   new one joins, so the name stays `roastery`.
+4. **GPU check** ([immich-ml](#immich-ml)), then immich-ml and its firewall rule.
+5. **Komodo Periphery** ([below](#komodo-periphery)).
+6. **llama-swap:** `fetch-models`, then `up -d` ([its README](llama-swap/README.md)).
+7. **Traefik** ([its README](traefik/README.md)), including its scheduled task
+   with no time limit.
+8. **Game mode:** `game-mode\install.ps1` ([its README](game-mode/README.md)).
+9. **meowGram** from its own repo ([meowgram/README.md](meowgram/README.md)).
+10. **The bootstrap container**, if a node needs (re)building
+    ([bootstrap/README.md](../../bootstrap/README.md)).
+
+What this list can't bring back: anything on roastery that wasn't pushed. Push
+often.
 
 ## Scripts
 

@@ -10,4 +10,4 @@ Sync-EnvLocal $node
 Write-Step 'Rendering configs'
 if (-not (Invoke-Render $node)) { exit 1 }
 Write-Step 'Done'
-Write-Host 'Next: .\compose.ps1 immich-ml up -d, and .\traefik\start.ps1 for Ollama (traefik\README.md).'
+Write-Host 'Next: README.md, "Rebuilding roastery", for the order (immich-ml, llama-swap, Traefik, game mode).'
