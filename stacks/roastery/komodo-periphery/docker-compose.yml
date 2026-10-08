@@ -13,7 +13,7 @@
 # Image: ghcr.io/moghtech/komodo-periphery:2.3.2, same as Core.
 services:
   komodo-periphery:
-    image: ghcr.io/moghtech/komodo-periphery:2.3.2
+    image: ghcr.io/moghtech/komodo-periphery:2.3.3
     container_name: komodo-periphery
     init: true
     environment:
