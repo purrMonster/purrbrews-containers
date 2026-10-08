@@ -4,10 +4,10 @@
 # re-applied on every start and shown read-only in the web UI, so the compose file
 # stays the source of truth and a rebuilt container comes back identical.
 #
-# Image: pihole/pihole:2026.07.2 (Pi-hole v6, FTL v6). Checked 2026-09-15.
+# Image: pihole/pihole:2026.09.0 (Pi-hole v6, FTL v6). Checked 2026-09-15.
 services:
   pihole:
-    image: pihole/pihole:2026.07.2
+    image: pihole/pihole:2026.09.0
     container_name: pihole
     # Host networking: DHCP needs LAN broadcasts, and DNS should see real client IPs.
     network_mode: host
