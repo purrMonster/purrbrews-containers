@@ -16,6 +16,11 @@ import subprocess
 import tempfile
 import unittest
 
+try:  # only two tests need it; without it they skip, like the root-only ones
+    import yaml
+except ImportError:
+    yaml = None
+
 ROOT = Path(__file__).resolve().parents[1]
 STACKS = ROOT / 'stacks'
 NODES = ['sieve', 'percolator', 'cellar', 'mochaPot', 'grinder', 'roastery']
@@ -372,6 +377,56 @@ class Layout(unittest.TestCase):
                     self.assertIn(':', name, 'no tag at all means latest')
                     if image not in self.FLOATING_ON_PURPOSE:
                         self.assertIsNone(floating.search(image), 'floating tag: pin a version or a digest')
+
+    @unittest.skipUnless(yaml, 'needs PyYAML (apt install python3-yaml)')
+    def test_dependabot_sees_every_compose_file_and_its_ignores_match(self):
+        import fnmatch
+        config = yaml.safe_load((ROOT / '.github/dependabot.yml').read_text())
+        compose = next(u for u in config['updates'] if u['package-ecosystem'] == 'docker-compose')
+        names = set()
+        for file in STACKS.glob('*/*/docker-compose.yml'):
+            folder = '/' + file.parent.relative_to(ROOT).as_posix()
+            self.assertTrue(any(fnmatch.fnmatch(folder, d) for d in compose['directories']), folder)
+            for service in (yaml.safe_load(file.read_text()).get('services') or {}).values():
+                image = service.get('image')
+                if isinstance(image, str):
+                    path = image.split('@')[0].rsplit(':', 1)[0] if ':' in image.split('/')[-1] else image.split('@')[0]
+                    first = path.split('/')[0]
+                    # Dependabot names an image without its registry.
+                    names.add(path.split('/', 1)[1] if ('.' in first or ':' in first) and '/' in path else path)
+        for rule in compose.get('ignore', []):
+            self.assertIn(rule['dependency-name'], names, 'an ignore rule that matches no image guards nothing')
+
+    # Routes Gatus deliberately doesn't check end to end (the reasons are in
+    # sieve/gatus/config/config.yaml). Everything else must have a check.
+    NOT_WATCHED = {'ollama', 'meow'}
+
+    @unittest.skipUnless(yaml, 'needs PyYAML (apt install python3-yaml)')
+    def test_every_route_has_an_end_to_end_check(self):
+        routed = set()
+        for file in STACKS.rglob('*'):
+            if file.is_file() and file.suffix in ('.yml', '.yaml', '.template') and '.git' not in file.parts:
+                active = '\n'.join(l for l in file.read_text().splitlines() if not l.lstrip().startswith('#'))
+                routed |= set(re.findall(r'Host\(`([a-z0-9-]+)\.(?:\$\{DOMAIN\}|\{\{ env "DOMAIN" \}\})`\)', active))
+        config = yaml.safe_load((STACKS / 'sieve/gatus/config/config.yaml').read_text())
+        checks = {}
+        for endpoint in config['endpoints']:
+            m = re.match(r'https://([a-z0-9-]+)\.\$\{DOMAIN\}(/\S*)?$', endpoint['url'])
+            if m:
+                checks.setdefault(m.group(1), []).append(endpoint)
+        self.assertEqual(sorted(routed - set(checks) - self.NOT_WATCHED), [],
+                         'routes with no Gatus check: add one under "Every app, end to end"')
+        authelia = (STACKS / 'percolator/authelia/config/configuration.yml.template').read_text()
+        admin = set(re.findall(r"'([a-z0-9-]+)\.\$\{DOMAIN\}'",
+                               re.search(r'domain: &admin_hosts\n(.*?)\n\s+subject:', authelia, re.S).group(1)))
+        for host in sorted((admin & set(checks)) - self.NOT_WATCHED):
+            with self.subTest(host=host):
+                # At least one check must prove the login is required (fail on a
+                # 200); a host may also have a deliberately open path (perch's
+                # /healthz), so not every check has to.
+                proves_login = [e for e in checks[host]
+                                if any(c.startswith('[STATUS]') and '200' not in c for c in e['conditions'])]
+                self.assertTrue(proves_login, f'{host} is admin-only: a check must fail on a 200 (a skipped login)')
 
     def test_no_references_to_docs_that_are_not_here(self):
         for file in ROOT.rglob('*'):

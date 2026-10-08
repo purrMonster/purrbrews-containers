@@ -1,0 +1,45 @@
+# The repo's tests on every pull request and every push to main.
+#
+# Nodes pull main every day, and Dependabot now opens pull requests on its
+# own, so "run the tests before committing" (AGENTS.md) can't depend on
+# whoever commits remembering to. A red check on a PR means: don't merge.
+#
+# Two runs, because the scripts under test refuse root and the backup tests
+# need it: first as the runner's normal user (most of the suite, PowerShell's
+# included; pwsh is on GitHub's Ubuntu image), then as root with restic,
+# rclone and sqlite3 for the dump, backup and drive-sync tests.
+#
+# Read-only token; the action is pinned to a commit, not a tag that can move.
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Tools the tests use
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq python3-pytest python3-yaml sqlite3 restic rclone
+
+      - name: Tests (normal user)
+        run: python3 -m pytest -q -rs tests
+
+      - name: "Tests (root: dumps, backups, drive-sync)"
+        run: sudo python3 -m pytest -q -rs tests
