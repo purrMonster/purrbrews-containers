@@ -63,9 +63,11 @@ sudo docker logs -f authelia
       gives `200`, and from a LAN laptop the same command times out.
 - [ ] From a LAN laptop, `https://pihole.${DOMAIN}` redirects to Authelia and opens
       after signing in as an admin.
-- [ ] Enrol a second factor (*Settings → Two-Factor Authentication*). With no mail
-      server, the confirmation code is in `/srv/data/authelia/data/notification.txt`:
-      `sudo tail /srv/data/authelia/data/notification.txt`.
+- [ ] Enrol a second factor (*Settings → Two-Factor Authentication*). The
+      confirmation code is mailed to the user's LLDAP email through the mail relay
+      (`../mail-relay`), from `Authelia <purrBrews@${DOMAIN}>`.
+- [ ] *Reset password* on the login page sends a mail; with the relay stopped,
+      Authelia still starts and signs people in (`disable_startup_check`).
 
 Checking one client's secret without a browser (expect `invalid_grant`; `invalid_client`
 means the secret or auth method is wrong):
@@ -84,8 +86,10 @@ curl -s https://authelia.${DOMAIN}/api/oidc/token -u "mealie:$S" \
 - **Generate client secrets with the script, not by hand.** They are hex because
   base64's `+ / =` make `client_secret_basic` fail in apps that don't URL-encode
   the secret, even though both sides hold the identical string.
-- **`notification.txt` is the mailbox** until an SMTP notifier is configured:
-  password-reset and device-enrolment links land there.
+- **Mail goes through the relay** (`../mail-relay`, since 2026-10-08), not
+  `notification.txt`. It trusts the relay's own CA from `certificates_directory`
+  (`/srv/data/mail-relay/tls-public`), so the relay must have been `up` once
+  before Authelia. Users without a real email in LLDAP can't reset or enrol.
 - **Losing `AUTHELIA_STORAGE_ENCRYPTION_KEY` makes the database unreadable** (all
   enrolled 2FA devices are lost). Back it up with the node's secrets.
 ## Other nodes: the published port

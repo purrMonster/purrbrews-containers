@@ -11,6 +11,10 @@
 ---
 theme: auto
 
+# Extra CAs Authelia trusts: the mail relay's private CA (mail-relay/prepare.sh),
+# mounted from ${DATA_DIR}/mail-relay/tls-public. An empty folder is fine.
+certificates_directory: '/config/certs'
+
 server:
   address: 'tcp://0.0.0.0:9091'
   endpoints:
@@ -137,11 +141,20 @@ storage:
   local:
     path: '/data/db.sqlite3'
 
-# No mail server yet: password-reset and 2FA-enrolment links are written to
-# ${DATA_DIR}/authelia/data/notification.txt instead of being emailed.
+# Password-reset and 2FA-enrolment links go by email, through the fleet's mail
+# relay (mail-relay, on the proxy network) and on to Purelymail. STARTTLS,
+# verified against the relay's CA (certificates_directory above).
 notifier:
-  filesystem:
-    filename: '/data/notification.txt'
+  # Off on purpose: with it on, Authelia refuses to START when the relay is
+  # unreachable, and every login in the house would go down with the mail.
+  # A relay problem shows in Gatus and Komodo instead; the mail waits.
+  disable_startup_check: true
+  smtp:
+    address: 'submission://mail-relay:587'
+    sender: 'Authelia <purrBrews@${DOMAIN}>'
+    identifier: 'authelia.${DOMAIN}'
+    tls:
+      server_name: 'mail-relay'
 
 identity_providers:
   oidc:

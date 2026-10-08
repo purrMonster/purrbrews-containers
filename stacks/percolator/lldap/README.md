@@ -47,8 +47,8 @@ Someone who is in neither group can't sign in to any app.
 ```
 
 Creates the account in both groups with a random password printed once. Set their
-real email in the UI (Authelia sends password-reset links there once a mail notifier
-exists), and take them out of `purrbrews_admins` unless they should be an admin.
+real email in the UI (Authelia sends password-reset and 2FA links there, through
+`../mail-relay`; LLDAP itself sends no mail, see that README), and take them out of `purrbrews_admins` unless they should be an admin.
 
 ## Gotchas
 
