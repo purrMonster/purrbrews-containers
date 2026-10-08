@@ -46,6 +46,104 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Tunnel from Git: two-factor in Authelia first, then the switch in `stacks/sieve/cloudflared/README.md` (2026-09-28 entry below)
 - [ ] Apps over the tailnet: roll out in the order in the 2026-09-28 entry below
 - [ ] Bot identity for Claude's commits and pull requests: owner picks bot account or GitHub App, then the setup in the 2026-09-28 entry below
+- [ ] Fleet mail: Purelymail user `purrBrews@${DOMAIN}`, its 2FA and an app password (owner); then roll out branch `mail-relay` in the order in the 2026-10-08 mail entry below
+- [ ] Fleet mailbox: n8n reads `purrBrews@` over IMAP from Purelymail and sorts it with the local model (2026-10-08 mail entry, *Next*). Not started
+- [ ] Wire the other apps' mail to the relay (Nextcloud, Paperless, Immich, Vikunja, Mealie): each needs the relay's CA; proposed, not done
+
+---
+
+## 2026-10-08 — Fleet mail through Purelymail
+
+**Why.** Nothing in the fleet could send mail. Authelia's notifier was
+`filesystem`, so every password reset and 2FA enrolment meant the owner reading
+`notification.txt` on percolator; Vaultwarden couldn't invite anyone. The
+owner's mail is at Purelymail.
+
+**Decided with the owner (this session):**
+
+- Sender: `purrBrews@${DOMAIN}`, on the main domain (Purelymail DKIM-signs only
+  that, not subdomains).
+- The relay runs on percolator (i3, 16 GB: plenty for Postfix).
+- Reading mail: no webmail for now. The owner wants an SSO webmail later (a
+  rework of Purelymail's site, so no second login); held. Meanwhile the fleet's
+  mailbox is fetched straight from Purelymail and an n8n workflow with the local
+  model sorts it.
+
+**What was built** (branch `mail-relay`, from `hardening-2026-10-08`; not pushed,
+not on any node):
+
+- `stacks/percolator/mail-relay`: Postfix (`boky/postfix:5.1.0-alpine`) that
+  sends on to `smtp.purelymail.com:587` with an app password, upstream
+  certificate verified. Clients: percolator's `proxy` network and
+  `MAIL_RELAY_CLIENTS` (ufw `route` rule on 587), STARTTLS required, certificate
+  from a private CA that `prepare.sh` makes once (ten years). Every message
+  leaves as `purrBrews@`, display name kept. Queue on disk, retried five days.
+- Authelia: SMTP notifier via the relay, trusting its CA through
+  `certificates_directory`; `disable_startup_check: true`.
+- Vaultwarden: SMTP via the relay; `SSL_CERT_FILE` is a bundle of the host's
+  public roots plus the relay CA, rebuilt on every relay `up`.
+- LLDAP: no mail, on purpose. Authelia already does resets for everyone, and
+  LLDAP 0.6.3 can't trust a private CA (rustls with compiled-in roots; ignores
+  `SSL_CERT_FILE`; tested, `UnknownIssuer`).
+- Gatus on sieve: `starttls://192.168.0.11:587`.
+
+**Tested** in the cloud sandbox, 2026-10-08, from the real compose files and
+the rendered Authelia template, against a fake Purelymail (Mailpit requiring
+STARTTLS and the app password, its certificate from a test CA):
+
+- relay healthy in ~15 s; plaintext refused (`530`); a client off the allowed
+  networks refused; a sender outside the domain refused;
+- Authelia's *reset password* arrived as `Authelia <purrBrews@...>`;
+  Vaultwarden's admin test mail arrived as `Vaultwarden <purrBrews@...>`;
+- Authelia with the relay stopped: starts healthy, signs in; a reset then
+  fails at once ("Operation failed") rather than hanging;
+- upstream down, relay recreated, upstream back: the queued mail was delivered;
+- an impostor upstream with an untrusted certificate: mail deferred, no
+  password offered to it;
+- wrong app password: deferred with `535`; fixed, recreated, flushed, delivered.
+
+Two image defaults found only by testing, both fixed in the compose file: the
+image let **any** client relay as long as the sender domain matched
+(`smtpd_client_restrictions` added), and its `/etc/postfix` is a volume that
+Compose keeps across a recreate, so a **new app password never took effect**
+(the image appends the new line after the old, Postfix reads the first). It's
+a tmpfs now, rebuilt from the environment every start.
+
+Not tested: the ufw rule on a real node, the real Purelymail, the Gatus check
+on sieve, the alert path for it.
+
+**Rollout** (needs the owner's go-ahead; every step is on percolator, then sieve):
+
+1. Owner: Purelymail → user `purrBrews@${DOMAIN}`, two-factor on, an app password.
+2. percolator: `git pull` the branch once merged; `./setup-secrets.sh` (paste the
+   app password; adds `MAIL_RELAY_CLIENTS`); `./compose.sh mail-relay up -d`;
+   `sudo ./firewall.sh`.
+3. `./render-configs.sh`; `./compose.sh authelia up -d --force-recreate`;
+   `./compose.sh vaultwarden up -d --force-recreate`.
+4. The checklist in `mail-relay/README.md`; then sieve's Gatus picks up the new
+   check (`./compose.sh gatus up -d --force-recreate` there) and its alert is
+   tested by stopping the relay for one interval.
+
+**Undo:** `./compose.sh mail-relay down`, then revert the branch's Authelia and
+Vaultwarden commits and recreate both. Authelia goes back to
+`notification.txt`. The Purelymail app password can be revoked on its own.
+
+**Next: the fleet's mailbox, read by n8n** (owner's plan; not started):
+
+- n8n on grinder reads `purrBrews@` over IMAP (`imap.purelymail.com:993`, TLS)
+  with its own app password (separate from the relay's, revocable alone).
+- It asks the local model to sort each mail (alert, account, receipt, newsletter,
+  needs-a-human...) and files or forwards it. The model is llama-swap on
+  roastery, reached as `https://ollama.${DOMAIN}/v1/chat/completions` with
+  Basic auth for an `ollama_api_group` service account (Authelia's
+  forward-auth-basic), so an HTTP Request node, not n8n's OpenAI credential
+  (that sends a Bearer token Authelia won't take). Ask for the `fast` pin.
+- roastery sleeps and has game mode: the workflow must leave mail unread and
+  retry later when the model doesn't answer, never drop it.
+
+**Proposed, not done:** relay mail for Nextcloud, Paperless, Immich, Vikunja and
+Mealie (each has to trust the relay CA its own way); Gatus can't see Purelymail
+refusing mail, only the relay being down, so a growing queue goes unnoticed.
 
 ---
 
