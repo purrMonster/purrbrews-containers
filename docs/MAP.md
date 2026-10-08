@@ -4,7 +4,7 @@ One page to find everything. Update it whenever a project, doc or node is added.
 Decisions and their reasons live in [`runbook.md`](../runbook.md); this page only
 points.
 
-_Last updated: 2026-09-29_
+_Last updated: 2026-10-08_
 
 ## Start here
 
@@ -17,6 +17,8 @@ _Last updated: 2026-09-29_
 | [`stacks/README.md`](../stacks/README.md) | How every node's stacks work, and how to add an app or a node |
 | [`tailscale/README.md`](../tailscale/README.md) | Remote access: SSH to the nodes and RDP to roastery over the tailnet |
 | [`docs/flask.md`](flask.md) | flask, the offline recovery kit: what's on it, which secrets, how it's kept |
+| [`stacks/README.md#updates`](../stacks/README.md#updates) | How image updates arrive (Dependabot PRs, weekly) and old images are cleaned up |
+| [`.github/`](../.github) | Dependabot's update PRs, and the tests run on every PR and push to `main` |
 
 ## Nodes
 
