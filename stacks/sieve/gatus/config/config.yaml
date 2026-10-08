@@ -374,6 +374,20 @@ endpoints:
   - {<<: *own-login, group: "apps: percolator", name: freshrss, url: "https://freshrss.${DOMAIN}/"}
   - {<<: *behind-sso, group: "apps: percolator", name: homepage, url: "https://homepage.${DOMAIN}/"}
   - {<<: *behind-sso, group: "apps: percolator", name: traefik, url: "https://traefik.${DOMAIN}/"}
+  # Not a web app: the fleet's outgoing mail (percolator/mail-relay). Checks it
+  # answers and offers STARTTLS. `insecure` because its certificate is from
+  # the relay's own CA, which sieve doesn't carry; the clients that send
+  # through it do verify. Doesn't prove Purelymail accepts the mail: that
+  # shows as a growing queue (mail-relay/README.md).
+  - name: mail relay
+    group: "apps: percolator"
+    url: starttls://192.168.0.11:587
+    interval: 5m
+    client: {insecure: true}
+    conditions: ["[CONNECTED] == true"]
+    alerts:
+      - type: ntfy
+        description: percolator's mail relay isn't answering; Authelia and Vaultwarden can't send mail
 
   # cellar
   - {<<: *behind-sso, group: "apps: cellar", name: komodo, url: "https://komodo.${DOMAIN}/"}
