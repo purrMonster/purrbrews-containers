@@ -6,12 +6,12 @@
 # published port is only as private as the LAN. I've accepted that for a
 # page of disk temperatures.
 #
-# Image: ghcr.io/analogj/scrutiny:v0.9.3-omnibus (GHCR only; the Docker Hub
+# Image: ghcr.io/analogj/scrutiny:v0.9.5-omnibus (GHCR only; the Docker Hub
 # copies are third-party mirrors). Not `latest-omnibus`, which upstream calls
 # dangerous. Keep the collectors on the same version. Checked 2026-09-16.
 services:
   scrutiny:
-    image: ghcr.io/analogj/scrutiny:v0.9.3-omnibus
+    image: ghcr.io/analogj/scrutiny:v0.9.5-omnibus
     container_name: scrutiny
     cap_add:
       - SYS_RAWIO   # smartctl on SATA (the HDD)
