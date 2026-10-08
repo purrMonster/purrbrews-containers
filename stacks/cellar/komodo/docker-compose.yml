@@ -40,7 +40,7 @@ services:
     restart: unless-stopped
 
   komodo-core:
-    image: ghcr.io/moghtech/komodo-core:2.3.2
+    image: ghcr.io/moghtech/komodo-core:2.3.3
     container_name: komodo-core
     init: true
     depends_on:
