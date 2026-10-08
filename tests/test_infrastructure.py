@@ -16,6 +16,11 @@ import subprocess
 import tempfile
 import unittest
 
+try:  # only two tests need it; without it they skip, like the root-only ones
+    import yaml
+except ImportError:
+    yaml = None
+
 ROOT = Path(__file__).resolve().parents[1]
 STACKS = ROOT / 'stacks'
 NODES = ['sieve', 'percolator', 'cellar', 'mochaPot', 'grinder', 'roastery']
@@ -373,9 +378,9 @@ class Layout(unittest.TestCase):
                     if image not in self.FLOATING_ON_PURPOSE:
                         self.assertIsNone(floating.search(image), 'floating tag: pin a version or a digest')
 
+    @unittest.skipUnless(yaml, 'needs PyYAML (apt install python3-yaml)')
     def test_dependabot_sees_every_compose_file_and_its_ignores_match(self):
         import fnmatch
-        import yaml
         config = yaml.safe_load((ROOT / '.github/dependabot.yml').read_text())
         compose = next(u for u in config['updates'] if u['package-ecosystem'] == 'docker-compose')
         names = set()
@@ -396,8 +401,8 @@ class Layout(unittest.TestCase):
     # sieve/gatus/config/config.yaml). Everything else must have a check.
     NOT_WATCHED = {'ollama', 'meow'}
 
+    @unittest.skipUnless(yaml, 'needs PyYAML (apt install python3-yaml)')
     def test_every_route_has_an_end_to_end_check(self):
-        import yaml
         routed = set()
         for file in STACKS.rglob('*'):
             if file.is_file() and file.suffix in ('.yml', '.yaml', '.template') and '.git' not in file.parts:
