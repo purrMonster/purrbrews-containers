@@ -168,6 +168,35 @@ function Find-Placeholder($Value, [string]$Path) {
     }
 }
 
+function Get-AppImages([string[]]$ComposeArgs) {
+    # Image IDs of the app's containers, the same as compose.sh's app_images.
+    $ids = @(& docker @ComposeArgs ps -aq 2>$null | Where-Object { $_ })
+    if ($ids.Count -eq 0) { return @() }
+    return @(& docker inspect --format '{{.Image}}' @ids 2>$null | Sort-Object -Unique)
+}
+
+function Remove-ReplacedImages([string]$App, [string[]]$ComposeArgs, [string[]]$Before) {
+    # After a successful up: the images the app ran before, if nothing uses
+    # them any more. By tag and never forced, so Docker refuses one any
+    # container still uses. The twin of compose.sh's drop_replaced_images.
+    if ($env:PURRBREWS_KEEP_IMAGES -or $Before.Count -eq 0) { return }
+    $now = @(Get-AppImages $ComposeArgs)
+    foreach ($id in $Before) {
+        if (-not $id -or $now -contains $id) { continue }
+        $freed = $false
+        $tags = @(& docker image inspect --format '{{range .RepoTags}}{{println .}}{{end}}' $id 2>$null | Where-Object { $_ })
+        foreach ($tag in $tags) {
+            & docker image rm $tag *> $null
+            if ($LASTEXITCODE -eq 0) { Write-Host "  removed $tag, which $App ran before"; $freed = $true }
+        }
+        if (-not $freed) {
+            & docker image rm $id *> $null
+            if ($LASTEXITCODE -eq 0) { Write-Host "  removed the old build of $App ($($id.Substring(7, 12)))" }
+        }
+    }
+    $global:LASTEXITCODE = 0
+}
+
 function Invoke-Compose($Node, [string[]]$Arguments) {
     if ($Arguments.Count -lt 2) { throw 'usage: compose.ps1 <app|--all> <docker compose args...>' }
     $target = $Arguments[0]
@@ -197,7 +226,9 @@ function Invoke-Compose($Node, [string[]]$Arguments) {
             if ($bad.Count -gt 0) { throw "${app}: unfilled placeholders in $($bad -join ', '). Values withheld." }
         }
         if ($apps.Count -gt 1) { Write-Host "-- $app" }
+        $before = if ($verb -eq 'up') { @(Get-AppImages $composeArgs) } else { @() }
         & docker @composeArgs @rest
         if ($LASTEXITCODE -ne 0) { throw "${app}: docker compose exited with $LASTEXITCODE." }
+        if ($verb -eq 'up') { Remove-ReplacedImages $app $composeArgs $before }
     }
 }

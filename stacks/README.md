@@ -204,6 +204,11 @@ nodes pull `main`, and an app only moves on `./compose.sh <app> up -d`.
   as PRs: those are dump-and-restore or one-major-at-a-time upgrades, by hand.
 - A security fix still waits out the week's cooldown; a critical one is a
   hand-made PR.
+- **Old images clean themselves up.** After a successful `up`, `compose.sh` (and
+  roastery's `compose.ps1`) removes the images that app ran before, once nothing
+  else uses them. Images shared with another app, or pulled for one not yet
+  restarted, stay. Rolling back is pulling the old tag again;
+  `PURRBREWS_KEEP_IMAGES=1` keeps them.
 
 ## Ingress: a Traefik on every node
 
