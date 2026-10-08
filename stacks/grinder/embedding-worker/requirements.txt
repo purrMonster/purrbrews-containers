@@ -1,5 +1,5 @@
 fastapi==0.115.0
-uvicorn[standard]==0.30.6
+uvicorn[standard]==0.54.0
 # 5.6.0 fixes CVE-2026-68770 / GHSA-jhr6-gm9c-rqjv (critical): loading a
 # local path ran its custom Python despite trust_remote_code=False. Tested
 # 2026-10-08: bge-small-en-v1.5 embeddings bit-identical to 3.1.1, so the
