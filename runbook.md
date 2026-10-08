@@ -46,6 +46,65 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Tunnel from Git: two-factor in Authelia first, then the switch in `stacks/sieve/cloudflared/README.md` (2026-09-28 entry below)
 - [ ] Apps over the tailnet: roll out in the order in the 2026-09-28 entry below
 - [ ] Bot identity for Claude's commits and pull requests: owner picks bot account or GitHub App, then the setup in the 2026-09-28 entry below
+- [ ] roastery: `init\roastery-init.ps1` on the rebuilt PC, elevated (owner), after the repository is back from Drive; then the follow-ups it prints for the nodes, ticked here with what was seen (2026-10-08 init entry)
+
+---
+
+## 2026-10-08 — `init/roastery-init.ps1`: roastery gets an init
+
+The owner: every Debian node has `purrbrews-init.sh`, roastery had nothing, and
+the 2026-10-07 wipe showed what that costs. Its setup was spread over three
+scripts, two READMEs and a handful of clicks (the bootstrap firewall rule, the
+immich-ml rule, Traefik's scheduled task, power), and the clicks went with the
+wipe.
+
+**What it is:** one PowerShell script, run elevated from the repo, with named
+steps in the order of roastery's README ("Rebuilding roastery"): `hostname`,
+`network`, `power`, `prereqs`, `ssh_key`, `remote_access`, `backup_target`,
+`apps`, `traefik`, `game_mode`, `bootstrap`. It calls the existing scripts
+(`remote-access\setup.ps1`, `backup-target\setup.ps1`, `setup-secrets.ps1`,
+`compose.ps1`, `game-mode\install.ps1`) and does the hand-made parts itself.
+`-Only`/`-Skip`/`-ListSteps`/`-Yes` like the bash init; logged to
+`C:\ProgramData\purrbrews\logs`.
+
+**Choices worth remembering:**
+
+- **A step that can't finish yet blocks, it doesn't abort.** It says what it
+  needs (no repository, no `traefik.exe`, Docker not started) and the run goes
+  on; the summary lists blocked steps, warnings and node-side follow-ups, and
+  `-Only <step>` resumes. Nothing it does on roastery is destructive, so the
+  rest is worth having.
+- **Repository first, nodes after** (2026-10-07): `backup_target` refuses while
+  `C:\purrbrews\restic` has no `config` file and points at RECOVERY.md part B.
+  `-AllowEmptyRepository` is the deliberate way past it.
+- **It never writes `bootstrap\data\authorized_keys`.** That file is the
+  fleet's whole SSH trust list, so a guessed one (say, only roastery's new key)
+  would revoke the Mac from every node within the hour. It stops and says how
+  to rebuild it from a node's managed block, without the old roastery key.
+  The bootstrap step is last and asks first: down, the nodes' key sync just
+  says unreachable; up with a new TLS key, it fails on every node until each
+  re-pins (the command is printed).
+- **Traefik's task is in the repo now** (a 2026-10-07 proposal): at boot, as
+  SYSTEM, `ExecutionTimeLimit` zero, three restarts; and the leftover
+  `config\dynamic\ollama.yml` is deleted if it's there.
+- **Power: never sleep on AC, hibernation off**, the 2026-09-29 decision, until
+  wake-on-demand exists. roastery's README said "sleeps between uses"; fixed.
+- **Not done by the script:** downloading `traefik.exe`, the restore itself,
+  meowGram and the kitten (their own repos), anything on a node.
+
+**Checked** (in a Linux session, not on roastery): every `.ps1` parses under
+PowerShell 7.4 and is ASCII; the steps run with Windows cmdlets stubbed out
+(the network step's warnings, and the blocked paths of `backup_target`, `traefik`,
+`apps` and `bootstrap`, each with its message); a `RoasteryInit` test class pins
+the order, the repository guard, that `authorized_keys` is never written, the
+task's time limit and the three firewall rules' scopes. `python3 -m unittest
+discover -s tests`: 75 tests, OK (11 skipped). **Not checked:** Windows
+PowerShell 5.1 and any real step on Windows.
+
+**Undo:** revert the commit; the script changes nothing until someone runs it.
+On roastery, what it made has names: firewall rules `purrbrews-bootstrap`,
+`purrbrews-immich-ml`, `purrbrews-traefik`, the `traefik` task, and the power
+settings (`powercfg /change standby-timeout-ac <minutes>`).
 
 ---
 

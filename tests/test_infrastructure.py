@@ -906,6 +906,48 @@ class Tunnel(unittest.TestCase):
         self.assertEqual(needed - fleet - sieve, set(), 'a new setting would break the next render on sieve')
 
 
+class RoasteryInit(unittest.TestCase):
+    """init/roastery-init.ps1: the order and the guards that matter (runbook, 2026-10-08)."""
+
+    SCRIPT = ROOT / 'init' / 'roastery-init.ps1'
+
+    def steps(self):
+        block = re.search(r'\$AllSteps = @\((.*?)\)', self.SCRIPT.read_text(), re.S).group(1)
+        return re.findall(r"'([a-z_]+)'", block)
+
+    def test_every_step_has_a_function_and_a_header_line(self):
+        text = self.SCRIPT.read_text()
+        for step in self.steps():
+            self.assertIn(f'function Step-{step} {{', text)
+            self.assertRegex(text, rf'(?m)^#   {step} ')
+
+    def test_repository_before_anything_trusts_roastery(self):
+        steps = self.steps()
+        self.assertLess(steps.index('backup_target'), steps.index('apps'))
+        self.assertEqual(steps[-1], 'bootstrap', 'the bootstrap server is last and opt-in (README order)')
+        body = re.search(r'^function Step-backup_target \{.*?^\}', self.SCRIPT.read_text(), re.M | re.S).group(0)
+        guard, call = body.index("'config'"), body.index('backup-target\\setup.ps1')
+        self.assertLess(guard, call, 'the empty-repository guard must come before setup.ps1')
+        self.assertIn('-not $AllowEmptyRepository', body)
+
+    def test_bootstrap_never_writes_authorized_keys(self):
+        body = re.search(r'^function Step-bootstrap \{.*?^\}', self.SCRIPT.read_text(), re.M | re.S).group(0)
+        self.assertNotRegex(body, r'(Set-Content|Out-File|Add-Content|Write-LFFile|Copy-Item)[^\n]*\$keys')
+        self.assertIn('Confirm-Change', body)
+
+    def test_traefik_task_has_no_time_limit(self):
+        body = re.search(r'^function Step-traefik \{.*?^\}', self.SCRIPT.read_text(), re.M | re.S).group(0)
+        self.assertIn('-ExecutionTimeLimit ([TimeSpan]::Zero)', body)
+        self.assertIn("'config\\dynamic\\ollama.yml'", body)
+
+    def test_firewall_rules_are_scoped(self):
+        text = self.SCRIPT.read_text()
+        rules = re.findall(r"Set-FirewallRule '([a-z-]+)' .*?@\{(.*?)\}", text, re.S)
+        self.assertEqual({name for name, _ in rules}, {'purrbrews-bootstrap', 'purrbrews-immich-ml', 'purrbrews-traefik'})
+        for name, spec in rules:
+            self.assertRegex(spec, r"RemoteAddress = \$(Fleet\['LAN_CIDR'\]|percolator)", name)
+
+
 class Flask(unittest.TestCase):
     """flask, the offline recovery kit (docs/flask.md): stacks/roastery/flask."""
 
