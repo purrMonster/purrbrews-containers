@@ -373,6 +373,37 @@ class Layout(unittest.TestCase):
                     if image not in self.FLOATING_ON_PURPOSE:
                         self.assertIsNone(floating.search(image), 'floating tag: pin a version or a digest')
 
+    # Routes Gatus deliberately doesn't check end to end (the reasons are in
+    # sieve/gatus/config/config.yaml). Everything else must have a check.
+    NOT_WATCHED = {'ollama', 'meow'}
+
+    def test_every_route_has_an_end_to_end_check(self):
+        import yaml
+        routed = set()
+        for file in STACKS.rglob('*'):
+            if file.is_file() and file.suffix in ('.yml', '.yaml', '.template') and '.git' not in file.parts:
+                active = '\n'.join(l for l in file.read_text().splitlines() if not l.lstrip().startswith('#'))
+                routed |= set(re.findall(r'Host\(`([a-z0-9-]+)\.(?:\$\{DOMAIN\}|\{\{ env "DOMAIN" \}\})`\)', active))
+        config = yaml.safe_load((STACKS / 'sieve/gatus/config/config.yaml').read_text())
+        checks = {}
+        for endpoint in config['endpoints']:
+            m = re.match(r'https://([a-z0-9-]+)\.\$\{DOMAIN\}(/\S*)?$', endpoint['url'])
+            if m:
+                checks.setdefault(m.group(1), []).append(endpoint)
+        self.assertEqual(sorted(routed - set(checks) - self.NOT_WATCHED), [],
+                         'routes with no Gatus check: add one under "Every app, end to end"')
+        authelia = (STACKS / 'percolator/authelia/config/configuration.yml.template').read_text()
+        admin = set(re.findall(r"'([a-z0-9-]+)\.\$\{DOMAIN\}'",
+                               re.search(r'domain: &admin_hosts\n(.*?)\n\s+subject:', authelia, re.S).group(1)))
+        for host in sorted((admin & set(checks)) - self.NOT_WATCHED):
+            with self.subTest(host=host):
+                # At least one check must prove the login is required (fail on a
+                # 200); a host may also have a deliberately open path (perch's
+                # /healthz), so not every check has to.
+                proves_login = [e for e in checks[host]
+                                if any(c.startswith('[STATUS]') and '200' not in c for c in e['conditions'])]
+                self.assertTrue(proves_login, f'{host} is admin-only: a check must fail on a 200 (a skipped login)')
+
     def test_no_references_to_docs_that_are_not_here(self):
         for file in ROOT.rglob('*'):
             if not file.is_file() or '.git' in file.parts or file.suffix in ('.pyc', '.exe') or file.name == 'test_infrastructure.py':
