@@ -29,7 +29,7 @@ changes can be made later without re-deriving the reasoning.
 - [x] roastery: `immich-machine-learning` at Immich's version, Windows Firewall 3003 scoped to percolator. Verified 2026-09-29 on roastery (Claude, owner approved): container `immich-machine-learning:v3.2.1-cuda` matches percolator's `immich-server:v3.2.1`; rule `immich-ml (percolator only)` enabled, remote address `192.168.0.11` only
 - [x] Postgres dump job for percolator's databases (Nextcloud, Immich, Paperless): `pg` lines in their `backup` files (2026-09-27)
 - [ ] Remaining node: roastery itself joining the fleet; then archive purrBrews-infra
-- [ ] Gatus: add app checks as stacks land (node pings for percolator, cellar, mochaPot and grinder enabled 2026-09-29)
+- [ ] Gatus: add app checks as stacks land (node pings for percolator, cellar, mochaPot and grinder enabled 2026-09-29). Every app route has an end-to-end check on branch `hardening-2026-10-08` (2026-10-08 second pass); tick once they're green on sieve
 - [ ] Optional: paste `purrbrews-mac.sh list --format pihole` into Pi-hole's static DHCP list
 - [x] Roll out the 2026-09-26 cleanup on every node: every node pulled it (2026-09-26, per the owner)
 - [ ] Work through the 2026-09-26 live-check plan (entry below)
