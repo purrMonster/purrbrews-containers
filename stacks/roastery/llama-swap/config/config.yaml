@@ -1,0 +1,107 @@
+# llama-swap on roastery: one OpenAI-compatible endpoint in front of llama.cpp's
+# llama-server, one model process at a time, swapped by the request's `model`.
+# Replaces Ollama (runbook, 2026-10-07). Reference for every key:
+# https://github.com/mostlygeek/llama-swap/blob/main/docs/config.example.yaml
+#
+# Not a template: nothing here is secret or per-machine. Read once at start
+# (LLAMA_SWAP_WATCH_CONFIG is off: file watching across a Windows bind mount
+# isn't reliable), so after editing: .\compose.ps1 llama-swap restart
+#
+# The 3080 has 10 GB and the desktop and immich-ml use some of it, so:
+# - one GPU model at a time (llama-swap's default: every model swaps with every
+#   other), unloaded after 10 idle minutes (globalTTL) so a game started later
+#   finds the VRAM free;
+# - -ngl is left unset: llama-server's --fit (on by default) then puts as many
+#   layers on the GPU as fit and the rest on the CPU, instead of failing to load;
+# - flash attention with a q8_0 KV cache halves the context's memory at almost
+#   no quality cost, and every context size is set explicitly.
+#
+# Clients should ask for `assistant` or `fast`: those are profile pins, and
+# the game-mode watcher (../../game-mode) moves them to the CPU model while a
+# game runs. The `gaming` profile pins the GPU models' own IDs to the CPU model
+# as well, so even a client that names one can't put it on the GPU mid-game.
+
+healthCheckTimeout: 300
+logLevel: info
+logToStdout: "proxy"
+sendLoadingState: true
+startPort: 10001
+# Seconds idle before a model unloads; the lite model overrides it.
+globalTTL: 600
+
+macros:
+  # llama-server listens inside the container only; llama-swap is the way in.
+  # --jinja for the models' own chat templates (tool calling needs them),
+  # --metrics for llama-server's Prometheus endpoint, -np 1 so the whole
+  # context goes to one conversation instead of being split between slots.
+  "server": >-
+    llama-server --host 127.0.0.1 --port ${PORT}
+    --jinja --metrics -np 1
+  "gpu": "-fa on -ctk q8_0 -ctv q8_0"
+
+models:
+  # Quality: Gemma 4 12B at Q4_K_M, 7.1 GB.
+  "gemma-4-12b":
+    name: "Gemma 4 12B (GPU)"
+    description: "roastery's 3080; the best answers this card can give"
+    cmd: |
+      ${server} ${gpu}
+      --model /models/gemma-4-12b-it-Q4_K_M.gguf
+      --ctx-size 16384
+      --temp 1.0 --top-p 0.95 --top-k 64
+    capabilities:
+      tools: true
+
+  # Speed and tool calls: Qwen3.5 9B at Q6_K, 7.5 GB.
+  "qwen3.5-9b":
+    name: "Qwen3.5 9B (GPU)"
+    description: "roastery's 3080; quicker, good at tool calls"
+    cmd: |
+      ${server} ${gpu}
+      --model /models/Qwen3.5-9B-Q6_K.gguf
+      --ctx-size 32768
+    capabilities:
+      tools: true
+
+  # Lite: Qwen3.5 4B at Q4_K_M, 2.7 GB, on the CPU only. CUDA_VISIBLE_DEVICES=-1
+  # hides the GPU from the process entirely: -ngl 0 alone still lets llama.cpp
+  # put its CUDA context and large prompt batches on the card. Four threads of
+  # the Ryzen's twelve, so a game keeps the rest. Moves to another node later
+  # (not sieve), as a peer, without clients noticing: they ask for the pin.
+  "qwen3.5-4b-cpu":
+    name: "Qwen3.5 4B (CPU)"
+    description: "No GPU at all; what answers while roastery is gaming"
+    env:
+      - "CUDA_VISIBLE_DEVICES=-1"
+    cmd: |
+      ${server}
+      --model /models/Qwen3.5-4B-Q4_K_M.gguf
+      --ctx-size 8192
+      --threads 4
+    ttl: 300
+    capabilities:
+      tools: true
+
+# The names clients use. `normal` is active at start; the watcher switches to
+# `gaming` while a game runs and back afterwards (PUT /api/profiles/active).
+profiles:
+  "normal":
+    description: "GPU free: the GPU models"
+    pins:
+      "assistant": "gemma-4-12b"
+      "fast": "qwen3.5-9b"
+  "gaming":
+    description: "A game is running: CPU only, the GPU belongs to the game"
+    pins:
+      "assistant": "qwen3.5-4b-cpu"
+      "fast": "qwen3.5-4b-cpu"
+      # The GPU models' own IDs too, so nothing can load them mid-game.
+      # Every GPU model added above needs a line here.
+      "gemma-4-12b": "qwen3.5-4b-cpu"
+      "qwen3.5-9b": "qwen3.5-4b-cpu"
+
+hooks:
+  on_startup:
+    # Startup and a restart come back to `normal`; the watcher re-applies
+    # `gaming` within one poll if a game is still running.
+    profile: "normal"

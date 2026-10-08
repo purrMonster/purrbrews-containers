@@ -1,0 +1,67 @@
+# llama-swap + llama.cpp on roastery's 3080: the local LLM endpoint, replacing
+# Ollama (runbook, 2026-10-07). One OpenAI-compatible API; each request's
+# `model` decides which llama-server process runs. Config in ./config,
+# README.md for the whole picture.
+#
+# No authentication of its own, so it publishes on 127.0.0.1 only and the one
+# way in from the LAN is roastery's native Traefik with Authelia in front
+# (traefik/config/dynamic/llama-swap.yml.template), like Ollama before it.
+# 9292, not 8080: meowGram's backend already has 127.0.0.1:8080.
+#
+# Models live in a named volume, not next to this file: a Windows folder
+# bind-mounted into Docker Desktop's VM reads gigabytes many times slower,
+# and llama-server memory-maps the whole file. The volume lives in that VM, so
+# a Docker Desktop reset or a reinstall of Windows empties it; fetch-models
+# puts the pinned files back.
+#
+# Image: the unified CUDA 12 build (llama-server, whisper, stable-diffusion
+# and audio servers, llama-swap), release v262, tag and digest checked
+# 2026-10-07. CUDA 12 covers the 3080 (Ampere) on the driver immich-ml already
+# needs; the cuda13 variant would want a newer one for no gain here.
+# Bump the tag and digest together, after reading llama-swap's CHANGELOG.
+x-image: &image ghcr.io/mostlygeek/llama-swap:unified-cuda-262@sha256:9cdb30739523db4b77f4a5a2151c9cb7a66d05de5db2aebd37bdf42f4c5b6401
+
+services:
+  llama-swap:
+    image: *image
+    container_name: llama-swap
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+      LLAMA_SWAP_CONFIG: /config/config.yaml
+      LLAMA_SWAP_LISTEN: 0.0.0.0:8080
+      # Edits need `.\compose.ps1 llama-swap restart` (see config.yaml).
+      LLAMA_SWAP_WATCH_CONFIG: "false"
+    volumes:
+      - ./config:/config:ro
+      - llm-models:/models
+    ports:
+      # Loopback only: Traefik and the game-mode watcher run on this PC.
+      - "127.0.0.1:9292:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # Downloads models.lock into the volume, verified. Not part of `up`:
+  #   .\compose.ps1 llama-swap run --rm fetch-models
+  fetch-models:
+    image: *image
+    profiles: [tools]
+    entrypoint: ["bash", "/config/fetch-models.sh", "/config/models.lock"]
+    volumes:
+      - ./config:/config:ro
+      - llm-models:/models
+
+volumes:
+  llm-models:
+    name: roastery-llm-models

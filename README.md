@@ -70,7 +70,7 @@ secondary Pi-hole, the wall screen) and [`grinder`](stacks/grinder/README.md) (n
 pgvector and an embedding worker, Open WebUI, Karakeep, FitTrackee, Traccar, ESPHome,
 Speedtest Tracker). Every node also runs its own Traefik, a Komodo Periphery agent and
 a Scrutiny collector. The workstation, [`roastery`](stacks/roastery/README.md), lends
-its GPU to Immich and Ollama.
+its GPU to Immich and to the local LLMs (llama-swap, which replaced Ollama).
 
 All five nodes are up and running their stacks. Backups aren't finished yet: the
 database dumps, restic's sources and a restore test are still open

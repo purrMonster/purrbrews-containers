@@ -38,13 +38,55 @@ changes can be made later without re-deriving the reasoning.
 - [ ] cellar: confirm Komodo still logs in after `KOMODO_DISABLE_USER_REGISTRATION` went to `true` Core has `KOMODO_DISABLE_USER_REGISTRATION=true` and `KOMODO_LOCAL_AUTH=true` (checked 2026-09-29); the login itself is for the owner (owner)
 - [x] Pin n8n (`latest`), Open WebUI (`main`) and Karakeep (`release`) Done 2026-09-29: n8n `2.39.7` and Karakeep `0.33.2`, each the same digest as what was running; Open WebUI by digest (its `main` build isn't the v0.11.3 release)
 - [ ] meowGram: route and Authelia client prepared on branch `meowgram-sso` (2026-10-04 entry); merge and bring up, then the open items in `stacks/roastery/meowgram/README.md` (backups, web build, the audience check)
-- [ ] Open WebUI → roastery's Ollama: needs machine-to-machine auth that keeps Authelia in front; nothing exists yet
+- [ ] Open WebUI → roastery's LLMs (llama-swap since 2026-10-07; grinder's `OLLAMA_BASE_URL` still points at the old `:11434`): needs machine-to-machine auth that keeps Authelia in front; options in the 2026-10-07 entry, none chosen
 - [ ] Karakeep: `NEXTAUTH_URL` is the direct-port URL while the route is `karakeep.${DOMAIN}`; check the phone share sheet signs in through the hostname
 - [x] Remote access over Tailscale: rolled out and checked from outside the house (2026-09-28; 2026-09-27 entry below)
 - [ ] roastery after the 2026-09-27 power cut: UPS install, the old HDD, NVMe into Scrutiny (2026-09-27 power-cut entry below)
 - [ ] Phone on the tailnet (only the Mac has joined so far)
 - [ ] Tunnel from Git: two-factor in Authelia first, then the switch in `stacks/sieve/cloudflared/README.md` (2026-09-28 entry below)
 - [ ] Apps over the tailnet: roll out in the order in the 2026-09-28 entry below
+- [ ] Bot identity for Claude's commits and pull requests: owner picks bot account or GitHub App, then the setup in the 2026-09-28 entry below
+
+---
+
+## 2026-09-28 — A bot identity for Claude's commits and pull requests
+
+The owner wants the changes Claude sessions make to come from a bot, not from
+the owner's own identity. Today they're committed as the owner (the global git
+identity on roastery) and pushed with the owner's SSH key, and the owner opens
+each PR from the link.
+
+**Recommended: a machine account** (e.g. `purrbrews-bot`), over a GitHub App.
+
+- A GitHub App gets the real `[bot]` badge, but pushing as an app needs an
+  installation token minted from its private key every hour. That's a script in
+  the path of every push, and one more thing to break.
+- GitHub allows one free machine account per person; with Write access and
+  branch protection it can only propose changes.
+- **Not decided yet:** the owner hasn't picked between the two.
+
+**The owner's part** (account creation is never Claude's):
+
+- [ ] Create the bot account, two-factor on, with an email the owner controls
+- [ ] Repo → *Settings → Collaborators*: invite it with **Write**; accept as the bot
+- [ ] Repo → *Settings → Branches*: protect `main`, require a pull request, so the
+  bot can propose and only the owner merges
+- [ ] Add the bot's SSH public key (from the step below) to the bot account
+
+**On roastery (Claude, once the account exists):**
+
+- [ ] A dedicated SSH key for the bot. Its private half never leaves roastery, and
+  it's never in the repo.
+- [ ] An SSH host alias (`github-bot`) in `~/.ssh/config`, so the bot's pushes use
+  its key and the owner's pushes keep using the owner's
+- [ ] Claude's worktrees (only) set `user.name`/`user.email` to the bot, with the
+  email being its GitHub noreply address (`<id>+<bot>@users.noreply.github.com`),
+  so no real address or domain enters history. The owner's global identity stays
+  as it is.
+- [ ] GitHub CLI logged in as the bot, its token in Windows Credential Manager (not
+  a file), so the bot opens the PR itself
+- [ ] Pre-push checks as now (no domain, MAC, auth key or old emails in the
+  outgoing commits), plus: every outgoing commit is authored by the bot
 - [ ] flask: build the two sticks and the paper, `make-flask.ps1` and `RECOVERY.md` first ([docs/flask.md](docs/flask.md); 2026-09-28 flask entry below). 2026-09-30: A built and booted twice; next, rebuild with the boot injection and test it offline (in a VM on roastery, then one real PC), then B, the vault's Drive entries and the paper
 - [ ] Offline copy of the restic repository: the old Seagate in a USB enclosure, synced monthly; `offline-sync.ps1` still to write (2026-09-28 flask entry)
 - [ ] roastery: move the repository off C: to a second NVMe (2026-09-28 flask entry)
@@ -52,8 +94,109 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Still floating: Unbound (`main`) and Samba (`latest`), both on purpose (their compose files say why). Home Assistant pinned to 2026.10.0 and ESPHome to 2026.9.1 on branch `hardening-2026-10-08`, the versions `stable` resolved to that day (same digests); `tests/` now fails on any other floating tag. Before merging, check the running versions: `docker inspect homeassistant esphome --format '{{.Config.Image}}'` and HA's About page; if a node already runs something newer, bump the pin rather than go back (HA's migrations only go forward)
 - [ ] Node checkouts: percolator has an untracked `.env.local.bak-20260926` (secrets; delete once sure), mochaPot a stray `bootstrap/--no-check-certificate` file and `tests/test_network_gateway.sh` (owner)
 - [ ] Home Assistant: bring the lights and devices in. The backbone runs on mochaPot (Traefik, OIDC, Postgres), nothing is paired yet. Integrations and pairing first; areas and automations once the home layout is final (owner, 2026-09-30)
-- [ ] ESP32 sensors and voice speakers: build them with ESPHome (grinder), and a voice pipeline in Home Assistant's Assist with Ollama on roastery as the conversation backend. Local intents first so lights don't depend on the GPU; needs the roastery sleep/wake decision below (owner, 2026-09-30)
+- [ ] ESP32 sensors and voice speakers: build them with ESPHome (grinder), and a voice pipeline in Home Assistant's Assist with roastery's LLMs as the conversation backend (llama-swap since 2026-10-07: an OpenAI-compatible integration, not the Ollama one; Whisper is in the same image). Local intents first so lights don't depend on the GPU; needs the roastery sleep/wake decision below (owner, 2026-09-30)
 - [ ] roastery sleep vs Wake-on-LAN: design a wake-on-demand setup before it ever sleeps again. Keep it awake during SFTP, Ollama and Immich ML work (Windows puts an unattended wake back to sleep after ~2 min); a model router on grinder that wakes roastery and answers from a small CPU model meanwhile (also solves Open WebUI's machine-to-machine auth); an Immich ML fallback; a remote wake over the tailnet; a power reading first. Until then roastery stays awake (2026-09-29 decision)
+- [ ] roastery rebuild after the 2026-10-07 wipe, in the order in `stacks/roastery/README.md` ("Rebuilding roastery"). First the restic repository back from Drive (`flask/RECOVERY.md` part B), with no node's key authorized until it's back (2026-10-07 entry)
+- [ ] Rotate what lived on roastery before the wipe, as exposed: the Cloudflare DNS token (`traefik/secrets.env.local`, shared with every node's Traefik), `KITTEN_TOKEN`, the old tailnet device, meowGram's Postgres password (owner)
+- [ ] llama-swap on roastery: `fetch-models`, `up -d`, then its README's checks; Traefik's route after it (`stacks/roastery/llama-swap/README.md`)
+- [ ] Confirm the model picks (Gemma 4 12B, Qwen3.5 9B, Qwen3.5 4B on CPU) against what the LLMs are for: chat, coding, tool calls, documents (owner)
+- [ ] Game mode on roastery: `game-mode\install.ps1`, then its README's checks with a real game; the launcher list in `GAME_PATHS` against what's installed (owner)
+
+---
+
+## 2026-10-07 — roastery wiped; llama-swap replaces Ollama, with a game mode
+
+**roastery was wiped and Windows reinstalled** after a malware infection (owner).
+Its local state went with it: every `.env.local` and `secrets.env.local`, Traefik's
+binary, its rendered configs and its scheduled task, Ollama and its models,
+meowGram's chat database (no backup; it had no messages on 2026-10-04), and **the
+fleet's restic repository** on C:. The nodes and cellar's dumps are untouched.
+Google Drive holds cellar's last `drive-sync` copy of the repository, and
+`flask/RECOVERY.md` part B is the way back. Secrets that lived on roastery are
+treated as exposed (Backlog). Nothing on any node was changed in this session.
+
+**Order matters for the repository.** `drive-sync` mirrors roastery's repository
+to Drive (deletions kept 30 days in `drive-crypt:deleted`). An empty
+`C:\purrbrews\restic` that the nodes can log in to would be mirrored over the
+Drive copy the same night. Today two things stop that: roastery's new SSH host
+key doesn't match what the nodes pinned, and its new `authorized_keys` is empty.
+So: repository back from Drive and checked first, nodes authorized after. Proposal,
+not done: have `drive-sync.sh` refuse to sync from a repository without a
+`config` file.
+
+**Ollama → llama-swap + llama.cpp** (owner's call: Ollama was underpowered and
+underfeatured). Built on branch `roastery-llama-swap`, not merged, not running.
+
+- **Why llama-swap:** the same llama.cpp as Ollama, with every flag in view;
+  an OpenAI-compatible API; Prometheus metrics; and **profiles**, named sets of
+  model-ID replacements switched at runtime with one API call. Game mode is
+  built on those. vLLM was ruled out: it wants the whole model in VRAM and
+  reserves its cache up front, too much for 10 GB shared with games and immich-ml.
+- **What runs:** `stacks/roastery/llama-swap`, image `unified-cuda-262` pinned by
+  digest, published on `127.0.0.1:9292` only. Clients ask for `assistant` or
+  `fast`. Profile `normal`: Gemma 4 12B Q4_K_M and Qwen3.5 9B Q6_K on the GPU.
+  Profile `gaming`: both names, and the GPU models' own IDs, pinned to Qwen3.5 4B
+  Q4_K_M on 4 CPU threads with `CUDA_VISIBLE_DEVICES=-1`. One model at a time,
+  10 idle minutes then unloaded; no `-ngl`, so `--fit` places layers; flash
+  attention and a q8_0 KV cache. Model picks are proposals (Backlog).
+- **No MoE model:** 16 GB of RAM, half of it Docker's VM limit by default; the
+  current 30B-class MoE files are 17 to 22 GB at Q4. Revisit at 32 GB.
+- **Model files** are pinned in `config/models.lock` (revision and SHA-256) and
+  fetched into a named volume by `fetch-models`, not bind-mounted from Windows
+  (much slower, and llama-server maps the whole file).
+- **Route:** `traefik/config/dynamic/ollama.yml.template` became
+  `llama-swap.yml.template`, same middlewares, pointing at `127.0.0.1:9292`.
+  **The hostname stays `ollama.${DOMAIN}`**: Authelia's rules, Pi-hole, the tunnel
+  config and the tests know that name; renaming it is a fleet change of its own
+  (proposal). It now speaks `/v1/...`, not `/api/tags`.
+
+**Game mode:** `stacks/roastery/game-mode`. A watcher, run as a scheduled task at
+logon with no time limit, polls every 5 s for a process under a game library
+folder (`GAME_PATHS`, `GAME_IGNORE`, `GAME_EXES` in `.env.local`). On a game: profile
+`gaming`, then unload every model. After 60 s without one: `normal`. It re-applies
+the profile if llama-swap restarts mid-game. The flag is llama-swap's active
+profile (`GET /api/profiles`), plus `state.json` and an optional webhook
+(`GAME_MODE_WEBHOOK_URL`, for Home Assistant).
+
+**Checked here, not on roastery** (no Windows or Docker in this session):
+
+- `llama-swap -validate` (v262, built from source) accepts `config.yaml`.
+- Against v262 with a stand-in `llama-server`: in `normal`, `assistant` and `fast`
+  start the GPU files. After `PUT /api/profiles/active {"name":"gaming"}` and
+  `POST /api/models/unload`, nothing is running, and `assistant`, `fast`,
+  `gemma-4-12b` and `qwen3.5-9b` all start the 4B file with
+  `CUDA_VISIBLE_DEVICES=-1`. Back in `normal`, `assistant` is Gemma again.
+- `game-mode.ps1` under PowerShell 7.6 on Linux, against that llama-swap, with a
+  stand-in game under `.../steamapps/common/`: start → `gaming`, models unloaded,
+  webhook POSTed. llama-swap killed and restarted mid-game → logged once while
+  down, `gaming` put back on the next poll. Game quit → `normal` after the grace
+  period, webhook POSTed. A second copy refuses to start. `Steamworks Shared`
+  ignored. `GAME_EXES` matches by name. `-Once` changes nothing.
+- `fetch-models.sh` against real Hugging Face files: fresh, re-run, resumed
+  `.part`, finished-but-unrenamed `.part`, 404, bad lock line, stray file.
+- Every `.ps1` parses and is ASCII. `docker compose config` resolves.
+  The route renders and parses. `python -m pytest tests`: 58 passed, 9 skipped.
+- **Not checked:** anything on Windows: `install.ps1`, Windows PowerShell 5.1, the
+  GPU, Docker Desktop's GPU passthrough with this image, real games.
+
+**Open WebUI → llama-swap: options, none chosen.** (a) llama-swap `apiKeys`, plus a
+second route that only grinder's IP may use and that skips Authelia: simple, but
+it's the bypass this design has refused so far. (b) A router on grinder (the
+sleep/wake backlog item) that holds the credentials and keeps Authelia's
+service-account login in front. (c) Open WebUI on roastery itself, behind its own
+Traefik. Until then grinder's `OLLAMA_BASE_URL` points at nothing.
+
+**Proposals, not done:** game mode also stops immich-ml while a game runs; the
+`traefik` scheduled task as a script in the repo, like game mode's; rename
+`ollama.${DOMAIN}` (Authelia rules, Pi-hole, tunnel, tests, policy);
+`drive-sync.sh`'s empty-repository guard (above).
+
+**Undo:** the branch isn't merged. After a merge, revert the commits; there's no
+Ollama to go back to on the new install.
+
+**Next:** the rebuild order in roastery's README, starting with the repository;
+then llama-swap, Traefik and game mode on roastery, ticking the Backlog lines with
+evidence.
 - [ ] Roll out branch `hardening-2026-10-08` node by node (2026-10-08 entry): per node, `git pull`, then `./compose.sh <app> up -d` for each changed app, `docker ps` until every changed container says `(healthy)`, and that node's checks from the entry. Tick per node, with what was seen
 - [ ] Gatus's new checks green on sieve: `dnssec validation`, `secondary dns (mochaPot)`, `secondary dns local override (mochaPot)` (2026-10-08 entry)
 - [ ] percolator: `sudo logrotate -d /etc/logrotate.d/purrbrews-traefik` after the next `./compose.sh traefik up -d`; a day later `ls /srv/data/traefik/logs` shows a rotated file and CrowdSec still reading (`docker exec crowdsec cscli metrics show acquisition`)

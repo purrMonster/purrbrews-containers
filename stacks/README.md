@@ -36,7 +36,7 @@ stacks/
 | `cellar` | Backups, file shares, Komodo, the Scrutiny hub | [cellar/](cellar/README.md) |
 | `mochaPot` | Home automation, music, the wall screen, secondary DNS | [mochaPot/](mochaPot/README.md) |
 | `grinder` | Automation, AI indexing, self-tracking | [grinder/](grinder/README.md) |
-| `roastery`* | Windows workstation: GPU for Immich ML and Ollama | [roastery/](roastery/README.md) |
+| `roastery`* | Windows workstation: GPU for Immich ML and the local LLMs (llama-swap) | [roastery/](roastery/README.md) |
 
 \* Not a fleet node: no init, no `/opt/purrbrews/.env`, no `DATA_DIR`. It has
 PowerShell twins of the scripts (`*.ps1`) so it doesn't need WSL.
