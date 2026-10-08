@@ -220,8 +220,9 @@ Still proposals: Authelia emails nothing (`notifier: filesystem`), so nobody can
 reset a password or enrol 2FA without the owner; that needs an SMTP account, the
 owner's choice. The two Pi-holes' blocklists still don't sync (mochaPot README).
 
-Merging with `roastery-llama-swap`: tried here, both orders work; conflicts only
-in `docs/MAP.md` and this file, keep both sides; the merged tree passes the tests.
+Merging with `roastery-llama-swap`: tried merging it on top of this branch (the
+recommended order); conflicts only in `docs/MAP.md` and this file, keep both
+sides; the merged tree passes the tests. The other order wasn't tried.
 
 **Undo:** each change is its own commit; revert the one that misbehaves.
 **Next:** the Backlog's rollout lines, node by node.
