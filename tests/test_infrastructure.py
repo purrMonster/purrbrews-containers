@@ -463,8 +463,12 @@ class Firewall(unittest.TestCase):
         self.assertIn('ufw-docker install --docker-subnets', out)
 
     def test_percolator_forward_auth_clients(self):
-        out = self.dry_run('percolator', 'FORWARD_AUTH_CLIENTS=192.168.0.10 192.168.0.12\nPROXY_SUBNET=172.30.0.0/24\n')
+        out = self.dry_run('percolator', 'FORWARD_AUTH_CLIENTS=192.168.0.10 192.168.0.12\nPROXY_SUBNET=172.30.0.0/24\n'
+                                         "MAIL_RELAY_CLIENTS='192.168.0.13 192.168.0.14'\n")
         self.assertIn('ufw route allow proto tcp from 192.168.0.0/24 to any port 443', out)
+        # The mail relay: the listed nodes, and not the whole LAN.
+        self.assertIn('ufw route allow proto tcp from 192.168.0.14 to any port 587', out)
+        self.assertNotIn('from 192.168.0.0/24 to any port 587', out)
         self.assertIn('ufw route allow proto tcp from 192.168.0.10 to any port 9091', out)
         self.assertIn('ufw route allow proto tcp from 192.168.0.12 to any port 9091', out)
         self.assertIn('forward-auth\\ from\\ 192.168.0.12', out)

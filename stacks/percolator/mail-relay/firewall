@@ -1,0 +1,3 @@
+# Mail from the other nodes' apps, and nobody else's: phones and laptops on
+# the LAN have no business relaying through the fleet's address.
+route tcp 587 $MAIL_RELAY_CLIENTS  # mail relay from fleet nodes

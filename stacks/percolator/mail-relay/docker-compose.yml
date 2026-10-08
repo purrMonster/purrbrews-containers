@@ -1,0 +1,70 @@
+# The fleet's mail relay: every app hands its mail here, and this sends it on
+# to Purelymail as purrBrews@${DOMAIN}. Password resets, 2FA enrolment,
+# invites, reminders (README.md for the why and the wiring).
+#
+# Why a relay rather than each app talking to Purelymail:
+#   - mail survives an outage: anything Purelymail or the internet can't take
+#     now waits in the queue (on disk, below) and is retried for five days;
+#   - one credential, here, instead of a copy in every app;
+#   - every message leaves as purrBrews@${DOMAIN}, whatever an app put in From
+#     (sender_canonical_maps keeps the display name: "Authelia <purrBrews@...>").
+#
+# Who may hand it mail: the `proxy` network on percolator, and the fleet
+# nodes in MAIL_RELAY_CLIENTS (firewall, and Postfix refusing anyone else at
+# connect), and only with a sender @${DOMAIN}. Clients must use STARTTLS: the certificate is
+# from a private CA made once by prepare.sh, which Authelia trusts.
+# Upstream TLS is verified (`secure`), so the app password can't be intercepted.
+#
+# Image: boky/postfix:5.1.0-alpine, the latest release (2026-01). Has its own
+# healthcheck. Dependabot proposes bumps.
+services:
+  mail-relay:
+    image: boky/postfix:5.1.0-alpine
+    container_name: mail-relay
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+      RELAYHOST: "[smtp.purelymail.com]:587"
+      RELAYHOST_USERNAME: purrBrews@${DOMAIN}
+      RELAYHOST_PASSWORD: ${MAIL_RELAY_PASSWORD:?run ./setup-secrets.sh}
+      POSTFIX_smtp_tls_security_level: secure
+      ALLOWED_SENDER_DOMAINS: ${DOMAIN}
+      POSTFIX_sender_canonical_maps: static:purrBrews@${DOMAIN}
+      POSTFIX_myhostname: mail-relay.${DOMAIN}
+      POSTFIX_mynetworks: 127.0.0.0/8 ${PROXY_SUBNET} ${MAIL_RELAY_CLIENTS}
+      # The image only checks the sender's domain (which anyone can claim) and
+      # otherwise permits relaying; mynetworks alone gates nothing. This
+      # turns away any other client at connect (found in testing, 2026-10-08).
+      POSTFIX_smtpd_client_restrictions: permit_mynetworks, reject
+      # Postfix rewrites header addresses (the From people see) only for
+      # local clients by default; without this only the envelope changes.
+      POSTFIX_local_header_rewrite_clients: permit_mynetworks
+      POSTFIX_smtpd_tls_security_level: encrypt
+      POSTFIX_smtpd_tls_cert_file: /tls/relay.crt
+      POSTFIX_smtpd_tls_key_file: /tls/relay.key
+      # Fail at once rather than queue something the upstream will refuse.
+      POSTFIX_message_size_limit: "26214400"
+      POSTFIX_maximal_queue_lifetime: 5d
+    volumes:
+      # The queue: what's waiting survives a restart or a reboot.
+      - ${DATA_DIR}/mail-relay/spool:/var/spool/postfix
+      - ${DATA_DIR}/mail-relay/tls:/tls:ro
+      # The config is rebuilt from the environment above on every start. The
+      # image declares /etc/postfix a volume, and Compose keeps that across a
+      # recreate, so without this a changed password, a removed setting or an
+      # image update's new defaults never took effect (the image appends the
+      # new password after the old one, and Postfix uses the first; found in
+      # testing 2026-10-08). Empty at start, the image fills it from its
+      # /etc/postfix.template.
+      - type: tmpfs
+        target: /etc/postfix
+        tmpfs: {mode: 0755}
+    ports:
+      # For the other nodes; firewall limits it to MAIL_RELAY_CLIENTS.
+      - "587:587"
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
