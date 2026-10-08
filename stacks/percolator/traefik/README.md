@@ -17,7 +17,7 @@ publishes ports.
 |---|---|
 | `config/traefik.yml.template` | Entry points, wildcard certificate, Docker + file providers, plugin, access log |
 | `config/dynamic.yml.template` | Shared middlewares (`authelia`, `crowdsec`, `security-headers`) and the dashboard route |
-| `prepare.sh` | Run by `compose.sh` before `up`: puts the CrowdSec bouncer plugin, pinned to a verified commit, in `plugins-local` |
+| `prepare.sh` | Run by `compose.sh` before `up`: installs the access log's rotation rule, and puts the CrowdSec bouncer plugin, pinned to a verified commit, in `plugins-local` |
 | `data-dirs` | Directories `compose.sh` creates before `up` |
 
 App routes are not here: each app declares its own with labels in its
@@ -68,4 +68,7 @@ sudo docker logs -f traefik
   The file provider watches `dynamic.yml`, but `traefik.yml` changes need a restart.
 - **Upgrading the plugin:** edit `PLUGIN_TAG` and `PLUGIN_COMMIT` in `prepare.sh`
   together; it refuses a tag that doesn't resolve to the pinned commit.
-- **The access log is not rotated yet.** Watch the size of `/srv/data/traefik/logs`.
+- **The access log is rotated by the host's logrotate**, from a rule `prepare.sh`
+  installs at `/etc/logrotate.d/purrbrews-traefik` on every `up`: daily, or once
+  it passes 100 MB, 14 kept, compressed. Rotation sends Traefik `USR1` to reopen
+  the file. Check it with `sudo logrotate -d /etc/logrotate.d/purrbrews-traefik`.

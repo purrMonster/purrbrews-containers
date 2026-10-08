@@ -8,10 +8,12 @@
 # live. ESP32s handle band steering and WPA3/mixed mode badly, and
 # intermittently, which is worse than failing outright.
 #
-# Image: ghcr.io/esphome/esphome:stable.
+# Image: ghcr.io/esphome/esphome:2026.9.1, what `stable` was on 2026-10-08
+# (same digest). Pinned so a routine pull can't change the toolchain that
+# compiles the devices' firmware; bump it deliberately, with Home Assistant's.
 services:
   esphome:
-    image: ghcr.io/esphome/esphome:stable
+    image: ghcr.io/esphome/esphome:2026.9.1
     container_name: esphome
     network_mode: host
     environment:

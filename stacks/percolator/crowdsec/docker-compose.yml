@@ -17,7 +17,11 @@ services:
     volumes:
       - ${DATA_DIR}/crowdsec/data:/var/lib/crowdsec/data
       - ${DATA_DIR}/crowdsec/config:/etc/crowdsec
-      - ./acquis.d:/etc/crowdsec/acquis.d:ro
+      # The file, not the folder: on a fresh config directory the entrypoint
+      # copies its defaults with rsync, fails to set times on a read-only
+      # acquis.d mount point, and exits under set -e (tested 2026-10-08).
+      # A new file here needs its own line.
+      - ./acquis.d/traefik.yaml:/etc/crowdsec/acquis.d/traefik.yaml:ro
       - ${DATA_DIR}/traefik/logs:/var/log/traefik:ro
     networks:
       - proxy

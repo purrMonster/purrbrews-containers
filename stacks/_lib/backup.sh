@@ -35,8 +35,10 @@
 #           mongodump --archive --gzip, authenticating against admin
 #   sqlite  <name> <path>
 #           a consistent .dump of a live SQLite file, gzipped. The path may
-#           be a glob (one dump per match). Runs as the file's owner, so a
-#           root sqlite3 never leaves a root-owned -shm the app can't open
+#           be a glob: one dump per match, each named <name>-<its path>, even
+#           when only one matches, since the path is what a restore needs (a
+#           FreshRSS user, an Actual budget group). Runs as the file's owner,
+#           so a root sqlite3 never leaves a root-owned -shm the app can't open
 #   path    <path>
 #           files, backed up straight to the repository
 #   exclude <pattern>
@@ -202,7 +204,12 @@ cmd_plan() {
     case "$D_KIND" in
       pg)     echo "  $D_APP/$name.pgdump  pg_dump ${D_FIELDS[2]} as ${D_FIELDS[3]} in ${D_FIELDS[1]}" ;;
       mongo)  echo "  $D_APP/$name.mongo.gz  mongodump in ${D_FIELDS[1]} as ${D_FIELDS[2]}" ;;
-      sqlite) echo "  $D_APP/$name.sql.gz  sqlite .dump of $(resolve_path "$D_APP" "${D_FIELDS[1]}")" ;;
+      sqlite)
+        if [[ "${D_FIELDS[1]}" == *[*?[]* ]]; then
+          echo "  $D_APP/$name-<path>.sql.gz  sqlite .dump of each $(resolve_path "$D_APP" "${D_FIELDS[1]}")"
+        else
+          echo "  $D_APP/$name.sql.gz  sqlite .dump of $(resolve_path "$D_APP" "${D_FIELDS[1]}")"
+        fi ;;
     esac
     [[ "$D_OPTIONAL" -eq 0 ]] || echo "      (optional)"
   done < <(each pg; each mongo; each sqlite)
@@ -294,7 +301,7 @@ dump_sqlite() {  # dump_sqlite <app> <optional> <name> <path glob>
   fi
   for file in "${files[@]}"; do
     suffix=''
-    if [[ ${#files[@]} -gt 1 ]]; then
+    if [[ ${#files[@]} -gt 1 || "$4" == *[*?[]* ]]; then
       suffix="${file#"$DATA_DIR"/}"; suffix="-${suffix//[^A-Za-z0-9._-]/_}"
     fi
     out="$NODE_DUMPS/$app/$name$suffix.sql.gz"; tmp="$out.partial"

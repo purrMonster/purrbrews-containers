@@ -1,4 +1,8 @@
 # Actual: accounts in server-files/account.sqlite; each budget is a file in
-# user-files/.
+# user-files/, beside a group-<id>.sqlite per budget: the sync messages, a
+# live SQLite like the account database (actual's sync-server, util/paths.ts),
+# so dumped too rather than copied mid-write (2026-10-08).
 sqlite  account  actualbudget/server-files/account.sqlite
+sqlite  groups   actualbudget/user-files/group-*.sqlite  optional
 path    actualbudget/user-files
+exclude group-*.sqlite*

@@ -74,6 +74,7 @@ so Traefik can have 80.
 
 - **The kiosk's crash recovery is untested**: nothing restarts cage if Chromium
   exits, short of a reboot ([kiosk/README.md](kiosk/README.md)).
-- **Home Assistant tracks `:stable`**, as upstream recommends. An update is a
-  `pull` away, for better and worse.
+- **Home Assistant is pinned** (2026.10.0 since 2026-10-08), not on `:stable`:
+  an upgrade is a tag bump after reading the release notes, never a side effect
+  of a routine pull.
 - **Blocklists aren't synced** between the two Pi-holes.
