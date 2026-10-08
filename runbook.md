@@ -59,6 +59,9 @@ changes can be made later without re-deriving the reasoning.
 - [ ] percolator: `sudo logrotate -d /etc/logrotate.d/purrbrews-traefik` after the next `./compose.sh traefik up -d`; a day later `ls /srv/data/traefik/logs` shows a rotated file and CrowdSec still reading (`docker exec crowdsec cscli metrics show acquisition`)
 - [ ] percolator: `https://vault.${DOMAIN}/admin` asks for an Authelia login and lets only an admin through; the vault, its browser extension and the phone app still sign in as before
 - [ ] grinder: `./compose.sh embedding-worker build --no-cache && ./compose.sh embedding-worker up -d`, then one n8n run that embeds; Dependabot's alert closes once main has the new requirements.txt
+- [ ] GitHub: require the `tests` check before merging into `main` (*Settings → Rules → Rulesets*, or branch protection). Until then CI only reports; it can't stop a red merge (owner)
+- [ ] CI's first real run is green (the push of `hardening-2026-10-08` or its PR); the workflow has only been linted and its steps run locally
+- [ ] Dependabot's first Monday: PRs arrive grouped per image; read the release notes, and merge Immich server + ML, and Komodo Core + Periphery, together
 
 ---
 
@@ -170,6 +173,55 @@ own healthcheck.
   so nothing public changed; left as is rather than rewrite history again.
 - This branch and `roastery-llama-swap` both edit this file's top, so whichever
   merges second has a small conflict here to resolve by keeping both.
+
+### Second pass (same day): what was missing rather than wrong
+
+The owner asked for another pass because something felt missing. This time the
+question was what the pieces assume about each other, checked across the repo
+by script rather than file by file. Four gaps, each now closed and tested:
+
+- **Nothing checked that the household's apps load.** Gatus watched sieve and
+  node pings; persianPerch shows Gatus's endpoints and Komodo's containers, so it
+  shared the blind spot. A broken route, a missing DNS record, or percolator's
+  wildcard certificate expiring would have taken every app down with every check
+  green (Backlog since 2026-09-29). Now 29 checks, one per routed app, through
+  Pi-hole like a LAN client, 10 days' certificate margin, in two shapes:
+  `behind-sso` must answer 302/401, and **a 200 fails it (a skipped login)**;
+  `own-login` must answer a page or a redirect. Tested with real Gatus, Traefik
+  and an Unbound resolver: 200/302/401 pass their shapes; 502, 404 and an SSO
+  host answering 200 fail. A test fails on a route with no check.
+- **Nothing said when an update existed.** Everything is pinned, and Diun was
+  removed on 2026-09-18 ("nothing replaces it yet"). Dependabot now opens one PR
+  per image across every node that runs it, weekly, after a 7-day cooldown; no
+  major bumps for databases or Nextcloud (one major at a time). Validated against
+  the schema; every image parsed with Dependabot's own regex; a test fails on an
+  ignore rule that matches nothing (the first draft had one: Dependabot names drop
+  the registry).
+- **Nothing ever removed an old image**, so weekly updates would have crept every
+  node to perch's 85 % disk warning. `compose.sh` (and `compose.ps1`) now removes
+  the images an app ran before, after a successful `up`, once nothing uses them.
+  Not a blanket prune: that would delete images pulled for apps not yet
+  restarted. Tested on real Docker in both shells (shared, pre-pulled, failed up,
+  opt-out, local rebuild).
+- **Nothing ran the tests.** AGENTS.md asks for it; nothing checked. A GitHub
+  Actions workflow now runs them on every PR and push to `main`, as a normal user
+  and as root. actionlint clean; the root tests pass with Ubuntu 24.04's restic
+  0.16.4 and rclone 1.60.1. It only gates merges once `main` requires it (Backlog).
+
+Also: my two YAML-reading tests would have crashed where PyYAML isn't installed
+(nothing needed it before); they skip with an install hint now.
+
+Checked and fine, so not changed: host basics in init (unattended security
+upgrades, key-only SSH, NTP, default-deny UFW, Docker log rotation); disk-space
+alerts (perch: 85 % warn, 95 % critical); perch raises a critical alert for any
+unhealthy container, so the new healthchecks feed it.
+
+Still proposals: Authelia emails nothing (`notifier: filesystem`), so nobody can
+reset a password or enrol 2FA without the owner; that needs an SMTP account, the
+owner's choice. The two Pi-holes' blocklists still don't sync (mochaPot README).
+
+Merging with `roastery-llama-swap`: tried here, both orders work; conflicts only
+in `docs/MAP.md` and this file, keep both sides; the merged tree passes the tests.
 
 **Undo:** each change is its own commit; revert the one that misbehaves.
 **Next:** the Backlog's rollout lines, node by node.
