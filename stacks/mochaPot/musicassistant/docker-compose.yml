@@ -19,6 +19,14 @@ services:
       - ${DATA_DIR:?}/musicassistant:/data
     environment:
       TZ: ${TZ}
+    # /info is answered by the server itself (its id and version); wget is in
+    # the image, curl isn't.
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8095/info"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     restart: unless-stopped
     labels:
       - traefik.enable=true

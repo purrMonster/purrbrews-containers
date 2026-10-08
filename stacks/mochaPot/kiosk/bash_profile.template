@@ -3,6 +3,15 @@
 # starts the display session, never an SSH login.
 
 if [[ -z "${SSH_CONNECTION:-}" ]] && [[ "$(tty)" == "/dev/tty1" ]]; then
+  # After a power cut the screen comes up before Home Assistant does, and
+  # Chromium would sit on "can't be reached". Wait up to five minutes for the
+  # dashboard to answer, then start anyway (an error page beats a blank tty).
+  # If Chromium exits, cage exits, this login ends, and getty's Restart=always
+  # autologs in again, back through here.
+  for _ in $(seq 1 60); do
+    curl -fsS -m 3 -o /dev/null "${KIOSK_URL}" 2>/dev/null && break
+    sleep 5
+  done
   exec cage -- chromium \
     --kiosk \
     --noerrdialogs \

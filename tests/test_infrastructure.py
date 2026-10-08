@@ -354,6 +354,25 @@ class Layout(unittest.TestCase):
                 if fields[1] in ('copy', 'mirror'):
                     self.assertTrue((spec.parent.parent / fields[2]).is_dir(), f'{spec}: {line}')
 
+    # Floating tags, each a decision written down in its compose file. Anything
+    # else must name a version or a digest, so a routine pull changes nothing.
+    FLOATING_ON_PURPOSE = {
+        'klutchell/unbound:main',                  # no version tags upstream; freshness chosen
+        'ghcr.io/servercontainers/samba:latest',   # unused; pinned when something depends on it
+    }
+
+    def test_images_are_pinned(self):
+        floating = re.compile(r':(latest|stable|main|master|release|edge|nightly|dev|beta|rc)$')
+        for compose in STACKS.glob('*/*/docker-compose.yml'):
+            for image in re.findall(r'^\s*(?:image|x-image):\s*(?:&\w+\s+)?(\S+)', compose.read_text(), re.M):
+                if image.startswith('*') or image.endswith(':local') or '@sha256:' in image:
+                    continue
+                name = image.rsplit('/', 1)[-1]
+                with self.subTest(image=image, file=str(compose.relative_to(ROOT))):
+                    self.assertIn(':', name, 'no tag at all means latest')
+                    if image not in self.FLOATING_ON_PURPOSE:
+                        self.assertIsNone(floating.search(image), 'floating tag: pin a version or a digest')
+
     def test_no_references_to_docs_that_are_not_here(self):
         for file in ROOT.rglob('*'):
             if not file.is_file() or '.git' in file.parts or file.suffix in ('.pyc', '.exe') or file.name == 'test_infrastructure.py':
@@ -625,6 +644,102 @@ class Backup(unittest.TestCase):
         self.assertIn('.env.local', listing)      # the node's own settings always go
         store = subprocess.run(['bash', str(node / 'backup.sh'), 'store'], env=env, capture_output=True, text=True)
         self.assertEqual(store.returncode, 0, store.stderr)
+
+    @unittest.skipUnless(AS_ROOT and all(shutil.which(c) for c in ['restic', 'rclone', 'flock']),
+                         'needs root, restic, rclone and flock')
+    def test_drive_sync_never_mirrors_an_empty_or_different_repository(self):
+        # cellar's drive-sync makes Drive match roastery. After roastery was
+        # wiped (2026-10-07), an empty or re-initialised repository there must
+        # stop the sync instead of replacing the offsite copy.
+        tmp = Path(tempfile.mkdtemp(dir='/tmp'))
+        self.addCleanup(shutil.rmtree, tmp)
+        root = copy_repo(tmp)
+        roastery, drive, etc = tmp / 'roastery', tmp / 'drive', tmp / 'etc'
+        etc.mkdir()
+        (etc / 'rclone.conf').write_text('[roastery]\ntype = alias\nremote = /\n\n'
+                                         f'[drive-crypt]\ntype = alias\nremote = {drive}\n')
+        (root / '.env').write_text(f'NODE_IP=192.168.0.12\nDATA_DIR={tmp / "data"}\n')
+        node = root / 'stacks/cellar'
+        (node / '.env.local').write_text(f'BACKUP_REPOSITORY={roastery}\nDUMP_DIR={tmp / "dumps"}\n'
+                                         'DUMP_STORE_HOST=192.168.0.12\n')
+        (node / 'restic/secrets.env.local').write_text('RESTIC_PASSWORD=test\n')
+        env = dict(os.environ, BACKUP_ETC=str(etc), BACKUP_LOCK=str(tmp / 'lock'), BACKUP_CACHE=str(tmp / 'cache'),
+                   RESTIC_PASSWORD='test', PATH=f"{fake_bin(tmp / 'bin')}:{os.environ['PATH']}")
+
+        def init():
+            subprocess.run(['restic', '-q', '-r', str(roastery), 'init'], env=env, check=True, capture_output=True)
+
+        def sync():
+            return subprocess.run(['bash', str(node / 'restic/drive-sync.sh')], env=env, capture_output=True, text=True)
+
+        init()
+        first = sync()
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        original = (drive / 'repo/config').read_bytes()
+        files_before = sorted(p.relative_to(drive) for p in (drive / 'repo').rglob('*'))
+
+        shutil.rmtree(roastery)                    # wiped: the folder is back, empty
+        roastery.mkdir()
+        wiped = sync()
+        self.assertNotEqual(wiped.returncode, 0)
+        self.assertIn('no restic repository', wiped.stdout + wiped.stderr)
+        self.assertEqual((drive / 'repo/config').read_bytes(), original)
+
+        shutil.rmtree(roastery)                    # rebuilt with a fresh `restic init`
+        init()
+        other = sync()
+        self.assertNotEqual(other.returncode, 0)
+        self.assertIn('not the one on Drive', other.stdout + other.stderr)
+        self.assertEqual(sorted(p.relative_to(drive) for p in (drive / 'repo').rglob('*')), files_before)
+
+        shutil.rmtree(roastery)                    # put back from Drive (RECOVERY.md part B)
+        shutil.copytree(drive / 'repo', roastery)
+        back = sync()
+        self.assertEqual(back.returncode, 0, back.stdout + back.stderr)
+
+    @unittest.skipUnless(AS_ROOT and all(shutil.which(c) for c in ['restic', 'sqlite3', 'setpriv']),
+                         'needs root, restic, sqlite3 and setpriv')
+    def test_glob_dumps_are_named_by_path(self):
+        # A restore needs to know which file a dump came from (which budget
+        # group, which FreshRSS user), even when the glob matched only one.
+        tmp = Path(tempfile.mkdtemp(dir='/tmp'))
+        self.addCleanup(shutil.rmtree, tmp)
+        tmp.chmod(0o755)
+        root = copy_repo(tmp)
+        data, repo, dumps = tmp / 'data', tmp / 'repo', tmp / 'dumps'
+        sql = 'pragma journal_mode=wal; create table m(x); insert into m values ({});'
+        files = {'actualbudget/server-files/account.sqlite': 1, 'actualbudget/user-files/group-abc.sqlite': 2,
+                 'actualbudget/user-files/group-def.sqlite': 3, 'freshrss/data/users/alice/db.sqlite': 4}
+        for rel, n in files.items():
+            (data / rel).parent.mkdir(parents=True, exist_ok=True)
+            subprocess.run(['sqlite3', str(data / rel), sql.format(n)], check=True, capture_output=True)
+        (data / 'actualbudget/user-files/file-abc.blob').write_text('budget')
+        (data / 'freshrss/extensions').mkdir(parents=True)
+        (root / '.env').write_text(f'NODE_IP=192.168.0.11\nDATA_DIR={data}\n')
+        node = root / 'stacks/percolator'
+        node.joinpath('node.conf').write_text('APPS=(actualbudget freshrss)\n')
+        (node / '.env.local').write_text(f'BACKUP_REPOSITORY={repo}\nDUMP_DIR={dumps}\nDUMP_STORE_HOST=192.168.0.11\n')
+        (node / 'restic/secrets.env.local').write_text('RESTIC_PASSWORD=test\n')
+        env = dict(os.environ, BACKUP_KEY=str(tmp / 'key'), BACKUP_ETC=str(tmp / 'etc'),
+                   BACKUP_CACHE=str(tmp / 'cache'), BACKUP_LOCK=str(tmp / 'lock'), RESTIC_PASSWORD='test',
+                   PATH=f"{fake_bin(tmp / 'bin')}:{os.environ['PATH']}")
+        subprocess.run(['restic', '-q', '-r', str(repo), 'init'], env=env, check=True, capture_output=True)
+        result = subprocess.run(['bash', str(node / 'backup.sh'), 'nightly'], env=env, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        made = sorted(p.relative_to(dumps / 'percolator').as_posix() for p in dumps.rglob('*.sql.gz'))
+        self.assertEqual(made, [
+            'actualbudget/account.sql.gz',
+            'actualbudget/groups-actualbudget_user-files_group-abc.sqlite.sql.gz',
+            'actualbudget/groups-actualbudget_user-files_group-def.sqlite.sql.gz',
+            'freshrss/users-freshrss_data_users_alice_db.sqlite.sql.gz'])
+        group = subprocess.run(['bash', '-c', f"gzip -dc {dumps}/percolator/actualbudget/groups-*group-def*"],
+                               capture_output=True, text=True).stdout
+        self.assertIn('INSERT INTO m VALUES(3);', group)
+        listing = subprocess.run(['restic', '-r', str(repo), 'ls', 'latest', '--tag', 'files'],
+                                 env=env, capture_output=True, text=True, check=True).stdout
+        self.assertIn('file-abc.blob', listing)
+        self.assertNotIn('group-abc.sqlite', listing)   # live databases: the dumps have them
+        self.assertNotIn('db.sqlite', listing)
 
 
 class RemoteAccess(unittest.TestCase):

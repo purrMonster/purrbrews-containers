@@ -1,3 +1,7 @@
-# NetAlertX: the device inventory and its settings. Copied as they lie;
-# losing a night of scan history is fine.
+# NetAlertX: the device inventory (names, owners, presence) is in its SQLite
+# database, the settings in config/. The database is dumped, not copied: it's
+# written to every scan, and a file copied mid-write can be torn, which loses
+# the whole inventory rather than a night of history (fixed 2026-10-08).
+sqlite  devices  netalertx/db/app.db
 path    netalertx
+exclude app.db*

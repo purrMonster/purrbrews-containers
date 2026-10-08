@@ -8,6 +8,11 @@
 FROM python:3.12-slim
 
 WORKDIR /app
+# PyTorch's CPU build first, from its own index: grinder has no GPU, and
+# PyPI's default torch drags in gigabytes of CUDA libraries it would never
+# use. Pinned, so a rebuild can't quietly change the math under the stored
+# embeddings. sentence-transformers then finds torch already there.
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.14.1
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

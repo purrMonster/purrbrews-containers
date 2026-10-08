@@ -10,6 +10,9 @@ services:
     environment:
       TZ: ${TZ}
       N8N_HOST: ${NODE_IP:?}
+      # Default "::": where a container has no IPv6, n8n refuses to start
+      # ("address '::' is not available", seen 2026-10-08). The fleet is IPv4.
+      N8N_LISTEN_ADDRESS: 0.0.0.0
       N8N_PROTOCOL: http
       WEBHOOK_URL: http://${NODE_IP:?}:5678/
       # Pinned in secrets.env.local, so a fresh container can still read the
@@ -22,6 +25,14 @@ services:
     # The way in when Traefik or Authelia is down; n8n has its own owner login.
     ports:
       - "5678:5678"
+    # /healthz is n8n's liveness endpoint ({"status":"ok"}); /healthz/readiness
+    # answered 503 on a working instance, so not that one. wget is in the image.
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:5678/healthz"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     restart: unless-stopped
     labels:
       - "traefik.enable=true"

@@ -103,6 +103,16 @@ access_control:
       policy: ${AUTH_POLICY}
     - domain: *admin_hosts
       policy: deny
+
+    # Vaultwarden's admin page: same two-rule shape, for one path. Only its
+    # /admin router uses ForwardAuth; the vault itself signs in with OIDC.
+    - domain: 'vault.${DOMAIN}'
+      resources: ['^/admin([/?#].*)?$']
+      subject: ['group:${LLDAP_ADMIN_GROUP}']
+      policy: ${AUTH_POLICY}
+    - domain: 'vault.${DOMAIN}'
+      resources: ['^/admin([/?#].*)?$']
+      policy: deny
     - domain: '*.${DOMAIN}'
       subject: ['group:${LLDAP_ADMIN_GROUP}', 'group:${LLDAP_HOUSEHOLD_GROUP}']
       policy: ${AUTH_POLICY}

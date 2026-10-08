@@ -98,6 +98,53 @@ endpoints:
       - type: ntfy
         description: "sieve's host names no longer resolve to sieve on the LAN"
 
+  # A name whose DNSSEC is deliberately broken must fail. If it resolves,
+  # Unbound stopped validating: everything else keeps working and nothing else
+  # would notice. (No internet also gives SERVFAIL, so this can't false-alarm
+  # on an outage; the internet check below covers that.)
+  - name: dnssec validation
+    group: network
+    url: ${NODE_IP}
+    interval: 15m
+    dns:
+      query-name: dnssec-failed.org
+      query-type: A
+    conditions:
+      - "[DNS_RCODE] == SERVFAIL"
+    alerts:
+      - type: ntfy
+        description: Unbound returned an answer for a broken DNSSEC name, so validation is off
+
+  # mochaPot's Pi-hole is every client's second resolver (DHCP hands out both).
+  # Clients only try it when sieve fails, so a broken one stays invisible until
+  # the day it's needed. Same two questions as sieve's: recursion, local names.
+  - name: secondary dns (mochaPot)
+    group: network
+    url: 192.168.0.13
+    interval: 5m
+    dns:
+      query-name: cloudflare.com
+      query-type: A
+    conditions:
+      - "[DNS_RCODE] == NOERROR"
+    alerts:
+      - type: ntfy
+        description: the backup resolver on mochaPot isn't answering; DNS has no fallback
+
+  - name: secondary dns local override (mochaPot)
+    group: network
+    url: 192.168.0.13
+    interval: 15m
+    dns:
+      query-name: gatus.${DOMAIN}
+      query-type: A
+    conditions:
+      - "[DNS_RCODE] == NOERROR"
+      - "[BODY] == ${NODE_IP}"
+    alerts:
+      - type: ntfy
+        description: "mochaPot's resolver no longer has the fleet's host names; its records are stale or missing"
+
   - name: pihole web
     group: network
     url: http://${NODE_IP}:8080/admin/

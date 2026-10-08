@@ -39,9 +39,11 @@ laptop).
 - **No screen-off/wake schedule configured.** The x360's display stays on
   continuously as installed here — reasonable for a wall dashboard,
   wasteful if this ever moves somewhere it's only glanced at occasionally.
-- **Crash recovery untested.** `cage` exits when its one child (Chromium)
-  exits, and nothing currently restarts `cage` or re-triggers the login
-  session if that happens outside of a reboot — getty's own respawn
-  behavior handles the tty1 login prompt reappearing, but hasn't been
-  verified to actually bring the kiosk session back up cleanly without a
-  full reboot.
+- **Crash recovery is by design, still not seen on the hardware.** The profile
+  `exec`s cage, so when Chromium exits, cage exits and the tty1 login ends;
+  Debian's `getty@.service` has `Restart=always`, so agetty autologs `kiosk` in
+  again and the profile starts the kiosk again. To check it: `sudo pkill -x
+  chromium` from tty2 or SSH, and the dashboard should be back within seconds.
+- **Boot order is handled**: the profile waits up to five minutes for
+  `KIOSK_URL` to answer before starting Chromium (2026-10-08), so a power cut
+  no longer leaves it on a "can't be reached" page.

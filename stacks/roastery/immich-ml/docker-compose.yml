@@ -32,5 +32,6 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-    # No healthcheck: I haven't checked whether the image has curl or wget
-    # for its /ping. Check by hand (README.md).
+    # No healthcheck here because the image has its own (`python3
+    # healthcheck.py`, read from the image config 2026-10-08), so
+    # `docker ps` already shows healthy/unhealthy.

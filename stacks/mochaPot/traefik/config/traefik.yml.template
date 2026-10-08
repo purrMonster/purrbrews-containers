@@ -2,6 +2,10 @@
 log:
   level: INFO
 
+# For the container's healthcheck: /ping on Traefik's internal entry point
+# (:8080), which nothing publishes. The dashboard stays off it.
+ping: {}
+
 entryPoints:
   web:
     address: ":80"

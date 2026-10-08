@@ -36,6 +36,14 @@ services:
       - traefik.http.routers.vaultwarden.rule=Host(`vault.${DOMAIN}`)
       - traefik.http.routers.vaultwarden.entrypoints=websecure
       - traefik.http.services.vaultwarden.loadbalancer.server.port=80
+      # The admin page through Authelia as well, admins only (the vault.
+      # resources rules in authelia's config). vault.${DOMAIN} is published
+      # through the tunnel, so its own token was all that stood between /admin
+      # and the internet. The longer rule wins over the router above.
+      - traefik.http.routers.vaultwarden-admin.rule=Host(`vault.${DOMAIN}`) && PathPrefix(`/admin`)
+      - traefik.http.routers.vaultwarden-admin.entrypoints=websecure
+      - traefik.http.routers.vaultwarden-admin.middlewares=authelia@file
+      - traefik.http.routers.vaultwarden-admin.service=vaultwarden
 
 networks:
   proxy:

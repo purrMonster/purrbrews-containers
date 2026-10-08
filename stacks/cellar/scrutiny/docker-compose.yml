@@ -39,6 +39,15 @@ services:
       # Same schedule as the collectors on the other nodes (every 6 hours, UTC).
       # Without it the hub collects once a day, so cellar's disks lagged.
       COLLECTOR_CRON_SCHEDULE: "0 */6 * * *"
+    # Liveness of the web app and its API. It answered {"success":true} with
+    # InfluxDB stopped too (tested 2026-10-08), so it says nothing about the
+    # database; Scrutiny's own UI shows that.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-m", "5", "http://localhost:8080/api/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     restart: unless-stopped
 
 networks:

@@ -19,6 +19,14 @@ services:
     volumes:
       - ${DATA_DIR:?}/traccar/data:/opt/traccar/data
       - ${DATA_DIR:?}/traccar/logs:/opt/traccar/logs
+    # /api/server answers without a login once the web server is up; wget is
+    # in the alpine image.
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8082/api/server"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
