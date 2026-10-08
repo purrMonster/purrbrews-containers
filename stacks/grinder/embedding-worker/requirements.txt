@@ -4,4 +4,4 @@ uvicorn[standard]==0.30.6
 # local path ran its custom Python despite trust_remote_code=False. Tested
 # 2026-10-08: bge-small-en-v1.5 embeddings bit-identical to 3.1.1, so the
 # vectors already stored in postgres-vector stay valid.
-sentence-transformers==5.6.0
+sentence-transformers==6.1.0
