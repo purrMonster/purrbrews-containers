@@ -20,7 +20,30 @@ ROOT = Path(__file__).resolve().parents[1]
 STACKS = ROOT / 'stacks'
 NODES = ['sieve', 'percolator', 'cellar', 'mochaPot', 'grinder', 'roastery']
 LINUX_NODES = NODES[:-1]
-AS_ROOT = os.geteuid() == 0
+AS_ROOT = hasattr(os, 'geteuid') and os.geteuid() == 0
+BASH = shutil.which('bash') or 'bash'
+
+
+def repo_files(pattern='*', include_deprecated=False):
+    """Authored sources, without generated packages or retired deployment inputs."""
+    excluded = {'.git', 'graphify-out', '__pycache__'}
+    if not include_deprecated:
+        excluded.add('Deprecated')
+    for directory, dirs, files in os.walk(ROOT):
+        dirs[:] = [name for name in dirs if name not in excluded]
+        for name in files:
+            path = Path(directory) / name
+            if path.match(pattern):
+                yield path
+
+
+def source_text(source):
+    """Include the one-level shared Compose definitions used by node files."""
+    text = source.read_text()
+    if source.name == 'docker-compose.yml':
+        for reference in re.findall(r'^\s+file:\s+(\.\./\.\./_shared/[^\s]+)\s*$', text, re.M):
+            text += '\n' + (source.parent / reference).read_text()
+    return text
 
 
 def load(name, filename):
@@ -37,7 +60,7 @@ FLEET = 'name,ip,mac\nsieve,192.168.0.10,02:00:00:00:00:10\npercolator,192.168.0
 
 def node_conf(node):
     """APPS, NETWORK etc. from a node.conf, read the way bash would."""
-    out = subprocess.run(['bash', '-c', f'source "{STACKS / node / "node.conf"}"; '
+    out = subprocess.run([BASH, '-c', f'source "{STACKS / node / "node.conf"}"; '
                           'echo "${APPS[*]}"; echo "$NETWORK"; echo "$NETWORK_SUBNET_KEY"; echo "$RESOLVER"'],
                          capture_output=True, text=True, check=True).stdout.split('\n')
     return {'APPS': out[0].split(), 'NETWORK': out[1], 'NETWORK_SUBNET_KEY': out[2], 'RESOLVER': out[3]}
@@ -168,7 +191,7 @@ class Render(unittest.TestCase):
                 refresh = lib / 'refresh-dns.sh'
                 refresh.write_text('#!/usr/bin/env bash\nset -eu\n'
                                    'printf "PIHOLE_DNSMASQ_LINES=\'address=/ollama.example.test/192.168.0.20\'\\n" > "$1/.env.local"\n')
-                command = ['bash', str(lib / 'render-configs.sh'), str(node)]
+                command = [BASH, str(lib / 'render-configs.sh'), str(node)]
                 result = subprocess.run(command, text=True, capture_output=True)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 output = template.with_suffix('')
@@ -218,7 +241,7 @@ class Render(unittest.TestCase):
             (node / 'c/secrets.env.local').write_text('return 1\n')
             env = os.environ.copy()
             env.pop('APP_SECRET', None)
-            result = subprocess.run(['bash', str(root / 'stacks/_lib/render-configs.sh'), str(node)], env=env, capture_output=True, text=True)
+            result = subprocess.run([BASH, str(root / 'stacks/_lib/render-configs.sh'), str(node)], env=env, capture_output=True, text=True)
             self.assertNotEqual(result.returncode, 0)
             self.assertEqual((node / 'a/config/config').read_text(), 'value: alpha\n')
             self.assertEqual((node / 'b/config/config').read_text(), 'old')
@@ -237,7 +260,7 @@ class Render(unittest.TestCase):
             app.mkdir()
             (app / 'secrets.env.local').write_text('C=app\n')
             (app / 'x.conf.template').write_text('${A} ${B} ${C}\n')
-            result = subprocess.run(['bash', str(root / 'stacks/_lib/render-configs.sh'), str(node)], capture_output=True, text=True)
+            result = subprocess.run([BASH, str(root / 'stacks/_lib/render-configs.sh'), str(node)], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual((app / 'x.conf').read_text(), 'fleet node app\n')
 
@@ -266,7 +289,7 @@ class Render(unittest.TestCase):
                 (node / 'traefik/secrets.env.local').write_text('C=app\n')
                 (app / 'x.yml.template').write_text('# $IGNORED in a comment\na: ${A}\nb: ${B}\nc: $C\n')
                 if side == 'bash':
-                    cmd = ['bash', str(root / 'stacks/_lib/render-configs.sh'), str(node)]
+                    cmd = [BASH, str(root / 'stacks/_lib/render-configs.sh'), str(node)]
                 else:
                     cmd = ['pwsh', '-NoProfile', '-c', f". '{root / 'stacks/_lib/purrbrews.ps1'}'; if (-not (Invoke-Render (Get-Node '{node}'))) {{ exit 1 }}"]
                 result = subprocess.run(cmd, capture_output=True, text=True)
@@ -298,9 +321,9 @@ class Layout(unittest.TestCase):
     """The things that make every node work the same way."""
 
     def test_shell_syntax(self):
-        for file in ROOT.rglob('*.sh'):
+        for file in repo_files('*.sh'):
             if '.git' not in file.parts:
-                result = subprocess.run(['bash', '-n', str(file)], capture_output=True, text=True)
+                result = subprocess.run([BASH, '-n', str(file)], capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, f'{file}: {result.stderr}')
 
     def test_node_scripts_are_identical_wrappers(self):
@@ -363,7 +386,7 @@ class Layout(unittest.TestCase):
 
     def test_images_are_pinned(self):
         floating = re.compile(r':(latest|stable|main|master|release|edge|nightly|dev|beta|rc)$')
-        for compose in STACKS.glob('*/*/docker-compose.yml'):
+        for compose in [*STACKS.glob('*/*/docker-compose.yml'), *STACKS.glob('_shared/*.yml')]:
             for image in re.findall(r'^\s*(?:image|x-image):\s*(?:&\w+\s+)?(\S+)', compose.read_text(), re.M):
                 if image.startswith('*') or image.endswith(':local') or '@sha256:' in image:
                     continue
@@ -374,7 +397,7 @@ class Layout(unittest.TestCase):
                         self.assertIsNone(floating.search(image), 'floating tag: pin a version or a digest')
 
     def test_no_references_to_docs_that_are_not_here(self):
-        for file in ROOT.rglob('*'):
+        for file in repo_files():
             if not file.is_file() or '.git' in file.parts or file.suffix in ('.pyc', '.exe') or file.name == 'test_infrastructure.py':
                 continue
             if file.name == 'runbook.md':
@@ -392,7 +415,7 @@ class Firewall(unittest.TestCase):
             env = dict(os.environ)
             if network_subnet:
                 env['NETWORK_SUBNET'] = network_subnet
-            result = subprocess.run(['bash', str(root / 'stacks' / node / 'firewall.sh'), '--dry-run'],
+            result = subprocess.run([BASH, str(root / 'stacks' / node / 'firewall.sh'), '--dry-run'],
                                     env=env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             return result.stdout
@@ -433,7 +456,7 @@ class Firewall(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = copy_repo(tmp)
             (root / 'stacks/percolator/.env.local').write_text('FORWARD_AUTH_CLIENTS=REPLACE_ME\n')
-            result = subprocess.run(['bash', str(root / 'stacks/percolator/firewall.sh'), '--dry-run'], capture_output=True, text=True)
+            result = subprocess.run([BASH, str(root / 'stacks/percolator/firewall.sh'), '--dry-run'], capture_output=True, text=True)
             self.assertNotEqual(result.returncode, 0)
 
 
@@ -455,7 +478,7 @@ class Secrets(unittest.TestCase):
         path = str(fake_bin(Path(tmp) / 'bin')) + os.pathsep + os.environ['PATH']
         script = (f'source "{root}/stacks/_lib/common.sh"; source "{root}/stacks/_lib/secrets.sh"; '
                   f'load_node "{directory}"; use_docker; generate_secrets; echo "failed=$SECRETS_FAILED"')
-        result = subprocess.run(['bash', '-c', script], env=dict(os.environ, PATH=path), stdin=subprocess.DEVNULL,
+        result = subprocess.run([BASH, '-c', script], env=dict(os.environ, PATH=path), stdin=subprocess.DEVNULL,
                                 capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('failed=0', result.stdout)
@@ -475,7 +498,7 @@ class Secrets(unittest.TestCase):
                 for source in list(directory.glob('*/docker-compose.yml')) + list(directory.glob('*/**/*.template')):
                     app_dir = directory / source.relative_to(directory).parts[0]
                     have = self.defined(root, directory, app_dir)
-                    for line in source.read_text().splitlines():
+                    for line in source_text(source).splitlines():
                         if line.lstrip().startswith('#'):
                             continue
                         for m in self.VAR.finditer(line.replace('$$', '')):
@@ -502,7 +525,7 @@ class Secrets(unittest.TestCase):
         path = str(Path(root).parent / 'bin') + os.pathsep + os.environ['PATH']
         script = (f'source "{root}/stacks/_lib/common.sh"; source "{root}/stacks/_lib/secrets.sh"; '
                   f'load_node "{directory}"; use_docker; generate_secrets')
-        subprocess.run(['bash', '-c', script], env=dict(os.environ, PATH=path), stdin=subprocess.DEVNULL, check=True)
+        subprocess.run([BASH, '-c', script], env=dict(os.environ, PATH=path), stdin=subprocess.DEVNULL, check=True)
         self.assertEqual(before, {f: f.read_text() for f in directory.glob('*/secrets.env.local')})
 
     def test_sieve_ntfy_lists_and_mirror(self):
@@ -522,7 +545,7 @@ class Secrets(unittest.TestCase):
         root = copy_repo(tmp)
         directory = root / 'stacks/percolator'
         (directory / '.env.local').write_text("ACME_EMAIL=me@example.test\nPERCOLATOR_DISK_DEVICE_NVME=/dev/nvme0\n")
-        subprocess.run(['bash', '-c', f'source "{root}/stacks/_lib/common.sh"; load_node "{directory}"; migrate_renamed_keys'],
+        subprocess.run([BASH, '-c', f'source "{root}/stacks/_lib/common.sh"; load_node "{directory}"; migrate_renamed_keys'],
                        check=True, capture_output=True)
         text = (directory / '.env.local').read_text()
         self.assertIn('TRAEFIK_ACME_EMAIL=me@example.test', text)
@@ -534,7 +557,7 @@ class PastedValues(unittest.TestCase):
     """What a paste brings along (a \r, quotes, spaces) comes off before a secret is stored."""
 
     def clean(self, value):
-        result = subprocess.run(['bash', '-c', 'source "$1" >/dev/null 2>&1; clean_pasted "$2"', '_',
+        result = subprocess.run([BASH, '-c', 'source "$1" >/dev/null 2>&1; clean_pasted "$2"', '_',
                                  str(STACKS / '_lib' / 'common.sh'), value], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         return result.stdout
@@ -549,7 +572,7 @@ class PastedValues(unittest.TestCase):
         import pty
         master, slave = pty.openpty()
         script = 'source "$1"; source "$2"; printf "[%s]" "$(ask Question)"'
-        proc = subprocess.Popen(['bash', '-c', script, '_', str(STACKS / '_lib' / 'common.sh'),
+        proc = subprocess.Popen([BASH, '-c', script, '_', str(STACKS / '_lib' / 'common.sh'),
                                  str(STACKS / '_lib' / 'secrets.sh')],
                                 stdin=slave, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         os.write(master, b'abc\n')
@@ -567,7 +590,7 @@ class Backup(unittest.TestCase):
 
     def plan(self, node, root=None):
         base = root or ROOT
-        return subprocess.run(['bash', str(base / 'stacks' / node / 'backup.sh'), 'plan'],
+        return subprocess.run([BASH, str(base / 'stacks' / node / 'backup.sh'), 'plan'],
                               capture_output=True, text=True)
 
     def test_every_node_plans(self):
@@ -631,10 +654,10 @@ class Backup(unittest.TestCase):
                    BACKUP_CACHE=str(tmp / 'cache'), BACKUP_LOCK=str(tmp / 'lock'), RESTIC_PASSWORD='test',
                    PATH=f"{fake_bin(tmp / 'bin')}:{os.environ['PATH']}")
         subprocess.run(['restic', '-q', '-r', str(repo), 'init'], env=env, check=True, capture_output=True)
-        result = subprocess.run(['bash', str(node / 'backup.sh'), 'nightly'], env=env, capture_output=True, text=True)
+        result = subprocess.run([BASH, str(node / 'backup.sh'), 'nightly'], env=env, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         dump = dumps / 'percolator/vaultwarden/vault.sql.gz'
-        self.assertIn('INSERT INTO c VALUES(42);', subprocess.run(['bash', '-c', f'gzip -dc {dump}'],
+        self.assertIn('INSERT INTO c VALUES(42);', subprocess.run([BASH, '-c', f'gzip -dc {dump}'],
                                                                   capture_output=True, text=True).stdout)
         listing = subprocess.run(['restic', '-r', str(repo), 'ls', 'latest', '--tag', 'files'],
                                  env=env, capture_output=True, text=True, check=True).stdout
@@ -642,7 +665,7 @@ class Backup(unittest.TestCase):
         self.assertNotIn('db.sqlite3', listing)   # the live database: the dump has it
         self.assertNotIn('icon_cache', listing)
         self.assertIn('.env.local', listing)      # the node's own settings always go
-        store = subprocess.run(['bash', str(node / 'backup.sh'), 'store'], env=env, capture_output=True, text=True)
+        store = subprocess.run([BASH, str(node / 'backup.sh'), 'store'], env=env, capture_output=True, text=True)
         self.assertEqual(store.returncode, 0, store.stderr)
 
     @unittest.skipUnless(AS_ROOT and all(shutil.which(c) for c in ['restic', 'rclone', 'flock']),
@@ -670,7 +693,7 @@ class Backup(unittest.TestCase):
             subprocess.run(['restic', '-q', '-r', str(roastery), 'init'], env=env, check=True, capture_output=True)
 
         def sync():
-            return subprocess.run(['bash', str(node / 'restic/drive-sync.sh')], env=env, capture_output=True, text=True)
+            return subprocess.run([BASH, str(node / 'restic/drive-sync.sh')], env=env, capture_output=True, text=True)
 
         init()
         first = sync()
@@ -724,7 +747,7 @@ class Backup(unittest.TestCase):
                    BACKUP_CACHE=str(tmp / 'cache'), BACKUP_LOCK=str(tmp / 'lock'), RESTIC_PASSWORD='test',
                    PATH=f"{fake_bin(tmp / 'bin')}:{os.environ['PATH']}")
         subprocess.run(['restic', '-q', '-r', str(repo), 'init'], env=env, check=True, capture_output=True)
-        result = subprocess.run(['bash', str(node / 'backup.sh'), 'nightly'], env=env, capture_output=True, text=True)
+        result = subprocess.run([BASH, str(node / 'backup.sh'), 'nightly'], env=env, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         made = sorted(p.relative_to(dumps / 'percolator').as_posix() for p in dumps.rglob('*.sql.gz'))
         self.assertEqual(made, [
@@ -732,7 +755,7 @@ class Backup(unittest.TestCase):
             'actualbudget/groups-actualbudget_user-files_group-abc.sqlite.sql.gz',
             'actualbudget/groups-actualbudget_user-files_group-def.sqlite.sql.gz',
             'freshrss/users-freshrss_data_users_alice_db.sqlite.sql.gz'])
-        group = subprocess.run(['bash', '-c', f"gzip -dc {dumps}/percolator/actualbudget/groups-*group-def*"],
+        group = subprocess.run([BASH, '-c', f"gzip -dc {dumps}/percolator/actualbudget/groups-*group-def*"],
                                capture_output=True, text=True).stdout
         self.assertIn('INSERT INTO m VALUES(3);', group)
         listing = subprocess.run(['restic', '-r', str(repo), 'ls', 'latest', '--tag', 'files'],
@@ -802,7 +825,7 @@ class RemoteAccess(unittest.TestCase):
 
     def test_no_auth_key_anywhere_in_the_repo(self):
         pattern = re.compile(r'tskey-[a-z]+-[A-Za-z0-9]')
-        for file in ROOT.rglob('*'):
+        for file in repo_files(include_deprecated=True):
             if file.is_file() and '.git' not in file.parts and file.suffix not in ('.pyc', '.exe', '.onnx'):
                 self.assertNotRegex(file.read_text(errors='ignore'), pattern, str(file.relative_to(ROOT)))
 
@@ -1005,7 +1028,7 @@ class Flask(unittest.TestCase):
     def test_powershell_files_are_ascii(self):
         # PowerShell 5 reads a BOM-less .ps1 as ANSI: a UTF-8 dash becomes a
         # smart quote, which it treats as a string delimiter.
-        for file in ROOT.rglob('*.ps1'):
+        for file in repo_files('*.ps1'):
             if '.git' not in file.parts:
                 bad = [n for n, line in enumerate(file.read_text().splitlines(), 1) if not line.isascii()]
                 self.assertEqual(bad, [], f'{file.relative_to(ROOT)}: non-ASCII on lines {bad}')
