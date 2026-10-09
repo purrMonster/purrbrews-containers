@@ -8,6 +8,7 @@ that differs between nodes or apps is a small config file, not code.
 stacks/
 ├── fleet.env                  LAN facts every node shares (IPs, gateway, TZ, backups). Committed, not secret
 ├── _lib/                      the actual scripts (see below)
+├── _shared/                   reusable Linux Compose service definitions
 └── <node>/
     ├── README.md              role, apps, bring-up order, gotchas
     ├── node.conf              APPS in bring-up order, NETWORK, RESOLVER
@@ -38,8 +39,9 @@ stacks/
 | `grinder` | Automation, AI indexing, self-tracking | [grinder/](grinder/README.md) |
 | `roastery`* | Windows workstation: GPU for Immich ML and the local LLMs (llama-swap) | [roastery/](roastery/README.md) |
 
-\* Not a fleet node: no init, no `/opt/purrbrews/.env`, no `DATA_DIR`. It has
-PowerShell twins of the scripts (`*.ps1`) so it doesn't need WSL.
+\* roastery uses [`init/roastery-init.ps1`](../init/roastery-init.ps1) for its
+Windows rebuild. It has no `/opt/purrbrews/.env` or `DATA_DIR`. PowerShell twins
+of the stack scripts (`*.ps1`) let it run without WSL.
 
 ## The shared scripts
 
@@ -58,6 +60,76 @@ few commands that need it; root-owned secrets files break the next run).
 init: `NODE`, `NODE_IP`, `PUID`/`PGID`, `DATA_DIR`, `MEDIA_DIR`) → the node's
 `.env.local` → the app's `secrets.env.local`. The renderer and compose see exactly
 the same values.
+
+### Where shared behavior lives
+
+Keep the small node wrappers: they pass their own directory to `_lib`. Change
+shared behavior here, and keep differences between nodes in `node.conf` or the
+app's files. The app files are discovered by location, so identical files can
+still be required on several nodes.
+
+| Helper | Responsibility |
+|---|---|
+| [`_lib/common.sh`](_lib/common.sh) | Node discovery, env precedence, key migration and Docker invocation |
+| [`_lib/purrbrews.ps1`](_lib/purrbrews.ps1) | Windows counterparts for setup, rendering and Compose |
+| [`_lib/secrets.sh`](_lib/secrets.sh) | The `secrets.conf` format and secret generation |
+| [`_lib/render-template.py`](_lib/render-template.py) | Template substitution and atomic output on Linux |
+| [`_lib/check-compose-config.py`](_lib/check-compose-config.py) | Refuse unresolved placeholders without printing values |
+| [`_lib/dns-records.py`](_lib/dns-records.py) | Shared route discovery and Pi-hole record generation |
+| [`_lib/restic-env.sh`](_lib/restic-env.sh) | Backup transport, repository environment and reachability |
+
+The PowerShell implementation deliberately mirrors the shell helpers. Changes
+to their shared contract need to account for both platforms.
+
+### Shared service definitions
+
+Komodo Periphery and Scrutiny collectors on grinder, mochaPot, percolator and
+sieve extend [`_shared/`](_shared/README.md). Change shared settings once there;
+keep keys, disk devices and other local paths in each app's Compose file. The
+full repository must be present when deploying; an app folder alone is not enough.
+
+### Find and inspect an app
+
+From the node folder, `./compose.sh --help` and `./compose.sh --list` need no
+Docker daemon or secrets. On Windows use `.\compose.ps1 --help` and
+`.\compose.ps1 --list`. The list follows `node.conf` and flags extra Compose folders.
+
+Use `./compose.sh <app> ps` for state and `./compose.sh <app> config --quiet`
+for Compose's configuration check when the node is ready. The Linux wrapper
+does not migrate environment keys or create networks for these commands. Those
+preparations happen for `up`, `create`, `start`, `restart`, `run`, `watch` and `scale`.
+Both wrappers recognize separate values for
+[Compose global options](https://docs.docker.com/reference/cli/docker/compose/#options)
+such as `--profile` and `--project-name`, so those values do not affect command
+selection or reverse the app order accidentally.
+
+Put global preview options before the command: `./compose.sh <app> --dry-run up`
+(or `.\compose.ps1 <app> --dry-run up`). The wrappers forward the preview to
+Compose without migrating keys, creating networks or running startup preflight.
+Preview requires existing inputs; it does not create missing directories or renders.
+Windows startup also rejects renders older than their template or environment inputs.
+
+See [the offline test guide](../tests/README.md) before changing shared helpers.
+
+### Files used without a literal caller
+
+These are the discovery contracts. Preserve the filename and location when
+adding an app; a search for an exact filename alone cannot establish usage.
+
+| Input | Consumer |
+|---|---|
+| `node.conf` / `APPS` | Compose execution order; reverse order for teardown |
+| `<app>/docker-compose.yml` | Compose entry point and app discovery; may extend `_shared/` |
+| `<app>/secrets.conf` | `secrets.sh` during setup, including non-Compose apps such as restic |
+| `<app>/data-dirs`, `<app>/prepare.sh` | Linux Compose preflight |
+| `*.template` below a node | Render helpers; output goes beside its template |
+| `<app>/firewall`, `<app>/backup` | Shared firewall and backup helpers |
+| `restic/*.service`, `restic/*.timer` | `backup.sh`'s `node_units()` installation and timer discovery |
+| Init's ordered step list | `step_<name>` in Bash, `Step-<name>` in PowerShell |
+
+Archived files under root `Deprecated/` are outside these deployment discovery
+paths and excluded from the active Graphify map. Existing source checks exclude
+archives for syntax and current references, but the credential scan includes them.
 
 ### secrets.conf
 

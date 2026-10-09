@@ -5,7 +5,7 @@ on time, and be noticed when they don't, live here. Host-native scripts and
 systemd timers, not a container. Design and reasoning: runbook, 2026-09-27.
 
 ```
-every node, 01:30                 cellar                       roastery (sleeps)
+every node, 01:30                 cellar                       roastery (awake)
   backup.sh nightly                                          C:\purrbrews\restic
    ├─ dump databases ──push──►  /srv/dumps/<node>  ──02:30──►  (SFTP, restic)
    └─ files ─────────────────────────────────────────────────►       │
@@ -37,7 +37,12 @@ cellar does.
 
 Every job needs root (root's backup key and the rclone config are root's), wakes
 roastery itself if it's asleep, and reports failures to `NTFY_URL`
-(`restic/secrets.env.local`). None of them is switched on yet.
+(`restic/secrets.env.local`). The runbook records the jobs enabled and a clean
+overnight cycle on 2026-09-30. It also records roastery's 2026-10-07 wipe: restore
+its repository before reauthorizing node keys (see
+[recovery, part B](../../roastery/flask/RECOVERY.md)). Current live state needs a
+separate check. The 01:25 wake timer remains a fallback; the recorded power policy
+keeps roastery awake.
 
 ## Tying it together
 

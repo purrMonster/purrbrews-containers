@@ -50,6 +50,117 @@ changes can be made later without re-deriving the reasoning.
 
 ---
 
+## 2026-10-09 — Debian verification and focused cleanup commits
+
+The owner authorized tests, Debian WSL dependencies and individual local commits,
+then requested another codebase review. Installed Python/pytest, Git, restic,
+sqlite3, rclone, OpenSSL and ShellCheck in the newly installed Debian environment.
+The earlier Windows pytest attempt could not start because pytest was absent.
+Debian installation completed; its systemd-binfmt package trigger reported a WSL
+failure, which did not prevent the test tools from running and was not changed.
+
+Evidence (2026-10-09): the final non-root Debian suite passed 75 tests with four
+skips. Three root-only local backup integration tests passed separately; Linux
+PowerShell rendering parity remains skipped because pwsh is absent. Native
+Windows Compose regression checks passed. All eight resolved Compose models
+matched the archived originals using fixture values and no running containers.
+Active PowerShell scripts parsed; ShellCheck found no errors and one cross-file
+CURRENT_STEP warning (the sourced init script's warn/die functions use it).
+
+The second review added preview-safe wrapper dispatch and Windows stale-render
+checks, with regression tests. It also fixed Windows test collection and explicit
+Bash resolution. The repeat suite passed after these changes. No fleet nodes,
+backup destinations or running application services were changed; no pushes.
+The test guide is tests/README.md; detailed limitations are in docs/cleanup-review.md.
+
+Commits on codex/code-sanitization:
+- 60c9fa8: shared Linux service definitions and archived originals.
+- c77f58b: Compose helper fixes and regression checks.
+- fd9f248: shared-config coverage, portable test harness and test guide.
+- be1f1b4: generated-output and archive analysis exclusions.
+- Documentation and this handoff: docs: record verified cleanup and deployment prerequisites.
+
+The earlier Repository structure review entry and Claude integration files remain
+uncommitted. Git had no configured identity; commits used the established identity
+from this repository's recent history, without changing global configuration.
+Graphify outputs stay local and retain the audit of extraction limitations.
+Next: owner-authorized deployment and live alert-path checks; optionally install
+Linux pwsh for rendering parity, confirm external groom-record deployment, and
+resolve the recorded Open WebUI authentication decision separately.
+Undo source changes with ordinary inverse commits, using Deprecated/README.md
+for original Compose paths; do not rewrite history or discard earlier edits.
+
+---
+
+## 2026-10-09 — Shared service refactor and command usability
+
+Extended the cleanup on `codex/code-sanitization` into a runtime-source refactor,
+following the owner's expanded request. Eight original Linux Compose files were
+moved to `Deprecated/2026-10-09/stacks/`; their active replacements extend two
+`stacks/_shared/` definitions. Per-node keys, disk devices, percolator's second
+disk and mochaPot's collector workaround stay in the node files. Image versions,
+service names, environment settings and restart policies were carried over.
+
+PowerShell Compose now supports `--help` and `--list` without Docker or secrets.
+The Linux wrapper rejects invalid app targets before preparation and only
+migrates keys/creates its network for up/create/start/restart/run/watch/scale. Inspection,
+pull and teardown avoid those incidental changes. Existing source checks now
+follow shared environment references and image pins, exclude archived/generated
+sources from active scans, and retain archived files in the credential scan.
+Both wrappers now skip global option values when identifying the command, so
+`--profile` values cannot suppress preflight or accidentally reverse app order.
+The stack guide records dynamic file discovery and the full-checkout requirement.
+
+Second pass evidence: source/diff review on 2026-10-09 covered the eight leaf
+files, both shared definitions, command dispatch and raw-Compose consumers.
+No tests or operational scripts ran; no runtime equivalence or deployment is
+claimed. No dependencies installed, node/remote changes, commits or pushes.
+Prior owner-approved working-tree changes remain. Next: authorize offline tests
+and a resolved-Compose comparison before rollout; confirm external groom-record
+usage separately. Graphify is refreshed separately in the local output directory.
+
+Undo: use `Deprecated/README.md` to move the originals back without overwriting
+replacements, then reverse this pass's helper, check and documentation edits.
+The earlier cleanup entry below describes the first, documentation-only stage.
+
+---
+
+## 2026-10-09 — Workspace cleanup on codex/code-sanitization
+
+Reviewed the tracked file inventory, identical-file groups, node app manifests,
+script references, dynamic init dispatch, backup unit discovery, Python imports
+and local Markdown file targets. Evidence: local source inspection on 2026-10-09;
+all six node app lists matched their Compose folders, and the tracked Markdown
+file-target scan found no missing files. The existing Graphify map was used for
+navigation, then findings were checked against the source.
+
+Corrected stale backup status, Windows init and sleep-policy descriptions; added
+a guide to the shared helpers in stacks/README.md and a cleanup review in
+`docs/cleanup-review.md`. Added `Deprecated/README.md` as the archive index and
+ignored generated `graphify-out/` files in Git. Those outputs remain on disk;
+the graph snapshot predates these documentation edits. No runtime files could
+be confidently retired, so none were moved or deleted. Runtime code and service
+configuration are unchanged. Earlier runbook and Claude integration edits remain.
+
+Tests were not run, as requested. No dependencies were installed, no nodes or
+remotes were accessed, and no commits or pushes were made. Next: owner decisions
+on the external groom-record integration, possible shared Compose fragments and
+Graphify availability for Claude hooks; evidence is in the cleanup review.
+Undo: reverse only this cleanup's documentation and ignore-rule edits, preserving
+the earlier runbook and Claude changes. No runtime paths need restoring.
+
+---
+
+## 2026-10-09 — Graphify repository map
+
+Built the Graphify knowledge graph for the repository, including the existing working-tree changes in `runbook.md`, `.claude/CLAUDE.md` and `CLAUDE.md`. Detection found 198 supported files (87 code, 111 documents; about 116,459 words); 41 sensitive files were excluded. Outputs are in `graphify-out/` (`graph.html`, `GRAPH_REPORT.md`, `graph.json`). The graph has 748 nodes, 1,088 edges and 114 labeled communities.
+
+Integrity check: 83 dangling-endpoint edges, one self-loop, and endpoint-pair collapses (8 directed, 12 undirected); review the report before relying on those relationships. The SQL source yielded no symbols because `tree_sitter_sql` was unavailable. Semantic extraction token usage was not exposed by the agent tool, so Graphify recorded zero token counters rather than measured usage.
+
+No tests ran; no nodes or remotes were accessed or changed. No commits or pushes. Next: review the report and health findings, then use Graphify queries as needed. Undo: remove this entry and `graphify-out/`.
+
+---
+
 ## 2026-10-08 — `init/roastery-init.ps1`: roastery gets an init
 
 The owner: every Debian node has `purrbrews-init.sh`, roastery had nothing, and

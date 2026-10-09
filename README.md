@@ -72,9 +72,11 @@ Speedtest Tracker). Every node also runs its own Traefik, a Komodo Periphery age
 a Scrutiny collector. The workstation, [`roastery`](stacks/roastery/README.md), lends
 its GPU to Immich and to the local LLMs (llama-swap, which replaced Ollama).
 
-All five nodes are up and running their stacks. Backups aren't finished yet: the
-database dumps, restic's sources and a restore test are still open
-([runbook](runbook.md)).
+The [runbook](runbook.md) records successful restore tests from roastery and
+Google Drive on 2026-09-29, followed by a clean overnight backup cycle on
+2026-09-30. roastery was then wiped on 2026-10-07; its rebuild requires restoring
+the backup repository before authorizing the nodes' keys. Use the Backlog and
+newest entries for recorded progress; these documents do not confirm live state.
 
 MACs are derived from the node name, so a reinstall or NIC swap never changes how the
 network sees a machine (see [`init/README.md`](init/README.md)).
@@ -87,7 +89,7 @@ the nodes and Remote Desktop to roastery, with no port open on the router
 
 ```
 bootstrap/                  workstation container that serves node setup on the LAN
-init/                       fresh Debian → ready node: hardening, Docker, network, timers
+init/                       Debian provisioning and roastery's Windows rebuild entry point
 stacks/fleet.env            LAN facts every node shares
 stacks/_lib/                the scripts every node uses: setup, render, compose, firewall
 stacks/<node>/node.conf     that node's apps in bring-up order, its network, its DNS role
@@ -95,11 +97,16 @@ stacks/<node>/<app>/        docker-compose.yml, plus secrets.conf / firewall / d
 tailscale/                  remote access: the tailnet policy and how every machine joins
 runbook.md                  dated decisions and the backlog: the why, not just the what
 docs/                       audits and the map of everything; start at docs/MAP.md
+Deprecated/                 archive index; retired files keep their original relative paths
 tests/                      offline checks: python3 -m unittest discover -s tests
 ```
 
 Adding an app to a node is a folder and one line in `node.conf`; no script needs
 editing. [`stacks/README.md`](stacks/README.md) has the details.
+
+The [cleanup review](docs/cleanup-review.md) explains retained components and
+possible follow-ups. `graphify-out/`, when present, is ignored local analysis
+output; regenerate it after relevant source changes before relying on its map.
 
 ## Current network audit
 

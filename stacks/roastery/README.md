@@ -164,7 +164,9 @@ copy backup-target\authorized_keys.example backup-target\authorized_keys
 - **Nothing else can SSH into this PC** while `AllowUsers restic` is there. That's
   deliberate; remove the managed block from `C:\ProgramData\ssh\sshd_config` if
   that ever changes.
-- **Sleep, don't shut down.** Wake-on-LAN brings it back from sleep, not from off.
+- **Keep it awake for now.** The 2026-09-29 decision and `roastery-init.ps1`
+  disable AC standby. The existing Wake-on-LAN path remains a fallback; a future
+  sleep policy needs the wake-on-demand work in the runbook first.
 - **Its own D: isn't backed up yet** (documents, projects, insta360 footage).
 
 ## Remote access
