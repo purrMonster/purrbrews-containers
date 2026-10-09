@@ -75,6 +75,11 @@ stacks/roastery/game-mode/state.json
 # --- Claude collaboration workspace -----------------------------------------
 claude/
 
+# --- Generated local analysis -----------------------------------------------
+# Graphify reports, caches and its local Python packages are reproducible output.
+# Keep them available locally without adding them to the public infrastructure repo.
+/graphify-out/
+
 # --- Editors, OS, Python ----------------------------------------------------
 .vscode/*
 !.vscode/extensions.json
