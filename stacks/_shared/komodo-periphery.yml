@@ -1,0 +1,39 @@
+# Komodo Periphery: the agent that lets Komodo Core on cellar manage this
+# node's containers. It dials out to Core on cellar:9120, so nothing here
+# needs an inbound port or a firewall rule. Linux node definitions extend this
+# service; the node's name comes from NODE in /opt/purrbrews/.env.
+#
+# Before the first `up`: copy cellar's /srv/data/komodo/keys/core.pub into
+# the node app's ./keys/core.pub (gitignored). It's a multi-line PEM, which doesn't survive
+# the one-line .env files, so it stays a hand-copied file.
+#
+# First connect also needs an onboarding key from Komodo's UI (Settings →
+# onboarding, named after this node); ./setup-secrets.sh asks for it. Once
+# the node shows up as a Server in Komodo, the key isn't needed any more:
+# leave it blank. It has to be stored unquoted, which setup does; a quoted
+# key is what "Private key must be 32 characters or less" turned out to be.
+#
+# The docker socket mount is the real risk here: whoever controls Komodo
+# Core (its admin login, JWT or webhook secret) has root on this node.
+#
+# Image: ghcr.io/moghtech/komodo-periphery:2.3.2, same as Core. Checked 2026-09-17.
+services:
+  komodo-periphery:
+    image: ghcr.io/moghtech/komodo-periphery:2.3.2
+    container_name: komodo-periphery
+    init: true
+    environment:
+      TZ: ${TZ}
+      PERIPHERY_CORE_ADDRESS: ws://${CELLAR_LAN_IP}:9120
+      PERIPHERY_CONNECT_AS: ${NODE:?NODE comes from /opt/purrbrews/.env}
+      PERIPHERY_CORE_PUBLIC_KEYS: file:/config/keys/core.pub
+      PERIPHERY_ONBOARDING_KEY: ${PERIPHERY_ONBOARDING_KEY:-}
+      PERIPHERY_ROOT_DIRECTORY: /etc/komodo
+      PERIPHERY_INCLUDE_DISK_MOUNTS: /etc/hostname
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /proc:/proc
+      # Must be the same path inside and out, or Periphery can't find the
+      # stacks it deploys (moghtech/komodo discussion #180).
+      - /etc/komodo:/etc/komodo
+    restart: unless-stopped
