@@ -161,6 +161,34 @@ No tests ran; no nodes or remotes were accessed or changed. No commits or pushes
 
 ---
 
+## 2026-10-08 — Repository structure review
+
+Reviewed AGENTS.md, docs/MAP.md, the Backlog and newest runbook entries, the
+repository layout, node manifests and READMEs, shared setup/compose helpers,
+backup and recovery design, Tailscale access, and the embedding/LLM configuration
+to understand the project for subsequent work. Evidence: local file reads on
+2026-10-08; the working tree was clean at the start. No nodes or remotes were
+accessed or changed, and no application configuration was edited.
+
+The overview docs contain older status statements (backups not enabled, Ollama,
+roastery sleeping, no Windows init); use the newer dated runbook decisions and
+implementation when planning work. Last recorded priority: restore roastery's
+restic repository from Drive before authorizing node backup keys, then resume
+its rebuild. Live state was not verified in this review.
+
+Validation follow-up (2026-10-08): Python 3.14 is accessible outside the sandbox.
+python -m pytest tests could not run: pytest is not installed. The documented
+python -m unittest discover -s tests ran four DNS tests successfully, but
+test_infrastructure could not import on Windows because os.geteuid is absent
+(five discovered results, one import error). The full suite remains unverified;
+next validation step is to run it in a suitable Linux environment. No test code
+was changed. The owner requested keeping codex/project-understanding local only;
+no commits or pushes. Next project step: select the owner's infrastructure task
+and verify its current state before changing it. Undo: remove this review entry;
+the only file change is this handoff.
+
+---
+
 ## 2026-10-08 — `init/roastery-init.ps1`: roastery gets an init
 
 The owner: every Debian node has `purrbrews-init.sh`, roastery had nothing, and
