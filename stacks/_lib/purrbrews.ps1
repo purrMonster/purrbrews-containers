@@ -168,12 +168,44 @@ function Find-Placeholder($Value, [string]$Path) {
     }
 }
 
+function Get-ComposeOptions([string[]]$Arguments) {
+    # Keep in sync with parse_compose_args in compose.sh. --option=value and attached
+    # short values are already one token; only separate option values need skipping.
+    $valuedOptions = @('--ansi', '--env-file', '-f', '--file', '--parallel', '--profile',
+                      '--progress', '--project-directory', '-p', '--project-name')
+    $result = [pscustomobject]@{ Verb = ''; Preview = $false }
+    for ($i = 0; $i -lt $Arguments.Count; $i++) {
+        if ($Arguments[$i] -in $valuedOptions) { $i++; continue }
+        if ($Arguments[$i] -in '--dry-run', '--dry-run=true', '-h', '--help') { $result.Preview = $true }
+        if ($Arguments[$i] -eq '--dry-run=false') { $result.Preview = $false }
+        if (-not $Arguments[$i].StartsWith('-')) { $result.Verb = $Arguments[$i]; break }
+    }
+    return $result
+}
+
 function Invoke-Compose($Node, [string[]]$Arguments) {
+    if ($Arguments.Count -gt 0 -and $Arguments[0] -in '-h', '--help') {
+        'usage: compose.ps1 <app|--all> <docker compose args...>'
+        '       compose.ps1 --list'
+        'Apps run in node.conf order; down/stop/rm run in reverse order.'
+        return
+    }
+    if ($Arguments.Count -gt 0 -and $Arguments[0] -eq '--list') {
+        $Node.Apps
+        foreach ($dir in Get-ChildItem -LiteralPath $Node.Dir -Directory | Sort-Object Name) {
+            if ($dir.Name -notin $Node.Apps -and (Test-Path -LiteralPath (Join-Path $dir.FullName 'docker-compose.yml'))) {
+                "($($dir.Name) has a docker-compose.yml but isn't in node.conf's APPS)"
+            }
+        }
+        return
+    }
     if ($Arguments.Count -lt 2) { throw 'usage: compose.ps1 <app|--all> <docker compose args...>' }
     $target = $Arguments[0]
     $rest = @($Arguments | Select-Object -Skip 1)
+    $options = Get-ComposeOptions $rest
+    $verb = $options.Verb
     $apps = if ($target -in '--all', 'all') {
-        if ($rest -contains 'down' -or $rest -contains 'stop' -or $rest -contains 'rm') { $r = @($Node.Apps); [array]::Reverse($r); $r } else { $Node.Apps }
+        if ($verb -in 'down', 'stop', 'rm') { $r = @($Node.Apps); [array]::Reverse($r); $r } else { $Node.Apps }
     } else { @($target) }
 
     foreach ($app in $apps) {
@@ -184,12 +216,17 @@ function Invoke-Compose($Node, [string[]]$Arguments) {
         foreach ($f in @($Node.EnvFiles) + (Join-Path $appDir 'secrets.env.local')) {
             if (Test-Path -LiteralPath $f) { $composeArgs += @('--env-file', $f) }
         }
-        $verb = $rest | Where-Object { -not $_.StartsWith('-') } | Select-Object -First 1
-        if ($verb -in 'up', 'create', 'start', 'restart') {
+        if (-not $options.Preview -and $verb -in 'up', 'create', 'start', 'restart') {
             if (-not (Test-Path -LiteralPath $Node.EnvLocal)) { throw '.env.local is missing; run .\setup-secrets.ps1 first.' }
             foreach ($tpl in Get-ChildItem -LiteralPath $appDir -Recurse -Filter '*.template' -File) {
                 $out = $tpl.FullName -replace '\.template$', ''
                 if (-not (Test-Path -LiteralPath $out)) { throw "$out hasn't been rendered; run .\render-configs.ps1." }
+                $renderedAt = (Get-Item -LiteralPath $out).LastWriteTimeUtc
+                foreach ($inputFile in @($tpl.FullName) + @($Node.EnvFiles) + (Join-Path $appDir 'secrets.env.local')) {
+                    if ((Test-Path -LiteralPath $inputFile) -and (Get-Item -LiteralPath $inputFile).LastWriteTimeUtc -gt $renderedAt) {
+                        throw "$out is older than $inputFile; run .\render-configs.ps1."
+                    }
+                }
             }
             $json = & docker @composeArgs config --format json
             if ($LASTEXITCODE -ne 0) { throw "${app}: docker compose config failed." }

@@ -49,7 +49,7 @@ load_node() {
 }
 
 app_dirs() {
-  # Every folder with a docker-compose.yml or a template, so --list can point
+  # Every folder with a docker-compose.yml, so --list can point
   # out an app that exists on disk but was never added to node.conf.
   local d
   for d in "$NODE_DIR"/*/; do
