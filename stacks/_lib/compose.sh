@@ -95,6 +95,27 @@ compose_args() {  # compose_args <app>: fills ARGS for `docker compose`
   return 0
 }
 
+parse_compose_args() {
+  # Skip values belonging to Compose's global options, not just flag tokens.
+  # Keep in sync with Get-ComposeOptions in purrbrews.ps1. Global options go
+  # before the command; run/exec arguments belong to the container afterwards.
+  verb=''
+  preview=false
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --ansi|--env-file|-f|--file|--parallel|--profile|--progress|--project-directory|-p|--project-name)
+        [[ $# -ge 2 ]] || return 0
+        shift
+        ;;
+      --dry-run|--dry-run=true|-h|--help) preview=true ;;
+      --dry-run=false) preview=false ;;
+      -*) ;;
+      *) verb="$1"; return 0 ;;
+    esac
+    shift
+  done
+}
+
 preflight() {
   local app="$1" app_dir="$NODE_DIR/$1" tpl out f
   if [[ "$NEEDS_INIT" == true && ! -f "$ROOT/.env" ]]; then
@@ -130,16 +151,20 @@ preflight() {
 run_app() {
   local app="$1"; shift
   [[ -f "$NODE_DIR/$app/docker-compose.yml" ]] || die "no such app: $app (apps: ${APPS[*]})"
-  local verb='' arg
-  for arg in "$@"; do [[ "$arg" == -* ]] || { verb="$arg"; break; }; done
   case "$verb" in
-    up|create|start|restart) preflight "$app" ;;
+    up|create|start|restart) if [[ "$preview" == false ]]; then preflight "$app"; fi ;;
   esac
   local before=''
-  [[ "$verb" == up ]] && before="$(app_images "$app")"
+  if [[ "$verb" == up && "$preview" == false && -z "${PURRBREWS_KEEP_IMAGES:-}" ]]; then
+    before="$(app_images "$app")"
+  fi
   compose_args "$app"
-  "${DOCKER[@]}" compose "${ARGS[@]}" "$@"
-  [[ "$verb" != up ]] || drop_replaced_images "$app" "$before"
+  # run_app can be called in an || list, which disables Bash's implicit
+  # errexit inside the function. Preserve failures before optional cleanup.
+  "${DOCKER[@]}" compose "${ARGS[@]}" "$@" || return $?
+  if [[ "$verb" == up && "$preview" == false ]]; then
+    drop_replaced_images "$app" "$before"
+  fi
 }
 
 app_images() {  # app_images <app>: image IDs of the app's containers, one per line
@@ -178,16 +203,28 @@ case "$1" in
     ;;
 esac
 
-use_docker
-migrate_renamed_keys
-ensure_network
-
 target="$1"; shift
 [[ $# -ge 1 ]] || usage
+# Reject bad targets before Docker access or local preparation.
+if [[ "$target" != --all && "$target" != all ]]; then
+  [[ -f "$NODE_DIR/$target/docker-compose.yml" ]] || die "no such app: $target (apps: ${APPS[*]})"
+fi
+use_docker
+# Inspection, pull and teardown do not need environment migration or network
+# creation. Keep those side effects with the commands that start containers.
+parse_compose_args "$@"
+case "$verb" in
+  up|create|start|restart|run|watch|scale)
+    if [[ "$preview" == false ]]; then
+      migrate_renamed_keys
+      ensure_network
+    fi
+    ;;
+esac
 if [[ "$target" == --all || "$target" == all ]]; then
   order=("${APPS[@]}")
-  case " $* " in
-    *" down "*|*" stop "*|*" rm "*)
+  case "$verb" in
+    down|stop|rm)
       order=()
       for ((i = ${#APPS[@]} - 1; i >= 0; i--)); do order+=("${APPS[$i]}"); done
       ;;

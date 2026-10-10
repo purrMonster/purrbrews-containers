@@ -7,7 +7,7 @@
 # bump is exactly how this would break again.
 services:
   fittrackee:
-    image: fittrackee/fittrackee:v1.3.5
+    image: fittrackee/fittrackee:v1.3.5@sha256:a832258dc564827a1944ee6d5a60befff086bdc7ace8761104c81f1a4a384c03
     container_name: fittrackee
     environment:
       TZ: ${TZ}
@@ -50,7 +50,7 @@ services:
     # restarts forever. Same major as before, so the data directory carries over.
     # The image creates the extension only on a fresh data directory; an existing
     # one needs `CREATE EXTENSION postgis` once (runbook, 2026-09-26).
-    image: postgis/postgis:16-3.5  # checked 2026-09-26
+    image: postgis/postgis:16-3.5@sha256:94146ac37bc61e2322f88016056c5920729cb8c64c8542ed590af8fc2abdac07  # checked 2026-09-26
     container_name: postgres-fittrackee
     environment:
       POSTGRES_USER: ${FITTRACKEE_DB_USERNAME}

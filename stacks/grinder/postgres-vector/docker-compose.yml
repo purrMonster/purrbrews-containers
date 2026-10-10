@@ -1,11 +1,11 @@
 # Postgres with pgvector: the vector store n8n and the embedding worker use.
 # Not published; reached as postgres-vector:5432 on grinder_net.
 #
-# Image: pgvector/pgvector:pg16, the official extension on the official
+# Image: pgvector/pgvector:0.8.7-pg16, the official extension on the official
 # image. pg16 like the other Postgres instances on the small nodes.
 services:
   postgres-vector:
-    image: pgvector/pgvector:pg16
+    image: pgvector/pgvector:0.8.7-pg16@sha256:7b822b0aac60967beb1ea5e576b8602c94c300a157d187f385ae3e0da199b90a
     container_name: postgres-vector
     environment:
       POSTGRES_USER: ${PGVECTOR_USERNAME}

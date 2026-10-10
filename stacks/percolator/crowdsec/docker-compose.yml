@@ -1,10 +1,10 @@
-# CrowdSec — reads Traefik's access log and serves ban decisions to the
+# CrowdSec â€” reads Traefik's access log and serves ban decisions to the
 # Traefik bouncer plugin (traefik/config/dynamic.yml.template, `crowdsec`).
 # No published ports: the plugin reaches the API as crowdsec:8080 on `proxy`.
 # Image tag checked 2026-09-15.
 services:
   crowdsec:
-    image: crowdsecurity/crowdsec:v1.7.8
+    image: crowdsecurity/crowdsec:v1.8.1@sha256:0f2523fa61ef507f15d953045cface490cc880670c62f2755ced17524107f71a
     container_name: crowdsec
     restart: unless-stopped
     security_opt: [no-new-privileges:true]

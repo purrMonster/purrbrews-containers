@@ -82,13 +82,14 @@ flowchart LR
 
 ## Bring-up
 
-All commands run on percolator as `barista` in `/opt/purrbrews/stacks/percolator`.
-`compose.sh` uses `sudo docker` itself; don't prefix it with sudo.
+For the first rollout, use the checkpoints below: LLDAP bootstrap requires a
+manual step before Authelia is ready. For routine full bring-ups after setup,
+`bash scripts/run.sh` previews setup/render, firewall, and Compose in `node.conf`
+order; pass the release options in [operations](../../docs/operations.md) to execute. `compose.sh` uses `sudo docker` itself; don't prefix it with sudo.
 
 ```bash
-./setup-secrets.sh          # asks for DOMAIN, TRAEFIK_ACME_EMAIL, roastery IP, Cloudflare token
-                            # generates every secret, renders every config
-sudo ./firewall.sh          # LAN → 80/443 on Traefik; FORWARD_AUTH_CLIENTS → 9091
+./setup-secrets.sh
+sudo ./firewall.sh
 ```
 
 Then bring apps up **one at a time, in this order**, and confirm each one's success
@@ -98,19 +99,19 @@ signal (in its README) before the next. "Container started" is not a success sig
 |---|---|---|
 | 1 | `./compose.sh traefik up -d` | no ACME errors in `sudo docker logs traefik`; any `https://<anything>.${DOMAIN}` shows a valid wildcard padlock (a 404 page is fine at this point) |
 | 2 | `./compose.sh crowdsec up -d` | `sudo docker exec crowdsec cscli bouncers list` shows `traefik` with a recent last pull |
-| 3 | `./compose.sh lldap up -d` then `./lldap-bootstrap.sh` | groups exist, `barista` created — **save the printed one-time password** |
+| 3 | `./compose.sh lldap up -d` then `./lldap-bootstrap.sh` in an interactive terminal | groups exist, `barista` created — **save the one-time password shown on the terminal** |
 | 4 | `./compose.sh authelia up -d` | log in at `https://authelia.${DOMAIN}` as `barista`; the Traefik dashboard opens; from sieve, `curl -s -o /dev/null -w '%{http_code}' http://192.168.0.11:9091/api/health` gives `200` |
 | 5+ | `./compose.sh <app> up -d` for vaultwarden, nextcloud, immich, paperless, mealie, vikunja, actualbudget, freshrss, homepage | the app's README checklist |
 | last | `./compose.sh komodo-periphery up -d`, `./compose.sh scrutiny-collector up -d` | percolator shows up in Komodo and Scrutiny on cellar (copy `komodo-periphery/keys/core.pub` from cellar first) |
 
-Once everything has been up once, `./compose.sh --all up -d` brings the whole node up
-in that order, and `./compose.sh --all down` takes it down in reverse.
+For subsequent deployments, use the reviewed release workflow in
+[operations](../../docs/operations.md). `./compose.sh --all down` takes it down in reverse.
 
 ## Scripts
 
-The four node scripts are the same wrappers on every node; the logic is in
-[`../_lib`](../README.md#the-shared-scripts), and what's specific to percolator is
-in `node.conf` and the files in each app folder.
+Shared wrappers at the node root call `_lib` directly. One-off tasks and the
+plan/deploy runner live in `scripts/`; old one-off entrypoints forward there. Logic is in [`../_lib`](../README.md#the-shared-scripts), while percolator's
+settings live in `node.conf` and each app folder.
 
 | Script | Does |
 |---|---|

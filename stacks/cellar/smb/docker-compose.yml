@@ -2,15 +2,15 @@
 # The archive is also exported over NFS (../nfs), host-native.
 #
 # ghcr.io/servercontainers/samba, because dperson/samba (the one every
-# tutorial uses) is unmaintained. `latest` on purpose for now: it's not in
-# use yet, and I'll pin it when something depends on it.
+# tutorial uses) is unmaintained. The latest channel is pinned by digest;
+# shares remain optional and require an explicit access policy before use.
 #
 # Not reachable yet: ufw-docker keeps 139/445 closed until smb/firewall has a
 # rule. UID_barista has to match the NFS export's anonuid (1000) and whatever
 # the consuming containers run as, or SMB and NFS will fight over ownership.
 services:
   smb:
-    image: ghcr.io/servercontainers/samba:latest
+    image: ghcr.io/servercontainers/samba:latest@sha256:ac7c406702a3bf4137fcd04ce031d87adbda1b819f698fe89a89b5ee46618dfb
     container_name: smb
     environment:
       TZ: ${TZ}

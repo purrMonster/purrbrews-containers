@@ -8,10 +8,10 @@
 # The default login is admin/admin and can't be set from here. Change it on
 # the first visit.
 #
-# Image: traccar/traccar:6.2-alpine.
+# Image: traccar/traccar:6.16-alpine.
 services:
   traccar:
-    image: traccar/traccar:6.2-alpine
+    image: traccar/traccar:6.16-alpine@sha256:03ebb7ed2b219d4f25c326873bd022f5062f80bcae622a9d9422846b51951eda
     container_name: traccar
     ports:
       - "8082:8082"   # web UI

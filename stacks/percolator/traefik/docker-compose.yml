@@ -1,8 +1,8 @@
-# Traefik — the only container with published ports on percolator.
+# Traefik â€” the only container with published ports on percolator.
 # Image tag checked 2026-09-15.
 services:
   traefik:
-    image: traefik:v3.7.13
+    image: traefik:v3.7.14@sha256:575fa15b135078fe5e50aa847987d96dbddd7b093c172429618404df73f3fa7c
     container_name: traefik
     restart: unless-stopped
     security_opt: [no-new-privileges:true]

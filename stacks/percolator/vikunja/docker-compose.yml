@@ -1,8 +1,8 @@
-# Vikunja — shared to-do lists and projects. SQLite on local disk.
+# Vikunja â€” shared to-do lists and projects. SQLite on local disk.
 # Image tag checked 2026-09-15.
 services:
   vikunja:
-    image: vikunja/vikunja:2.6.0
+    image: vikunja/vikunja:2.7.0@sha256:e2204a1c1c6a81e833c2b3a5442be182ca2335b54c2e7e37578cc3fe12a27cfc
     container_name: vikunja
     restart: unless-stopped
     environment:

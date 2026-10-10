@@ -1,4 +1,4 @@
-# ntfy — push notifications to the household's phones.
+# ntfy â€” push notifications to the household's phones.
 #
 # https://ntfy.${DOMAIN}: through the Cloudflare tunnel from outside, through sieve's
 # Traefik on the LAN (so alerts reach phones at home even with the internet down).
@@ -8,10 +8,10 @@
 # below from secrets.env.local and re-applied on every start; an account removed
 # here is removed from ntfy. There is no sign-up.
 #
-# Image: binwiederhier/ntfy:v2.28.0. Checked 2026-09-15.
+# Image: binwiederhier/ntfy:v2.29.0. Checked 2026-09-15.
 services:
   ntfy:
-    image: binwiederhier/ntfy:v2.28.0
+    image: binwiederhier/ntfy:v2.29.0@sha256:4c599cf0818965782f93f652bd843e92714992e84d6b88ad17713dc0951cda1f
     container_name: ntfy
     command: serve
     user: ${PUID:-1000}:${PGID:-1000}

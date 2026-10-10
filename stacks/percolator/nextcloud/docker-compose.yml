@@ -1,9 +1,9 @@
-# Nextcloud — files, calendars, contacts. Postgres and Valkey are private to
+# Nextcloud â€” files, calendars, contacts. Postgres and Valkey are private to
 # this project; only the web container joins `proxy`.
 # Image tags checked 2026-09-15.
 services:
   nextcloud:
-    image: nextcloud:34.0.4-apache
+    image: nextcloud:35.0.1-apache@sha256:f4e0ee28ac9e54cad6e04e148489d79a609acba86dfbff69c8f666d50f96e414
     container_name: nextcloud
     restart: unless-stopped
     depends_on:
@@ -57,7 +57,7 @@ services:
       - traefik.http.middlewares.nextcloud-dav.redirectregex.permanent=true
       - traefik.http.middlewares.nextcloud-dav.redirectregex.regex=^https://(.*)/.well-known/(?:card|cal)dav
       - traefik.http.middlewares.nextcloud-dav.redirectregex.replacement=https://$${1}/remote.php/dav/
-      # HSTS, which Administration → Overview kept flagging. It lives here and
+      # HSTS, which Administration â†’ Overview kept flagging. It lives here and
       # not in .htaccess: Apache only ever sees plain HTTP from Traefik, and
       # upgrades regenerate .htaccess anyway. 180 days is the least Nextcloud's
       # check accepts.
@@ -65,10 +65,10 @@ services:
       - traefik.http.middlewares.nextcloud-hsts.headers.stsIncludeSubdomains=true
       - traefik.http.middlewares.nextcloud-hsts.headers.forceSTSHeader=true
 
-  # Background jobs every 5 minutes (set Administration → Basic settings →
+  # Background jobs every 5 minutes (set Administration â†’ Basic settings â†’
   # Background jobs to "Cron").
   cron:
-    image: nextcloud:34.0.4-apache
+    image: nextcloud:35.0.1-apache@sha256:f4e0ee28ac9e54cad6e04e148489d79a609acba86dfbff69c8f666d50f96e414
     container_name: nextcloud-cron
     restart: unless-stopped
     entrypoint: /cron.sh
@@ -82,7 +82,7 @@ services:
 
   postgres:
     # Nextcloud supports PostgreSQL up to 17.
-    image: postgres:17
+    image: postgres:17.11@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3
     container_name: nextcloud-postgres
     restart: unless-stopped
     environment:
@@ -100,7 +100,7 @@ services:
       retries: 10
 
   valkey:
-    image: valkey/valkey:9.1.2-alpine
+    image: valkey/valkey:9.1.2-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11
     container_name: nextcloud-valkey
     restart: unless-stopped
     networks:

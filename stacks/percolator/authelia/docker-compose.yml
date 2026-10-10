@@ -1,4 +1,4 @@
-# Authelia — single sign-on: OpenID Connect provider for the apps, and
+# Authelia â€” single sign-on: OpenID Connect provider for the apps, and
 # ForwardAuth for admin pages without their own login (every node's Traefik
 # dashboard, sieve's Pi-hole/Gatus/NetAlertX).
 # Redis holds sessions and is private to this project.
@@ -6,7 +6,7 @@
 services:
   authelia:
     # setup-secrets.sh hashes OIDC secrets with this same image, read from here.
-    image: authelia/authelia:4.39.27
+    image: authelia/authelia:4.39.28@sha256:bd97cff4fcbf715b5ff1f9ae286afbe6033afce385302520b0368122d43a6f54
     container_name: authelia
     restart: unless-stopped
     depends_on:
@@ -36,7 +36,7 @@ services:
       - traefik.docker.network=proxy
 
   redis:
-    image: redis:8.8.2-alpine
+    image: redis:8.8.3-alpine@sha256:0b2b77d3ea5078274795e3177cdbdada8b96316684a38911d528534ed679b5ec
     container_name: authelia-redis
     restart: unless-stopped
     command: ["redis-server", "--requirepass", "${AUTHELIA_REDIS_PASSWORD}", "--save", "300", "1"]

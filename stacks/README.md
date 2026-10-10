@@ -8,15 +8,17 @@ that differs between nodes or apps is a small config file, not code.
 stacks/
 ├── fleet.env                  LAN facts every node shares (IPs, gateway, TZ, backups). Committed, not secret
 ├── _lib/                      the actual scripts (see below)
+├── _shared/                   reusable Linux Compose service definitions
 └── <node>/
     ├── README.md              role, apps, bring-up order, gotchas
     ├── node.conf              APPS in bring-up order, NETWORK, RESOLVER
     ├── local.env.example      node settings template → .env.local (gitignored)
-    ├── setup-secrets.sh       ┐
-    ├── render-configs.sh      │ the same wrapper on every node:
-    ├── compose.sh             │ exec ../_lib/<script> <this dir> "$@"
-    ├── firewall.sh            │ (backup.sh on the Linux nodes)
-    ├── backup.sh              ┘
+    ├── scripts/               node-specific tasks and the plan/deploy run.sh
+    ├── setup-secrets.sh       wrappers calling ../_lib directly
+    ├── render-configs.sh
+    ├── compose.sh
+    ├── firewall.sh
+    ├── backup.sh              Linux shared backup wrapper
     ├── restic/secrets.conf    the backup password and alert URL (cellar: its whole backup hub)
     └── <app>/
         ├── docker-compose.yml
@@ -38,26 +40,102 @@ stacks/
 | `grinder` | Automation, AI indexing, self-tracking | [grinder/](grinder/README.md) |
 | `roastery`* | Windows workstation: GPU for Immich ML and the local LLMs (llama-swap) | [roastery/](roastery/README.md) |
 
-\* Not a fleet node: no init, no `/opt/purrbrews/.env`, no `DATA_DIR`. It has
-PowerShell twins of the scripts (`*.ps1`) so it doesn't need WSL.
+\* roastery uses [`init/roastery-init.ps1`](../init/roastery-init.ps1) for its
+Windows rebuild. It has no `/opt/purrbrews/.env` or `DATA_DIR`. PowerShell twins
+of the stack scripts (`*.ps1`) let it run without WSL.
 
 ## The shared scripts
 
-Run them from the node's folder, as the ops user, never with sudo (they sudo the
-few commands that need it; root-owned secrets files break the next run).
+Run `bash scripts/run.sh` as the ops user to preview the plan. To execute, pass
+`--release <full-commit-id> --acknowledge-prerequisites`: setup/render, firewall,
+then each selected app in `node.conf` order, waiting for Compose readiness.
+See [operations](../docs/operations.md) for release controls and optional apps. First-time per-app workflows with manual checkpoints should still follow
+the node README. Backup, DHCP handover, kiosk setup and recovery tasks keep their
+separate commands. The individual entry points remain available from the node root.
 
 | Script | Does |
 |---|---|
-| `./setup-secrets.sh` | First-time setup, and the thing to re-run after a pull. `.env.local` from `local.env.example` (new keys appended, [renamed keys](_lib/renamed-keys) copied across), a prompt for every `REPLACE_ME`, every app's `secrets.conf`, then render. Never changes a value that's already set |
-| `./render-configs.sh` | Every `*.template` → the file beside it. A template with an unset or `REPLACE_ME` variable fails and its last good render stays. On a node with `RESOLVER` set, regenerates the Pi-hole records first |
-| `./compose.sh <app> …` | `docker compose` with the env files. Before `up` it checks renders are current, creates `data-dirs`, runs `prepare.sh`, and refuses a resolved config with a `REPLACE_ME` left in it. `--all` goes in `node.conf` order (backwards for `down`); `--list` also shows app folders `node.conf` doesn't mention |
-| `sudo ./firewall.sh` | UFW rules from every app's `firewall` file; `--dry-run` prints them |
-| `sudo ./backup.sh <cmd>` | The node's backups from every app's `backup` file: `plan` (no sudo), `doctor`, `keys`, `nightly`, `restic …`. See [Backups](#backups) |
+| `scripts/run.sh` | Plan by default; explicit reviewed revision executes setup → firewall → Compose. Stops on failure |
+| `./setup-secrets.sh` | First-time setup and re-run after a pull: adds new `.env.local` keys, migrates renamed keys, creates each app's secrets, then renders. Existing values stay unchanged |
+| `./render-configs.sh` | Renders each `*.template` beside its source; refuses missing values and preserves the last good output |
+| `./compose.sh <app> …` | Compose with the right env files and startup checks. `--all` follows `node.conf` order (reverse for teardown); `--list` reports unlisted app folders |
+| `sudo ./firewall.sh` | Applies UFW rules from app `firewall` files; `--dry-run` previews them |
+| `sudo ./backup.sh <cmd>` | Runs node backups from app `backup` files: `plan`, `doctor`, `keys`, `nightly`, `restic …`. See [Backups](#backups) |
 
 **Env files, later ones win:** `stacks/fleet.env` → `/opt/purrbrews/.env` (written by
 init: `NODE`, `NODE_IP`, `PUID`/`PGID`, `DATA_DIR`, `MEDIA_DIR`) → the node's
 `.env.local` → the app's `secrets.env.local`. The renderer and compose see exactly
 the same values.
+
+### Where shared behavior lives
+
+Keep the small node wrappers: they pass their own directory to `_lib`. Change
+shared behavior here, and keep differences between nodes in `node.conf` or the
+app's files. The app files are discovered by location, so identical files can
+still be required on several nodes.
+
+| Helper | Responsibility |
+|---|---|
+| [`_lib/common.sh`](_lib/common.sh) | Node discovery, env precedence, key migration and Docker invocation |
+| [`_lib/purrbrews.ps1`](_lib/purrbrews.ps1) | Windows counterparts for setup, rendering and Compose |
+| [`_lib/secrets.sh`](_lib/secrets.sh) | The `secrets.conf` format and secret generation |
+| [`_lib/render-template.py`](_lib/render-template.py) | Template substitution and atomic output on Linux |
+| [`_lib/check-compose-config.py`](_lib/check-compose-config.py) | Refuse unresolved placeholders without printing values |
+| [`_lib/dns-records.py`](_lib/dns-records.py) | Shared route discovery and Pi-hole record generation |
+| [`_lib/restic-env.sh`](_lib/restic-env.sh) | Backup transport, repository environment and reachability |
+
+The PowerShell implementation deliberately mirrors the shell helpers. Changes
+to their shared contract need to account for both platforms.
+
+### Shared service definitions
+
+Komodo Periphery and Scrutiny collectors on grinder, mochaPot, percolator and
+sieve extend [`_shared/`](_shared/README.md). Change shared settings once there;
+keep keys, disk devices and other local paths in each app's Compose file. The
+full repository must be present when deploying; an app folder alone is not enough.
+
+### Find and inspect an app
+
+From the node folder, `./compose.sh --help` and `./compose.sh --list` need no
+Docker daemon or secrets. On Windows use `.\compose.ps1 --help` and
+`.\compose.ps1 --list`. The list follows `node.conf` and flags extra Compose folders.
+
+Use `./compose.sh <app> ps` for state and `./compose.sh <app> config --quiet`
+for Compose's configuration check when the node is ready. The Linux wrapper
+does not migrate environment keys or create networks for these commands. Those
+preparations happen for `up`, `create`, `start`, `restart`, `run`, `watch` and `scale`.
+Both wrappers recognize separate values for
+[Compose global options](https://docs.docker.com/reference/cli/docker/compose/#options)
+such as `--profile` and `--project-name`, so those values do not affect command
+selection or reverse the app order accidentally.
+
+Put global preview options before the command: `./compose.sh <app> --dry-run up`
+(or `.\compose.ps1 <app> --dry-run up`). The wrappers forward the preview to
+Compose without migrating keys, creating networks or running startup preflight.
+Preview requires existing inputs; it does not create missing directories or renders.
+Windows startup also rejects renders older than their template or environment inputs.
+
+See [the offline test guide](../tests/README.md) before changing shared helpers.
+
+### Files used without a literal caller
+
+These are the discovery contracts. Preserve the filename and location when
+adding an app; a search for an exact filename alone cannot establish usage.
+
+| Input | Consumer |
+|---|---|
+| `node.conf` / `APPS` | Compose execution order; reverse order for teardown |
+| `<app>/docker-compose.yml` | Compose entry point and app discovery; may extend `_shared/` |
+| `<app>/secrets.conf` | `secrets.sh` during setup, including non-Compose apps such as restic |
+| `<app>/data-dirs`, `<app>/prepare.sh` | Linux Compose preflight |
+| `*.template` below a node | Render helpers; output goes beside its template |
+| `<app>/firewall`, `<app>/backup` | Shared firewall and backup helpers |
+| `restic/*.service`, `restic/*.timer` | `backup.sh`'s `node_units()` installation and timer discovery |
+| Init's ordered step list | `step_<name>` in Bash, `Step-<name>` in PowerShell |
+
+Archived files under root `Deprecated/` are outside these deployment discovery
+paths and excluded from the active Graphify map. Existing source checks exclude
+archives for syntax and current references, but the credential scan includes them.
 
 ### secrets.conf
 
@@ -196,7 +274,9 @@ Every image is pinned (a test fails on a floating tag), so nothing updates on
 its own. [Dependabot](../.github/dependabot.yml) opens a pull request each Monday
 when a pinned image has a new version, one PR per image covering every node that
 runs it, after the release has been out a week. Merging changes nothing running:
-nodes pull `main`, and an app only moves on `./compose.sh <app> up -d`.
+nodes fetch candidates and explicitly select a reviewed revision before deployment.
+Dependabot does not update `image-lock.json` or shared agent definitions; a reviewer
+must update those alongside the proposed image changes before the checks pass.
 
 - Read the release notes before merging. Pairs that must match arrive as separate
   PRs: Immich server with roastery's ML, Komodo Core with every Periphery.
@@ -207,8 +287,9 @@ nodes pull `main`, and an app only moves on `./compose.sh <app> up -d`.
 - **Old images clean themselves up.** After a successful `up`, `compose.sh` (and
   roastery's `compose.ps1`) removes the images that app ran before, once nothing
   else uses them. Images shared with another app, or pulled for one not yet
-  restarted, stay. Rolling back is pulling the old tag again;
-  `PURRBREWS_KEEP_IMAGES=1` keeps them.
+  restarted, stay. `PURRBREWS_KEEP_IMAGES=1` keeps them; the reviewed deployment
+  runner sets it automatically. Restore matching pre-upgrade data when rolling
+  back a database migration; pulling an old image alone is insufficient.
 
 ## Ingress: a Traefik on every node
 

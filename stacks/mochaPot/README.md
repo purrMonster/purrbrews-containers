@@ -26,11 +26,14 @@ logins there; Music Assistant has none.
 
 ## Setup
 
-As `barista` in `/opt/purrbrews/stacks/mochaPot`, after `init/purrbrews-init.sh mochaPot`:
+As `barista` in `/opt/purrbrews/stacks/mochaPot`, after `init/purrbrews-init.sh mochaPot`,
+use the per-app checks below for the first rollout. Later full bring-ups can use
+`bash scripts/run.sh` to preview setup → firewall → Compose. Pass the release
+options in [operations](../../docs/operations.md) to execute.
+Have the domain, ACME email, disk device and Cloudflare token ready.
 
 ```bash
-./setup-secrets.sh      # asks for DOMAIN, TRAEFIK_ACME_EMAIL, the disk and the Cloudflare
-                        # token; generates the rest; renders Traefik and the kiosk profile
+./setup-secrets.sh
 sudo ./firewall.sh
 ```
 
@@ -45,8 +48,8 @@ Then, in order (`node.conf`):
 | 5 | `./compose.sh komodo-periphery up -d`, `./compose.sh scrutiny-collector up -d` | mochaPot in Komodo and Scrutiny on cellar (copy `komodo-periphery/keys/core.pub` from cellar first) |
 | — | `sudo ./kiosk/setup-kiosk.sh` | the dashboard on the screen after a reboot |
 
-Pi-hole goes before Traefik because both want host ports; Pi-hole's UI moved to 8081
-so Traefik can have 80.
+Pi-hole goes before Traefik because both want host ports; its UI uses 8081 so Traefik
+can use 80. Install the host-native kiosk separately with `sudo ./kiosk/setup-kiosk.sh`.
 
 ## Things worth knowing
 

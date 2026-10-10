@@ -2,8 +2,9 @@
 
 **The Windows workstation**: Ryzen 5 5000-series, RTX 3080 10 GB, 16 GB, Windows 11
 with Docker Desktop (WSL2 backend). A gaming rig that does the fleet's GPU work on
-the side, so not a fleet node: no `init/purrbrews-init.sh`, no `/opt/purrbrews`, no
-`DATA_DIR`, and it sleeps between uses.
+the side, so not a fleet node: no `init/purrbrews-init.sh` (it has its own,
+[`init/roastery-init.ps1`](../../init/roastery-init.ps1)), no `/opt/purrbrews`, no
+`DATA_DIR`, and it stays awake for now (runbook, 2026-09-29).
 
 | What | How | Where |
 |---|---|---|
@@ -22,6 +23,24 @@ the side, so not a fleet node: no `init/purrbrews-init.sh`, no `/opt/purrbrews`,
 Everything roastery runs is in this repo except the secrets, the backup
 repository and the model files, so a reinstall is this list, in this order.
 The first time through was the 2026-10-07 wipe (runbook).
+
+**[`init\roastery-init.ps1`](../../init/roastery-init.ps1) walks this list**, from
+an elevated PowerShell in the repo:
+
+```powershell
+winget install -e --id Git.Git        # a fresh install has no git; new window after
+git clone https://github.com/purrMonster/purrbrews-containers.git
+cd purrbrews-containers
+powershell -ExecutionPolicy Bypass -File .\init\roastery-init.ps1
+```
+
+It does what used to be clicks or hand-made tasks (the PC's name, the network
+profile, power, winget installs, WSL, every firewall rule, Traefik's scheduled
+task) and calls the scripts below for the rest. It's safe to run again: a step
+that can't finish yet (no repository, no `traefik.exe`, Docker not started)
+says what it needs, the run carries on, and `-Only <step>` picks it up later.
+It never touches a node: what the nodes need afterwards is printed at the end.
+`-ListSteps` for the steps; the header of the script for the options.
 
 1. **The backup repository first.** It lived on C:, so it's gone with the
    install; Google Drive has the copy cellar's `drive-sync` made the night
@@ -145,7 +164,9 @@ copy backup-target\authorized_keys.example backup-target\authorized_keys
 - **Nothing else can SSH into this PC** while `AllowUsers restic` is there. That's
   deliberate; remove the managed block from `C:\ProgramData\ssh\sshd_config` if
   that ever changes.
-- **Sleep, don't shut down.** Wake-on-LAN brings it back from sleep, not from off.
+- **Keep it awake for now.** The 2026-09-29 decision and `roastery-init.ps1`
+  disable AC standby. The existing Wake-on-LAN path remains a fallback; a future
+  sleep policy needs the wake-on-demand work in the runbook first.
 - **Its own D: isn't backed up yet** (documents, projects, insta360 footage).
 
 ## Remote access

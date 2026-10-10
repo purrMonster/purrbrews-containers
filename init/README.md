@@ -9,13 +9,17 @@ keys and the settings are served by **purrbrews-bootstrap on roastery**
 init/
 ├── purrbrews-init.sh              the node setup (run as root, via bootstrap.sh)
 ├── purrbrews-mac.sh               list / check / apply the fleet's cloned MACs
+├── roastery-init.ps1              roastery (Windows): fresh install → what the fleet expects of it
 ├── purrbrews-init.env.example     settings template → bootstrap/data/purrbrews-init.env
 └── lib/
     ├── node-mac.sh                MAC derivation + validation
     ├── net-apply.sh               static IP + MAC switch with automatic rollback
     ├── sync-ssh-keys.sh           key sync from roastery (pinned), hourly timer
-    └── purrbrews-pull.sh          daily fast-forward of /opt/purrbrews (anonymous, public repo)
+    └── purrbrews-pull.sh          daily fetch; active checkout stays fixed (anonymous, public repo)
 ```
+
+roastery isn't a Debian node and doesn't go through `purrbrews-init.sh`; its own
+`roastery-init.ps1` follows [roastery's rebuild order](../stacks/roastery/README.md#rebuilding-roastery-from-a-fresh-windows-install).
 
 ## The fleet
 
@@ -116,7 +120,7 @@ Each run is logged to `/var/log/purrbrews/init-*.log`.
 ```bash
 systemctl list-timers 'purrbrews-*'
 journalctl -u purrbrews-ssh-keys -n 20      # key syncs ("UNREACHABLE" = roastery asleep, harmless)
-journalctl -u purrbrews-pull -n 20          # repo pulls
+journalctl -u purrbrews-pull -n 20          # candidate fetches
 cat /var/log/purrbrews/net-apply.log        # IP/MAC switches and rollbacks
 sudo /usr/local/lib/purrbrews/sync-ssh-keys.sh --dry-run
 ```
@@ -127,7 +131,7 @@ sudo /usr/local/lib/purrbrews/sync-ssh-keys.sh --dry-run
   reservation that was keyed on the old MAC.
 - **Public repo:** nodes need no credentials to pull, so nothing expires — but nothing
   secret may ever be committed. The script refuses a `GITHUB_TOKEN` or a URL with
-  credentials. Set `PULL_HEALTHCHECK_URL` so a silently failing pull still alerts you.
+  credentials. Set `PULL_HEALTHCHECK_URL` so a silently failing fetch still alerts you.
 - **`AllowUsers barista`** locks the installer account out of SSH (the console still
   works). Add it to `SSH_ALLOW_USERS` if you want to keep it.
 - **`bad interpreter: /bin/bash^M`** means CRLF line endings. The repo forces LF; the

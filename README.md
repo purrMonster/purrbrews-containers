@@ -34,7 +34,7 @@ flowchart LR
         N5["grinder<br/>.14"]
     end
     B -- "1 · bootstrap over pinned TLS" --> fleet
-    GH -- "2 · clone + daily pull (anonymous)" --> fleet
+    GH -- "2 · clone + daily fetch (anonymous)" --> fleet
     B -. "hourly SSH key sync" .-> fleet
 ```
 
@@ -44,8 +44,9 @@ flowchart LR
 2. **Provision.** `init/purrbrews-init.sh` hardens the OS, installs Docker, gives the node
    its static IP and fixed MAC, clones this repo to `/opt/purrbrews` and sets up timers.
 3. **Run.** Each node brings up its own stacks from `stacks/<node>/`. Secrets are
-   generated on the node and never leave it.
-4. **Stay current.** Nodes fast-forward the repo daily and re-sync SSH keys hourly.
+   generated on the node; recovery copies belong only in encrypted backups.
+4. **Stay current.** Nodes fetch release candidates daily and re-sync SSH keys hourly.
+   Reviewed revisions are deployed explicitly; scheduled jobs keep using the selected checkout.
    Adding or revoking a key is a one-line edit in one place.
 
 ## The fleet
@@ -72,9 +73,11 @@ Speedtest Tracker). Every node also runs its own Traefik, a Komodo Periphery age
 a Scrutiny collector. The workstation, [`roastery`](stacks/roastery/README.md), lends
 its GPU to Immich and to the local LLMs (llama-swap, which replaced Ollama).
 
-All five nodes are up and running their stacks. Backups aren't finished yet: the
-database dumps, restic's sources and a restore test are still open
-([runbook](runbook.md)).
+The [runbook](runbook.md) records successful restore tests from roastery and
+Google Drive on 2026-09-29, followed by a clean overnight backup cycle on
+2026-09-30. roastery was then wiped on 2026-10-07; its rebuild requires restoring
+the backup repository before authorizing the nodes' keys. Use the Backlog and
+newest entries for recorded progress; these documents do not confirm live state.
 
 MACs are derived from the node name, so a reinstall or NIC swap never changes how the
 network sees a machine (see [`init/README.md`](init/README.md)).
@@ -87,19 +90,28 @@ the nodes and Remote Desktop to roastery, with no port open on the router
 
 ```
 bootstrap/                  workstation container that serves node setup on the LAN
-init/                       fresh Debian → ready node: hardening, Docker, network, timers
+init/                       Debian provisioning and roastery's Windows rebuild entry point
 stacks/fleet.env            LAN facts every node shares
 stacks/_lib/                the scripts every node uses: setup, render, compose, firewall
 stacks/<node>/node.conf     that node's apps in bring-up order, its network, its DNS role
+stacks/<node>/scripts/      one-off node tasks and the plan/deploy runner
+scripts/                    fleet planning, deployment and image verification
+fleet.json                  node policy and deployment prerequisites
+image-lock.json             reviewed registry tags and exact digests
 stacks/<node>/<app>/        docker-compose.yml, plus secrets.conf / firewall / data-dirs as needed
 tailscale/                  remote access: the tailnet policy and how every machine joins
 runbook.md                  dated decisions and the backlog: the why, not just the what
 docs/                       audits and the map of everything; start at docs/MAP.md
+Deprecated/                 archive index; retired files keep their original relative paths
 tests/                      offline checks: python3 -m unittest discover -s tests
 ```
 
 Adding an app to a node is a folder and one line in `node.conf`; no script needs
 editing. [`stacks/README.md`](stacks/README.md) has the details.
+
+The [cleanup review](docs/cleanup-review.md) explains retained components and
+possible follow-ups. `graphify-out/`, when present, is ignored local analysis
+output; regenerate it after relevant source changes before relying on its map.
 
 ## Current network audit
 
@@ -136,13 +148,16 @@ Confirm the TLS pin, set the ops user's sudo password, and reconnect with
 the script does.
 
 **3. Bring up the node's stacks** from `/opt/purrbrews/stacks/<node>/`, following that
-node's README. It's the same three commands everywhere:
+node's README. Preview the ordered bring-up:
 
 ```bash
-./setup-secrets.sh          # settings, secrets, rendered configs; safe to re-run
-sudo ./firewall.sh
-./compose.sh --all up -d    # or one app at a time, in the README's order
+bash scripts/run.sh
 ```
+
+Pass `--release <full-commit-id> --acknowledge-prerequisites` to execute
+setup/render, firewall, then Compose in `node.conf` order. Read the
+[operations guide](docs/operations.md) and [image upgrade gates](docs/image-upgrades.md)
+before deploying; first-time manual checkpoints remain in each node README.
 
 ## Design principles
 
@@ -152,9 +167,10 @@ sudo ./firewall.sh
   placeholders instead.
 - **Secrets are born on the node.** `setup-secrets.sh` reads each app's `secrets.conf`
   and writes real values into gitignored `secrets.env.local` files. Nothing to
-  distribute, nothing to leak in transit.
-- **Idempotent everything.** Every script checks current state before changing it.
-  Re-running is the supported way to repair or update.
+  distribute through Git. Encrypted recovery backups also contain these files.
+- **Repeatable operations.** Shared helpers preserve existing values and check
+  prerequisites. Failed deployments record completed phases; inspect partial
+  changes before retrying.
 - **Changes that can't strand a headless box.** Network changes run detached and roll
   back within a minute if the gateway doesn't answer. SSH lock-down refuses to proceed
   until a key is installed.
@@ -162,8 +178,8 @@ sudo ./firewall.sh
   login (Authelia on percolator, reached on its firewalled port 9091) is shared. A
   broken proxy or a dead node takes down that node's pages, not the fleet's.
 - **Least privilege.** Key-only SSH, no root login, and the ops user reaches root only
-  through a password-gated `sudo`. The ops user is never in the `docker` group, which
-  would be root without a password.
+  through a password-gated `sudo`. Membership in the `docker` group is equivalent to root; the runbook
+  records an outstanding decision about existing membership on the fleet.
 - **Pinned and verified.** Image tags and downloaded tools are pinned, and third-party
   scripts are checked against a SHA-256 before they run.
 - **The same everywhere.** One set of scripts for every node; what differs lives in

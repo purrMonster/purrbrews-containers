@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "nodes": {
+    "sieve": {
+      "platform": "linux",
+      "tier": "essential",
+      "optional": [],
+      "prerequisites": [
+        "DNS and alert delivery verified before DHCP handover.",
+        "Komodo Core public key installed."
+      ]
+    },
+    "percolator": {
+      "platform": "linux",
+      "tier": "data",
+      "optional": [],
+      "prerequisites": [
+        "Initial LLDAP users and groups bootstrapped before routine deployment.",
+        "Verified data backup available before application upgrades.",
+        "Nextcloud 35 migration prerequisites acknowledged; Immich server and ML versions coordinated."
+      ]
+    },
+    "cellar": {
+      "platform": "linux",
+      "tier": "recovery",
+      "optional": [
+        "smb",
+        "persian-perch"
+      ],
+      "prerequisites": [
+        "Backup repository recovered before enabling writers or Drive sync.",
+        "SMB shares and access policy approved before opting in.",
+        "External watcher deployment follows its own repository rollout instructions."
+      ]
+    },
+    "mochaPot": {
+      "platform": "linux",
+      "tier": "household",
+      "optional": [],
+      "prerequisites": [
+        "Home Assistant onboarding and trusted proxies configured.",
+        "Kiosk installation remains a separate host operation."
+      ]
+    },
+    "grinder": {
+      "platform": "linux",
+      "tier": "optional",
+      "optional": [],
+      "prerequisites": [
+        "Application owner accounts created and initial passwords changed.",
+        "Karakeep browser and Meilisearch migration rehearsed on a restored copy; see docs/image-upgrades.md.",
+        "Komodo Core public key installed."
+      ]
+    },
+    "roastery": {
+      "platform": "windows",
+      "tier": "compute",
+      "optional": [],
+      "prerequisites": [
+        "Backup target recovered and Windows firewall configured using the rebuild guide.",
+        "Native Traefik and game mode installed separately.",
+        "NVIDIA driver supports the selected CUDA image before the diagnostic probe."
+      ]
+    }
+  }
+}

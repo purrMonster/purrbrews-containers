@@ -24,6 +24,7 @@ bootstrap/data/
 
 # Written by init/purrbrews-init.sh on each node.
 /.env
+/.fleet/
 
 # Backup keys: which node may write where. Public keys, but per-host state,
 # and the pinning (from=) is the part that matters.
@@ -74,6 +75,11 @@ stacks/roastery/game-mode/state.json
 
 # --- Claude collaboration workspace -----------------------------------------
 claude/
+
+# --- Generated local analysis -----------------------------------------------
+# Graphify reports, caches and its local Python packages are reproducible output.
+# Keep them available locally without adding them to the public infrastructure repo.
+/graphify-out/
 
 # --- Editors, OS, Python ----------------------------------------------------
 .vscode/*

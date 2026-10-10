@@ -2,10 +2,10 @@
 # rather than to sieve's Unbound, so it keeps working when sieve doesn't,
 # and it serves the same generated split DNS (see ../../_lib/dns-records.py).
 #
-# Image: pihole/pihole:2026.07.2, the same as sieve's. Checked 2026-09-15.
+# Image: pihole/pihole:2026.09.0, the same as sieve's. Checked 2026-09-15.
 services:
   pihole:
-    image: pihole/pihole:2026.07.2
+    image: pihole/pihole:2026.09.0@sha256:5b9c8cf51de7d6d3f2240dbe72baf5f06e1fd39cb4d77a99fab4fa13e23bd1be
     container_name: pihole
     # Host networking so it answers on the LAN's port 53 and sees real clients.
     network_mode: host

@@ -15,16 +15,20 @@ when it doesn't, lives here.
 | [persianPerch](persian-perch/) | `perch.${DOMAIN}` (admins) | The fleet's watcher: containers, backups, disks, endpoints, files dropped, the house. Read-only; alerts to ntfy |
 | [Samba](smb/) | `\\cellar\household`, `\\cellar\archive` | File shares. Built, not in use yet (no firewall rule) |
 | [NFS](nfs/README.md) | `cellar:/srv/media/archive` | Archive export, host-native. Nothing mounts it yet |
-| [restic](restic/README.md) | — | The backup chain's hub, host-native: the dump store, waking roastery, the Drive copy, the morning check. Scripts written, not switched on yet |
+| [restic](restic/README.md) | — | The backup chain's hub, host-native: the dump store, waking roastery, the Drive copy, the morning check. Restore tests recorded 2026-09-29; roastery recovery remains open after its wipe |
 
 ## Setup
 
-As `barista` in `/opt/purrbrews/stacks/cellar`, after `init/purrbrews-init.sh cellar`:
+As `barista` in `/opt/purrbrews/stacks/cellar`, after `init/purrbrews-init.sh cellar`,
+run the first-time steps below and confirm each app before continuing. For later
+full bring-ups, `bash scripts/run.sh` previews `node.conf` order. SMB and the
+external watcher are excluded unless explicitly selected; see
+[operations](../../docs/operations.md) for release options and prerequisites.
+Have the domain, ACME email, disk devices, Cloudflare token and Drive client ready.
 
 ```bash
-./setup-secrets.sh      # asks for DOMAIN, TRAEFIK_ACME_EMAIL, the two disks, the
-                        # Cloudflare token and the Drive client; generates the rest
-sudo ./firewall.sh      # LAN → 80/443 (Traefik), 9120 (Komodo), 8080 (Scrutiny)
+./setup-secrets.sh
+sudo ./firewall.sh
 ```
 
 Then, in order (`node.conf`), checking each before the next:
@@ -38,7 +42,7 @@ Then, in order (`node.conf`), checking each before the next:
 | 5 | `./compose.sh persian-perch up -d --build` | its [README](persian-perch/README.md) checklist; read persianPerch's `integration/ROLLOUT.md` before the first run |
 | — | `sudo ./nfs/setup-nfs.sh`, then [restic/README.md](restic/README.md) | host-native, whenever needed |
 
-`./compose.sh --all up -d` does 1–5 in that order once everything has been up once.
+For subsequent deployments, use [operations](../../docs/operations.md).
 
 ## Things worth knowing
 
@@ -72,8 +76,8 @@ Then, in order (`node.conf`), checking each before the next:
 
 ## Known gaps
 
-- **Nothing is backed up yet.** The scripts are written (runbook, 2026-09-27) but
-  not tied together: roastery's backup target, the keys, the timers and a
-  restore test are still to do. [restic/README.md](restic/README.md) has the order.
+- **Current backup health needs verification.** Restore tests passed 2026-09-29,
+  then roastery was wiped on 2026-10-07. Restore the repository before enabling
+  writers and Drive sync; [restic/README.md](restic/README.md) has the order.
 - **Samba isn't reachable**: ufw-docker keeps 139/445 closed until `smb/firewall`
-  gets its rule. Pin its image when it goes into use.
+  gets its rule. Its image is now digest-pinned.

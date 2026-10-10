@@ -6,7 +6,7 @@
 # that was running (same digest as the `release` it replaced).
 services:
   karakeep:
-    image: ghcr.io/karakeep-app/karakeep:0.33.2
+    image: ghcr.io/karakeep-app/karakeep:0.33.2@sha256:b069e4307dec06ea06d16989c6861c30a1ff208568be44ed5fb5d422cd3e950c
     container_name: karakeep
     environment:
       TZ: ${TZ}
@@ -41,21 +41,20 @@ services:
       - "traefik.http.services.karakeep.loadbalancer.server.port=3000"
 
   chrome:
-    # Docker Hub, not gcr.io/zenika-hub (upstream's example): anonymous pulls
-    # from gcr.io now fail with "requires billing to be enabled". Same image,
-    # same tag.
-    image: zenika/alpine-chrome:124
+    # Upstream's maintained browser replaces the retired Chrome 124 image.
+    image: ghcr.io/karakeep-app/karakeep-chrome:release@sha256:5b19bbb160e9ff60681a3abd97e1c4ec9f64212301410de658c3900ab7ef31e7
     container_name: karakeep-chrome
+    init: true
     command:
-      - --no-sandbox
       - --disable-gpu
       - --disable-dev-shm-usage
-      - --remote-debugging-address=0.0.0.0
-      - --remote-debugging-port=9222
       - --hide-scrollbars
-    # The DevTools endpoint Karakeep connects to; busybox wget is in the image.
+      - --disable-blink-features=AutomationControlled
+      - --window-size=1440,900
+    # The upstream entrypoint owns ports 9222/9223. Bash is in its base image;
+    # checking an HTTP response avoids depending on curl/wget being installed.
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9222/json/version"]
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/9222 && printf 'GET /json/version HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && IFS= read -r response <&3 && [[ $$response == *' 200 '* ]]"]
       interval: 60s
       timeout: 10s
       retries: 3
@@ -63,7 +62,7 @@ services:
     restart: unless-stopped
 
   meilisearch:
-    image: getmeili/meilisearch:v1.10
+    image: getmeili/meilisearch:v1.54.3@sha256:e68913ab7d6f5b159529e472cfd362ce3c741fafd3c127961b2142abbe41b3c9
     container_name: karakeep-meilisearch
     environment:
       MEILI_NO_ANALYTICS: "true"

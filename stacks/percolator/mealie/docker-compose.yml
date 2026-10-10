@@ -1,8 +1,8 @@
-# Mealie — recipes, meal plans, shopping lists. SQLite on local disk.
+# Mealie â€” recipes, meal plans, shopping lists. SQLite on local disk.
 # Image tag checked 2026-09-15.
 services:
   mealie:
-    image: ghcr.io/mealie-recipes/mealie:v3.26.0
+    image: ghcr.io/mealie-recipes/mealie:v3.28.0@sha256:8b02290f4d1806f02acac6f25f6d48a3c965612fda1f8e914d5af533276f8688
     container_name: mealie
     restart: unless-stopped
     environment:

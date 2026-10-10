@@ -1,0 +1,848 @@
+{
+  "schema": 1,
+  "verified_on": "2026-10-10",
+  "policy": "Latest stable application releases; databases retain compatible installed majors; all registry inputs are digest-pinned. See docs/image-upgrades.md for migration gates and exceptions.",
+  "images": [
+    {
+      "image": "actualbudget/actual-server:26.10.0",
+      "digest": "sha256:24645e971da6bb1a1f953d6859e307a0b29be1e8b4130a35b3220c209b5b860c",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://registry-1.docker.io/v2/actualbudget/actual-server/manifests/26.10.0",
+      "files": [
+        "stacks/percolator/actualbudget/docker-compose.yml"
+      ],
+      "previous": [
+        "actualbudget/actual-server:26.9.0"
+      ]
+    },
+    {
+      "image": "authelia/authelia:4.39.28",
+      "digest": "sha256:bd97cff4fcbf715b5ff1f9ae286afbe6033afce385302520b0368122d43a6f54",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://registry-1.docker.io/v2/authelia/authelia/manifests/4.39.28",
+      "files": [
+        "stacks/percolator/authelia/docker-compose.yml"
+      ],
+      "previous": [
+        "authelia/authelia:4.39.27"
+      ]
+    },
+    {
+      "image": "binwiederhier/ntfy:v2.29.0",
+      "digest": "sha256:4c599cf0818965782f93f652bd843e92714992e84d6b88ad17713dc0951cda1f",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm",
+        "linux/arm64"
+      ],
+      "registry_url": "https://registry-1.docker.io/v2/binwiederhier/ntfy/manifests/v2.29.0",
+      "files": [
+        "stacks/sieve/ntfy/docker-compose.yml"
+      ],
+      "previous": [
+        "binwiederhier/ntfy:v2.28.0"
+      ]
+    },
+    {
+      "image": "cloudflare/cloudflared:2026.10.0",
+      "digest": "sha256:9b49eed8f62806d5d45ddf59ecefb5710429598ea6d3fcccd2af938f621b2b07",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "registry_url": "https://registry-1.docker.io/v2/cloudflare/cloudflared/manifests/2026.10.0",
+      "files": [
+        "stacks/sieve/cloudflared/docker-compose.yml"
+      ],
+      "previous": [
+        "cloudflare/cloudflared:2026.9.1"
+      ]
+    },
+    {
+      "image": "crowdsecurity/crowdsec:v1.8.1",
+      "digest": "sha256:0f2523fa61ef507f15d953045cface490cc880670c62f2755ced17524107f71a",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://registry-1.docker.io/v2/crowdsecurity/crowdsec/manifests/v1.8.1",
+      "files": [
+        "stacks/percolator/crowdsec/docker-compose.yml"
+      ],
+      "previous": [
+        "crowdsecurity/crowdsec:v1.7.8"
+      ]
+    },
+    {
+      "image": "fittrackee/fittrackee:v1.3.5",
+      "digest": "sha256:a832258dc564827a1944ee6d5a60befff086bdc7ace8761104c81f1a4a384c03",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://registry-1.docker.io/v2/fittrackee/fittrackee/manifests/v1.3.5",
+      "files": [
+        "stacks/grinder/fittrackee/docker-compose.yml"
+      ],
+      "previous": [
+        "fittrackee/fittrackee:v1.3.5"
+      ]
+    },
+    {
+      "image": "freshrss/freshrss:1.30.1",
+      "digest": "sha256:48b63b9bc3d042a1301c32971b01af8841c7f059b452589c5bf77f475ba44c61",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://registry-1.docker.io/v2/freshrss/freshrss/manifests/1.30.1",
+      "files": [
+        "stacks/percolator/freshrss/docker-compose.yml"
+      ],
+      "previous": [
+        "freshrss/freshrss:1.30.0"
+      ]
+    },
+    {
+      "image": "getmeili/meilisearch:v1.54.3",
+      "digest": "sha256:e68913ab7d6f5b159529e472cfd362ce3c741fafd3c127961b2142abbe41b3c9",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://registry-1.docker.io/v2/getmeili/meilisearch/manifests/v1.54.3",
+      "files": [
+        "stacks/grinder/karakeep/docker-compose.yml"
+      ],
+      "previous": [
+        "getmeili/meilisearch:v1.10"
+      ]
+    },
+    {
+      "image": "ghcr.io/analogj/scrutiny:v0.9.5-collector",
+      "digest": "sha256:e55394663d4430af7dec36b1979785a2a2481b317047077eac84acb8305d583d",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://ghcr.io/v2/analogj/scrutiny/manifests/v0.9.5-collector",
+      "files": [
+        "stacks/_shared/scrutiny-collector.yml"
+      ],
+      "previous": [
+        "ghcr.io/analogj/scrutiny:v0.9.3-collector"
+      ]
+    },
+    {
+      "image": "ghcr.io/analogj/scrutiny:v0.9.5-omnibus",
+      "digest": "sha256:6ee271ee531458f134220ca8b2c5c8ccc2711a799c827fef953fa865d91e312f",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://ghcr.io/v2/analogj/scrutiny/manifests/v0.9.5-omnibus",
+      "files": [
+        "stacks/cellar/scrutiny/docker-compose.yml"
+      ],
+      "previous": [
+        "ghcr.io/analogj/scrutiny:v0.9.3-omnibus"
+      ]
+    },
+    {
+      "image": "ghcr.io/esphome/esphome:2026.9.1",
+      "digest": "sha256:776a845d508909bf426d2ee7bdd81796361ebe6a7f091807ce1d6d0b48985413",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://ghcr.io/v2/esphome/esphome/manifests/2026.9.1",
+      "files": [
+        "stacks/grinder/esphome/docker-compose.yml"
+      ],
+      "previous": [
+        "ghcr.io/esphome/esphome:2026.9.1"
+      ]
+    },
+    {
+      "image": "ghcr.io/gethomepage/homepage:v2.4.0",
+      "digest": "sha256:643bd0be730d40f69d58028a55d1a896739333e8815786df42bc97f109ecbe61",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "registry_url": "https://ghcr.io/v2/gethomepage/homepage/manifests/v2.4.0",
+      "files": [
+        "stacks/percolator/homepage/docker-compose.yml"
+      ],
+      "previous": [
+        "ghcr.io/gethomepage/homepage:v2.3.0"
+      ]
+    },
+    {
+      "image": "ghcr.io/home-assistant/home-assistant:2026.10.0",
+      "digest": "sha256:1b64d38f38d922bf9d59336451fd6453e1d614f934456af4ee3d2a51061be3a4",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://ghcr.io/v2/home-assistant/home-assistant/manifests/2026.10.0",
+      "files": [
+        "stacks/mochaPot/homeassistant/docker-compose.yml"
+      ],
+      "previous": [
+        "ghcr.io/home-assistant/home-assistant:2026.10.0"
+      ]
+    },
+    {
+      "image": "ghcr.io/immich-app/immich-machine-learning:v3.3.1-cuda",
+      "digest": "sha256:d1a195d377cfac65886901a6b2d4040b61b7e7db7ca55db1598622d3a2f125e2",
+      "platforms": [
+        "linux/amd64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://ghcr.io/v2/immich-app/immich-machine-learning/manifests/v3.3.1-cuda",
+      "files": [
+        "stacks/roastery/immich-ml/docker-compose.yml"
+      ],
+      "previous": [
+        "ghcr.io/immich-app/immich-machine-learning:v3.2.1-cuda"
+      ]
+    },
+    {
+      "image": "ghcr.io/immich-app/immich-server:v3.3.1",
+      "digest": "sha256:db996e352359771c6a3db121a0ed8761516b22f727fc092a0f46dcfef82c1bc1",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://ghcr.io/v2/immich-app/immich-server/manifests/v3.3.1",
+      "files": [
+        "stacks/percolator/immich/docker-compose.yml"
+      ],
+      "previous": [
+        "ghcr.io/immich-app/immich-server:v3.2.1"
+      ]
+    },
+    {
+      "image": "ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0",
+      "digest": "sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://ghcr.io/v2/immich-app/postgres/manifests/14-vectorchord0.4.3-pgvectors0.2.0",
+      "files": [
+        "stacks/percolator/immich/docker-compose.yml"
+      ],
+      "previous": [
+        "ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0"
+      ]
+    },
+    {
+      "image": "ghcr.io/karakeep-app/karakeep-chrome:release",
+      "digest": "sha256:5b19bbb160e9ff60681a3abd97e1c4ec9f64212301410de658c3900ab7ef31e7",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://ghcr.io/v2/karakeep-app/karakeep-chrome/manifests/release",
+      "files": [
+        "stacks/grinder/karakeep/docker-compose.yml"
+      ],
+      "previous": [
+        "zenika/alpine-chrome:124"
+      ]
+    },
+    {
+      "image": "ghcr.io/karakeep-app/karakeep:0.33.2",
+      "digest": "sha256:b069e4307dec06ea06d16989c6861c30a1ff208568be44ed5fb5d422cd3e950c",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://ghcr.io/v2/karakeep-app/karakeep/manifests/0.33.2",
+      "files": [
+        "stacks/grinder/karakeep/docker-compose.yml"
+      ],
+      "previous": [
+        "ghcr.io/karakeep-app/karakeep:0.33.2"
+      ]
+    },
+    {
+      "image": "ghcr.io/mealie-recipes/mealie:v3.28.0",
+      "digest": "sha256:8b02290f4d1806f02acac6f25f6d48a3c965612fda1f8e914d5af533276f8688",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://ghcr.io/v2/mealie-recipes/mealie/manifests/v3.28.0",
+      "files": [
+        "stacks/percolator/mealie/docker-compose.yml"
+      ],
+      "previous": [
+        "ghcr.io/mealie-recipes/mealie:v3.26.0"
+      ]
+    },
+    {
+      "image": "ghcr.io/moghtech/komodo-core:2.3.3",
+      "digest": "sha256:bca73d0eee143066228fb9b80c38a5a2726e573ad2758f7aa92b5c91a8aef1c7",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://ghcr.io/v2/moghtech/komodo-core/manifests/2.3.3",
+      "files": [
+        "stacks/cellar/komodo/docker-compose.yml"
+      ],
+      "previous": [
+        "ghcr.io/moghtech/komodo-core:2.3.2"
+      ]
+    },
+    {
+      "image": "ghcr.io/moghtech/komodo-periphery:2.3.3",
+      "digest": "sha256:fa3f1a641a265216066676950d5eecdf506955a7bafe2f01996135ae93115cd5",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://ghcr.io/v2/moghtech/komodo-periphery/manifests/2.3.3",
+      "files": [
+        "stacks/cellar/komodo/docker-compose.yml",
+        "stacks/roastery/komodo-periphery/docker-compose.yml",
+        "stacks/_shared/komodo-periphery.yml"
+      ],
+      "previous": [
+        "ghcr.io/moghtech/komodo-periphery:2.3.2"
+      ]
+    },
+    {
+      "image": "ghcr.io/mostlygeek/llama-swap:unified-cuda-262",
+      "digest": "sha256:9cdb30739523db4b77f4a5a2151c9cb7a66d05de5db2aebd37bdf42f4c5b6401",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "registry_url": "https://ghcr.io/v2/mostlygeek/llama-swap/manifests/unified-cuda-262",
+      "files": [
+        "stacks/roastery/llama-swap/docker-compose.yml"
+      ],
+      "previous": [
+        "ghcr.io/mostlygeek/llama-swap:unified-cuda-262@sha256:9cdb30739523db4b77f4a5a2151c9cb7a66d05de5db2aebd37bdf42f4c5b6401"
+      ]
+    },
+    {
+      "image": "ghcr.io/music-assistant/server:2.10.6",
+      "digest": "sha256:45fdb050e06962097a07feeb092606ad119fac17965c8228a57146448d5fa772",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://ghcr.io/v2/music-assistant/server/manifests/2.10.6",
+      "files": [
+        "stacks/mochaPot/musicassistant/docker-compose.yml"
+      ],
+      "previous": [
+        "ghcr.io/music-assistant/server:2.9.8"
+      ]
+    },
+    {
+      "image": "ghcr.io/netalertx/netalertx:26.10.0",
+      "digest": "sha256:f95bca7a794141296dd1d16be5bb7f39f6fdbcd20353cdb51eee696e12d317f6",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://ghcr.io/v2/netalertx/netalertx/manifests/26.10.0",
+      "files": [
+        "stacks/sieve/netalertx/docker-compose.yml"
+      ],
+      "previous": [
+        "ghcr.io/netalertx/netalertx:26.9.0"
+      ]
+    },
+    {
+      "image": "ghcr.io/open-webui/open-webui:v0.11.4",
+      "digest": "sha256:9591b13f13843c7721c2b8eaf7382846c81b3ffe126526d1888d1fed50c6a33f",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://ghcr.io/v2/open-webui/open-webui/manifests/v0.11.4",
+      "files": [
+        "stacks/grinder/openwebui/docker-compose.yml"
+      ],
+      "previous": [
+        "ghcr.io/open-webui/open-webui:main@sha256:1a6399d237dc392a2313e0ca826020b3fd5d22536357840eb63393d18dc8b924"
+      ]
+    },
+    {
+      "image": "ghcr.io/paperless-ngx/paperless-ngx:3.3.0",
+      "digest": "sha256:6b94799bc769a063b3340cc5847402e626d4d91d29a295a8e747f8e9bead4207",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://ghcr.io/v2/paperless-ngx/paperless-ngx/manifests/3.3.0",
+      "files": [
+        "stacks/percolator/paperless/docker-compose.yml"
+      ],
+      "previous": [
+        "ghcr.io/paperless-ngx/paperless-ngx:3.1.3"
+      ]
+    },
+    {
+      "image": "ghcr.io/servercontainers/samba:latest",
+      "digest": "sha256:ac7c406702a3bf4137fcd04ce031d87adbda1b819f698fe89a89b5ee46618dfb",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://ghcr.io/v2/servercontainers/samba/manifests/latest",
+      "files": [
+        "stacks/cellar/smb/docker-compose.yml"
+      ],
+      "previous": [
+        "ghcr.io/servercontainers/samba:latest"
+      ]
+    },
+    {
+      "image": "klutchell/unbound:main",
+      "digest": "sha256:1700bf0de3e9d114f3b28c771239a04e3ce879a4c49f5b1e74ca4c480da4e694",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm",
+        "linux/arm64"
+      ],
+      "registry_url": "https://registry-1.docker.io/v2/klutchell/unbound/manifests/main",
+      "files": [
+        "stacks/sieve/unbound/docker-compose.yml"
+      ],
+      "previous": [
+        "klutchell/unbound:main"
+      ]
+    },
+    {
+      "image": "lldap/lldap:v0.6.3",
+      "digest": "sha256:2a8454b668c1aba7157e832eab0e242e1e7eb5fb7591d7e7774ba05286511ca8",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://registry-1.docker.io/v2/lldap/lldap/manifests/v0.6.3",
+      "files": [
+        "stacks/percolator/lldap/docker-compose.yml"
+      ],
+      "previous": [
+        "lldap/lldap:v0.6.3"
+      ]
+    },
+    {
+      "image": "lscr.io/linuxserver/speedtest-tracker:v1.15.0-ls174",
+      "digest": "sha256:3f8a2d06703bde3a6d04dcc8178fcd6251b601ce3b8b52958779d5335b5719d1",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://lscr.io/v2/linuxserver/speedtest-tracker/manifests/v1.15.0-ls174",
+      "files": [
+        "stacks/grinder/speedtest-tracker/docker-compose.yml"
+      ],
+      "previous": [
+        "lscr.io/linuxserver/speedtest-tracker:v1.15.0-ls170"
+      ]
+    },
+    {
+      "image": "mongo:7.0.43",
+      "digest": "sha256:1f995ad6fdb93244a1addab1b58f934a0bc2f5643c38e02f5e9d7f0c7d227a7b",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown",
+        "windows/amd64"
+      ],
+      "registry_url": "https://registry-1.docker.io/v2/library/mongo/manifests/7.0.43",
+      "files": [
+        "stacks/cellar/komodo/docker-compose.yml"
+      ],
+      "previous": [
+        "mongo:7.0"
+      ]
+    },
+    {
+      "image": "n8nio/n8n:2.42.6",
+      "digest": "sha256:526daa38b68e923cc00c5280d18b4da5d489f115a73bdbf3b8e452b184197a9a",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "registry_url": "https://registry-1.docker.io/v2/n8nio/n8n/manifests/2.42.6",
+      "files": [
+        "stacks/grinder/n8n/docker-compose.yml"
+      ],
+      "previous": [
+        "n8nio/n8n:2.39.7"
+      ]
+    },
+    {
+      "image": "nextcloud:35.0.1-apache",
+      "digest": "sha256:f4e0ee28ac9e54cad6e04e148489d79a609acba86dfbff69c8f666d50f96e414",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm",
+        "linux/arm64",
+        "linux/ppc64le",
+        "linux/riscv64",
+        "linux/s390x",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://registry-1.docker.io/v2/library/nextcloud/manifests/35.0.1-apache",
+      "files": [
+        "stacks/percolator/nextcloud/docker-compose.yml"
+      ],
+      "previous": [
+        "nextcloud:34.0.4-apache"
+      ]
+    },
+    {
+      "image": "nginx:1.30.5-alpine",
+      "digest": "sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm",
+        "linux/arm64",
+        "linux/ppc64le",
+        "linux/riscv64",
+        "linux/s390x",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://registry-1.docker.io/v2/library/nginx/manifests/1.30.5-alpine",
+      "files": [
+        "bootstrap/Dockerfile"
+      ],
+      "previous": [
+        "nginx:1.29.8-alpine"
+      ]
+    },
+    {
+      "image": "nvidia/cuda:13.4.2-base-ubuntu24.04",
+      "digest": "sha256:b395ba681833b0a9837674516abe258b2934d6ec5511f78745d71ea177da14a4",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "registry_url": "https://registry-1.docker.io/v2/nvidia/cuda/manifests/13.4.2-base-ubuntu24.04",
+      "files": [
+        "init/roastery-init.ps1"
+      ],
+      "previous": [
+        "nvidia/cuda:12.3.1-base-ubuntu22.04"
+      ]
+    },
+    {
+      "image": "pgvector/pgvector:0.8.7-pg16",
+      "digest": "sha256:7b822b0aac60967beb1ea5e576b8602c94c300a157d187f385ae3e0da199b90a",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://registry-1.docker.io/v2/pgvector/pgvector/manifests/0.8.7-pg16",
+      "files": [
+        "stacks/grinder/postgres-vector/docker-compose.yml"
+      ],
+      "previous": [
+        "pgvector/pgvector:pg16"
+      ]
+    },
+    {
+      "image": "pihole/pihole:2026.09.0",
+      "digest": "sha256:5b9c8cf51de7d6d3f2240dbe72baf5f06e1fd39cb4d77a99fab4fa13e23bd1be",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm",
+        "linux/arm64",
+        "linux/riscv64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://registry-1.docker.io/v2/pihole/pihole/manifests/2026.09.0",
+      "files": [
+        "stacks/mochaPot/pihole/docker-compose.yml",
+        "stacks/sieve/pihole/docker-compose.yml"
+      ],
+      "previous": [
+        "pihole/pihole:2026.07.2"
+      ]
+    },
+    {
+      "image": "postgis/postgis:16-3.5",
+      "digest": "sha256:94146ac37bc61e2322f88016056c5920729cb8c64c8542ed590af8fc2abdac07",
+      "platforms": [
+        "linux/amd64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://registry-1.docker.io/v2/postgis/postgis/manifests/16-3.5",
+      "files": [
+        "stacks/grinder/fittrackee/docker-compose.yml"
+      ],
+      "previous": [
+        "postgis/postgis:16-3.5"
+      ]
+    },
+    {
+      "image": "postgres:16.15",
+      "digest": "sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm",
+        "linux/arm64",
+        "linux/ppc64le",
+        "linux/riscv64",
+        "linux/s390x",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://registry-1.docker.io/v2/library/postgres/manifests/16.15",
+      "files": [
+        "stacks/mochaPot/homeassistant/docker-compose.yml"
+      ],
+      "previous": [
+        "postgres:16"
+      ]
+    },
+    {
+      "image": "postgres:17.11",
+      "digest": "sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm",
+        "linux/arm64",
+        "linux/ppc64le",
+        "linux/riscv64",
+        "linux/s390x",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://registry-1.docker.io/v2/library/postgres/manifests/17.11",
+      "files": [
+        "stacks/percolator/nextcloud/docker-compose.yml"
+      ],
+      "previous": [
+        "postgres:17"
+      ]
+    },
+    {
+      "image": "postgres:18.6",
+      "digest": "sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm",
+        "linux/arm64",
+        "linux/ppc64le",
+        "linux/riscv64",
+        "linux/s390x",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://registry-1.docker.io/v2/library/postgres/manifests/18.6",
+      "files": [
+        "stacks/percolator/paperless/docker-compose.yml",
+        "stacks/cellar/restic/restore-test.sh"
+      ],
+      "previous": [
+        "postgres:18"
+      ]
+    },
+    {
+      "image": "python:3.12.15-slim",
+      "digest": "sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm",
+        "linux/arm64",
+        "linux/ppc64le",
+        "linux/riscv64",
+        "linux/s390x",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://registry-1.docker.io/v2/library/python/manifests/3.12.15-slim",
+      "files": [
+        "stacks/grinder/embedding-worker/Dockerfile"
+      ],
+      "previous": [
+        "python:3.12-slim"
+      ]
+    },
+    {
+      "image": "redis:8.8.3-alpine",
+      "digest": "sha256:0b2b77d3ea5078274795e3177cdbdada8b96316684a38911d528534ed679b5ec",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm",
+        "linux/arm64",
+        "linux/ppc64le",
+        "linux/riscv64",
+        "linux/s390x",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://registry-1.docker.io/v2/library/redis/manifests/8.8.3-alpine",
+      "files": [
+        "stacks/percolator/authelia/docker-compose.yml"
+      ],
+      "previous": [
+        "redis:8.8.2-alpine"
+      ]
+    },
+    {
+      "image": "traccar/traccar:6.16-alpine",
+      "digest": "sha256:03ebb7ed2b219d4f25c326873bd022f5062f80bcae622a9d9422846b51951eda",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://registry-1.docker.io/v2/traccar/traccar/manifests/6.16-alpine",
+      "files": [
+        "stacks/grinder/traccar/docker-compose.yml"
+      ],
+      "previous": [
+        "traccar/traccar:6.2-alpine"
+      ]
+    },
+    {
+      "image": "traefik:v3.7.14",
+      "digest": "sha256:575fa15b135078fe5e50aa847987d96dbddd7b093c172429618404df73f3fa7c",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm",
+        "linux/arm64",
+        "linux/ppc64le",
+        "linux/riscv64",
+        "linux/s390x",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://registry-1.docker.io/v2/library/traefik/manifests/v3.7.14",
+      "files": [
+        "stacks/cellar/traefik/docker-compose.yml",
+        "stacks/grinder/traefik/docker-compose.yml",
+        "stacks/mochaPot/traefik/docker-compose.yml",
+        "stacks/percolator/traefik/docker-compose.yml",
+        "stacks/sieve/traefik/docker-compose.yml"
+      ],
+      "previous": [
+        "traefik:v3.7.13"
+      ]
+    },
+    {
+      "image": "twinproduction/gatus:v5.37.0",
+      "digest": "sha256:094eb186e55235db367e90e9d56140e5897b7044c41de23cde4cc18e6da1242e",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://registry-1.docker.io/v2/twinproduction/gatus/manifests/v5.37.0",
+      "files": [
+        "stacks/sieve/gatus/docker-compose.yml"
+      ],
+      "previous": [
+        "twinproduction/gatus:v5.36.0"
+      ]
+    },
+    {
+      "image": "valkey/valkey:9.1.2-alpine",
+      "digest": "sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm",
+        "linux/arm64",
+        "linux/ppc64le"
+      ],
+      "registry_url": "https://registry-1.docker.io/v2/valkey/valkey/manifests/9.1.2-alpine",
+      "files": [
+        "stacks/percolator/immich/docker-compose.yml",
+        "stacks/percolator/nextcloud/docker-compose.yml",
+        "stacks/percolator/paperless/docker-compose.yml"
+      ],
+      "previous": [
+        "valkey/valkey:9.1.2-alpine"
+      ]
+    },
+    {
+      "image": "vaultwarden/server:1.37.4",
+      "digest": "sha256:efb3cde962015fcc036b2ea625242248611943b27212ebf4392841fb30fad055",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://registry-1.docker.io/v2/vaultwarden/server/manifests/1.37.4",
+      "files": [
+        "stacks/percolator/vaultwarden/docker-compose.yml"
+      ],
+      "previous": [
+        "vaultwarden/server:1.37.2"
+      ]
+    },
+    {
+      "image": "vikunja/vikunja:2.7.0",
+      "digest": "sha256:e2204a1c1c6a81e833c2b3a5442be182ca2335b54c2e7e37578cc3fe12a27cfc",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "registry_url": "https://registry-1.docker.io/v2/vikunja/vikunja/manifests/2.7.0",
+      "files": [
+        "stacks/percolator/vikunja/docker-compose.yml"
+      ],
+      "previous": [
+        "vikunja/vikunja:2.6.0"
+      ]
+    }
+  ]
+}

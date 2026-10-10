@@ -5,6 +5,8 @@ changes can be made later without re-deriving the reasoning.
 
 ## Backlog / open items
 
+- [ ] Require reviewed PRs and passing verification checks on `main` (owner). GitHub displayed "Your main branch isn't protected" during the 2026-10-10 publication review; repository settings were not changed.
+
 - [x] Confirm Secret scanning + Push protection are enabled on the public GitHub repo (repo itself already created, pushed, `origin` set). Confirmed in the repo's settings (owner, 2026-09-29)
 - [x] Workstation: DHCP reservation, `bootstrap/data/` (settings + `authorized_keys`), `docker compose up -d --build`, firewall rule for 8443 Done: `purrbrews-bootstrap` healthy on roastery (192.168.0.15), inbound rule for 8443 enabled (checked 2026-09-29)
 - [ ] First real node through `bootstrap.sh`, at the console (the network step has not yet run on real hardware) All five nodes run; whether the first went through `bootstrap.sh` at the console is for the owner to confirm (owner)
@@ -46,6 +48,571 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Tunnel from Git: two-factor in Authelia first, then the switch in `stacks/sieve/cloudflared/README.md` (2026-09-28 entry below)
 - [ ] Apps over the tailnet: roll out in the order in the 2026-09-28 entry below
 - [ ] Bot identity for Claude's commits and pull requests: owner picks bot account or GitHub App, then the setup in the 2026-09-28 entry below
+- [ ] roastery: `init\roastery-init.ps1` on the rebuilt PC, elevated (owner), after the repository is back from Drive; then the follow-ups it prints for the nodes, ticked here with what was seen (2026-10-08 init entry)
+
+---
+
+## 2026-10-10 — PR 23 security review repairs
+
+Verified the clean checkout and GitHub PR before editing: repository
+`purrMonster/purrbrews-containers`, head `codex/code-sanitization` at `866d806`,
+base `main`. Owner requested the two attached security-review fixes.
+
+**SYSTEM task:** the review correctly identifies a writable-checkout privilege
+boundary. This supersedes the previous local review's treatment of that path as
+an operator trust assumption. A protected wrapper invoking the original writable
+script would retain the vulnerability. The Traefik step now installs the actual
+launcher, executable, credentials and config into
+`%ProgramFiles%\purrbrews-traefik`, and uses that protected working directory and
+the absolute system PowerShell executable for its SYSTEM task. The firewall rule
+follows the installed executable. New files/directories receive administrator
+ownership and explicit Administrators/SYSTEM permissions at creation; existing
+runtime ACLs, owners, ancestors and reparse points are checked before copying.
+Unsafe existing paths are refused. Windows PowerShell 5.1 is required for the
+atomic ACL-aware .NET Framework creation APIs.
+
+Certificate data migrates from the checkout only if the protected copy is absent;
+later installs keep renewed certificates. The existing task is stopped before
+replacement. Installation failures leave it stopped until corrected and rerun.
+The README documents elevated updates, backup and recovery. No task, firewall,
+real certificate or live node was changed during this repository repair.
+
+**LLDAP:** the requested password-argument fix was already present in `012f137`.
+Rechecked it and its regressions: login/password inputs use stdin, the admin
+password is unset after login, and generated passwords are delivered only to the
+terminal. `docker exec -e NAME=value` would still put values in host argv, so the
+proposed replacement was not applied. The upstream tool's session-token argument
+inside the trusted container remains the previously documented limitation.
+
+Added a source regression for the protected task paths and Windows tests for
+ACL/owner rejection, writable ancestors, atomic creation/copying, independent
+installed copies, certificate retention and junction refusal. Production ACL
+factories are checked directly; copying uses current-user ACLs in an ignored
+fixture so the tests require no live SYSTEM installation. CI runs that script.
+On 2026-10-10: 97 normal-user pytest tests passed (83.00s), with three root-only
+tests skipped there; native Windows runtime and existing Compose checks passed.
+The separate root-only run passed all three tests (29.86s), covering all 100
+distinct tests. Final public-source/private-domain scanning checked 432 paths
+without findings; Gitleaks checked 159 commits without leaks, and the full diff
+against `origin/main` passed whitespace checks. The repair is committed under
+`fix: isolate SYSTEM Traefik runtime from writable checkout` on the existing PR
+branch; hosted checks and live installation are separate from these local results.
+
+Next: review the repair in PR #23, then separately authorize the elevated
+Traefik installation and verify its task identity, ACLs and listener on roastery.
+Rollback: restore prior trusted files in the protected runtime and restart its
+task, retaining certificate data; do not restore execution from the writable
+checkout. Repository-only reversal is an ordinary revert of this repair commit.
+
+---
+
+## 2026-10-10 — GitHub checks reproduced locally
+
+Owner requested the same checks after GitHub's AI security review exhausted its
+quota. Reviewed clean revision `012f13729ea52cfceb4ae094f97f7a21a8389d9a`
+against `origin/main`; the only tracked change from this verification is this
+entry. No node, account, firewall or running service was changed.
+
+### Results and evidence
+
+All results below were obtained on 2026-10-10:
+
+| Check | Result |
+|---|---|
+| Inventory and image lock, same commands as `.github/workflows/tests.yml` | 6 nodes / 50 apps; 49 locked images passed |
+| Full normal-user pytest suite | 96 passed, 3 root-only skips, 82.20s |
+| Same three root-only backup tests as CI | 3 passed, 96 deselected, 29.93s; all 99 distinct tests covered |
+| Native Windows PowerShell Compose regression script | Passed |
+| ShellCheck at warning severity over bootstrap/init/stacks/tailscale | Passed, no diagnostics |
+| Gitleaks 8.30.1, `git --redact --log-opts=--all` | 158 commits scanned, no findings |
+| Public working-source and diff/private-domain scan | 430 paths checked, no findings |
+| `git diff origin/main --check` | Passed |
+| CodeQL Python default suite | 43 rules, zero findings |
+| CodeQL Python security-and-quality suite | 172 rules, zero findings |
+
+CodeQL ran locally using GitHub's official bundle **2.27.2**, Python query pack
+**1.8.12**, after verifying the downloaded bundle's SHA256 against GitHub's
+release metadata. Analyzed a public-source-only snapshot, excluding local
+credentials and generated tooling. Both SARIF invocations report successful
+execution, all **16/16 Python files** extracted, and no warning/error diagnostic
+notifications. Reports remain in ignored local files
+`graphify-out/refactor/codeql-default.sarif` and
+`graphify-out/refactor/codeql-security-quality.sarif`.
+The suites were `python-code-scanning.qls` and
+`python-security-and-quality.qls`, using `codeql database create --language=python`
+and `codeql database analyze --format=sarif-latest`.
+
+Manually reviewed the changed deployment runner, Compose helpers, scheduled
+fetch, groom records, LLDAP/DHCP scripts, Windows bootstrap and image/config
+changes for command injection, credential disclosure, authorization boundaries,
+unsafe failure continuation and dependency integrity. No additional confirmed
+security defect was found in that review. Existing trust assumptions remain:
+local configuration and checkout writers are trusted operators; Docker access
+is effectively root; the Windows SYSTEM task trusts its script/binary paths;
+LLDAP's tool still takes a session token inside its container. Hardening those
+privilege boundaries is a separate operational decision, not verified by these
+offline results.
+
+**Limits and handoff:** local Debian WSL/native Windows differ from GitHub's
+Ubuntu 24.04/Windows 2025 runner images. CodeQL is the actual GitHub engine;
+the manual review is not an exact reproduction of GitHub's proprietary AI
+review or a replacement check status. Hosted AI review remains quota-blocked.
+No image-layer CVE scan, live migration, restore or alert-path rehearsal is
+claimed. Next: review PR #23 with this evidence, retain the documented rollout
+gates, and rerun the hosted AI review when its quota returns. This documentation
+commit can be reverted without runtime effects; no implementation changes were
+needed during this verification.
+
+---
+
+## 2026-10-10 — Publication resumed; LLDAP credential handling hardened
+
+Resumed after the credit interruption, committed the pending publication handoff
+as `a4084fc`, and pushed it to PR #23. Linux, Windows and CodeQL checks passed.
+GitHub's additional AI security review failed with HTTP 402, "exceeded your
+monthly quota", in run `38035128692`; this is an incomplete review, not a pass.
+Before stopping it identified credential handling in the moved LLDAP bootstrap.
+
+The bootstrap now sends login bodies and bearer headers through input streams,
+removes the admin password from memory after login, and disables shell tracing.
+The password tool receives the session token and new password through Docker's
+stdin; the admin password is no longer passed to Docker or sudo command arguments.
+New user passwords go only to the controlling terminal, and unattended creation
+fails before creating the user. GraphQL error bodies are no longer printed.
+Existing users and dry runs retain their existing behavior. The percolator guide
+now states the interactive-terminal requirement.
+
+The upstream v0.6.3 password tool supports `LLDAP_USER_PASSWORD` but still requires
+an authentication argument. The session token is therefore an argument inside
+the trusted container. Host root, Docker administrators, container processes with
+sufficient permissions, and terminal or sudo input recording remain trusted;
+this does not promise secrecy against administrators or recorded sessions.
+The interface was checked against the upstream tagged `set-password/src/main.rs`.
+
+Added regression coverage for login/header input streams, tracing, error output,
+existing users, unattended creation refusal and the container password-tool
+invocation. Added `jq` explicitly to local/CI test dependencies after the first
+run reported that missing local dependency. On 2026-10-10, the full suite then
+passed: 96 normal-user tests (82.36s), with the three root-only tests separately
+passing (30.44s), covering all 99 tests. The six operational-safety tests also
+passed independently. Warning-level ShellCheck and whitespace checks passed;
+the 430-path public source/diff scan found no secrets or configured private domain.
+
+No live account, service or node was changed. Undo with an ordinary revert of
+this security follow-up; doing so restores the credential-exposure risk.
+Next: complete PR checks, retry the AI review after its quota is available, then
+perform the previously documented migration, restore and alert rehearsals.
+The follow-up commit is recorded in PR #23's commit list.
+
+---
+
+## 2026-10-10 — Reviewed deployments, locked images and offline release checks
+
+Owner authorized a complete repository refactor, image updates, focused commits,
+a second and final review, public push and PR. Continued the existing
+`codex/code-sanitization` branch, which contains the prior refactor. The requested
+`codex/code-refactoring` ref is absent locally and remotely. No host deployment
+is authorized by these repository changes.
+
+### Changes and reasons
+
+- Replaced the earlier extra wrapper layer with direct node-root calls to
+  `_lib`. Moved the actual one-off DHCP and LLDAP implementations into their
+  node `scripts/` directories; old paths forward to them. Five identical
+  `scripts/run.sh` entrypoints preview by default and execute setup/render,
+  firewall, then ordered Compose only with explicit release options.
+- Added policy-only `fleet.json` and a standard-library `scripts/fleet.py`.
+  `node.conf` still owns app order; Compose still owns service definitions.
+  Validate/plan are read-only. Deploy checks local host/OS, operator privileges,
+  exact commit, clean checkout, required commands and acknowledged prerequisites.
+  It waits for Compose readiness, excludes optional cellar apps unless selected,
+  locks across the operator's checkouts and records completed/failed phases
+  atomically without command output. Status is a record, not live health.
+- Changed the daily fetch helper so scheduled jobs cannot silently switch to new
+  code. The legacy timer name remains; Git transport errors and healthcheck
+  callback details are kept out of its journal. Existing installed helpers need
+  an authorized rollout of the init timers step.
+- Refined groom status records: descriptive internal names, invalid/out-of-range
+  timestamps fall back safely, unique atomic temporary files avoid writer
+  collisions, and journal text is omitted unless explicitly opted in. Schema
+  remains 1. Opt-in logs can expose upstream secrets and are documented.
+- Reviewed upstream releases and resolved **49** public registry inputs to
+  immutable manifest digests, including shared services, Dockerfile bases, the
+  restore client and GPU diagnostic. `image-lock.json` records old/new references,
+  registry URLs, file coverage and platform evidence. All manifests advertise
+  linux/amd64. Latest compatible PostgreSQL/Mongo majors are retained; Immich's
+  database follows its release Compose. Local builds remain local.
+- Matched Immich server/ML, Komodo Core/Periphery and Scrutiny hub/collector
+  releases. Replaced Karakeep's retired Chrome 124 with its maintained upstream
+  browser, preserving upstream entrypoint ports and checking HTTP readiness.
+  Corrected a repository-only draft where the collector had inherited the hub
+  image variant; added a regression assertion before publishing.
+- Added explicit gates before existing Nextcloud 35 and Meilisearch 1.54 data
+  upgrades; acknowledgement follows a backup/migration rehearsal and does not
+  perform one. `docs/image-upgrades.md` describes supported-major exceptions,
+  Nextcloud's latest-34 prerequisite, Meilisearch dump/import and compatibility
+  checks, CUDA driver requirements and data-aware rollback. These are pending
+  live checks, not claims of deployed upgrades.
+- Added offline digest coverage checks and a public anonymous manifest resolver.
+  Added tests for ordered plans, optional selection, dirty/wrong releases, locks,
+  failed phases, atomic state, secret-safe logs, fetch-only updates and upgrade
+  gate decisions. Added pinned-action CI with Linux, root backup and Windows
+  checks, shell analysis and checksum-verified secret scanning.
+- Reconciled concise README entrypoints with actual runner semantics, fixed
+  obsolete backup and privilege claims, and added the operations guide and map
+  links. Recovery targets are proposals until accepted and measured. Independent
+  backup storage, offline copies and physical recovery drills remain live work.
+
+### Evidence and remaining passes
+
+2026-10-10: original offline suite **75 passed, 4 skipped**; expanded suite
+**87 passed, 4 skipped**. The separate root backup selection passed **3/3**.
+Native Windows Compose regression checks passed. ShellCheck error-level analysis
+passed. All image digests were resolved from public registries without pulling
+layers or running containers; the offline lock check passed. Gitleaks 8.30.1,
+downloaded with verified release checksum, found no leaks in the initial
+126-commit history. The working diff and refreshed history still need the
+pre-push scan. No fleet SSH, application restart, firewall, DNS or data change.
+
+Remote main advanced to `1533dd1` during this work, adding Gatus endpoints,
+image cleanup, Dependabot and CI. Next: commit the focused changes, merge that
+history without rewriting it, reconcile overlapping helpers/CI, then run second
+and final verification and secret checks on the integrated tree before push/PR.
+GitHub SSH works; CLI has no API login, so PR publication may need an authenticated
+browser session or owner sign-in. No token was printed or saved.
+
+**Undo:** revert the focused commits in reverse order for repository changes.
+For an already deployed release, follow `docs/operations.md`: revert code/config
+only when data remains compatible, otherwise restore matched pre-upgrade data and
+images. Restore the prior installed timer helper separately if rolling back the
+fetch-only policy. No node state changed in this session. Commit IDs and final
+publication/verification evidence will be added after the final pass.
+
+### Integration and second-pass evidence — 2026-10-10
+
+Committed `e2b7c07` (reviewed deployment controls and script organization) and
+`e27c03b` (49 image locks, migration gates and verification). Both followed a
+complete offline test run, which reached **88 passed, 4 skipped** before merging.
+
+Integrated current main (`1533dd1`) into this branch, preserving its Gatus endpoint
+coverage and Dependabot configuration. Resolved the map and PowerShell helper
+conflicts by retaining both command parsing and image cleanup. Consolidated CI
+into the existing `tests.yml` workflow and extended Dockerfile updates to bootstrap.
+Dependabot proposals must update the reviewed lock/shared definitions before merge.
+
+The second pass found that cleanup after a failed Bash Compose command could mask
+its error when called in an `||` list. It now returns the failure before cleanup,
+with a regression proving later apps do not start. Both wrappers skip image
+inspection/cleanup in previews. The fleet runner retains previous images for
+rollback via `PURRBREWS_KEEP_IMAGES=1`; standalone cleanup remains available.
+Added repeat-deployment and wrong-host tests, rejected unsupported operating
+systems explicitly, and marked documented node script entrypoints executable.
+
+Installed PyYAML and the missing ICU dependency only in the local Debian test
+environment. Downloaded portable PowerShell 7.6.6 into ignored tooling and verified
+its official SHA-256 before execution. Second-pass suite: **94 passed, 3 skipped**
+(only root-required backup cases); Bash/PowerShell rendering parity now passes.
+Native Windows wrapper checks passed. All **51/51** Compose files passed native
+Compose 5.5.1 configuration validation with synthetic inputs, no daemon operations.
+ShellCheck error-level and whitespace checks passed. Gitleaks found no leaks in
+**155 commits** and the **430-path** source snapshot; the comparison diff and
+outgoing history contain no match for the configured private domain. Commit
+identity uses the owner's verified public GitHub noreply address.
+
+GitHub is already signed in through the browser, so PR creation can proceed
+without creating a new API credential. Final pass and publication follow the
+integration commit; no live-node or repository-protection settings were changed.
+
+### Final pass — 2026-10-10
+
+Integration commit: `3927f6c`. Repeated the complete suite on the integrated code:
+**94 passed, 3 skipped** in 82.98 seconds; the three skipped cases were separately
+executed as root: **3 passed, 94 deselected**. All 97 distinct tests were therefore
+covered across the two privilege contexts. Native Windows wrapper checks passed
+again. The 51 Compose fixtures, six-node/50-app inventory and 49-image lock checks
+passed. No containers were started. Final warning-level ShellCheck is clean after
+a narrow annotation for `CURRENT_STEP`, which is read by sourced init helpers;
+CI now enforces warnings and the test setup documents PyYAML.
+
+Final public-source/domain/history scans and whitespace checks passed before
+publication. Gitleaks inspected 155 non-merge commits and a 430-path source
+snapshot without findings; the configured private domain was absent from the
+diff against current main and outgoing history. These checks reduce risk but do
+not prove runtime compatibility or the absence of every possible secret.
+
+**Unfinished operational work:** no live rollout, application migration rehearsal,
+GPU driver check, restore drill, alert delivery test, independent backup-storage
+move or branch-protection change was performed. Use `docs/image-upgrades.md` and
+`docs/operations.md` for the gated rollout. This is verified repository work;
+production readiness still needs those host-specific results. Push and PR are
+the remaining publication steps, followed by the hosted CI result.
+
+### Publication and handoff — 2026-10-10
+
+Pushed `codex/code-sanitization` and created
+[PR #23](https://github.com/purrMonster/purrbrews-containers/pull/23) against
+`main`. GitHub reported the branch mergeable. At code revision `a98f8b0`, all
+seven reported checks completed successfully: Linux and Windows for both push
+and PR events, CodeQL, Python analysis and GitHub advanced security. The last
+pre-push scan covered 156 commits and the 430-path public source set without
+findings; the private-domain and whitespace checks also passed.
+
+New implementation commits: `e2b7c07`, `e27c03b`, `3927f6c`, `a98f8b0` (purposes
+and evidence above). This publication handoff is a documentation-only follow-up;
+the PR records its subsequent check results. Local working state was clean after
+the implementation push. No merge to main, live deployment or hardware change.
+
+**Next:** review PR #23, require its checks before merging, then perform the
+separate staged rollout and migration/restore/alert checks in the operations
+guides. The open operational items remain unverified rather than being ticked
+complete. Repository changes can be reverted with ordinary follow-up commits;
+data migrations still require matched restores as described above.
+
+---
+
+## 2026-10-10 — Linux stack scripts organized behind one runner
+
+Follow-up review (2026-10-10): corrected this pass's wrapper layout check to use
+LINUX_NODES for the new directories and retain coverage of roastery's existing
+shell wrappers. Evidence: the targeted Debian pytest check passed (1 passed,
+70 deselected); Windows Python was inaccessible and sandboxed WSL access was
+denied, so the successful run used approved access to the existing Debian WSL.
+The full suite remains outstanding. Proposed next requirements: reduce wrapper
+indirection, give the runner phase-specific failures and a read-only plan, make
+optional-service selection explicit, automate offline checks, verify repeat runs
+and partial failures, lock build inputs, and reconcile recovery status with dated
+evidence. These are proposals, not implemented operational changes. No commits,
+pushes or node changes. Undo this follow-up by reversing its test assertion edit;
+next, validate the full refactor before deployment.
+
+Continued the existing code-refactor work on the clean `codex/code-sanitization`
+branch. The requested branch name `codex/code-refactoring` was not present in the
+local or listed remote refs; the current branch already contains the earlier
+`codex: code-refactor` commit and its related cleanup.
+
+Moved the canonical setup, render, firewall, Compose and backup wrappers for the
+five Linux nodes into each node's `scripts/` directory. The existing node-root
+commands remain as compatibility launchers. Added `scripts/run.sh` per node: it
+runs setup (which also renders), applies firewall rules with `sudo`, then runs
+`compose --all up -d` in `node.conf` order. It stops on a failing step and refuses
+to run as root. The runner is for routine full bring-ups; node READMEs retain the
+first-rollout checks and manual steps, including LLDAP bootstrap, DHCP handover,
+and cellar's optional SMB rule. Since `--all` starts every listed app, cellar's
+runner starts SMB; its README directs users to individual Compose commands when
+SMB should stay stopped. Backup and recovery scripts remain explicit operations.
+
+Shortened repeated setup instructions in the main and stack READMEs while keeping
+node-specific prerequisites and first-run checks. In `stacks/_lib/groom-record.py`,
+renamed internal helpers to snake_case and made an invalid or out-of-range
+`GROOM_START` fall back to the current time; the emitted record schema is unchanged.
+
+Evidence (2026-10-10): read-only review of the branch refs and source; `runbook.md`
+was unchanged before this entry. `git diff --check` found no whitespace errors;
+the edited shell files were normalized to the repository's LF line-ending rule.
+The existing wrapper regression check was updated for the new paths; the test
+suite and operational scripts were not run. No node, remote, commit or push was touched.
+
+**Next:** review the diff, run the offline suite if requested, and use the runner
+only during an authorized node rollout. To undo locally, restore the five nodes'
+root launchers, remove their new `scripts/` directories, and reverse the README,
+test and Python edits; no node state needs restoring. No commits were made.
+
+---
+
+## 2026-10-09 — Debian verification and focused cleanup commits
+
+The owner authorized tests, Debian WSL dependencies and individual local commits,
+then requested another codebase review. Installed Python/pytest, Git, restic,
+sqlite3, rclone, OpenSSL and ShellCheck in the newly installed Debian environment.
+The earlier Windows pytest attempt could not start because pytest was absent.
+Debian installation completed; its systemd-binfmt package trigger reported a WSL
+failure, which did not prevent the test tools from running and was not changed.
+
+Evidence (2026-10-09): the final non-root Debian suite passed 75 tests with four
+skips. Three root-only local backup integration tests passed separately; Linux
+PowerShell rendering parity remains skipped because pwsh is absent. Native
+Windows Compose regression checks passed. All eight resolved Compose models
+matched the archived originals using fixture values and no running containers.
+Active PowerShell scripts parsed; ShellCheck found no errors and one cross-file
+CURRENT_STEP warning (the sourced init script's warn/die functions use it).
+
+The second review added preview-safe wrapper dispatch and Windows stale-render
+checks, with regression tests. It also fixed Windows test collection and explicit
+Bash resolution. The repeat suite passed after these changes. No fleet nodes,
+backup destinations or running application services were changed; no pushes.
+The test guide is tests/README.md; detailed limitations are in docs/cleanup-review.md.
+
+Commits on codex/code-sanitization:
+- 60c9fa8: shared Linux service definitions and archived originals.
+- c77f58b: Compose helper fixes and regression checks.
+- fd9f248: shared-config coverage, portable test harness and test guide.
+- be1f1b4: generated-output and archive analysis exclusions.
+- Documentation and this handoff: docs: record verified cleanup and deployment prerequisites.
+
+The earlier Repository structure review entry and Claude integration files remain
+uncommitted. Git had no configured identity; commits used the established identity
+from this repository's recent history, without changing global configuration.
+Graphify outputs stay local and retain the audit of extraction limitations.
+Next: owner-authorized deployment and live alert-path checks; optionally install
+Linux pwsh for rendering parity, confirm external groom-record deployment, and
+resolve the recorded Open WebUI authentication decision separately.
+Undo source changes with ordinary inverse commits, using Deprecated/README.md
+for original Compose paths; do not rewrite history or discard earlier edits.
+
+---
+
+## 2026-10-09 — Shared service refactor and command usability
+
+Extended the cleanup on `codex/code-sanitization` into a runtime-source refactor,
+following the owner's expanded request. Eight original Linux Compose files were
+moved to `Deprecated/2026-10-09/stacks/`; their active replacements extend two
+`stacks/_shared/` definitions. Per-node keys, disk devices, percolator's second
+disk and mochaPot's collector workaround stay in the node files. Image versions,
+service names, environment settings and restart policies were carried over.
+
+PowerShell Compose now supports `--help` and `--list` without Docker or secrets.
+The Linux wrapper rejects invalid app targets before preparation and only
+migrates keys/creates its network for up/create/start/restart/run/watch/scale. Inspection,
+pull and teardown avoid those incidental changes. Existing source checks now
+follow shared environment references and image pins, exclude archived/generated
+sources from active scans, and retain archived files in the credential scan.
+Both wrappers now skip global option values when identifying the command, so
+`--profile` values cannot suppress preflight or accidentally reverse app order.
+The stack guide records dynamic file discovery and the full-checkout requirement.
+
+Second pass evidence: source/diff review on 2026-10-09 covered the eight leaf
+files, both shared definitions, command dispatch and raw-Compose consumers.
+No tests or operational scripts ran; no runtime equivalence or deployment is
+claimed. No dependencies installed, node/remote changes, commits or pushes.
+Prior owner-approved working-tree changes remain. Next: authorize offline tests
+and a resolved-Compose comparison before rollout; confirm external groom-record
+usage separately. Graphify is refreshed separately in the local output directory.
+
+Undo: use `Deprecated/README.md` to move the originals back without overwriting
+replacements, then reverse this pass's helper, check and documentation edits.
+The earlier cleanup entry below describes the first, documentation-only stage.
+
+---
+
+## 2026-10-09 — Workspace cleanup on codex/code-sanitization
+
+Reviewed the tracked file inventory, identical-file groups, node app manifests,
+script references, dynamic init dispatch, backup unit discovery, Python imports
+and local Markdown file targets. Evidence: local source inspection on 2026-10-09;
+all six node app lists matched their Compose folders, and the tracked Markdown
+file-target scan found no missing files. The existing Graphify map was used for
+navigation, then findings were checked against the source.
+
+Corrected stale backup status, Windows init and sleep-policy descriptions; added
+a guide to the shared helpers in stacks/README.md and a cleanup review in
+`docs/cleanup-review.md`. Added `Deprecated/README.md` as the archive index and
+ignored generated `graphify-out/` files in Git. Those outputs remain on disk;
+the graph snapshot predates these documentation edits. No runtime files could
+be confidently retired, so none were moved or deleted. Runtime code and service
+configuration are unchanged. Earlier runbook and Claude integration edits remain.
+
+Tests were not run, as requested. No dependencies were installed, no nodes or
+remotes were accessed, and no commits or pushes were made. Next: owner decisions
+on the external groom-record integration, possible shared Compose fragments and
+Graphify availability for Claude hooks; evidence is in the cleanup review.
+Undo: reverse only this cleanup's documentation and ignore-rule edits, preserving
+the earlier runbook and Claude changes. No runtime paths need restoring.
+
+---
+
+## 2026-10-09 — Graphify repository map
+
+Built the Graphify knowledge graph for the repository, including the existing working-tree changes in `runbook.md`, `.claude/CLAUDE.md` and `CLAUDE.md`. Detection found 198 supported files (87 code, 111 documents; about 116,459 words); 41 sensitive files were excluded. Outputs are in `graphify-out/` (`graph.html`, `GRAPH_REPORT.md`, `graph.json`). The graph has 748 nodes, 1,088 edges and 114 labeled communities.
+
+Integrity check: 83 dangling-endpoint edges, one self-loop, and endpoint-pair collapses (8 directed, 12 undirected); review the report before relying on those relationships. The SQL source yielded no symbols because `tree_sitter_sql` was unavailable. Semantic extraction token usage was not exposed by the agent tool, so Graphify recorded zero token counters rather than measured usage.
+
+No tests ran; no nodes or remotes were accessed or changed. No commits or pushes. Next: review the report and health findings, then use Graphify queries as needed. Undo: remove this entry and `graphify-out/`.
+
+---
+
+## 2026-10-08 — Repository structure review
+
+Reviewed AGENTS.md, docs/MAP.md, the Backlog and newest runbook entries, the
+repository layout, node manifests and READMEs, shared setup/compose helpers,
+backup and recovery design, Tailscale access, and the embedding/LLM configuration
+to understand the project for subsequent work. Evidence: local file reads on
+2026-10-08; the working tree was clean at the start. No nodes or remotes were
+accessed or changed, and no application configuration was edited.
+
+The overview docs contain older status statements (backups not enabled, Ollama,
+roastery sleeping, no Windows init); use the newer dated runbook decisions and
+implementation when planning work. Last recorded priority: restore roastery's
+restic repository from Drive before authorizing node backup keys, then resume
+its rebuild. Live state was not verified in this review.
+
+Validation follow-up (2026-10-08): Python 3.14 is accessible outside the sandbox.
+python -m pytest tests could not run: pytest is not installed. The documented
+python -m unittest discover -s tests ran four DNS tests successfully, but
+test_infrastructure could not import on Windows because os.geteuid is absent
+(five discovered results, one import error). The full suite remains unverified;
+next validation step is to run it in a suitable Linux environment. No test code
+was changed. The owner requested keeping codex/project-understanding local only;
+no commits or pushes. Next project step: select the owner's infrastructure task
+and verify its current state before changing it. Undo: remove this review entry;
+the only file change is this handoff.
+
+---
+
+## 2026-10-08 — `init/roastery-init.ps1`: roastery gets an init
+
+The owner: every Debian node has `purrbrews-init.sh`, roastery had nothing, and
+the 2026-10-07 wipe showed what that costs. Its setup was spread over three
+scripts, two READMEs and a handful of clicks (the bootstrap firewall rule, the
+immich-ml rule, Traefik's scheduled task, power), and the clicks went with the
+wipe.
+
+**What it is:** one PowerShell script, run elevated from the repo, with named
+steps in the order of roastery's README ("Rebuilding roastery"): `hostname`,
+`network`, `power`, `prereqs`, `ssh_key`, `remote_access`, `backup_target`,
+`apps`, `traefik`, `game_mode`, `bootstrap`. It calls the existing scripts
+(`remote-access\setup.ps1`, `backup-target\setup.ps1`, `setup-secrets.ps1`,
+`compose.ps1`, `game-mode\install.ps1`) and does the hand-made parts itself.
+`-Only`/`-Skip`/`-ListSteps`/`-Yes` like the bash init; logged to
+`C:\ProgramData\purrbrews\logs`.
+
+**Choices worth remembering:**
+
+- **A step that can't finish yet blocks, it doesn't abort.** It says what it
+  needs (no repository, no `traefik.exe`, Docker not started) and the run goes
+  on; the summary lists blocked steps, warnings and node-side follow-ups, and
+  `-Only <step>` resumes. Nothing it does on roastery is destructive, so the
+  rest is worth having.
+- **Repository first, nodes after** (2026-10-07): `backup_target` refuses while
+  `C:\purrbrews\restic` has no `config` file and points at RECOVERY.md part B.
+  `-AllowEmptyRepository` is the deliberate way past it.
+- **It never writes `bootstrap\data\authorized_keys`.** That file is the
+  fleet's whole SSH trust list, so a guessed one (say, only roastery's new key)
+  would revoke the Mac from every node within the hour. It stops and says how
+  to rebuild it from a node's managed block, without the old roastery key.
+  The bootstrap step is last and asks first: down, the nodes' key sync just
+  says unreachable; up with a new TLS key, it fails on every node until each
+  re-pins (the command is printed).
+- **Traefik's task is in the repo now** (a 2026-10-07 proposal): at boot, as
+  SYSTEM, `ExecutionTimeLimit` zero, three restarts; and the leftover
+  `config\dynamic\ollama.yml` is deleted if it's there.
+- **Power: never sleep on AC, hibernation off**, the 2026-09-29 decision, until
+  wake-on-demand exists. roastery's README said "sleeps between uses"; fixed.
+- **Not done by the script:** downloading `traefik.exe`, the restore itself,
+  meowGram and the kitten (their own repos), anything on a node.
+
+**Checked** (in a Linux session, not on roastery): every `.ps1` parses under
+PowerShell 7.4 and is ASCII; the steps run with Windows cmdlets stubbed out
+(the network step's warnings, and the blocked paths of `backup_target`, `traefik`,
+`apps` and `bootstrap`, each with its message); a `RoasteryInit` test class pins
+the order, the repository guard, that `authorized_keys` is never written, the
+task's time limit and the three firewall rules' scopes. `python3 -m unittest
+discover -s tests`: 75 tests, OK (11 skipped). **Not checked:** Windows
+PowerShell 5.1 and any real step on Windows.
+
+**Undo:** revert the commit; the script changes nothing until someone runs it.
+On roastery, what it made has names: firewall rules `purrbrews-bootstrap`,
+`purrbrews-immich-ml`, `purrbrews-traefik`, the `traefik` task, and the power
+settings (`powercfg /change standby-timeout-ac <minutes>`).
 
 ---
 

@@ -1,11 +1,11 @@
 # n8n: workflow automation, and the thing that ties grinder's other apps
 # together. Its own state is SQLite; pipeline data goes to postgres-vector.
 #
-# Image: n8nio/n8n:2.39.7, pinned 2026-09-29 to the version that was running
+# Image: n8nio/n8n:2.42.6, pinned 2026-09-29 to the version that was running
 # (same digest as the `latest` it replaced).
 services:
   n8n:
-    image: n8nio/n8n:2.39.7
+    image: n8nio/n8n:2.42.6@sha256:526daa38b68e923cc00c5280d18b4da5d489f115a73bdbf3b8e452b184197a9a
     container_name: n8n
     environment:
       TZ: ${TZ}

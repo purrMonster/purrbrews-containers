@@ -44,7 +44,7 @@ done
 [[ "$SAMPLE" =~ ^[0-9]+$ ]] || die "--files takes a number"
 # The newest Postgres client reads every older dump format, so one image
 # checks every node's dumps. Pinned like everything else.
-PG_IMAGE=postgres:18
+PG_IMAGE=postgres:18.6@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336
 
 restic_env
 if [[ "$FROM" == drive ]]; then
