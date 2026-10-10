@@ -1,9 +1,7 @@
-# Unbound — recursive, DNSSEC-validating resolver. Pi-hole's only upstream.
+# Unbound â€” recursive, DNSSEC-validating resolver. Pi-hole's only upstream.
 #
-# Image: klutchell/unbound:main. The project publishes no version tags (CI builds
-# tagged by branch/commit); `main` is its documented tag and is rebuilt as soon as
-# Unbound or the base image changes. For the resolver between the house and the
-# internet, freshness beats a frozen tag. Checked 2026-09-15 (pushed 2026-09-13).
+# The upstream main channel is pinned by digest. Review new builds explicitly;
+# an unattended pull must not change the household's DNS implementation.
 #
 # Networking: its own bridge network with a fixed address and NO published ports.
 # Pi-hole runs with host networking, so it reaches ${UNBOUND_IP} directly over the
@@ -11,7 +9,7 @@
 # sieve by construction, rather than by firewall rule or port remap.
 services:
   unbound:
-    image: klutchell/unbound:main
+    image: klutchell/unbound:main@sha256:1700bf0de3e9d114f3b28c771239a04e3ce879a4c49f5b1e74ca4c480da4e694
     container_name: unbound
     networks:
       dns:

@@ -1,4 +1,4 @@
-# Gatus — health checks for the fleet, alerts to ntfy. Dashboard: gatus.${DOMAIN}
+# Gatus â€” health checks for the fleet, alerts to ntfy. Dashboard: gatus.${DOMAIN}
 # through sieve's Traefik (no port published).
 #
 # Lives on sieve, away from the storage and app nodes it watches. Its own
@@ -8,10 +8,10 @@
 # config/config.yaml is tracked and read as-is; Gatus substitutes ${VARS} from
 # this container's environment itself, so no secret is ever rendered to disk.
 #
-# Image: twinproduction/gatus:v5.36.0 (the current `stable`). Checked 2026-09-15.
+# Image: twinproduction/gatus:v5.37.0 (the current `stable`). Checked 2026-09-15.
 services:
   gatus:
-    image: twinproduction/gatus:v5.36.0
+    image: twinproduction/gatus:v5.37.0@sha256:094eb186e55235db367e90e9d56140e5897b7044c41de23cde4cc18e6da1242e
     container_name: gatus
     user: ${PUID:-1000}:${PGID:-1000}
     environment:

@@ -1,10 +1,10 @@
-# Homepage — the household's start page: one tile per app.
+# Homepage â€” the household's start page: one tile per app.
 # Behind Authelia ForwardAuth (household). No Docker socket, no API widgets:
 # nothing here holds a credential. Settings are tracked in ./dashboard.
 # Image tag checked 2026-09-16.
 services:
   homepage:
-    image: ghcr.io/gethomepage/homepage:v2.3.0
+    image: ghcr.io/gethomepage/homepage:v2.4.0@sha256:643bd0be730d40f69d58028a55d1a896739333e8815786df42bc97f109ecbe61
     container_name: homepage
     restart: unless-stopped
     environment:

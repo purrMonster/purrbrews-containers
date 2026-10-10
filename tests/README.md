@@ -3,6 +3,18 @@
 Run from the repository root. These checks use temporary files, fake Docker
 commands and local backup repositories; they do not deploy stacks or contact nodes.
 
+CI runs these checks on pull requests: Linux suite and isolated root backup tests,
+Windows Compose checks, shell analysis, inventory/image-lock checks, and a
+checksum-verified Gitleaks scan of history. Deployment tests cover ordering,
+optional apps, exact revisions, locking, partial failures and atomic state writes.
+Upgrade-gate tests cover fresh data and refusals for existing data; they do not
+rehearse real database migrations.
+
+```sh
+python3 scripts/fleet.py validate
+python3 scripts/check-images.py
+```
+
 ## Debian / WSL
 
 Install dependencies in the test environment:

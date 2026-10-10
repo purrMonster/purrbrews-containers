@@ -12,11 +12,11 @@
 # Local login only, no Authelia/OIDC. That was a choice, not a gap: if
 # Authelia is down, Komodo is the thing I'll want to reach.
 #
-# Images: komodo-core / komodo-periphery 2.3.2 (pinned rather than `:2`;
-# Core has root on every node, I don't want it changing under me), mongo 7.0.
+# Core has root on every node. Core/Periphery versions stay aligned; all image
+# digests and the compatible Mongo major are recorded in image-lock.json.
 services:
   mongo:
-    image: mongo:7.0
+    image: mongo:7.0.43@sha256:1f995ad6fdb93244a1addab1b58f934a0bc2f5643c38e02f5e9d7f0c7d227a7b
     container_name: komodo-mongo
     labels:
       komodo.skip:   # keeps Komodo's "stop all containers" away from its own database
@@ -40,7 +40,7 @@ services:
     restart: unless-stopped
 
   komodo-core:
-    image: ghcr.io/moghtech/komodo-core:2.3.2
+    image: ghcr.io/moghtech/komodo-core:2.3.3@sha256:bca73d0eee143066228fb9b80c38a5a2726e573ad2758f7aa92b5c91a8aef1c7
     container_name: komodo-core
     init: true
     depends_on:
@@ -101,7 +101,7 @@ services:
     restart: unless-stopped
 
   komodo-periphery:
-    image: ghcr.io/moghtech/komodo-periphery:2.3.2
+    image: ghcr.io/moghtech/komodo-periphery:2.3.3@sha256:fa3f1a641a265216066676950d5eecdf506955a7bafe2f01996135ae93115cd5
     container_name: komodo-periphery
     init: true
     depends_on:

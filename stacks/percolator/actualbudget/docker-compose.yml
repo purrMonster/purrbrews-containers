@@ -1,8 +1,8 @@
-# Actual Budget — envelope budgeting.
+# Actual Budget â€” envelope budgeting.
 # Image tag checked 2026-09-15.
 services:
   actualbudget:
-    image: actualbudget/actual-server:26.9.0
+    image: actualbudget/actual-server:26.10.0@sha256:24645e971da6bb1a1f953d6859e307a0b29be1e8b4130a35b3220c209b5b860c
     container_name: actualbudget
     restart: unless-stopped
     environment:
@@ -12,7 +12,7 @@ services:
       # PAPERLESS_BIND_ADDR.
       ACTUAL_HOSTNAME: 0.0.0.0
       # Sign in with Authelia. The FIRST account to sign in becomes the
-      # server owner permanently — sign in as the intended owner first.
+      # server owner permanently â€” sign in as the intended owner first.
       ACTUAL_OPENID_DISCOVERY_URL: https://authelia.${DOMAIN}
       ACTUAL_OPENID_CLIENT_ID: actual-budget
       ACTUAL_OPENID_CLIENT_SECRET: ${ACTUALBUDGET_OIDC_CLIENT_SECRET}

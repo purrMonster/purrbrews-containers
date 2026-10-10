@@ -7,7 +7,7 @@
 # the node app's ./keys/core.pub (gitignored). It's a multi-line PEM, which doesn't survive
 # the one-line .env files, so it stays a hand-copied file.
 #
-# First connect also needs an onboarding key from Komodo's UI (Settings →
+# First connect also needs an onboarding key from Komodo's UI (Settings â†’
 # onboarding, named after this node); ./setup-secrets.sh asks for it. Once
 # the node shows up as a Server in Komodo, the key isn't needed any more:
 # leave it blank. It has to be stored unquoted, which setup does; a quoted
@@ -16,10 +16,10 @@
 # The docker socket mount is the real risk here: whoever controls Komodo
 # Core (its admin login, JWT or webhook secret) has root on this node.
 #
-# Image: ghcr.io/moghtech/komodo-periphery:2.3.2, same as Core. Checked 2026-09-17.
+# Image: ghcr.io/moghtech/komodo-periphery:2.3.3, same as Core. Checked 2026-09-17.
 services:
   komodo-periphery:
-    image: ghcr.io/moghtech/komodo-periphery:2.3.2
+    image: ghcr.io/moghtech/komodo-periphery:2.3.3@sha256:fa3f1a641a265216066676950d5eecdf506955a7bafe2f01996135ae93115cd5
     container_name: komodo-periphery
     init: true
     environment:

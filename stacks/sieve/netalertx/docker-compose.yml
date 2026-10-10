@@ -1,10 +1,10 @@
-# NetAlertX — who is on the LAN: new-device alerts, presence, device inventory.
+# NetAlertX â€” who is on the LAN: new-device alerts, presence, device inventory.
 #
-# Image: ghcr.io/netalertx/netalertx:26.9.0. Checked 2026-09-15.
+# Image: ghcr.io/netalertx/netalertx:26.10.0. Checked 2026-09-15.
 # Based on NetAlertX's own hardened "baseline" compose file.
 services:
   netalertx:
-    image: ghcr.io/netalertx/netalertx:26.9.0
+    image: ghcr.io/netalertx/netalertx:26.10.0@sha256:f95bca7a794141296dd1d16be5bb7f39f6fdbcd20353cdb51eee696e12d317f6
     container_name: netalertx
     # ARP and nmap scans need layer 2 access to the LAN; a bridge network can't give it.
     network_mode: host
@@ -21,8 +21,8 @@ services:
     # network-namespace sysctls to the host namespace. See README.md if wanted.
     environment:
       LISTEN_ADDR: 0.0.0.0
-      PORT: "20211"          # web UI — sieve's Traefik only (../firewall.sh)
-      GRAPHQL_PORT: "20212"  # backend API — the UI reaches it internally; no firewall rule
+      PORT: "20211"          # web UI â€” sieve's Traefik only (../firewall.sh)
+      GRAPHQL_PORT: "20212"  # backend API â€” the UI reaches it internally; no firewall rule
       # Settings applied on every start. SCAN_SUBNETS is a string that looks like a
       # Python list; keep the quoting exactly as is.
       #  - SETPWD_enable_password=false: no own login. sieve's Traefik + Authelia SSO is

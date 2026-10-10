@@ -1,4 +1,4 @@
-# Traefik — sieve's own reverse proxy: HTTPS for sieve's web UIs on the LAN.
+# Traefik â€” sieve's own reverse proxy: HTTPS for sieve's web UIs on the LAN.
 #
 # Every node runs its own Traefik for its own apps, so a broken proxy (or a
 # broken node) only takes down that node's UIs. Login is still one SSO: routers
@@ -9,15 +9,15 @@
 #   static   the flags below
 #   dynamic  dynamic/*.yml (routers, services, middlewares), watched live. These
 #            files are Go templates: {{ env "DOMAIN" }} etc. are filled in by
-#            Traefik itself from this container's environment — nothing to render.
+#            Traefik itself from this container's environment â€” nothing to render.
 #
 # No Docker socket: routing is file-based, so Traefik never gets root-equivalent
 # access to the host.
 #
-# Image: traefik:v3.7.13. Checked 2026-09-15.
+# Image: traefik:v3.7.14. Checked 2026-09-15.
 services:
   traefik:
-    image: traefik:v3.7.13
+    image: traefik:v3.7.14@sha256:575fa15b135078fe5e50aa847987d96dbddd7b093c172429618404df73f3fa7c
     container_name: traefik
     command:
       - --global.checkNewVersion=false
@@ -33,7 +33,7 @@ services:
       - --entrypoints.web.http.redirections.entrypoint.to=websecure
       - --entrypoints.web.http.redirections.entrypoint.scheme=https
       - --entrypoints.websecure.address=:443
-      # Drop headers that alias managed ones (X_Forwarded_User…), so they can't be spoofed.
+      # Drop headers that alias managed ones (X_Forwarded_Userâ€¦), so they can't be spoofed.
       - --entrypoints.web.http.aliasHeadersStrategy=delete
       - --entrypoints.websecure.http.aliasHeadersStrategy=delete
       - --entrypoints.websecure.http.tls.certResolver=cloudflare

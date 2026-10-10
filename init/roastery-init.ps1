@@ -393,7 +393,7 @@ function Step-apps {
 
     # immich-ml: the GPU first, then the firewall (its only protection), then up.
     Note 'checking the GPU inside Docker (pulls a small CUDA image the first time)'
-    & docker run --rm --gpus all nvidia/cuda:12.3.1-base-ubuntu22.04 nvidia-smi -L
+    & docker run --rm --gpus all nvidia/cuda:13.4.2-base-ubuntu24.04@sha256:b395ba681833b0a9837674516abe258b2934d6ec5511f78745d71ea177da14a4 nvidia-smi -L
     if ($LASTEXITCODE -ne 0) {
         Block 'no GPU inside Docker: NVIDIA driver >= 545, wsl --update, restart Docker Desktop; then -Only apps'
     } else {

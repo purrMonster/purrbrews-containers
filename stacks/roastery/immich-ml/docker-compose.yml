@@ -9,10 +9,10 @@
 # percolator, and only percolator, reach 3003. A Linux firewall inside WSL
 # does nothing here: Docker Desktop's engine runs in its own VM.
 #
-# Image: ghcr.io/immich-app/immich-machine-learning:v3.2.1-cuda.
+# Image: ghcr.io/immich-app/immich-machine-learning:v3.3.1-cuda.
 services:
   immich-machine-learning:
-    image: ghcr.io/immich-app/immich-machine-learning:v3.2.1-cuda
+    image: ghcr.io/immich-app/immich-machine-learning:v3.3.1-cuda@sha256:d1a195d377cfac65886901a6b2d4040b61b7e7db7ca55db1598622d3a2f125e2
     container_name: immich-machine-learning
     restart: unless-stopped
     environment:
