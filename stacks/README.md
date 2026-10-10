@@ -13,11 +13,12 @@ stacks/
     ├── README.md              role, apps, bring-up order, gotchas
     ├── node.conf              APPS in bring-up order, NETWORK, RESOLVER
     ├── local.env.example      node settings template → .env.local (gitignored)
-    ├── setup-secrets.sh       ┐
-    ├── render-configs.sh      │ the same wrapper on every node:
-    ├── compose.sh             │ exec ../_lib/<script> <this dir> "$@"
-    ├── firewall.sh            │ (backup.sh on the Linux nodes)
-    ├── backup.sh              ┘
+    ├── scripts/               node-specific tasks and the plan/deploy run.sh
+    ├── setup-secrets.sh       wrappers calling ../_lib directly
+    ├── render-configs.sh
+    ├── compose.sh
+    ├── firewall.sh
+    ├── backup.sh              Linux shared backup wrapper
     ├── restic/secrets.conf    the backup password and alert URL (cellar: its whole backup hub)
     └── <app>/
         ├── docker-compose.yml
@@ -45,16 +46,21 @@ of the stack scripts (`*.ps1`) let it run without WSL.
 
 ## The shared scripts
 
-Run them from the node's folder, as the ops user, never with sudo (they sudo the
-few commands that need it; root-owned secrets files break the next run).
+Run `bash scripts/run.sh` as the ops user to preview the plan. To execute, pass
+`--release <full-commit-id> --acknowledge-prerequisites`: setup/render, firewall,
+then each selected app in `node.conf` order, waiting for Compose readiness.
+See [operations](../docs/operations.md) for release controls and optional apps. First-time per-app workflows with manual checkpoints should still follow
+the node README. Backup, DHCP handover, kiosk setup and recovery tasks keep their
+separate commands. The individual entry points remain available from the node root.
 
 | Script | Does |
 |---|---|
-| `./setup-secrets.sh` | First-time setup, and the thing to re-run after a pull. `.env.local` from `local.env.example` (new keys appended, [renamed keys](_lib/renamed-keys) copied across), a prompt for every `REPLACE_ME`, every app's `secrets.conf`, then render. Never changes a value that's already set |
-| `./render-configs.sh` | Every `*.template` → the file beside it. A template with an unset or `REPLACE_ME` variable fails and its last good render stays. On a node with `RESOLVER` set, regenerates the Pi-hole records first |
-| `./compose.sh <app> …` | `docker compose` with the env files. Before `up` it checks renders are current, creates `data-dirs`, runs `prepare.sh`, and refuses a resolved config with a `REPLACE_ME` left in it. `--all` goes in `node.conf` order (backwards for `down`); `--list` also shows app folders `node.conf` doesn't mention |
-| `sudo ./firewall.sh` | UFW rules from every app's `firewall` file; `--dry-run` prints them |
-| `sudo ./backup.sh <cmd>` | The node's backups from every app's `backup` file: `plan` (no sudo), `doctor`, `keys`, `nightly`, `restic …`. See [Backups](#backups) |
+| `scripts/run.sh` | Plan by default; explicit reviewed revision executes setup → firewall → Compose. Stops on failure |
+| `./setup-secrets.sh` | First-time setup and re-run after a pull: adds new `.env.local` keys, migrates renamed keys, creates each app's secrets, then renders. Existing values stay unchanged |
+| `./render-configs.sh` | Renders each `*.template` beside its source; refuses missing values and preserves the last good output |
+| `./compose.sh <app> …` | Compose with the right env files and startup checks. `--all` follows `node.conf` order (reverse for teardown); `--list` reports unlisted app folders |
+| `sudo ./firewall.sh` | Applies UFW rules from app `firewall` files; `--dry-run` previews them |
+| `sudo ./backup.sh <cmd>` | Runs node backups from app `backup` files: `plan`, `doctor`, `keys`, `nightly`, `restic …`. See [Backups](#backups) |
 
 **Env files, later ones win:** `stacks/fleet.env` → `/opt/purrbrews/.env` (written by
 init: `NODE`, `NODE_IP`, `PUID`/`PGID`, `DATA_DIR`, `MEDIA_DIR`) → the node's

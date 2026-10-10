@@ -68,10 +68,11 @@ stacks/sieve/
 ├── README.md               this file
 ├── node.conf               app order, the sieve_edge network, RESOLVER=primary
 ├── local.env.example       node settings → .env.local
-├── setup-secrets.sh        .env.local, every app's secrets, render (run first)
-├── render-configs.sh       DNS records + leases, then *.template → rendered files
-├── compose.sh              docker compose with the right env files; --all for every app
-├── firewall.sh             UFW rules from each app's firewall file
+├── scripts/                one-off tasks and the plan/deploy run.sh entry point
+├── setup-secrets.sh        shared wrapper calling ../_lib
+├── render-configs.sh       shared wrapper calling ../_lib
+├── compose.sh              shared wrapper calling ../_lib
+├── firewall.sh             shared wrapper calling ../_lib
 ├── enable-dhcp.sh          one-time DHCP handover (see pihole/README.md)
 └── <app>/
     ├── docker-compose.yml
@@ -82,8 +83,9 @@ stacks/sieve/
     └── config/             tracked config, when the app needs files
 ```
 
-The four scripts are the same three-line wrappers on every node; the logic is
-in [`../_lib`](../README.md#the-shared-scripts).
+The node-root commands forward to shared wrappers in `scripts/`; common logic is
+in [`../_lib`](../README.md#the-shared-scripts), and node differences live in
+`node.conf` and each app's files.
 
 `.env.local` and every `secrets.env.local` are gitignored and mode 600.
 
@@ -109,9 +111,14 @@ cd /opt/purrbrews/stacks/sieve
 # Nothing may already own port 53 (Debian netinst normally has no local resolver)
 sudo ss -tulpn | grep -E ':(53|67|80|443|8080|20211)\b' || echo "ports free"
 
-./setup-secrets.sh      # asks for the domain and tokens; safe to re-run
-sudo ./firewall.sh      # --dry-run first if you like
+./setup-secrets.sh
+sudo ./firewall.sh      # preview with --dry-run first if you like
 ```
+
+Use the per-app checks below for the first rollout and complete the manual DHCP
+handover only after DNS and alerting are proven. Later full bring-ups can use
+`bash scripts/run.sh` to preview; use the explicit release options in
+[operations](../../docs/operations.md) to execute.
 
 ## Bring-up order
 

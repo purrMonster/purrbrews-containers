@@ -50,6 +50,139 @@ changes can be made later without re-deriving the reasoning.
 
 ---
 
+## 2026-10-10 — Reviewed deployments, locked images and offline release checks
+
+Owner authorized a complete repository refactor, image updates, focused commits,
+a second and final review, public push and PR. Continued the existing
+`codex/code-sanitization` branch, which contains the prior refactor. The requested
+`codex/code-refactoring` ref is absent locally and remotely. No host deployment
+is authorized by these repository changes.
+
+### Changes and reasons
+
+- Replaced the earlier extra wrapper layer with direct node-root calls to
+  `_lib`. Moved the actual one-off DHCP and LLDAP implementations into their
+  node `scripts/` directories; old paths forward to them. Five identical
+  `scripts/run.sh` entrypoints preview by default and execute setup/render,
+  firewall, then ordered Compose only with explicit release options.
+- Added policy-only `fleet.json` and a standard-library `scripts/fleet.py`.
+  `node.conf` still owns app order; Compose still owns service definitions.
+  Validate/plan are read-only. Deploy checks local host/OS, operator privileges,
+  exact commit, clean checkout, required commands and acknowledged prerequisites.
+  It waits for Compose readiness, excludes optional cellar apps unless selected,
+  locks across the operator's checkouts and records completed/failed phases
+  atomically without command output. Status is a record, not live health.
+- Changed the daily fetch helper so scheduled jobs cannot silently switch to new
+  code. The legacy timer name remains; Git transport errors and healthcheck
+  callback details are kept out of its journal. Existing installed helpers need
+  an authorized rollout of the init timers step.
+- Refined groom status records: descriptive internal names, invalid/out-of-range
+  timestamps fall back safely, unique atomic temporary files avoid writer
+  collisions, and journal text is omitted unless explicitly opted in. Schema
+  remains 1. Opt-in logs can expose upstream secrets and are documented.
+- Reviewed upstream releases and resolved **49** public registry inputs to
+  immutable manifest digests, including shared services, Dockerfile bases, the
+  restore client and GPU diagnostic. `image-lock.json` records old/new references,
+  registry URLs, file coverage and platform evidence. All manifests advertise
+  linux/amd64. Latest compatible PostgreSQL/Mongo majors are retained; Immich's
+  database follows its release Compose. Local builds remain local.
+- Matched Immich server/ML, Komodo Core/Periphery and Scrutiny hub/collector
+  releases. Replaced Karakeep's retired Chrome 124 with its maintained upstream
+  browser, preserving upstream entrypoint ports and checking HTTP readiness.
+  Corrected a repository-only draft where the collector had inherited the hub
+  image variant; added a regression assertion before publishing.
+- Added explicit gates before existing Nextcloud 35 and Meilisearch 1.54 data
+  upgrades; acknowledgement follows a backup/migration rehearsal and does not
+  perform one. `docs/image-upgrades.md` describes supported-major exceptions,
+  Nextcloud's latest-34 prerequisite, Meilisearch dump/import and compatibility
+  checks, CUDA driver requirements and data-aware rollback. These are pending
+  live checks, not claims of deployed upgrades.
+- Added offline digest coverage checks and a public anonymous manifest resolver.
+  Added tests for ordered plans, optional selection, dirty/wrong releases, locks,
+  failed phases, atomic state, secret-safe logs, fetch-only updates and upgrade
+  gate decisions. Added pinned-action CI with Linux, root backup and Windows
+  checks, shell analysis and checksum-verified secret scanning.
+- Reconciled concise README entrypoints with actual runner semantics, fixed
+  obsolete backup and privilege claims, and added the operations guide and map
+  links. Recovery targets are proposals until accepted and measured. Independent
+  backup storage, offline copies and physical recovery drills remain live work.
+
+### Evidence and remaining passes
+
+2026-10-10: original offline suite **75 passed, 4 skipped**; expanded suite
+**87 passed, 4 skipped**. The separate root backup selection passed **3/3**.
+Native Windows Compose regression checks passed. ShellCheck error-level analysis
+passed. All image digests were resolved from public registries without pulling
+layers or running containers; the offline lock check passed. Gitleaks 8.30.1,
+downloaded with verified release checksum, found no leaks in the initial
+126-commit history. The working diff and refreshed history still need the
+pre-push scan. No fleet SSH, application restart, firewall, DNS or data change.
+
+Remote main advanced to `1533dd1` during this work, adding Gatus endpoints,
+image cleanup, Dependabot and CI. Next: commit the focused changes, merge that
+history without rewriting it, reconcile overlapping helpers/CI, then run second
+and final verification and secret checks on the integrated tree before push/PR.
+GitHub SSH works; CLI has no API login, so PR publication may need an authenticated
+browser session or owner sign-in. No token was printed or saved.
+
+**Undo:** revert the focused commits in reverse order for repository changes.
+For an already deployed release, follow `docs/operations.md`: revert code/config
+only when data remains compatible, otherwise restore matched pre-upgrade data and
+images. Restore the prior installed timer helper separately if rolling back the
+fetch-only policy. No node state changed in this session. Commit IDs and final
+publication/verification evidence will be added after the final pass.
+
+---
+
+## 2026-10-10 — Linux stack scripts organized behind one runner
+
+Follow-up review (2026-10-10): corrected this pass's wrapper layout check to use
+LINUX_NODES for the new directories and retain coverage of roastery's existing
+shell wrappers. Evidence: the targeted Debian pytest check passed (1 passed,
+70 deselected); Windows Python was inaccessible and sandboxed WSL access was
+denied, so the successful run used approved access to the existing Debian WSL.
+The full suite remains outstanding. Proposed next requirements: reduce wrapper
+indirection, give the runner phase-specific failures and a read-only plan, make
+optional-service selection explicit, automate offline checks, verify repeat runs
+and partial failures, lock build inputs, and reconcile recovery status with dated
+evidence. These are proposals, not implemented operational changes. No commits,
+pushes or node changes. Undo this follow-up by reversing its test assertion edit;
+next, validate the full refactor before deployment.
+
+Continued the existing code-refactor work on the clean `codex/code-sanitization`
+branch. The requested branch name `codex/code-refactoring` was not present in the
+local or listed remote refs; the current branch already contains the earlier
+`codex: code-refactor` commit and its related cleanup.
+
+Moved the canonical setup, render, firewall, Compose and backup wrappers for the
+five Linux nodes into each node's `scripts/` directory. The existing node-root
+commands remain as compatibility launchers. Added `scripts/run.sh` per node: it
+runs setup (which also renders), applies firewall rules with `sudo`, then runs
+`compose --all up -d` in `node.conf` order. It stops on a failing step and refuses
+to run as root. The runner is for routine full bring-ups; node READMEs retain the
+first-rollout checks and manual steps, including LLDAP bootstrap, DHCP handover,
+and cellar's optional SMB rule. Since `--all` starts every listed app, cellar's
+runner starts SMB; its README directs users to individual Compose commands when
+SMB should stay stopped. Backup and recovery scripts remain explicit operations.
+
+Shortened repeated setup instructions in the main and stack READMEs while keeping
+node-specific prerequisites and first-run checks. In `stacks/_lib/groom-record.py`,
+renamed internal helpers to snake_case and made an invalid or out-of-range
+`GROOM_START` fall back to the current time; the emitted record schema is unchanged.
+
+Evidence (2026-10-10): read-only review of the branch refs and source; `runbook.md`
+was unchanged before this entry. `git diff --check` found no whitespace errors;
+the edited shell files were normalized to the repository's LF line-ending rule.
+The existing wrapper regression check was updated for the new paths; the test
+suite and operational scripts were not run. No node, remote, commit or push was touched.
+
+**Next:** review the diff, run the offline suite if requested, and use the runner
+only during an authorized node rollout. To undo locally, restore the five nodes'
+root launchers, remove their new `scripts/` directories, and reverse the README,
+test and Python edits; no node state needs restoring. No commits were made.
+
+---
+
 ## 2026-10-09 — Debian verification and focused cleanup commits
 
 The owner authorized tests, Debian WSL dependencies and individual local commits,

@@ -24,6 +24,7 @@ bootstrap/data/
 
 # Written by init/purrbrews-init.sh on each node.
 /.env
+/.fleet/
 
 # Backup keys: which node may write where. Public keys, but per-host state,
 # and the pinning (from=) is the part that matters.

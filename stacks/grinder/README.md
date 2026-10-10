@@ -30,13 +30,13 @@ postgres-vector and the embedding worker aren't published at all; they're only o
 
 ## Setup
 
-As `barista` in `/opt/purrbrews/stacks/grinder`, after `init/purrbrews-init.sh grinder`:
+As `barista` in `/opt/purrbrews/stacks/grinder`, after `init/purrbrews-init.sh grinder`,
+preview with `bash scripts/run.sh`. Pass the release options in
+[operations](../../docs/operations.md) to execute setup → firewall → Compose.
+Have the domain, ACME email, roastery IP, disk device and Cloudflare token ready.
 
 ```bash
-./setup-secrets.sh      # asks for DOMAIN, TRAEFIK_ACME_EMAIL, roastery's IP, the disk and
-                        # the Cloudflare token; generates the rest
-sudo ./firewall.sh
-./compose.sh --all up -d
+bash scripts/run.sh
 ```
 
 `--all` goes in `node.conf` order: database and embedding worker first, then the

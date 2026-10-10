@@ -4,7 +4,7 @@ One page to find everything. Update it whenever a project, doc or node is added.
 Decisions and their reasons live in [`runbook.md`](../runbook.md); this page only
 points.
 
-_Last updated: 2026-10-09_
+_Last updated: 2026-10-10_
 
 ## Start here
 
@@ -12,6 +12,8 @@ _Last updated: 2026-10-09_
 |---|---|
 | [`README.md`](../README.md) | What the fleet is, how a node is built, design principles |
 | [`AGENTS.md`](../AGENTS.md) | Rules for every AI agent working here: scope, git, evidence, nodes, handoff |
+| [`docs/operations.md`](operations.md) | Reviewed releases, deployment phases, recovery, secrets and readiness targets |
+| [`docs/image-upgrades.md`](image-upgrades.md) | Locked image versions, migration gates and rollout checks |
 | [`runbook.md`](../runbook.md) | Dated decisions (newest first) and the backlog, ticked only on evidence |
 | [`docs/network-audit.md`](network-audit.md) | September 2026 fleet audit: DNS/IPv6 findings and rollout |
 | [`stacks/README.md`](../stacks/README.md) | How every node's stacks work, and how to add an app or a node |

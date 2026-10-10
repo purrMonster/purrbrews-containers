@@ -24,6 +24,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -37,12 +38,15 @@ def utc(moment: datetime) -> str:
     return moment.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def startedAt(unit: str, now: datetime) -> datetime:
+def started_at(unit: str, now: datetime) -> datetime:
     """When the unit's main process started, from systemd; ``$GROOM_START`` (epoch seconds) overrides it.
     Falls back to now: a record with the wrong start is better than no record."""
     override = os.environ.get("GROOM_START")
     if override:
-        return datetime.fromtimestamp(int(override), UTC)
+        try:
+            return datetime.fromtimestamp(int(override), UTC)
+        except (OverflowError, OSError, ValueError):
+            return now
     try:
         out = subprocess.run(
             ["systemctl", "show", unit, "-p", "ExecMainStartTimestamp", "--value", "--timestamp=unix"],
@@ -52,12 +56,14 @@ def startedAt(unit: str, now: datetime) -> datetime:
             check=True,
         ).stdout.strip()
         return datetime.fromtimestamp(int(out.lstrip("@")), UTC)
-    except (OSError, subprocess.SubprocessError, ValueError):
+    except (OSError, subprocess.SubprocessError, OverflowError, ValueError):
         return now
 
 
-def logTail(unit: str, start: datetime) -> str:
-    """The last lines the unit logged since it started. The scrubbing of secrets is perch's job."""
+def log_tail(unit: str, started_at: datetime) -> str:
+    """Opt-in journal context; records are readable by an unprivileged consumer."""
+    if os.environ.get("GROOM_INCLUDE_LOGS") != "1":
+        return ""
     try:
         out = subprocess.run(
             [
@@ -65,7 +71,7 @@ def logTail(unit: str, start: datetime) -> str:
                 "-u",
                 unit,
                 "--since",
-                f"@{int(start.timestamp())}",
+                f"@{int(started_at.timestamp())}",
                 "-n",
                 str(LOG_LINES),
                 "-o",
@@ -81,17 +87,22 @@ def logTail(unit: str, start: datetime) -> str:
     return out.decode("utf-8", errors="replace")[-LOG_LIMIT:]
 
 
-def write(root: Path, job: str, start: datetime, record: dict) -> Path:
+def write_record(record_root: Path, job: str, started_at: datetime, record: dict) -> Path:
     """Atomically, with the modes kitten needs: a 0755 directory and a 0644 file."""
-    folder = root / job
-    for directory in (root, folder):
+    folder = record_root / job
+    for directory in (record_root, folder):
         directory.mkdir(mode=0o755, exist_ok=True)
         directory.chmod(0o755)
-    target = folder / f"{start.strftime('%Y%m%dT%H%M%SZ')}.json"
-    temporary = folder / f".{target.name}.tmp"  # kitten reads *.json only, so it never sees this
-    temporary.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
-    temporary.chmod(0o644)
-    os.replace(temporary, target)
+    target = folder / f"{started_at.strftime('%Y%m%dT%H%M%SZ')}.json"
+    descriptor, name = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=folder)
+    temporary = Path(name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            stream.write(json.dumps(record, indent=2) + "\n")
+        temporary.chmod(0o644)
+        os.replace(temporary, target)
+    finally:
+        temporary.unlink(missing_ok=True)
     return target
 
 
@@ -101,21 +112,21 @@ def main(argv: list[str]) -> int:
         return 0
     job, node, unit = argv
     now = datetime.now(UTC)
-    start = startedAt(unit, now)
+    started_at_value = started_at(unit, now)
     record = {
         "schema": SCHEMA,
         "job": job,
         "node": node,
         "unit": unit,
-        "start": utc(start),
+        "start": utc(started_at_value),
         "end": utc(now),
         "result": os.environ.get("SERVICE_RESULT", "") or "unknown",
         "exitStatus": os.environ.get("EXIT_STATUS", ""),
-        "logTail": logTail(unit, start),
+        "logTail": log_tail(unit, started_at_value),
     }
-    root = Path(os.environ.get("GROOM_DIR", "/var/lib/purrbrews/groom"))
+    record_root = Path(os.environ.get("GROOM_DIR", "/var/lib/purrbrews/groom"))
     try:
-        path = write(root, job, start, record)
+        path = write_record(record_root, job, started_at_value, record)
     except OSError as exc:
         print(f"groom-record: could not write the record for {unit}: {exc}", file=sys.stderr)
         return 0
