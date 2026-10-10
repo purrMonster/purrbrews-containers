@@ -4,7 +4,7 @@ Run from the repository root. These checks use temporary files, fake Docker
 commands and local backup repositories; they do not deploy stacks or contact nodes.
 
 CI runs these checks on pull requests: Linux suite and isolated root backup tests,
-Windows Compose checks, shell analysis, inventory/image-lock checks, and a
+Windows Compose and privileged-runtime checks, shell analysis, inventory/image-lock checks, and a
 checksum-verified Gitleaks scan of history. Deployment tests cover ordering,
 optional apps, exact revisions, locking, partial failures and atomic state writes.
 Upgrade-gate tests cover fresh data and refusals for existing data; they do not
@@ -45,11 +45,14 @@ cover Windows Compose behavior separately.
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File tests/test_compose_helpers.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tests/test_windows_runtime.ps1
 ```
 
 The execution-policy option applies only to that process. The test shadows Docker
 with a function, checks preview and startup behavior, and leaves fixtures under
 the ignored `graphify-out/verification/` directory for inspection.
+The runtime test validates Windows ACLs, atomic copying with fixture-only ACLs,
+certificate retention and junction refusal; it never registers a scheduled task.
 
 The Python suite's source-only checks can run on Windows with UTF-8 enabled and
 Git Bash on PATH. The full suite needs Linux filesystem permissions and tools.

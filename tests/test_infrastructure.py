@@ -1018,6 +1018,15 @@ class RoasteryInit(unittest.TestCase):
         self.assertIn('-ExecutionTimeLimit ([TimeSpan]::Zero)', body)
         self.assertIn("'config\\dynamic\\ollama.yml'", body)
 
+    def test_traefik_system_task_uses_protected_runtime(self):
+        body = re.search(r'^function Step-traefik \{.*?^\}', self.SCRIPT.read_text(), re.M | re.S).group(0)
+        self.assertIn("GetFolderPath('ProgramFiles')", body)
+        self.assertIn('Install-TraefikRuntime -Source $dir -Destination $runtime', body)
+        self.assertIn("$start = Join-Path $runtime 'start.ps1'", body)
+        self.assertIn("$exe = Join-Path $runtime 'traefik.exe'", body)
+        self.assertIn('-Execute $powershell -WorkingDirectory $runtime', body)
+        self.assertLess(body.index('Install-TraefikRuntime'), body.index('New-ScheduledTaskAction'))
+
     def test_firewall_rules_are_scoped(self):
         text = self.SCRIPT.read_text()
         rules = re.findall(r"Set-FirewallRule '([a-z-]+)' .*?@\{(.*?)\}", text, re.S)

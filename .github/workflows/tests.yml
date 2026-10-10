@@ -54,3 +54,6 @@ jobs:
       - name: PowerShell wrapper regression checks
         shell: powershell
         run: ./tests/test_compose_helpers.ps1
+      - name: Privileged runtime regression checks
+        shell: powershell
+        run: ./tests/test_windows_runtime.ps1

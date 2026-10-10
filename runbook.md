@@ -52,6 +52,60 @@ changes can be made later without re-deriving the reasoning.
 
 ---
 
+## 2026-10-10 — PR 23 security review repairs
+
+Verified the clean checkout and GitHub PR before editing: repository
+`purrMonster/purrbrews-containers`, head `codex/code-sanitization` at `866d806`,
+base `main`. Owner requested the two attached security-review fixes.
+
+**SYSTEM task:** the review correctly identifies a writable-checkout privilege
+boundary. This supersedes the previous local review's treatment of that path as
+an operator trust assumption. A protected wrapper invoking the original writable
+script would retain the vulnerability. The Traefik step now installs the actual
+launcher, executable, credentials and config into
+`%ProgramFiles%\purrbrews-traefik`, and uses that protected working directory and
+the absolute system PowerShell executable for its SYSTEM task. The firewall rule
+follows the installed executable. New files/directories receive administrator
+ownership and explicit Administrators/SYSTEM permissions at creation; existing
+runtime ACLs, owners, ancestors and reparse points are checked before copying.
+Unsafe existing paths are refused. Windows PowerShell 5.1 is required for the
+atomic ACL-aware .NET Framework creation APIs.
+
+Certificate data migrates from the checkout only if the protected copy is absent;
+later installs keep renewed certificates. The existing task is stopped before
+replacement. Installation failures leave it stopped until corrected and rerun.
+The README documents elevated updates, backup and recovery. No task, firewall,
+real certificate or live node was changed during this repository repair.
+
+**LLDAP:** the requested password-argument fix was already present in `012f137`.
+Rechecked it and its regressions: login/password inputs use stdin, the admin
+password is unset after login, and generated passwords are delivered only to the
+terminal. `docker exec -e NAME=value` would still put values in host argv, so the
+proposed replacement was not applied. The upstream tool's session-token argument
+inside the trusted container remains the previously documented limitation.
+
+Added a source regression for the protected task paths and Windows tests for
+ACL/owner rejection, writable ancestors, atomic creation/copying, independent
+installed copies, certificate retention and junction refusal. Production ACL
+factories are checked directly; copying uses current-user ACLs in an ignored
+fixture so the tests require no live SYSTEM installation. CI runs that script.
+On 2026-10-10: 97 normal-user pytest tests passed (83.00s), with three root-only
+tests skipped there; native Windows runtime and existing Compose checks passed.
+The separate root-only run passed all three tests (29.86s), covering all 100
+distinct tests. Final public-source/private-domain scanning checked 432 paths
+without findings; Gitleaks checked 159 commits without leaks, and the full diff
+against `origin/main` passed whitespace checks. The repair is committed under
+`fix: isolate SYSTEM Traefik runtime from writable checkout` on the existing PR
+branch; hosted checks and live installation are separate from these local results.
+
+Next: review the repair in PR #23, then separately authorize the elevated
+Traefik installation and verify its task identity, ACLs and listener on roastery.
+Rollback: restore prior trusted files in the protected runtime and restart its
+task, retaining certificate data; do not restore execution from the writable
+checkout. Repository-only reversal is an ordinary revert of this repair commit.
+
+---
+
 ## 2026-10-10 — GitHub checks reproduced locally
 
 Owner requested the same checks after GitHub's AI security review exhausted its

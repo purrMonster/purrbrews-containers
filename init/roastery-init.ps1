@@ -67,6 +67,7 @@ $AllSteps = @('hostname', 'network', 'power', 'prereqs', 'ssh_key', 'remote_acce
 if ($ListSteps) { $AllSteps; return }
 
 . (Join-Path $PSScriptRoot '..\stacks\_lib\purrbrews.ps1')
+. (Join-Path $PSScriptRoot 'lib\windows-runtime.ps1')
 $ErrorActionPreference = 'Stop'
 
 $Hostname = 'roastery'
@@ -437,9 +438,12 @@ function Step-apps {
 }
 
 function Step-traefik {
+    if ($PSVersionTable.PSEdition -ne 'Desktop') {
+        Block 'Use Windows PowerShell 5.1 (powershell.exe) to install the protected Traefik runtime'
+        return
+    }
     $dir = Join-Path $Roastery 'traefik'
     $exe = Join-Path $dir 'traefik.exe'
-    $start = Join-Path $dir 'start.ps1'
     if (-not (Test-Path -LiteralPath $exe)) {
         Block "no traefik\traefik.exe: download the Windows amd64 Traefik v3 release, check its published checksum, put it at $exe; then -Only traefik"
         return
@@ -454,23 +458,30 @@ function Step-traefik {
     $leftover = Join-Path $dir 'config\dynamic\ollama.yml'
     if (Test-Path -LiteralPath $leftover) { Remove-Item -LiteralPath $leftover -Force; Ok 'removed the leftover config\dynamic\ollama.yml' }
 
-    Set-FirewallRule 'purrbrews-traefik' 'purrbrews Traefik (80, 443 from the LAN)' @{
-        Protocol = 'TCP'; LocalPort = @(80, 443); Program = $exe; RemoteAddress = $Fleet['LAN_CIDR']; Profile = 'Any'
-    }
-    Ok "80, 443/tcp to traefik.exe from $($Fleet['LAN_CIDR'])"
-
     # Hand-made until now, so it went with the wipe (runbook 2026-10-07 asks
     # for it in the repo). Windows' default 3-day limit killed Traefik on
     # 2026-10-03: PT0S here, so that can't come back.
     if (-not (Confirm-Change 'Register the traefik scheduled task (at boot, as SYSTEM) and start it?')) { Block 'skipped at the prompt'; return }
-    $action = New-ScheduledTaskAction -Execute 'powershell.exe' -WorkingDirectory $dir `
+    $runtime = Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'purrbrews-traefik'
+    # Stop our task before replacing a running executable or migrating ACME data.
+    if (Get-ScheduledTask -TaskName 'traefik' -ErrorAction SilentlyContinue) {
+        Stop-ScheduledTask -TaskName 'traefik' -ErrorAction Stop
+    }
+    $runtime = Install-TraefikRuntime -Source $dir -Destination $runtime
+    $start = Join-Path $runtime 'start.ps1'
+    $exe = Join-Path $runtime 'traefik.exe'
+    Set-FirewallRule 'purrbrews-traefik' 'purrbrews Traefik (80, 443 from the LAN)' @{
+        Protocol = 'TCP'; LocalPort = @(80, 443); Program = $exe; RemoteAddress = $Fleet['LAN_CIDR']; Profile = 'Any'
+    }
+    Ok "80, 443/tcp to protected traefik.exe from $($Fleet['LAN_CIDR'])"
+    $powershell = Join-Path ([Environment]::GetFolderPath('System')) 'WindowsPowerShell\v1.0\powershell.exe'
+    $action = New-ScheduledTaskAction -Execute $powershell -WorkingDirectory $runtime `
         -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$start`""
     $trigger = New-ScheduledTaskTrigger -AtStartup
     $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
     $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 3 `
         -RestartInterval (New-TimeSpan -Minutes 1) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
     Register-ScheduledTask -TaskName 'traefik' -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
-    Stop-ScheduledTask -TaskName 'traefik' -ErrorAction SilentlyContinue
     Start-ScheduledTask -TaskName 'traefik'
     Start-Sleep -Seconds 5
     $limit = (Get-ScheduledTask -TaskName 'traefik').Settings.ExecutionTimeLimit
