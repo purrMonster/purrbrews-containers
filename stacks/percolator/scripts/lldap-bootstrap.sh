@@ -8,7 +8,7 @@
 # Ensures:
 #   - groups LLDAP_ADMIN_GROUP and LLDAP_HOUSEHOLD_GROUP exist (.env.local);
 #   - each named user exists and is in both groups. A missing user is created
-#     with a random password that is printed once: have them change it at
+#     with a random password shown once on the terminal: have them change it at
 #     https://lldap.${DOMAIN} (or reset it through Authelia).
 #
 # Add household members as `./lldap-bootstrap.sh <user>` and then remove them
@@ -20,6 +20,7 @@
 #
 # shellcheck disable=SC2016  # GraphQL $variables are literal
 set -euo pipefail
+set +x  # Credentials must never enter shell tracing output.
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LLDAP_URL="http://127.0.0.1:17170"
@@ -54,20 +55,23 @@ graphql() {
   [[ -n "$vars" ]] || vars='{}'
   body="$(jq -n --arg q "$1" --argjson v "$vars" '{query: $q, variables: $v}')"
   response="$(curl -fsS -X POST "${LLDAP_URL}/api/graphql" \
-    -H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/json" -d "$body")" \
+    -H @<(printf 'Authorization: Bearer %s\n' "$TOKEN") \
+    -H "Content-Type: application/json" --data-binary @- <<<"$body")" \
     || die "GraphQL request failed"
   if jq -e '.errors' >/dev/null <<<"$response"; then
-    jq '.errors' <<<"$response" >&2
+    echo "GraphQL returned an error; inspect LLDAP locally" >&2
     return 1
   fi
   printf '%s' "$response"
 }
 
 log "Logging in to LLDAP as admin"
-TOKEN="$(curl -fsS -X POST "${LLDAP_URL}/auth/simple/login" -H "Content-Type: application/json" \
-  -d "$(jq -n --arg p "$ADMIN_PASSWORD" '{username: "admin", password: $p}')" | jq -r '.token // empty')" \
+TOKEN="$(printf '%s' "$ADMIN_PASSWORD" | jq -Rs '{username: "admin", password: .}' | \
+  curl -fsS -X POST "${LLDAP_URL}/auth/simple/login" -H "Content-Type: application/json" \
+    --data-binary @- | jq -r '.token // empty')" \
   || die "cannot reach LLDAP at ${LLDAP_URL} — is it up? (./compose.sh lldap up -d)"
 [[ -n "$TOKEN" ]] || die "LLDAP login failed — does LLDAP_ADMIN_PASSWORD match the one LLDAP was first started with?"
+unset ADMIN_PASSWORD
 
 ensure_group() {
   local name="$1" id
@@ -94,15 +98,30 @@ for user in "${USERS[@]}"; do
       echo "  would create ${user} with a random password"
       continue
     fi
+    # Keep generated credentials out of redirected output and unattended logs.
+    [[ -t 1 ]] || die "creating a user requires an interactive terminal for password delivery"
+    exec 3>/dev/tty || die "cannot open the terminal for password delivery"
+    sudo -v || die "sudo authentication failed"
     password="$(openssl rand -hex 12)"
     graphql 'mutation($u: CreateUserInput!) { createUser(user: $u) { id } }' \
       "$(jq -n --arg id "$user" --arg mail "${user}@${DOMAIN}" '{u: {id: $id, email: $mail, displayName: $id}}')" >/dev/null \
       || die "createUser failed"
     # LLDAP sets passwords over its OPAQUE protocol, which the bundled tool speaks.
-    sudo docker exec lldap /app/lldap_set_password --base-url http://localhost:17170 \
-      --admin-username admin --admin-password "$ADMIN_PASSWORD" --username "$user" --password "$password" >/dev/null \
+    # The upstream tool accepts the new password through its environment but
+    # requires the session token as an argument inside the trusted container.
+    # Stdin keeps both out of host command arguments and sudo command logs.
+    printf '%s\n%s\n' "$TOKEN" "$password" | sudo docker exec -i lldap sh -c '
+      set -eu
+      IFS= read -r token
+      IFS= read -r LLDAP_USER_PASSWORD
+      export LLDAP_USER_PASSWORD
+      exec /app/lldap_set_password --base-url http://localhost:17170 \
+        --token "$token" --username "$1"
+    ' sh "$user" >/dev/null 2>&1 \
       || die "setting the password failed — set one in the LLDAP UI instead"
-    echo "  created ${user}, email ${user}@${DOMAIN} — one-time password: ${password}"
+    printf '  created %s, email %s@%s — one-time password: %s\n' "$user" "$user" "$DOMAIN" "$password" >&3
+    exec 3>&-
+    unset password
     echo "  (change the email in the LLDAP UI if that address isn't real; password resets are sent there)"
     info='{"data":{"user":{"groups":[]}}}'
   fi

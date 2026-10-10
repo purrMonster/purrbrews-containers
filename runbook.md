@@ -52,6 +52,47 @@ changes can be made later without re-deriving the reasoning.
 
 ---
 
+## 2026-10-10 — Publication resumed; LLDAP credential handling hardened
+
+Resumed after the credit interruption, committed the pending publication handoff
+as `a4084fc`, and pushed it to PR #23. Linux, Windows and CodeQL checks passed.
+GitHub's additional AI security review failed with HTTP 402, "exceeded your
+monthly quota", in run `38035128692`; this is an incomplete review, not a pass.
+Before stopping it identified credential handling in the moved LLDAP bootstrap.
+
+The bootstrap now sends login bodies and bearer headers through input streams,
+removes the admin password from memory after login, and disables shell tracing.
+The password tool receives the session token and new password through Docker's
+stdin; the admin password is no longer passed to Docker or sudo command arguments.
+New user passwords go only to the controlling terminal, and unattended creation
+fails before creating the user. GraphQL error bodies are no longer printed.
+Existing users and dry runs retain their existing behavior. The percolator guide
+now states the interactive-terminal requirement.
+
+The upstream v0.6.3 password tool supports `LLDAP_USER_PASSWORD` but still requires
+an authentication argument. The session token is therefore an argument inside
+the trusted container. Host root, Docker administrators, container processes with
+sufficient permissions, and terminal or sudo input recording remain trusted;
+this does not promise secrecy against administrators or recorded sessions.
+The interface was checked against the upstream tagged `set-password/src/main.rs`.
+
+Added regression coverage for login/header input streams, tracing, error output,
+existing users, unattended creation refusal and the container password-tool
+invocation. Added `jq` explicitly to local/CI test dependencies after the first
+run reported that missing local dependency. On 2026-10-10, the full suite then
+passed: 96 normal-user tests (82.36s), with the three root-only tests separately
+passing (30.44s), covering all 99 tests. The six operational-safety tests also
+passed independently. Warning-level ShellCheck and whitespace checks passed;
+the 430-path public source/diff scan found no secrets or configured private domain.
+
+No live account, service or node was changed. Undo with an ordinary revert of
+this security follow-up; doing so restores the credential-exposure risk.
+Next: complete PR checks, retry the AI review after its quota is available, then
+perform the previously documented migration, restore and alert rehearsals.
+The follow-up commit is recorded in PR #23's commit list.
+
+---
+
 ## 2026-10-10 — Reviewed deployments, locked images and offline release checks
 
 Owner authorized a complete repository refactor, image updates, focused commits,

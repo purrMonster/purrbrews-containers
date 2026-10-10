@@ -21,7 +21,7 @@ Install dependencies in the test environment:
 
 ```sh
 sudo apt-get update
-sudo apt-get install --no-install-recommends python3 python3-pytest python3-yaml git restic sqlite3 rclone openssl shellcheck
+sudo apt-get install --no-install-recommends python3 python3-pytest python3-yaml git restic sqlite3 rclone openssl shellcheck jq
 ```
 
 Run the suite as a normal user so secret-generation and rendering tests execute:
