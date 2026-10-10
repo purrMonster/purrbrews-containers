@@ -21,7 +21,7 @@ Install dependencies in the test environment:
 
 ```sh
 sudo apt-get update
-sudo apt-get install --no-install-recommends python3 python3-pytest git restic sqlite3 rclone openssl shellcheck
+sudo apt-get install --no-install-recommends python3 python3-pytest python3-yaml git restic sqlite3 rclone openssl shellcheck
 ```
 
 Run the suite as a normal user so secret-generation and rendering tests execute:
@@ -61,5 +61,5 @@ The standard-library runner is also supported: `python3 -m unittest discover -s 
 find bootstrap init stacks tailscale -type f -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning
 ```
 
-`CURRENT_STEP` in `init/purrbrews-mac.sh` is used by `warn()` and `die()` from the
-sourced init script. ShellCheck without source following may report it as unused.
+The sourced `CURRENT_STEP` use in `init/purrbrews-mac.sh` has a narrow suppression;
+warning-level analysis is required in CI for the remaining script code.

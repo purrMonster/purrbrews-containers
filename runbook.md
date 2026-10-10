@@ -169,6 +169,30 @@ GitHub is already signed in through the browser, so PR creation can proceed
 without creating a new API credential. Final pass and publication follow the
 integration commit; no live-node or repository-protection settings were changed.
 
+### Final pass — 2026-10-10
+
+Integration commit: `3927f6c`. Repeated the complete suite on the integrated code:
+**94 passed, 3 skipped** in 82.98 seconds; the three skipped cases were separately
+executed as root: **3 passed, 94 deselected**. All 97 distinct tests were therefore
+covered across the two privilege contexts. Native Windows wrapper checks passed
+again. The 51 Compose fixtures, six-node/50-app inventory and 49-image lock checks
+passed. No containers were started. Final warning-level ShellCheck is clean after
+a narrow annotation for `CURRENT_STEP`, which is read by sourced init helpers;
+CI now enforces warnings and the test setup documents PyYAML.
+
+Final public-source/domain/history scans and whitespace checks passed before
+publication. Gitleaks inspected 155 non-merge commits and a 430-path source
+snapshot without findings; the configured private domain was absent from the
+diff against current main and outgoing history. These checks reduce risk but do
+not prove runtime compatibility or the absence of every possible secret.
+
+**Unfinished operational work:** no live rollout, application migration rehearsal,
+GPU driver check, restore drill, alert delivery test, independent backup-storage
+move or branch-protection change was performed. Use `docs/image-upgrades.md` and
+`docs/operations.md` for the gated rollout. This is verified repository work;
+production readiness still needs those host-specific results. Push and PR are
+the remaining publication steps, followed by the hosted CI result.
+
 ---
 
 ## 2026-10-10 — Linux stack scripts organized behind one runner
