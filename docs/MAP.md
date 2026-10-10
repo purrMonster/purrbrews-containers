@@ -22,6 +22,8 @@ _Last updated: 2026-10-10_
 | [`docs/cleanup-review.md`](cleanup-review.md) | Cleanup evidence, intentionally retained components and follow-ups |
 | [`Deprecated/README.md`](../Deprecated/README.md) | Archive index and restoration convention |
 | [`stacks/_shared/README.md`](../stacks/_shared/README.md) | Shared Linux Compose definitions and node-specific overrides |
+| [`stacks/README.md#updates`](../stacks/README.md#updates) | How image updates arrive (Dependabot PRs, weekly) and old images are cleaned up |
+| [`.github/`](../.github) | Dependabot's update PRs, and the tests run on every PR and push to `main` |
 
 ## Nodes
 

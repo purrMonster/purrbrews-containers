@@ -53,5 +53,5 @@ if ($script:Calls.Count -ne 1 -or $script:Calls[0] -notlike '*--dry-run up') { t
 
 (Get-Item -LiteralPath $rendered).LastWriteTimeUtc = [datetime]::UtcNow.AddMinutes(1)
 Invoke-Compose $node @('demo', '--profile', 'stop', 'up')
-if ($script:Calls.Count -ne 3 -or $script:Calls[1] -notlike '*config --format json') { throw 'Startup skipped preflight' }
+if ($script:Calls.Count -ne 4 -or $script:Calls[1] -notlike '*config --format json' -or $script:Calls[3] -notlike '*--profile stop up') { throw 'Startup skipped preflight' }
 'PowerShell Compose regression checks passed: parsing, help/list, stale renders, preview and startup.'

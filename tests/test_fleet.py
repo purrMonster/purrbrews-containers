@@ -84,6 +84,36 @@ class Fleet(unittest.TestCase):
             self.assertEqual(json.loads(path.read_text()), {"status": "succeeded"})
             self.assertEqual(list(path.parent.iterdir()), [path])
 
+    @unittest.skipUnless(os.name == "posix", "Linux deploy policy")
+    def test_successful_repeat_records_completion_and_retains_images(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            args = argparse.Namespace(release="a" * 40, acknowledge_prerequisites=True,
+                                      include_optional=[], wait_timeout=10)
+            node = {"platform": "linux", "apps": ["demo"], "optional": []}
+            with patch.object(fleet.socket, "gethostname", return_value="example"), \
+                 patch.object(fleet.os, "geteuid", return_value=1000), \
+                 patch.object(fleet.Path, "home", return_value=root), \
+                 patch.object(fleet.shutil, "which", return_value="/fake/bin"), \
+                 patch.object(fleet, "require_release", return_value=args.release), \
+                 patch.object(fleet.subprocess, "run") as run:
+                for _ in range(2):
+                    fleet.deploy(root, "example", node, args)
+                    state = json.loads((root / ".fleet/example.json").read_text())
+                    self.assertEqual(state["status"], "succeeded")
+                    self.assertEqual(state["completed_phases"], ["configure", "firewall", "deploy:demo"])
+                self.assertEqual(run.call_count, 6)
+                self.assertTrue(all(call.kwargs["env"]["PURRBREWS_KEEP_IMAGES"] == "1"
+                                    for call in run.call_args_list))
+
+    @unittest.skipUnless(os.name == "posix", "Linux deploy policy")
+    def test_wrong_host_refuses_before_any_command(self):
+        node = {"platform": "linux"}
+        with patch.object(fleet.socket, "gethostname", return_value="other"), \
+             patch.object(fleet.subprocess, "run") as run, self.assertRaises(ValueError):
+            fleet.deploy(ROOT, "example", node, argparse.Namespace())
+        run.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

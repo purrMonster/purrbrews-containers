@@ -47,9 +47,19 @@ so it raises no alert of its own.
   - the tunnel's `/ready`;
   - ntfy, internally and through the tunnel;
   - the gateway and the internet (ICMP).
-- **fleet:** ICMP for percolator, cellar, mochaPot and grinder. These are
-  `enabled: false` until each node exists. Flip them on as nodes are provisioned, and
-  add app checks as their stacks land.
+- **fleet:** ICMP for percolator, cellar, mochaPot and grinder, and persianPerch.
+- **apps: \<node\>:** every app's address, end to end, the way a LAN browser
+  reaches it: Pi-hole's record, the node's Traefik and certificate (10 days' margin),
+  and the app. Two shapes, as YAML anchors at the top of the file:
+  - `behind-sso` for hosts with Authelia's ForwardAuth in front: an anonymous
+    request must get 302 or 401. **A 200 fails it: the login was skipped.**
+  - `own-login` for apps that sign people in themselves: a page or a redirect;
+    a 404 (route gone) or 5xx (app down) fails it.
+
+  Not checked: roastery's `ollama` and `meow` (it sleeps; alerts would be noise).
+  A test fails when a route has no check here, or when an admin-only host's check
+  would pass a 200. Container health is each node's Docker healthchecks, seen
+  through Komodo; these checks are whether people can actually get in.
 
 The file is tracked. Gatus substitutes `${VARS}` from its environment itself, so no
 rendered copy with secrets is ever written. After editing:

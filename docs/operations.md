@@ -42,6 +42,8 @@ output. `status` shows the last recorded run, **not live health**; `running` may
 an interrupted process. Inspect the host before retrying.
 
 Each Compose launch uses `--wait --wait-timeout 180` (adjust with `--wait-timeout`).
+The runner sets `PURRBREWS_KEEP_IMAGES=1` so previous images remain available for
+rollback. Standalone wrappers retain their existing post-upgrade cleanup policy.
 This waits for configured health checks; services without one only need to be
 running. It does not prove login, backups, DNS failover or external alert delivery.
 If a phase fails, later phases do not run; completed changes remain applied.

@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import platform
 import re
 import shlex
 import shutil
@@ -152,7 +153,7 @@ def save_state(path, record):
 
 
 def deploy(root, name, node, args):
-    expected_platform = "windows" if os.name == "nt" else "linux"
+    expected_platform = {"Windows": "windows", "Linux": "linux"}.get(platform.system())
     if expected_platform != node["platform"]:
         raise ValueError("Run deployment on the target node's supported operating system")
     if socket.gethostname().split(".")[0].casefold() != name.casefold():
@@ -180,7 +181,8 @@ def deploy(root, name, node, args):
                 record["phase"] = phase
                 save_state(state_path, record)
                 print(f"[{name}] {phase}", flush=True)
-                subprocess.run(command, cwd=root / "stacks" / name, check=True)
+                subprocess.run(command, cwd=root / "stacks" / name, check=True,
+                               env=dict(os.environ, PURRBREWS_KEEP_IMAGES="1"))
                 record["completed_phases"].append(phase)
             record["status"] = "succeeded"
         except (subprocess.CalledProcessError, OSError, KeyboardInterrupt):

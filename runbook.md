@@ -5,6 +5,8 @@ changes can be made later without re-deriving the reasoning.
 
 ## Backlog / open items
 
+- [ ] Require reviewed PRs and passing verification checks on `main` (owner). GitHub displayed "Your main branch isn't protected" during the 2026-10-10 publication review; repository settings were not changed.
+
 - [x] Confirm Secret scanning + Push protection are enabled on the public GitHub repo (repo itself already created, pushed, `origin` set). Confirmed in the repo's settings (owner, 2026-09-29)
 - [x] Workstation: DHCP reservation, `bootstrap/data/` (settings + `authorized_keys`), `docker compose up -d --build`, firewall rule for 8443 Done: `purrbrews-bootstrap` healthy on roastery (192.168.0.15), inbound rule for 8443 enabled (checked 2026-09-29)
 - [ ] First real node through `bootstrap.sh`, at the console (the network step has not yet run on real hardware) All five nodes run; whether the first went through `bootstrap.sh` at the console is for the owner to confirm (owner)
@@ -29,7 +31,7 @@ changes can be made later without re-deriving the reasoning.
 - [x] roastery: `immich-machine-learning` at Immich's version, Windows Firewall 3003 scoped to percolator. Verified 2026-09-29 on roastery (Claude, owner approved): container `immich-machine-learning:v3.2.1-cuda` matches percolator's `immich-server:v3.2.1`; rule `immich-ml (percolator only)` enabled, remote address `192.168.0.11` only
 - [x] Postgres dump job for percolator's databases (Nextcloud, Immich, Paperless): `pg` lines in their `backup` files (2026-09-27)
 - [ ] Remaining node: roastery itself joining the fleet; then archive purrBrews-infra
-- [ ] Gatus: add app checks as stacks land (node pings for percolator, cellar, mochaPot and grinder enabled 2026-09-29)
+- [ ] Gatus: add app checks as stacks land (node pings for percolator, cellar, mochaPot and grinder enabled 2026-09-29). Every app route has an end-to-end check on branch `hardening-2026-10-08` (2026-10-08 second pass); tick once they're green on sieve
 - [ ] Optional: paste `purrbrews-mac.sh list --format pihole` into Pi-hole's static DHCP list
 - [x] Roll out the 2026-09-26 cleanup on every node: every node pulled it (2026-09-26, per the owner)
 - [ ] Work through the 2026-09-26 live-check plan (entry below)
@@ -131,6 +133,41 @@ only when data remains compatible, otherwise restore matched pre-upgrade data an
 images. Restore the prior installed timer helper separately if rolling back the
 fetch-only policy. No node state changed in this session. Commit IDs and final
 publication/verification evidence will be added after the final pass.
+
+### Integration and second-pass evidence — 2026-10-10
+
+Committed `e2b7c07` (reviewed deployment controls and script organization) and
+`e27c03b` (49 image locks, migration gates and verification). Both followed a
+complete offline test run, which reached **88 passed, 4 skipped** before merging.
+
+Integrated current main (`1533dd1`) into this branch, preserving its Gatus endpoint
+coverage and Dependabot configuration. Resolved the map and PowerShell helper
+conflicts by retaining both command parsing and image cleanup. Consolidated CI
+into the existing `tests.yml` workflow and extended Dockerfile updates to bootstrap.
+Dependabot proposals must update the reviewed lock/shared definitions before merge.
+
+The second pass found that cleanup after a failed Bash Compose command could mask
+its error when called in an `||` list. It now returns the failure before cleanup,
+with a regression proving later apps do not start. Both wrappers skip image
+inspection/cleanup in previews. The fleet runner retains previous images for
+rollback via `PURRBREWS_KEEP_IMAGES=1`; standalone cleanup remains available.
+Added repeat-deployment and wrong-host tests, rejected unsupported operating
+systems explicitly, and marked documented node script entrypoints executable.
+
+Installed PyYAML and the missing ICU dependency only in the local Debian test
+environment. Downloaded portable PowerShell 7.6.6 into ignored tooling and verified
+its official SHA-256 before execution. Second-pass suite: **94 passed, 3 skipped**
+(only root-required backup cases); Bash/PowerShell rendering parity now passes.
+Native Windows wrapper checks passed. All **51/51** Compose files passed native
+Compose 5.5.1 configuration validation with synthetic inputs, no daemon operations.
+ShellCheck error-level and whitespace checks passed. Gitleaks found no leaks in
+**155 commits** and the **430-path** source snapshot; the comparison diff and
+outgoing history contain no match for the configured private domain. Commit
+identity uses the owner's verified public GitHub noreply address.
+
+GitHub is already signed in through the browser, so PR creation can proceed
+without creating a new API credential. Final pass and publication follow the
+integration commit; no live-node or repository-protection settings were changed.
 
 ---
 
@@ -533,6 +570,9 @@ evidence.
 - [ ] percolator: `sudo logrotate -d /etc/logrotate.d/purrbrews-traefik` after the next `./compose.sh traefik up -d`; a day later `ls /srv/data/traefik/logs` shows a rotated file and CrowdSec still reading (`docker exec crowdsec cscli metrics show acquisition`)
 - [ ] percolator: `https://vault.${DOMAIN}/admin` asks for an Authelia login and lets only an admin through; the vault, its browser extension and the phone app still sign in as before
 - [ ] grinder: `./compose.sh embedding-worker build --no-cache && ./compose.sh embedding-worker up -d`, then one n8n run that embeds; Dependabot's alert closes once main has the new requirements.txt
+- [ ] GitHub: require the `tests` check before merging into `main` (*Settings → Rules → Rulesets*, or branch protection). Until then CI only reports; it can't stop a red merge (owner)
+- [ ] CI's first real run is green (the push of `hardening-2026-10-08` or its PR); the workflow has only been linted and its steps run locally
+- [ ] Dependabot's first Monday: PRs arrive grouped per image; read the release notes, and merge Immich server + ML, and Komodo Core + Periphery, together
 
 ---
 
@@ -644,6 +684,56 @@ own healthcheck.
   so nothing public changed; left as is rather than rewrite history again.
 - This branch and `roastery-llama-swap` both edit this file's top, so whichever
   merges second has a small conflict here to resolve by keeping both.
+
+### Second pass (same day): what was missing rather than wrong
+
+The owner asked for another pass because something felt missing. This time the
+question was what the pieces assume about each other, checked across the repo
+by script rather than file by file. Four gaps, each now closed and tested:
+
+- **Nothing checked that the household's apps load.** Gatus watched sieve and
+  node pings; persianPerch shows Gatus's endpoints and Komodo's containers, so it
+  shared the blind spot. A broken route, a missing DNS record, or percolator's
+  wildcard certificate expiring would have taken every app down with every check
+  green (Backlog since 2026-09-29). Now 29 checks, one per routed app, through
+  Pi-hole like a LAN client, 10 days' certificate margin, in two shapes:
+  `behind-sso` must answer 302/401, and **a 200 fails it (a skipped login)**;
+  `own-login` must answer a page or a redirect. Tested with real Gatus, Traefik
+  and an Unbound resolver: 200/302/401 pass their shapes; 502, 404 and an SSO
+  host answering 200 fail. A test fails on a route with no check.
+- **Nothing said when an update existed.** Everything is pinned, and Diun was
+  removed on 2026-09-18 ("nothing replaces it yet"). Dependabot now opens one PR
+  per image across every node that runs it, weekly, after a 7-day cooldown; no
+  major bumps for databases or Nextcloud (one major at a time). Validated against
+  the schema; every image parsed with Dependabot's own regex; a test fails on an
+  ignore rule that matches nothing (the first draft had one: Dependabot names drop
+  the registry).
+- **Nothing ever removed an old image**, so weekly updates would have crept every
+  node to perch's 85 % disk warning. `compose.sh` (and `compose.ps1`) now removes
+  the images an app ran before, after a successful `up`, once nothing uses them.
+  Not a blanket prune: that would delete images pulled for apps not yet
+  restarted. Tested on real Docker in both shells (shared, pre-pulled, failed up,
+  opt-out, local rebuild).
+- **Nothing ran the tests.** AGENTS.md asks for it; nothing checked. A GitHub
+  Actions workflow now runs them on every PR and push to `main`, as a normal user
+  and as root. actionlint clean; the root tests pass with Ubuntu 24.04's restic
+  0.16.4 and rclone 1.60.1. It only gates merges once `main` requires it (Backlog).
+
+Also: my two YAML-reading tests would have crashed where PyYAML isn't installed
+(nothing needed it before); they skip with an install hint now.
+
+Checked and fine, so not changed: host basics in init (unattended security
+upgrades, key-only SSH, NTP, default-deny UFW, Docker log rotation); disk-space
+alerts (perch: 85 % warn, 95 % critical); perch raises a critical alert for any
+unhealthy container, so the new healthchecks feed it.
+
+Still proposals: Authelia emails nothing (`notifier: filesystem`), so nobody can
+reset a password or enrol 2FA without the owner; that needs an SMTP account, the
+owner's choice. The two Pi-holes' blocklists still don't sync (mochaPot README).
+
+Merging with `roastery-llama-swap`: tried merging it on top of this branch (the
+recommended order); conflicts only in `docs/MAP.md` and this file, keep both
+sides; the merged tree passes the tests. The other order wasn't tried.
 
 **Undo:** each change is its own commit; revert the one that misbehaves.
 **Next:** the Backlog's rollout lines, node by node.

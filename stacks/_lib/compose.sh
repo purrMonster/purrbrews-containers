@@ -21,6 +21,14 @@
 #   - refuses a resolved config that still has a REPLACE_ME in it
 #     (only the field names are printed, never the values)
 #
+# After a successful up it removes the images the app ran before, if nothing
+# uses them any more: each update leaves the old version behind, and with an
+# update PR a week the disks would fill. Only those images, by tag and never
+# forced, so Docker itself refuses one any container (running or stopped)
+# still uses, and images pulled for apps not yet restarted are left alone.
+# Every image is pinned in Git, so rolling back is a pull. PURRBREWS_KEEP_IMAGES=1
+# keeps them.
+#
 set -Eeuo pipefail
 # shellcheck source=common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
@@ -146,8 +154,41 @@ run_app() {
   case "$verb" in
     up|create|start|restart) if [[ "$preview" == false ]]; then preflight "$app"; fi ;;
   esac
+  local before=''
+  if [[ "$verb" == up && "$preview" == false && -z "${PURRBREWS_KEEP_IMAGES:-}" ]]; then
+    before="$(app_images "$app")"
+  fi
   compose_args "$app"
-  "${DOCKER[@]}" compose "${ARGS[@]}" "$@"
+  # run_app can be called in an || list, which disables Bash's implicit
+  # errexit inside the function. Preserve failures before optional cleanup.
+  "${DOCKER[@]}" compose "${ARGS[@]}" "$@" || return $?
+  if [[ "$verb" == up && "$preview" == false ]]; then
+    drop_replaced_images "$app" "$before"
+  fi
+}
+
+app_images() {  # app_images <app>: image IDs of the app's containers, one per line
+  compose_args "$1"
+  "${DOCKER[@]}" compose "${ARGS[@]}" ps -aq 2>/dev/null \
+    | xargs -r "${DOCKER[@]}" inspect --format '{{.Image}}' 2>/dev/null | sort -u || true
+}
+
+drop_replaced_images() {  # drop_replaced_images <app> <image IDs before up>
+  local app="$1" before="$2" now id tag freed=0
+  [[ -z "${PURRBREWS_KEEP_IMAGES:-}" && -n "$before" ]] || return 0
+  now="$(app_images "$app")"
+  while IFS= read -r id; do
+    [[ -n "$id" ]] && ! grep -qxF "$id" <<< "$now" || continue
+    freed=0
+    # By tag, not ID, and without -f: Docker refuses while any container uses it.
+    while IFS= read -r tag; do
+      [[ -n "$tag" ]] || continue
+      "${DOCKER[@]}" image rm "$tag" >/dev/null 2>&1 && note "removed $tag, which $app ran before" && freed=1
+    done < <("${DOCKER[@]}" image inspect --format '{{range .RepoTags}}{{println .}}{{end}}' "$id" 2>/dev/null)
+    # A local build replaced by a rebuild has no tag left: remove it by ID.
+    [[ $freed -eq 1 ]] || { "${DOCKER[@]}" image rm "$id" >/dev/null 2>&1 && note "removed the old build of $app (${id:7:12})"; } || true
+  done <<< "$before"
+  return 0
 }
 
 [[ $# -ge 1 ]] || usage

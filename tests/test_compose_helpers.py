@@ -36,7 +36,10 @@ class ComposeHelpers(unittest.TestCase):
                           'case "$*" in\n'
                           '  "network inspect "*) exit 1 ;;\n'
                           '  *"config --format json"*) printf \'{"services":{}}\\n\' ;;\n'
-                          'esac\nexit 0\n')
+                          'esac\n'
+                          'if [ "${FAIL_UP:-0}" = 1 ]; then\n'
+                          '  case "$*" in *" up"*) exit 7 ;; esac\n'
+                          'fi\nexit 0\n')
         docker.chmod(0o755)
         self.env = dict(os.environ, TRACE=str(self.trace), PREPARED=str(self.prepared),
                         PATH=str(binary) + os.pathsep + os.environ['PATH'])
@@ -75,6 +78,15 @@ class ComposeHelpers(unittest.TestCase):
                                 env=self.env, text=True, capture_output=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse(self.trace.exists())
+
+    def test_failed_up_stops_all_apps_before_cleanup(self):
+        result = subprocess.run([BASH, str(self.lib / 'compose.sh'), str(self.node), '--all', 'up'],
+                                env=dict(self.env, FAIL_UP='1'), text=True, capture_output=True)
+        self.assertNotEqual(result.returncode, 0)
+        calls = self.trace.read_text()
+        self.assertIn(str(self.node / 'demo'), calls)
+        self.assertNotIn(str(self.node / 'extra'), calls)
+        self.assertNotIn('image rm', calls)
 
 
 if __name__ == '__main__':

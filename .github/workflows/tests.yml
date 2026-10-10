@@ -1,4 +1,4 @@
-name: Offline verification
+name: tests
 on:
   pull_request:
   push:
@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  linux:
+  pytest:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:

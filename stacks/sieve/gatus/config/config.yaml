@@ -15,6 +15,38 @@ storage:
   type: sqlite
   path: /data/gatus.db
 
+# The two shapes every app check below takes (YAML anchors; Gatus ignores
+# x- keys). Both resolve through Pi-hole like a LAN client, need the
+# certificate to have 10 days left, and don't follow redirects.
+#
+# behind-sso: a host whose router has Authelia's ForwardAuth in front. An
+#   anonymous request must be refused (401) or sent to the login (302). A 200
+#   means the login was skipped, which is the alarm, not a pass.
+x-behind-sso: &behind-sso
+  interval: 5m
+  client: {dns-resolver: "udp://${NODE_IP}:53", ignore-redirect: true}
+  conditions:
+    - "[CONNECTED] == true"
+    - "[CERTIFICATE_EXPIRATION] > 240h"
+    - "[STATUS] == any(302, 401)"
+  alerts:
+    - type: ntfy
+      description: "unreachable, answering WITHOUT a login, or its certificate expires within 10 days"
+
+# own-login: an app that signs people in itself (Authelia OIDC, or its own
+#   form). It must answer with a page or a redirect to its login. A 404 is a
+#   route that's gone; a 5xx is the app down behind a working Traefik.
+x-own-login: &own-login
+  interval: 5m
+  client: {dns-resolver: "udp://${NODE_IP}:53", ignore-redirect: true}
+  conditions:
+    - "[CONNECTED] == true"
+    - "[CERTIFICATE_EXPIRATION] > 240h"
+    - "[STATUS] == any(200, 301, 302, 303, 307, 308)"
+  alerts:
+    - type: ntfy
+      description: "unreachable through its address (DNS, Traefik or the app), or its certificate expires within 10 days"
+
 web:
   port: 8080
 
@@ -312,3 +344,51 @@ endpoints:
     alerts:
       - type: ntfy
         description: perch.${DOMAIN} is answering without a login, or its certificate is about to expire
+
+  # ── Every app, end to end ─────────────────────────────────────────────────
+  # What the household actually opens, the way a browser on the LAN does:
+  # Pi-hole's record, the node's Traefik and certificate, the router, and the
+  # app (or Authelia) behind it. Each node's container healthchecks say a
+  # container is up; these say people can reach it. Added 2026-10-08; a test
+  # (tests/test_infrastructure.py) fails when a route has no check here.
+  # Not here: gatus, ntfy and perch (checked above), roastery's ollama and
+  # meow (it sleeps between uses and alerts would be noise).
+
+  # sieve
+  - {<<: *behind-sso, group: "apps: sieve", name: pihole, url: "https://pihole.${DOMAIN}/"}
+  - {<<: *behind-sso, group: "apps: sieve", name: netalertx (via traefik), url: "https://netalertx.${DOMAIN}/"}
+  - {<<: *behind-sso, group: "apps: sieve", name: traefik-sieve, url: "https://traefik-sieve.${DOMAIN}/"}
+  - {<<: *behind-sso, group: "apps: sieve", name: gatus-api, url: "https://gatus-api.${DOMAIN}/api/v1/endpoints/statuses"}
+
+  # percolator: the sign-in first, since every other app needs it
+  - {<<: *own-login, group: "apps: percolator", name: authelia, url: "https://authelia.${DOMAIN}/"}
+  - {<<: *own-login, group: "apps: percolator", name: lldap, url: "https://lldap.${DOMAIN}/"}
+  - {<<: *own-login, group: "apps: percolator", name: vaultwarden, url: "https://vault.${DOMAIN}/"}
+  - {<<: *behind-sso, group: "apps: percolator", name: vaultwarden admin, url: "https://vault.${DOMAIN}/admin"}
+  - {<<: *own-login, group: "apps: percolator", name: nextcloud, url: "https://nextcloud.${DOMAIN}/"}
+  - {<<: *own-login, group: "apps: percolator", name: immich, url: "https://immich.${DOMAIN}/"}
+  - {<<: *own-login, group: "apps: percolator", name: paperless, url: "https://paperless.${DOMAIN}/"}
+  - {<<: *own-login, group: "apps: percolator", name: mealie, url: "https://mealie.${DOMAIN}/"}
+  - {<<: *own-login, group: "apps: percolator", name: vikunja, url: "https://vikunja.${DOMAIN}/"}
+  - {<<: *own-login, group: "apps: percolator", name: actualbudget, url: "https://actualbudget.${DOMAIN}/"}
+  - {<<: *own-login, group: "apps: percolator", name: freshrss, url: "https://freshrss.${DOMAIN}/"}
+  - {<<: *behind-sso, group: "apps: percolator", name: homepage, url: "https://homepage.${DOMAIN}/"}
+  - {<<: *behind-sso, group: "apps: percolator", name: traefik, url: "https://traefik.${DOMAIN}/"}
+
+  # cellar
+  - {<<: *behind-sso, group: "apps: cellar", name: komodo, url: "https://komodo.${DOMAIN}/"}
+  - {<<: *behind-sso, group: "apps: cellar", name: scrutiny, url: "https://scrutiny.${DOMAIN}/"}
+
+  # mochaPot
+  - {<<: *own-login, group: "apps: mochaPot", name: homeassistant, url: "https://homeassistant.${DOMAIN}/"}
+  - {<<: *behind-sso, group: "apps: mochaPot", name: music, url: "https://music.${DOMAIN}/"}
+  - {<<: *behind-sso, group: "apps: mochaPot", name: pihole-mochapot, url: "https://pihole-mochapot.${DOMAIN}/"}
+
+  # grinder
+  - {<<: *behind-sso, group: "apps: grinder", name: open webui, url: "https://chat.${DOMAIN}/"}
+  - {<<: *behind-sso, group: "apps: grinder", name: n8n, url: "https://n8n.${DOMAIN}/"}
+  - {<<: *behind-sso, group: "apps: grinder", name: karakeep, url: "https://karakeep.${DOMAIN}/"}
+  - {<<: *behind-sso, group: "apps: grinder", name: fittrackee, url: "https://fittrackee.${DOMAIN}/"}
+  - {<<: *behind-sso, group: "apps: grinder", name: traccar, url: "https://traccar.${DOMAIN}/"}
+  - {<<: *behind-sso, group: "apps: grinder", name: esphome, url: "https://esphome.${DOMAIN}/"}
+  - {<<: *behind-sso, group: "apps: grinder", name: speedtest, url: "https://speedtest.${DOMAIN}/"}
