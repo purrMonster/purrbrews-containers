@@ -52,6 +52,65 @@ changes can be made later without re-deriving the reasoning.
 
 ---
 
+## 2026-10-10 — GitHub checks reproduced locally
+
+Owner requested the same checks after GitHub's AI security review exhausted its
+quota. Reviewed clean revision `012f13729ea52cfceb4ae094f97f7a21a8389d9a`
+against `origin/main`; the only tracked change from this verification is this
+entry. No node, account, firewall or running service was changed.
+
+### Results and evidence
+
+All results below were obtained on 2026-10-10:
+
+| Check | Result |
+|---|---|
+| Inventory and image lock, same commands as `.github/workflows/tests.yml` | 6 nodes / 50 apps; 49 locked images passed |
+| Full normal-user pytest suite | 96 passed, 3 root-only skips, 82.20s |
+| Same three root-only backup tests as CI | 3 passed, 96 deselected, 29.93s; all 99 distinct tests covered |
+| Native Windows PowerShell Compose regression script | Passed |
+| ShellCheck at warning severity over bootstrap/init/stacks/tailscale | Passed, no diagnostics |
+| Gitleaks 8.30.1, `git --redact --log-opts=--all` | 158 commits scanned, no findings |
+| Public working-source and diff/private-domain scan | 430 paths checked, no findings |
+| `git diff origin/main --check` | Passed |
+| CodeQL Python default suite | 43 rules, zero findings |
+| CodeQL Python security-and-quality suite | 172 rules, zero findings |
+
+CodeQL ran locally using GitHub's official bundle **2.27.2**, Python query pack
+**1.8.12**, after verifying the downloaded bundle's SHA256 against GitHub's
+release metadata. Analyzed a public-source-only snapshot, excluding local
+credentials and generated tooling. Both SARIF invocations report successful
+execution, all **16/16 Python files** extracted, and no warning/error diagnostic
+notifications. Reports remain in ignored local files
+`graphify-out/refactor/codeql-default.sarif` and
+`graphify-out/refactor/codeql-security-quality.sarif`.
+The suites were `python-code-scanning.qls` and
+`python-security-and-quality.qls`, using `codeql database create --language=python`
+and `codeql database analyze --format=sarif-latest`.
+
+Manually reviewed the changed deployment runner, Compose helpers, scheduled
+fetch, groom records, LLDAP/DHCP scripts, Windows bootstrap and image/config
+changes for command injection, credential disclosure, authorization boundaries,
+unsafe failure continuation and dependency integrity. No additional confirmed
+security defect was found in that review. Existing trust assumptions remain:
+local configuration and checkout writers are trusted operators; Docker access
+is effectively root; the Windows SYSTEM task trusts its script/binary paths;
+LLDAP's tool still takes a session token inside its container. Hardening those
+privilege boundaries is a separate operational decision, not verified by these
+offline results.
+
+**Limits and handoff:** local Debian WSL/native Windows differ from GitHub's
+Ubuntu 24.04/Windows 2025 runner images. CodeQL is the actual GitHub engine;
+the manual review is not an exact reproduction of GitHub's proprietary AI
+review or a replacement check status. Hosted AI review remains quota-blocked.
+No image-layer CVE scan, live migration, restore or alert-path rehearsal is
+claimed. Next: review PR #23 with this evidence, retain the documented rollout
+gates, and rerun the hosted AI review when its quota returns. This documentation
+commit can be reverted without runtime effects; no implementation changes were
+needed during this verification.
+
+---
+
 ## 2026-10-10 — Publication resumed; LLDAP credential handling hardened
 
 Resumed after the credit interruption, committed the pending publication handoff
