@@ -193,6 +193,27 @@ move or branch-protection change was performed. Use `docs/image-upgrades.md` and
 production readiness still needs those host-specific results. Push and PR are
 the remaining publication steps, followed by the hosted CI result.
 
+### Publication and handoff — 2026-10-10
+
+Pushed `codex/code-sanitization` and created
+[PR #23](https://github.com/purrMonster/purrbrews-containers/pull/23) against
+`main`. GitHub reported the branch mergeable. At code revision `a98f8b0`, all
+seven reported checks completed successfully: Linux and Windows for both push
+and PR events, CodeQL, Python analysis and GitHub advanced security. The last
+pre-push scan covered 156 commits and the 430-path public source set without
+findings; the private-domain and whitespace checks also passed.
+
+New implementation commits: `e2b7c07`, `e27c03b`, `3927f6c`, `a98f8b0` (purposes
+and evidence above). This publication handoff is a documentation-only follow-up;
+the PR records its subsequent check results. Local working state was clean after
+the implementation push. No merge to main, live deployment or hardware change.
+
+**Next:** review PR #23, require its checks before merging, then perform the
+separate staged rollout and migration/restore/alert checks in the operations
+guides. The open operational items remain unverified rather than being ticked
+complete. Repository changes can be reverted with ordinary follow-up commits;
+data migrations still require matched restores as described above.
+
 ---
 
 ## 2026-10-10 — Linux stack scripts organized behind one runner
