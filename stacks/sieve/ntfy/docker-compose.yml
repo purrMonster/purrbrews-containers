@@ -14,7 +14,7 @@ services:
     image: binwiederhier/ntfy:v2.28.0
     container_name: ntfy
     command: serve
-    user: ${PUID:-1000}:${PGID:-1000}
+    user: ${PUID:?}:${PGID:?}
     environment:
       TZ: ${TZ:-Asia/Kolkata}
       NTFY_BASE_URL: https://ntfy.${DOMAIN}
