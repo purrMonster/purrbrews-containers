@@ -1,4 +1,4 @@
-fastapi==0.115.0
+fastapi==0.142.2
 uvicorn[standard]==0.30.6
 # 5.6.0 fixes CVE-2026-68770 / GHSA-jhr6-gm9c-rqjv (critical): loading a
 # local path ran its custom Python despite trust_remote_code=False. Tested
