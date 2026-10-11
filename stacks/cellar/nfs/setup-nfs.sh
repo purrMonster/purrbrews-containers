@@ -22,10 +22,14 @@ ARCHIVE="$(env_value MEDIA_DIR)/archive"
 LAN_CIDR="$(env_value LAN_CIDR)"
 [[ -n "$LAN_CIDR" && "$ARCHIVE" != /archive ]] || die "MEDIA_DIR or LAN_CIDR isn't set."
 
-# All access is squashed to UID 1000, the ops user on every node and the SMB
-# share's UID_barista, so files written over NFS and SMB agree on an owner.
+# All access is squashed to the ops user (PUID:PGID, which init writes to
+# /opt/purrbrews/.env from barista's real uid), also the SMB share's UID_barista,
+# so files written over NFS and SMB agree on an owner. Not 1000: on a node whose
+# installer account took 1000, barista is 1001.
+PUID="$(env_value PUID)"; PGID="$(env_value PGID)"
+[[ "$PUID" =~ ^[0-9]+$ && "$PGID" =~ ^[0-9]+$ ]] || die "PUID/PGID aren't set (/opt/purrbrews/.env, from init)."
 mkdir -p "$ARCHIVE"
-chown -R 1000:1000 "$ARCHIVE"
+chown -R "$PUID:$PGID" "$ARCHIVE"
 
 START="# --- purrbrews cellar NFS exports (managed by setup-nfs.sh) ---"
 END="# --- end purrbrews cellar NFS exports ---"
@@ -34,7 +38,7 @@ if grep -qF "$START" /etc/exports 2>/dev/null; then
 fi
 {
   echo "$START"
-  echo "$ARCHIVE $LAN_CIDR(rw,sync,no_subtree_check,all_squash,anonuid=1000,anongid=1000)"
+  echo "$ARCHIVE $LAN_CIDR(rw,sync,no_subtree_check,all_squash,anonuid=$PUID,anongid=$PGID)"
   echo "$END"
 } >> /etc/exports
 

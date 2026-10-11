@@ -13,7 +13,7 @@ services:
   gatus:
     image: twinproduction/gatus:v5.36.0
     container_name: gatus
-    user: ${PUID:-1000}:${PGID:-1000}
+    user: ${PUID:?}:${PGID:?}
     environment:
       TZ: ${TZ:-Asia/Kolkata}
       GATUS_CONFIG_PATH: /config/config.yaml

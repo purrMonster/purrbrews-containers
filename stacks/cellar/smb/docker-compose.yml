@@ -6,8 +6,9 @@
 # use yet, and I'll pin it when something depends on it.
 #
 # Not reachable yet: ufw-docker keeps 139/445 closed until smb/firewall has a
-# rule. UID_barista has to match the NFS export's anonuid (1000) and whatever
-# the consuming containers run as, or SMB and NFS will fight over ownership.
+# rule. UID_barista is the ops user's PUID (init writes it from barista's real uid),
+# the same as the NFS export's anonuid and what the consuming containers run as,
+# or SMB and NFS will fight over ownership.
 services:
   smb:
     image: ghcr.io/servercontainers/samba:latest
@@ -20,7 +21,7 @@ services:
       SAMBA_VOLUME_CONFIG_household: "[household]; path=/shares/household; valid users = barista; guest ok = no; read only = no; browseable = yes"
       SAMBA_VOLUME_CONFIG_archive: "[archive]; path=/shares/archive; valid users = barista; guest ok = no; read only = no; browseable = yes"
       ACCOUNT_barista: ${SMB_BARISTA_PASSWORD}
-      UID_barista: "1000"
+      UID_barista: "${PUID:?}"
     volumes:
       - ${MEDIA_DIR:?}/household:/shares/household
       - ${MEDIA_DIR:?}/archive:/shares/archive

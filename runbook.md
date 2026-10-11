@@ -49,6 +49,96 @@ changes can be made later without re-deriving the reasoning.
 
 ---
 
+## 2026-10-11 — barista's uid comes from PUID, not a hardcoded 1000
+
+On the reinstalls the Debian installer's own account takes uid 1000, so the
+`barista` that init creates gets 1001 (owner: barista isn't made in the
+installer). Everything that assumed barista = 1000 now reads `PUID`/`PGID`,
+which init writes to `/opt/purrbrews/.env` from barista's real uid (owner's
+request; branch `claude/barista-uid-from-puid`, not merged, not on any node):
+
+- cellar `nfs/setup-nfs.sh`: `chown` and `anonuid`/`anongid` use PUID/PGID and
+  stop if they're missing; `nfs/README.md` to match.
+- cellar `smb/docker-compose.yml`: `UID_barista: "${PUID:?}"`.
+- sieve `gatus` and `ntfy`: `user: ${PUID:?}:${PGID:?}` (was a silent `1000`
+  fallback). These are monitoring: after they're recreated on the rebuilt
+  sieve, run the alert-path test (2026-09-29 entry).
+
+Checked: `docker compose config` renders `1001` with `PUID=1001` and refuses
+without it; `bash -n` on setup-nfs.sh. Tests not run (no pytest on roastery).
+
+Left alone on purpose: uids fixed inside images (n8n and FitTrackee `1000:1000`,
+Vikunja `1000:0`, Authelia's Redis `999:1000`), the flask mounts (`uid=1000` is
+the live ISO's user) and the test fixture's `PUID=1000`.
+
+**Open:** data restored from restic keeps the old uid (likely 1000), so after a
+restore it needs a `chown` to the new barista where the old owner was barista.
+Not done; check each restore. The roastmaster/barista split is parked (owner).
+
+---
+
+## 2026-10-11 — purrbrews-bootstrap checked on roastery before the Debian reinstalls
+
+The owner is reinstalling Debian on every node and asked whether roastery's
+bootstrap server works. Read-only checks, run on roastery itself (Claude);
+nothing on roastery or any node was changed.
+
+**Works, as far as roastery can see:**
+
+- `purrbrews-bootstrap` up and healthy, created 2026-10-08 09:22Z (after the
+  wipe), image `purrbrews-bootstrap:local`, `0.0.0.0:8443`; roastery is still
+  192.168.0.15, both network profiles *Private*.
+- `https://192.168.0.15:8443`: `/bootstrap.sh`, `/files/SHA256SUMS`,
+  `/keys/authorized_keys`, `/config/purrbrews-init.env` all answer 200.
+- The seven served `init/` files match their `SHA256SUMS` and match `init/` at
+  `main` 1533dd1 byte for byte (no `init/` or `bootstrap/` commit since the
+  image was built).
+- The live TLS key matches the log's pin, `sha256//eYqU5oE7qrAtcXbIu5TOSZviYVSTcr5SXoywggN6LrQ=`.
+  It's new since the wipe: give it to each node as `PB_PIN`, or compare it at
+  the prompt.
+- `/keys/authorized_keys` serves one key, roastery's
+  `~/.ssh/purrbrews-roastery.pub`.
+
+**Not checked:** a fetch from another LAN machine. sieve (.10) and cellar (.12)
+timed out on SSH, .11 and .13 don't ping (mid-reinstall), and grinder (.14)
+pings but its SSH host key no longer matches roastery's `known_hosts`
+(presumably reinstalled; not bypassed). The first node's `bootstrap.sh` run is
+that test.
+
+**Found, not changed (proposals):**
+
+- **There was no `purrbrews-bootstrap` firewall rule** (bootstrap README step 4);
+  it went with the wipe (recreated the same day, below). 8443 is likely let in by Docker Desktop's own
+  *Docker Desktop Backend* rule instead: any port, *Private and Public*,
+  any address, for `com.docker.backend.exe`. If so, it opens 3003 (immich-ml)
+  to the whole LAN too, which roastery's README warns about (untested). Proposal: recreate the
+  scoped rules and narrow or disable that broad one, then retest from a node.
+- `bootstrap/data/purrbrews-init.env` has a raw public key in `SSH_KEYS_URLS`
+  (it should be URLs or empty). Harmless on a fresh install, since
+  `bootstrap.sh` appends its own `SSH_KEYS_URLS` and the later line wins;
+  wrong in the file. Proposal: empty it, as in the example.
+
+**Firewall rule recreated** (owner, from an admin PowerShell, after Claude's
+session turned out not to be elevated): `purrbrews-bootstrap`, inbound TCP 8443
+from `192.168.0.0/24`, *Private* only, Allow. Read back by Claude the same day:
+one rule, enabled, status OK, those exact filters; container still healthy,
+`/bootstrap.sh` 200 on 192.168.0.15. Undo: `Remove-NetFirewallRule -DisplayName
+purrbrews-bootstrap`. The broad Docker Desktop rule is untouched, so this rule
+doesn't narrow anything yet. Still not tested from a LAN node (only grinder has
+SSH open, host key still mismatched).
+
+Routing bootstrap through roastery's Traefik instead was considered and turned
+down: Traefik is native (needs its own 443/80 rules anyway), isn't rebuilt since
+the wipe, and would make bootstrap depend on Pi-hole, the Cloudflare token and
+Authelia, all on nodes bootstrap is what rebuilds; Let's Encrypt renewals would
+also break the nodes' TLS pin. A TCP passthrough route could come later as a
+convenience, with 8443 kept as the fallback.
+
+**Next:** the first reinstalled node through `bootstrap.sh` with `PB_PIN`
+(also closes the "first real node at the console" Backlog line).
+
+---
+
 ## 2026-09-28 — A bot identity for Claude's commits and pull requests
 
 The owner wants the changes Claude sessions make to come from a bot, not from
