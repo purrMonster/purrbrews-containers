@@ -49,6 +49,52 @@ changes can be made later without re-deriving the reasoning.
 
 ---
 
+## 2026-10-11 — purrbrews-bootstrap checked on roastery before the Debian reinstalls
+
+The owner is reinstalling Debian on every node and asked whether roastery's
+bootstrap server works. Read-only checks, run on roastery itself (Claude);
+nothing on roastery or any node was changed.
+
+**Works, as far as roastery can see:**
+
+- `purrbrews-bootstrap` up and healthy, created 2026-10-08 09:22Z (after the
+  wipe), image `purrbrews-bootstrap:local`, `0.0.0.0:8443`; roastery is still
+  192.168.0.15, both network profiles *Private*.
+- `https://192.168.0.15:8443`: `/bootstrap.sh`, `/files/SHA256SUMS`,
+  `/keys/authorized_keys`, `/config/purrbrews-init.env` all answer 200.
+- The seven served `init/` files match their `SHA256SUMS` and match `init/` at
+  `main` 1533dd1 byte for byte (no `init/` or `bootstrap/` commit since the
+  image was built).
+- The live TLS key matches the log's pin, `sha256//eYqU5oE7qrAtcXbIu5TOSZviYVSTcr5SXoywggN6LrQ=`.
+  It's new since the wipe: give it to each node as `PB_PIN`, or compare it at
+  the prompt.
+- `/keys/authorized_keys` serves one key, roastery's
+  `~/.ssh/purrbrews-roastery.pub`.
+
+**Not checked:** a fetch from another LAN machine. sieve (.10) and cellar (.12)
+timed out on SSH, .11 and .13 don't ping (mid-reinstall), and grinder (.14)
+pings but its SSH host key no longer matches roastery's `known_hosts`
+(presumably reinstalled; not bypassed). The first node's `bootstrap.sh` run is
+that test.
+
+**Found, not changed (proposals):**
+
+- **There's no `purrbrews-bootstrap` firewall rule** (bootstrap README step 4);
+  it went with the wipe. 8443 is likely let in by Docker Desktop's own
+  *Docker Desktop Backend* rule instead: any port, *Private and Public*,
+  any address, for `com.docker.backend.exe`. If so, it opens 3003 (immich-ml)
+  to the whole LAN too, which roastery's README warns about (untested). Proposal: recreate the
+  scoped rules and narrow or disable that broad one, then retest from a node.
+- `bootstrap/data/purrbrews-init.env` has a raw public key in `SSH_KEYS_URLS`
+  (it should be URLs or empty). Harmless on a fresh install, since
+  `bootstrap.sh` appends its own `SSH_KEYS_URLS` and the later line wins;
+  wrong in the file. Proposal: empty it, as in the example.
+
+**Next:** the first reinstalled node through `bootstrap.sh` with `PB_PIN`
+(also closes the "first real node at the console" Backlog line).
+
+---
+
 ## 2026-09-28 — A bot identity for Claude's commits and pull requests
 
 The owner wants the changes Claude sessions make to come from a bot, not from
