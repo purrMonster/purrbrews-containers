@@ -49,6 +49,34 @@ changes can be made later without re-deriving the reasoning.
 
 ---
 
+## 2026-10-11 — barista's uid comes from PUID, not a hardcoded 1000
+
+On the reinstalls the Debian installer's own account takes uid 1000, so the
+`barista` that init creates gets 1001 (owner: barista isn't made in the
+installer). Everything that assumed barista = 1000 now reads `PUID`/`PGID`,
+which init writes to `/opt/purrbrews/.env` from barista's real uid (owner's
+request; branch `claude/barista-uid-from-puid`, not merged, not on any node):
+
+- cellar `nfs/setup-nfs.sh`: `chown` and `anonuid`/`anongid` use PUID/PGID and
+  stop if they're missing; `nfs/README.md` to match.
+- cellar `smb/docker-compose.yml`: `UID_barista: "${PUID:?}"`.
+- sieve `gatus` and `ntfy`: `user: ${PUID:?}:${PGID:?}` (was a silent `1000`
+  fallback). These are monitoring: after they're recreated on the rebuilt
+  sieve, run the alert-path test (2026-09-29 entry).
+
+Checked: `docker compose config` renders `1001` with `PUID=1001` and refuses
+without it; `bash -n` on setup-nfs.sh. Tests not run (no pytest on roastery).
+
+Left alone on purpose: uids fixed inside images (n8n and FitTrackee `1000:1000`,
+Vikunja `1000:0`, Authelia's Redis `999:1000`), the flask mounts (`uid=1000` is
+the live ISO's user) and the test fixture's `PUID=1000`.
+
+**Open:** data restored from restic keeps the old uid (likely 1000), so after a
+restore it needs a `chown` to the new barista where the old owner was barista.
+Not done; check each restore. The roastmaster/barista split is parked (owner).
+
+---
+
 ## 2026-10-11 — purrbrews-bootstrap checked on roastery before the Debian reinstalls
 
 The owner is reinstalling Debian on every node and asked whether roastery's
