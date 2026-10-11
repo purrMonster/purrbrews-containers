@@ -79,8 +79,8 @@ that test.
 
 **Found, not changed (proposals):**
 
-- **There's no `purrbrews-bootstrap` firewall rule** (bootstrap README step 4);
-  it went with the wipe. 8443 is likely let in by Docker Desktop's own
+- **There was no `purrbrews-bootstrap` firewall rule** (bootstrap README step 4);
+  it went with the wipe (recreated the same day, below). 8443 is likely let in by Docker Desktop's own
   *Docker Desktop Backend* rule instead: any port, *Private and Public*,
   any address, for `com.docker.backend.exe`. If so, it opens 3003 (immich-ml)
   to the whole LAN too, which roastery's README warns about (untested). Proposal: recreate the
@@ -89,6 +89,22 @@ that test.
   (it should be URLs or empty). Harmless on a fresh install, since
   `bootstrap.sh` appends its own `SSH_KEYS_URLS` and the later line wins;
   wrong in the file. Proposal: empty it, as in the example.
+
+**Firewall rule recreated** (owner, from an admin PowerShell, after Claude's
+session turned out not to be elevated): `purrbrews-bootstrap`, inbound TCP 8443
+from `192.168.0.0/24`, *Private* only, Allow. Read back by Claude the same day:
+one rule, enabled, status OK, those exact filters; container still healthy,
+`/bootstrap.sh` 200 on 192.168.0.15. Undo: `Remove-NetFirewallRule -DisplayName
+purrbrews-bootstrap`. The broad Docker Desktop rule is untouched, so this rule
+doesn't narrow anything yet. Still not tested from a LAN node (only grinder has
+SSH open, host key still mismatched).
+
+Routing bootstrap through roastery's Traefik instead was considered and turned
+down: Traefik is native (needs its own 443/80 rules anyway), isn't rebuilt since
+the wipe, and would make bootstrap depend on Pi-hole, the Cloudflare token and
+Authelia, all on nodes bootstrap is what rebuilds; Let's Encrypt renewals would
+also break the nodes' TLS pin. A TCP passthrough route could come later as a
+convenience, with 8443 kept as the fallback.
 
 **Next:** the first reinstalled node through `bootstrap.sh` with `PB_PIN`
 (also closes the "first real node at the console" Backlog line).
