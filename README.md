@@ -63,7 +63,7 @@ Nodes are named after coffee gear.
 Each node's role, apps and bring-up order are in its `stacks/<node>/README.md`:
 [`sieve`](stacks/sieve/README.md) (Pi-hole DNS + DHCP, Unbound, cloudflared, ntfy, Gatus,
 NetAlertX), [`percolator`](stacks/percolator/README.md) (Traefik, CrowdSec, LLDAP,
-Authelia, Vaultwarden, Nextcloud, Immich, Paperless-ngx, Mealie, Vikunja, Actual Budget,
+Authelia, Vaultwarden, OpenCloud, Radicale, Immich, Paperless-ngx, Mealie, Vikunja, Actual Budget,
 FreshRSS, Homepage), [`cellar`](stacks/cellar/README.md) (Komodo, Scrutiny hub, restic,
 Samba/NFS), [`mochaPot`](stacks/mochaPot/README.md) (Home Assistant, Music Assistant,
 secondary Pi-hole, the wall screen) and [`grinder`](stacks/grinder/README.md) (n8n,

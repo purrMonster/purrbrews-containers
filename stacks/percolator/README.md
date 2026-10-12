@@ -4,7 +4,7 @@
 M710q (i3-7100T, 16 GB). OS and Docker on the SATA SSD, `/srv/data` on the NVMe.
 
 Everything a person opens in a browser or phone app lives here, behind one Traefik
-and one sign-in.
+and shared household accounts. Radicale authenticates DAV directly against LLDAP.
 
 | App | URL | What it's for |
 |---|---|---|
@@ -13,7 +13,8 @@ and one sign-in.
 | [LLDAP](lldap/) | `lldap.${DOMAIN}` | Household accounts and groups |
 | [Authelia](authelia/) | `authelia.${DOMAIN}` | Single sign-on for every app |
 | [Vaultwarden](vaultwarden/) | `vault.${DOMAIN}` | Passwords |
-| [Nextcloud](nextcloud/) | `nextcloud.${DOMAIN}` | Files, calendars, contacts |
+| [OpenCloud](opencloud/) | `opencloud.${DOMAIN}` | Files through Authelia OIDC |
+| [Radicale](radicale/) | `radicale.${DOMAIN}` | Calendars and contacts through LLDAP Basic auth |
 | [Immich](immich/) | `immich.${DOMAIN}` | Photos and videos |
 | [Paperless-ngx](paperless/) | `paperless.${DOMAIN}` | Scanned documents |
 | [Mealie](mealie/) | `mealie.${DOMAIN}` | Recipes and meal plans |
@@ -39,8 +40,10 @@ flowchart LR
       T -. access log .-> CS
       T -->|ForwardAuth| A["Authelia"]
       A --> L["LLDAP"]
+      T --> DAV["Radicale"]
+      DAV -->|LDAP| L
       A --- R[("Redis")]
-      T --> Apps["Vaultwarden · Nextcloud · Immich · Paperless<br/>Mealie · Vikunja · Actual · FreshRSS · Homepage"]
+      T --> Apps["Vaultwarden · OpenCloud · Immich · Paperless<br/>Mealie · Vikunja · Actual · FreshRSS · Homepage"]
       Apps -->|"OIDC via authelia.DOMAIN<br/>(alias to Traefik)"| T
       Apps --- DB[("own Postgres / Valkey<br/>per app, private")]
     end
@@ -100,11 +103,15 @@ signal (in its README) before the next. "Container started" is not a success sig
 | 2 | `./compose.sh crowdsec up -d` | `sudo docker exec crowdsec cscli bouncers list` shows `traefik` with a recent last pull |
 | 3 | `./compose.sh lldap up -d` then `./lldap-bootstrap.sh` | groups exist, `barista` created — **save the printed one-time password** |
 | 4 | `./compose.sh authelia up -d` | log in at `https://authelia.${DOMAIN}` as `barista`; the Traefik dashboard opens; from sieve, `curl -s -o /dev/null -w '%{http_code}' http://192.168.0.11:9091/api/health` gives `200` |
-| 5+ | `./compose.sh <app> up -d` for vaultwarden, nextcloud, immich, paperless, mealie, vikunja, actualbudget, freshrss, homepage | the app's README checklist |
+| 5+ | `./compose.sh <app> up -d` for radicale, opencloud, vaultwarden, immich, paperless, mealie, vikunja, actualbudget, freshrss, homepage | the app's README checklist |
 | last | `./compose.sh komodo-periphery up -d`, `./compose.sh scrutiny-collector up -d` | percolator shows up in Komodo and Scrutiny on cellar (copy `komodo-periphery/keys/core.pub` from cellar first) |
 
 Once everything has been up once, `./compose.sh --all up -d` brings the whole node up
 in that order, and `./compose.sh --all down` takes it down in reverse.
+
+Radicale requires a dedicated read-only directory account before setup/render.
+OpenCloud initializes persistent internal IDs and credentials only on empty data;
+keep its generated config with its storage. Follow both app READMEs before use.
 
 ## Scripts
 
@@ -141,8 +148,9 @@ LLDAP if they shouldn't reach the Traefik dashboard or be admin in Mealie.
 **Rotate an OIDC client secret:** delete `<APP>_OIDC_CLIENT_SECRET` from
 `<app>/secrets.env.local` and `<APP>_OIDC_CLIENT_SECRET_HASH` from
 `authelia/secrets.env.local`, then `./setup-secrets.sh`,
-`./compose.sh authelia up -d`, `./compose.sh <app> up -d`. Nextcloud and Immich keep
-the secret in their own settings too; paste the new one there.
+`./compose.sh authelia up -d`, `./compose.sh <app> up -d`. Immich keeps
+the secret in its own settings too; paste the new one there. OpenCloud public
+clients have no OIDC client secrets.
 
 ## Ports
 
@@ -165,7 +173,8 @@ Everything lives under `/srv/data/<app>/` on the NVMe:
 | `lldap` | user directory (SQLite) | **yes** |
 | `authelia/data` | 2FA enrolments, consent (SQLite) | **yes** |
 | `vaultwarden` | vaults (SQLite), attachments | **yes** |
-| `nextcloud/html`, `nextcloud/postgres` | files, config, database | **yes** (database as a dump) |
+| `opencloud/data`, `opencloud/config` | all file/identity metadata, content, generated config and keys | **yes**, together; restore test required |
+| `radicale/collections` | calendars, contacts and metadata | **yes** |
 | `immich/library`, `immich/postgres` | photos, database | **yes** (database as a dump) |
 | `paperless/{data,media,export}`, `paperless/postgres` | documents, database | **yes** (database as a dump) |
 | `mealie`, `vikunja`, `actualbudget`, `freshrss` | SQLite + files | **yes** |
@@ -183,7 +192,7 @@ Never copy a running Postgres data directory as a backup; dump it
 - **A changed secret isn't picked up by a running container.** `./compose.sh <app> up -d`
   recreates it when its environment changed; for Authelia the rendered file changes,
   so use `./compose.sh authelia up -d --force-recreate`.
-- **First-start-only values:** `LLDAP_LDAP_USER_PASS`, `NEXTCLOUD_ADMIN_PASSWORD`,
+- **First-start-only values:** `LLDAP_LDAP_USER_PASS`,
   `PAPERLESS_ADMIN_PASSWORD` and the database passwords only apply when the data
   directory is empty. Changing them later means changing them inside the app too.
 - **Apps that read OIDC discovery at startup** (Actual Budget, Vikunja) restart or log

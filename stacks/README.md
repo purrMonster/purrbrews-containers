@@ -71,7 +71,7 @@ PERIPHERY_ONBOARDING_KEY          prompt optional …       # blank is a valid a
 AUTHELIA_LDAP_PASSWORD            copy lldap LLDAP_ADMIN_PASSWORD
 GATUS_NTFY_TOKEN                  mirror ntfy GATUS_NTFY_TOKEN   # re-copied every run
 VAULTWARDEN_ADMIN_TOKEN           hash argon2 VAULTWARDEN_ADMIN_PASSWORD
-NEXTCLOUD_OIDC_CLIENT_SECRET_HASH hash pbkdf2 nextcloud:NEXTCLOUD_OIDC_CLIENT_SECRET
+IMMICH_OIDC_CLIENT_SECRET_HASH    hash pbkdf2 immich:IMMICH_OIDC_CLIENT_SECRET
 AUTHELIA_OIDC_JWK_PRIVATE_KEY     rsa 2048
 NOTE copy RESTIC_PASSWORD to flask if you haven't yet
 ```
@@ -115,7 +115,7 @@ bind-mount source as `root:root`, and an image that runs as a fixed user crash-l
 ### backup
 
 ```
-pg      nextcloud  nextcloud-postgres  nextcloud  nextcloud   # pg_dump inside the app's own container
+pg      immich  immich-postgres  immich  immich   # pg_dump inside the app's own container
 mongo   komodo     komodo-mongo  $KOMODO_DATABASE_USERNAME  $KOMODO_DATABASE_PASSWORD
 sqlite  vault      vaultwarden/db.sqlite3                      # a consistent .dump of a live file
 path    vaultwarden                                            # files, straight to the repository
@@ -200,8 +200,8 @@ nodes pull `main`, and an app only moves on `./compose.sh <app> up -d`.
 
 - Read the release notes before merging. Pairs that must match arrive as separate
   PRs: Immich server with roastery's ML, Komodo Core with every Periphery.
-- Database majors (Postgres, Mongo, Redis/Valkey) and Nextcloud majors never come
-  as PRs: those are dump-and-restore or one-major-at-a-time upgrades, by hand.
+- Database majors (Postgres, Mongo, Redis/Valkey) and OpenCloud majors never come
+  as PRs: those require reviewed migration/restore plans, by hand.
 - A security fix still waits out the week's cooldown; a critical one is a
   hand-made PR.
 - **Old images clean themselves up.** After a successful `up`, `compose.sh` (and

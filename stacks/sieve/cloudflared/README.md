@@ -61,7 +61,7 @@ and the tunnel's credentials) stays on sieve, is in sieve's backups
 1. **Two-factor in Authelia** (`AUTH_POLICY=two_factor` on percolator, after everyone
    has enrolled). Today it's password-only, which is fine on the LAN and not on the
    internet.
-2. **Phone apps.** Immich, Nextcloud, Vaultwarden and the others that sign in with
+2. **Phone apps.** Immich, OpenCloud, Vaultwarden and the others that sign in with
    OIDC or their own login work through the tunnel as they are. Apps behind the
    `authelia-forwardauth` middleware (Karakeep, FitTrackee, Traccar, Open WebUI,
    Music Assistant) only work in a browser through the tunnel (over Tailscale they

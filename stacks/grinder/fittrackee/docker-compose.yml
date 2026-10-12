@@ -1,5 +1,6 @@
 # FitTrackee: activity tracking for the bike computer. GPX from the phone
-# lands in Nextcloud, n8n picks it up and posts it here. Its own Postgres,
+# lands in OpenCloud; n8n reads its WebDAV folder with a bot app token
+# and posts it here (workflow repointing is an owner step, outside this repo). Its own Postgres,
 # because every app on this fleet gets its own database.
 #
 # Image: fittrackee/fittrackee:v1.3.5, the tag upstream's compose pins. Not

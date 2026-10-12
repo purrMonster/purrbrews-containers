@@ -19,7 +19,9 @@
 #
 # Not covered, add them by hand: barista's sudo password on each node,
 # roastery's Windows password, the 2FA recovery codes, and (once Drive is set
-# up) cellar's /etc/purrbrews/rclone.conf as an attachment.
+# up) cellar's /etc/purrbrews/rclone.conf as an attachment. OpenCloud also needs
+# its generated opencloud/config/opencloud.yaml as a protected attachment and
+# the matching whole config/data restic restore (not just these env secrets).
 #
 param([string]$Vault, [switch]$DryRun)
 $ErrorActionPreference = 'Stop'
@@ -30,8 +32,10 @@ $Tiers = [ordered]@{
     'Tier 1' = 'RESTIC_PASSWORD', 'RCLONE_CRYPT_PASSWORD', 'RCLONE_CRYPT_SALT'
     'Tier 2' = 'N8N_ENCRYPTION_KEY', 'AUTHELIA_STORAGE_ENCRYPTION_KEY', 'LLDAP_KEY_SEED', 'LLDAP_JWT_SECRET',
                'PAPERLESS_SECRET_KEY', 'FRESHRSS_OIDC_CRYPTO_KEY', 'SPEEDTEST_TRACKER_APP_KEY',
-               'KOMODO_DATABASE_PASSWORD', 'KOMODO_JWT_SECRET'
-    'Tier 3' = 'LLDAP_ADMIN_PASSWORD', 'PAPERLESS_ADMIN_PASSWORD', 'NEXTCLOUD_ADMIN_PASSWORD',
+               'KOMODO_DATABASE_PASSWORD', 'KOMODO_JWT_SECRET',
+               'OPENCLOUD_JWT_SECRET', 'OPENCLOUD_TRANSFER_SECRET', 'OPENCLOUD_MACHINE_AUTH_API_KEY',
+               'OPENCLOUD_SYSTEM_USER_API_KEY', 'OPENCLOUD_URL_SIGNING_SECRET', 'OPENCLOUD_THUMBNAILS_TRANSFER_TOKEN'
+    'Tier 3' = 'LLDAP_ADMIN_PASSWORD', 'PAPERLESS_ADMIN_PASSWORD', 'RADICALE_LDAP_READER_PASSWORD',
                'VAULTWARDEN_ADMIN_PASSWORD', 'KOMODO_INIT_ADMIN_PASSWORD', 'PIHOLE_WEBPASSWORD',
                'NTFY_ADMIN_PASSWORD', 'ESPHOME_DASHBOARD_PASSWORD', 'SPEEDTEST_TRACKER_ADMIN_PASSWORD',
                'SMB_BARISTA_PASSWORD'

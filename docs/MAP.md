@@ -4,7 +4,7 @@ One page to find everything. Update it whenever a project, doc or node is added.
 Decisions and their reasons live in [`runbook.md`](../runbook.md); this page only
 points.
 
-_Last updated: 2026-10-08_
+_Last updated: 2026-10-12_
 
 ## Start here
 
@@ -50,7 +50,8 @@ _Last updated: 2026-10-08_
 | Links / read-later | Karakeep | grinder |
 | Documents | Paperless-ngx | percolator |
 | Photos, screenshots | Immich | percolator |
-| Files, calendars, contacts | Nextcloud | percolator |
+| Files | [OpenCloud](../stacks/percolator/opencloud/README.md) | percolator |
+| Calendars, contacts | [Radicale](../stacks/percolator/radicale/README.md) | percolator |
 | Tasks | Vikunja | percolator |
 | Passwords | Vaultwarden | percolator |
 | Recipes | Mealie | percolator |

@@ -5,7 +5,7 @@
 # resolve container names, so it reaches its database on 127.0.0.1.
 #
 # Sign-in is hass-oidc-auth against Authelia (no ForwardAuth in front, same as
-# Nextcloud and Paperless), with the local account kept as the break-glass.
+# OpenCloud and Paperless), with the local account kept as the break-glass.
 # The recorder, trusted proxies and OIDC all live in configuration.yaml, not
 # here; README.md has the snippets.
 #
