@@ -33,10 +33,13 @@ jobs:
         with:
           persist-credentials: false
 
+      # A hung mirror once ate the whole 15 minutes here (PR #18, 2026-10-08):
+      # time the step out on its own, and let apt retry instead of waiting.
       - name: Tools the tests use
+        timeout-minutes: 5
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq python3-pytest python3-yaml sqlite3 restic rclone
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y -qq python3-pytest python3-yaml sqlite3 restic rclone
 
       - name: Tests (normal user)
         run: python3 -m pytest -q -rs tests

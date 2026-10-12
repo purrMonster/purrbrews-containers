@@ -1,16 +1,23 @@
 # Dependabot: pull requests when a pinned image or package has a new version.
 #
-# Every image in this repo is pinned (tests/ insists), so nothing updates by
-# itself; until 2026-10-08 nothing even said an update existed (Diun was
-# removed on 2026-09-18 for telling no one). This is that channel, in the
+# Every image in this repo is pinned by tag and digest (tests/ insists), so
+# nothing updates by itself; until 2026-10-08 nothing even said an update
+# existed (Diun was removed on 2026-09-18 for telling no one). This is that channel, in the
 # fleet's own way: a bump is a PR to read, nodes only see it after a merge and
 # their daily pull, and even then nothing restarts until `compose.sh up`.
+# Its PRs move the tag and the digest together.
 #
 # Reading a PR: the release notes come first. Some images must move in pairs
 # and arrive as separate PRs; merge them together:
 #   - immich-app/immich-server (percolator) and
 #     immich-app/immich-machine-learning (roastery): same version, always.
 #   - moghtech/komodo-core and moghtech/komodo-periphery: same version.
+#   - getmeili/meilisearch: only to the version Karakeep's own compose pins
+#     for the Karakeep release we run; Karakeep isn't tested against newer.
+# Nextcloud, Meilisearch, Traccar and Open WebUI change their data on the way
+# up: after the merge, compose.sh holds an existing install until the version
+# is acknowledged in .env.local (stacks/_lib/upgrade-gate.sh,
+# docs/image-upgrades.md).
 # Database images never get major bumps here (see ignore): a major Postgres,
 # Mongo or Redis upgrade is a dump-and-restore, done by hand. Nor Nextcloud:
 # it can only go up one major at a time, and a PR would skip straight to
@@ -71,8 +78,11 @@ updates:
       prefix: "deps"
     labels: ["dependencies", "python"]
 
+  # Dockerfile base images: the embedding worker's and purrbrews-bootstrap's.
   - package-ecosystem: docker
-    directory: "/stacks/grinder/embedding-worker"
+    directories:
+      - "/stacks/grinder/embedding-worker"
+      - "/bootstrap"
     schedule:
       interval: monthly
       timezone: Asia/Kolkata
