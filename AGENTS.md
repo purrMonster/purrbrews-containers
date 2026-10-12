@@ -66,6 +66,9 @@ If a task starts pulling that work in here, stop and ask where it belongs.
   back and say so.
 - Monitoring (Gatus, ntfy, healthchecks.io) is the last thing to break: if a change
   touches it, test the alert path afterwards.
+- Bots and service accounts get cat-breed names that suit their job (`sphynx`,
+  `scottishfold`, `pixiebob`), never functional ones like `radicale-reader`. The
+  owner picks: offer a few names, and put the job in comments and docs.
 
 ## Scope
 
