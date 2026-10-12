@@ -3,8 +3,8 @@
 # Every image in this repo is pinned (tests/ insists), so nothing updates by
 # itself; until 2026-10-08 nothing even said an update existed (Diun was
 # removed on 2026-09-18 for telling no one). This is that channel, in the
-# fleet's own way: a bump is a PR to read, nodes only see it after a merge and
-# their daily pull, and even then nothing restarts until `compose.sh up`.
+# fleet's own way: a bump is a PR to read, and a node only runs it once a
+# reviewed commit is checked out and deployed there (docs/operations.md).
 #
 # Reading a PR: the release notes come first. Some images must move in pairs
 # and arrive as separate PRs; merge them together:

@@ -1,7 +1,7 @@
 # The repo's tests on every pull request and every push to main.
 #
-# Nodes pull main every day, and Dependabot now opens pull requests on its
-# own, so "run the tests before committing" (AGENTS.md) can't depend on
+# Nodes deploy reviewed commits of main, and Dependabot opens pull requests on
+# its own, so "run the tests before committing" (AGENTS.md) can't depend on
 # whoever commits remembering to. A red check on a PR means: don't merge.
 #
 # Two runs, because the scripts under test refuse root and the backup tests

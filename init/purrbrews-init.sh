@@ -15,7 +15,7 @@
 #   docker       Docker Engine + Compose plugin from Docker's apt repo, log rotation
 #   repo         clone the public REPO_URL into PROJECT_DIR (or fast-forward it)
 #   directories  DATA_DIR / MEDIA_DIR + PROJECT_DIR/.env
-#   timers       daily repo pull + hourly SSH key sync (systemd timers)
+#   timers       daily repo fetch + hourly SSH key sync (systemd timers)
 #   firewall     UFW (deny in, SSH from LAN only) + pinned ufw-docker
 #   tailscale    Tailscale from its apt repo; SSH over the tailnet, UFW stays the only gate
 #   network     static IP + cloned MAC via NetworkManager, applied detached with auto-rollback
@@ -632,7 +632,7 @@ EOF
 
   cat > /etc/systemd/system/purrbrews-pull.service <<EOF
 [Unit]
-Description=PurrBrews: fast-forward ${PROJECT_DIR}
+Description=PurrBrews: fetch candidates for ${PROJECT_DIR}
 Wants=network-online.target
 After=network-online.target
 
@@ -644,7 +644,7 @@ ExecStart=${LIB_DST}/purrbrews-pull.sh
 EOF
   cat > /etc/systemd/system/purrbrews-pull.timer <<EOF
 [Unit]
-Description=PurrBrews: daily repo pull
+Description=PurrBrews: daily repo fetch
 
 [Timer]
 OnCalendar=${PULL_SCHEDULE}

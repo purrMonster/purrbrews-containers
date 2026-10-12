@@ -49,6 +49,37 @@ changes can be made later without re-deriving the reasoning.
 
 ---
 
+## 2026-10-12 — Proposed: reviewed deployments, nodes stop pulling `main` (owner's decision)
+
+From PR #23, split out at the owner's request into its own PR **for the owner to
+decide, not merged**: it changes how the whole fleet gets changes.
+
+- `init/lib/purrbrews-pull.sh` fetches instead of `git pull --ff-only`: the
+  checkout on a node never moves by itself; Git errors stay out of the journal
+  (a remote URL with credentials would land there).
+- `scripts/fleet.py`: `validate` / `plan <node>` (read-only) and
+  `deploy <node> --release <full commit> --acknowledge-prerequisites`, run on that
+  node as barista: refuses the wrong host or OS, root, a dirty checkout or another
+  commit; one lock per node; setup → firewall → each app `up -d --wait` in
+  `node.conf` order; keeps replaced images for rollback; per-phase record in
+  `.fleet/` (`status`). `fleet.json` adds each node's platform, tier, optional
+  apps (cellar's smb, persian-perch) and prerequisites.
+- `docs/operations.md`: the release workflow, recovery, proposed recovery targets.
+
+Left out of #23's version: the per-node `scripts/run.sh` wrappers and moving
+`enable-dhcp.sh` / `lldap-bootstrap.sh` into `scripts/` (pure moves), the
+Gitleaks CI mention (not in CI), backup records without journal text (affects
+persianPerch; separate).
+
+Checked: `fleet.py validate` (6 nodes, 50 apps) and `plan grinder` in WSL
+Debian; the full suite there (75 passed; the 2 `git check-ignore` failures are
+WSL on a Windows worktree, as on `main`); shellcheck. Nothing deployed.
+
+If merged, nodes keep pulling until each one's timer helper is reinstalled
+(`purrbrews-init.sh --only timers`), a change to each node. To undo: revert.
+
+---
+
 ## 2026-10-11 — barista's uid comes from PUID, not a hardcoded 1000
 
 On the reinstalls the Debian installer's own account takes uid 1000, so the
