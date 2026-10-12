@@ -41,12 +41,12 @@ start a version that hasn't been acknowledged in the node's `.env.local`.
 
 | App (node) | Key in `.env.local` | Acknowledge |
 |---|---|---|
-| Nextcloud (percolator) | `NEXTCLOUD_UPGRADE_READY` | the major, e.g. `35` |
+| OpenCloud (percolator) | `OPENCLOUD_UPGRADE_READY` | the pinned major, e.g. `7` |
 | Meilisearch for Karakeep (grinder) | `KARAKEEP_SEARCH_UPGRADE_READY` | the version, e.g. `1.41.0` |
 | Traccar (grinder) | `TRACCAR_UPGRADE_READY` | the version, e.g. `6.16` |
 | Open WebUI (grinder) | `OPENWEBUI_UPGRADE_READY` | the version, e.g. `0.11.4` |
 
-The refusal names the exact value. Every later bump changes the pinned version,
+The refusal names the exact value. Every later bump (major for OpenCloud) changes the acknowledged version,
 so the gate closes again by itself. It is a reminder, not a backup: set the key
 only after the steps below. Plain `docker compose` bypasses it.
 
@@ -57,15 +57,33 @@ check the app, not just that the container is healthy. To go back: stop the
 app, restore the data directory, set the image back in Git. Reverting the image
 alone doesn't work once the data has been migrated.
 
-### Nextcloud 34 → 35
+### OpenCloud majors
 
-Nextcloud goes up one major at a time, from the newest release of the one
-before. Bring 34 to its last maintenance release first and let its background
-jobs finish; check installed apps support 35. Take a backup of the database
-(`pg` line in percolator's backup), config and data, then set
-`NEXTCLOUD_UPGRADE_READY=35`. After `up`: `occ status`, no maintenance mode,
-background jobs running, a login, an upload and a download.
-[Nextcloud's upgrade procedure](https://docs.nextcloud.com/server/35/admin_manual/maintenance/upgrade.html).
+Read the [upstream upgrade guide](https://docs.opencloud.eu/docs/admin/maintenance/upgrade/upgrade-guide/)
+and the migration notes for each intervening major, including the
+[7.x configuration migration](https://docs.opencloud.eu/docs/admin/maintenance/upgrade/upgrade-7.x.x/)
+when crossing that boundary. Follow the supported sequence; do not assume a
+major can be skipped or that replacing the image performs every migration.
+
+1. Stop client writes and stop OpenCloud for a consistent backup of its entire
+   config and data directories plus matching secrets. Rehearse the upgrade on
+   an isolated restore before changing the live copy.
+2. Pin the target tag and digest with `scripts/images.py`. Compare the generated
+   config with the target's defaults and apply the version-specific migration
+   instructions; never run forced initialization over existing identity state.
+3. Set `OPENCLOUD_UPGRADE_READY` in percolator's `.env.local` to the pinned major
+   printed by the gate, then `./compose.sh opencloud up -d`.
+4. Verify admin/household OIDC, bot app-token DAV, file checksums, shares, iOS
+   Files integration and desktop sync, then repeat the restore check.
+
+Rollback requires stopping the new service and restoring its matching old
+config, data, secrets and image digest. An image-only downgrade is not a rollback.
+The major gate is a reminder; patch/minor releases still need release-note review.
+Radicale has no gate: no mandatory collection-format migration was found for
+our standalone 3.8.3 storage configuration in the
+[tagged changelog](https://github.com/Kozea/Radicale/blob/v3.8.3/CHANGELOG.md)
+and [v3 documentation](https://radicale.org/v3.html). Review future release
+notes; optional sharing formats are not enabled here.
 
 ### Meilisearch 1.10 → 1.41.0 (Karakeep)
 

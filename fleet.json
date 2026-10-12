@@ -17,7 +17,7 @@
       "prerequisites": [
         "Initial LLDAP users and groups bootstrapped before routine deployment.",
         "Verified data backup available before application upgrades.",
-        "Nextcloud 35 migration prerequisites acknowledged; Immich server and ML versions coordinated."
+        "OpenCloud pinned major acknowledged with OPENCLOUD_UPGRADE_READY after verified config/data backup and migration rehearsal; Immich server and ML versions coordinated."
       ]
     },
     "cellar": {

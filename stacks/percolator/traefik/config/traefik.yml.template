@@ -22,7 +22,7 @@ entryPoints:
     transport:
       respondingTimeouts:
         # v3 defaults readTimeout to 60s, which cuts off large Immich and
-        # Nextcloud uploads mid-transfer.
+        # OpenCloud uploads mid-transfer.
         readTimeout: 0s
     http:
       middlewares:

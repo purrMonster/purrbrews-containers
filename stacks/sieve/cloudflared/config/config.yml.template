@@ -40,9 +40,12 @@ ingress:
   - hostname: immich.${DOMAIN}
     service: https://${PERCOLATOR_LAN_IP}:443
     originRequest: {originServerName: immich.${DOMAIN}}
-  - hostname: nextcloud.${DOMAIN}
+  - hostname: radicale.${DOMAIN}
     service: https://${PERCOLATOR_LAN_IP}:443
-    originRequest: {originServerName: nextcloud.${DOMAIN}}
+    originRequest: {originServerName: radicale.${DOMAIN}}
+  - hostname: opencloud.${DOMAIN}
+    service: https://${PERCOLATOR_LAN_IP}:443
+    originRequest: {originServerName: opencloud.${DOMAIN}}
   - hostname: paperless.${DOMAIN}
     service: https://${PERCOLATOR_LAN_IP}:443
     originRequest: {originServerName: paperless.${DOMAIN}}

@@ -3,8 +3,7 @@
 The fleet's outgoing mail. Apps hand their mail to this Postfix, which sends it
 on to Purelymail as `purrBrews@${DOMAIN}`: Authelia's password resets and 2FA
 enrolment, Vaultwarden's invites and alerts, and the notifications of Paperless,
-Immich, Vikunja and Mealie. Nextcloud is not wired (it's up for deprecation),
-and LLDAP has none on purpose (below).
+Immich, Vikunja and Mealie. LLDAP has none on purpose (below).
 
 | | |
 |---|---|
@@ -54,7 +53,6 @@ why the list is short and the port is not published beyond it.
 | Immich | yes | `NODE_EXTRA_CA_CERTS` = `tls-public/ca.crt` (added to Node's own roots); SMTP itself is set in its admin UI |
 | Mealie | no | it calls Python's `starttls()` without a context: encrypted, unverified, no setting for it |
 | LLDAP | not wired | see below |
-| Nextcloud | not wired | up for deprecation |
 | Gatus on sieve | no (`insecure`) | it only checks the relay answers and offers STARTTLS |
 | Another node's app | when given `ca.crt` | copy `tls-public/ca.crt` to that node; it's public |
 

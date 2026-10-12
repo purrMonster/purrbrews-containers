@@ -91,3 +91,8 @@ __pycache__/
 *.pyc
 
 Claude outputs/
+
+stacks/percolator/radicale/config/config
+stacks/percolator/radicale/config/ldap-password
+stacks/percolator/opencloud/config/proxy.yaml
+stacks/percolator/opencloud/config/csp.yaml

@@ -1,0 +1,76 @@
+# Image: opencloudeu/opencloud, production channel, pinned by tag and digest.
+# External OIDC, roles, app tokens and client discovery verified in tagged source.
+# Existing installs wait for major acknowledgement via prepare.sh (image-upgrades.md).
+services:
+  opencloud:
+    image: opencloudeu/opencloud:7.2.4@sha256:6d992ccc5f1cbc7b2a9b272ba25f879b1b159c2d7ed7f5527e09059f16295697
+    container_name: opencloud
+    user: ${PUID}:${PGID}
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    entrypoint: ["/bin/sh", "/usr/local/bin/start-opencloud"]
+    environment:
+      TZ: ${TZ}
+      OC_CONFIG_DIR: /etc/opencloud
+      OC_BASE_DATA_PATH: /var/lib/opencloud
+      OC_URL: https://opencloud.${DOMAIN}
+      OC_OIDC_ISSUER: https://authelia.${DOMAIN}
+      OC_EXCLUDE_RUN_SERVICES: idp
+      OC_INSECURE: "false"
+      PROXY_TLS: "false"
+      PROXY_HTTP_ADDR: 0.0.0.0:9200
+      PROXY_OIDC_ACCESS_TOKEN_VERIFY_METHOD: jwt
+      PROXY_OIDC_REWRITE_WELLKNOWN: "true"
+      PROXY_AUTOPROVISION_ACCOUNTS: "true"
+      PROXY_AUTOPROVISION_CLAIM_USERNAME: preferred_username
+      PROXY_AUTOPROVISION_CLAIM_EMAIL: email
+      PROXY_AUTOPROVISION_CLAIM_DISPLAYNAME: name
+      PROXY_AUTOPROVISION_CLAIM_GROUPS: groups
+      PROXY_ROLE_ASSIGNMENT_DRIVER: oidc
+      GRAPH_ASSIGN_DEFAULT_USER_ROLE: "false"
+      PROXY_CSP_CONFIG_FILE_LOCATION: /etc/opencloud/csp.yaml
+      WEB_OIDC_CLIENT_ID: opencloud
+      WEB_OIDC_SCOPE: openid profile email groups offline_access
+      WEBFINGER_WEB_OIDC_CLIENT_ID: opencloud
+      WEBFINGER_WEB_OIDC_CLIENT_SCOPES: openid profile email groups offline_access
+      WEBFINGER_IOS_OIDC_CLIENT_ID: opencloud-ios
+      WEBFINGER_IOS_OIDC_CLIENT_SCOPES: openid profile email groups offline_access
+      WEBFINGER_DESKTOP_OIDC_CLIENT_ID: opencloud-desktop
+      WEBFINGER_DESKTOP_OIDC_CLIENT_SCOPES: openid profile email groups offline_access
+      WEBFINGER_ANDROID_OIDC_CLIENT_ID: opencloud-android
+      WEBFINGER_ANDROID_OIDC_CLIENT_SCOPES: openid profile email groups offline_access
+      # App tokens allow the GPX bot's WebDAV; directory passwords do not.
+      PROXY_ENABLE_BASIC_AUTH: "false"
+      PROXY_ENABLE_APP_AUTH: "true"
+      AUTH_APP_ENABLE_IMPERSONATION: "false"
+      IDM_CREATE_DEMO_USERS: "false"
+      OC_JWT_SECRET: ${OPENCLOUD_JWT_SECRET}
+      OC_TRANSFER_SECRET: ${OPENCLOUD_TRANSFER_SECRET}
+      OC_MACHINE_AUTH_API_KEY: ${OPENCLOUD_MACHINE_AUTH_API_KEY}
+      OC_SYSTEM_USER_API_KEY: ${OPENCLOUD_SYSTEM_USER_API_KEY}
+      OC_URL_SIGNING_SECRET: ${OPENCLOUD_URL_SIGNING_SECRET}
+      THUMBNAILS_TRANSFER_TOKEN: ${OPENCLOUD_THUMBNAILS_TRANSFER_TOKEN}
+    volumes:
+      - ${DATA_DIR}/opencloud/config:/etc/opencloud
+      - ${DATA_DIR}/opencloud/data:/var/lib/opencloud
+      - ./config/proxy.yaml:/etc/opencloud/proxy.yaml:ro
+      - ./config/csp.yaml:/etc/opencloud/csp.yaml:ro
+      - ./start.sh:/usr/local/bin/start-opencloud:ro
+    healthcheck:
+      # curl is included in the tagged multiarch Dockerfile.
+      test: ["CMD", "curl", "--fail", "--silent", "--max-time", "5", "http://127.0.0.1:9200/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    networks: [proxy]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.opencloud.rule=Host(`opencloud.${DOMAIN}`)
+      - traefik.http.routers.opencloud.entrypoints=websecure
+      - traefik.http.services.opencloud.loadbalancer.server.port=9200
+
+networks:
+  proxy:
+    external: true

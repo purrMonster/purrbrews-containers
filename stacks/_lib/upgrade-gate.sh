@@ -14,7 +14,7 @@
 #
 # The version is the tag without a leading v or a -variant suffix
 # (v1.41.0 -> 1.41.0, 6.16-alpine -> 6.16). `major` compares only the first
-# number, for apps whose patch releases don't migrate anything (Nextcloud).
+# number, for apps where the reviewed gate is per major (OpenCloud).
 #
 # Direct `docker compose` bypasses this, as it bypasses every compose.sh check.
 set -euo pipefail

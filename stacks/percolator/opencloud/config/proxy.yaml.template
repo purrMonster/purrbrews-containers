@@ -1,0 +1,11 @@
+# render-mode: 0644
+# First matching mapping wins: admins can also belong to household.
+role_assignment:
+  driver: oidc
+  oidc_role_mapper:
+    role_claim: groups
+    role_mapping:
+      - role_name: admin
+        claim_value: '${LLDAP_ADMIN_GROUP}'
+      - role_name: user
+        claim_value: '${LLDAP_HOUSEHOLD_GROUP}'

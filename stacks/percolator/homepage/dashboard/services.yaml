@@ -1,10 +1,14 @@
 # One tile per app. {{HOMEPAGE_VAR_DOMAIN}} comes from the container env.
 # Add an app's tile in the same commit as the app. Icons: https://gethomepage.dev/configs/services/#icons
 - Daily:
-    - Nextcloud:
-        href: https://nextcloud.{{HOMEPAGE_VAR_DOMAIN}}
-        icon: nextcloud.svg
-        description: Files, calendars, contacts
+    - OpenCloud:
+        href: https://opencloud.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: mdi-folder-cloud
+        description: Files
+    - Radicale:
+        href: https://radicale.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: mdi-calendar-account
+        description: Calendars and contacts
     - Immich:
         href: https://immich.{{HOMEPAGE_VAR_DOMAIN}}
         icon: immich.svg

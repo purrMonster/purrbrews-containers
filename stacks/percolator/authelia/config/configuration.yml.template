@@ -1,11 +1,12 @@
 # Rendered by ../../render-configs.sh — edit the .template.
 #
 # Policy: ${AUTH_POLICY} for human access and OIDC (.env.local AUTH_POLICY).
-# Ollama, Nextcloud and persianPerch (Gatus's API) service accounts use explicit one_factor rules.
-# Nextcloud bot accounts are denied access to other ForwardAuth/OIDC apps.
+# Ollama, OpenCloud and persianPerch (Gatus's API) service accounts use explicit one_factor rules.
+# OpenCloud bot accounts are denied access to other ForwardAuth/OIDC apps.
 # Move human access to two-factor after everyone has enrolled.
 #
-# Adding an OIDC client: add a block below, a `<APP>_OIDC_CLIENT_SECRET hex 64`
+# OpenCloud uses four public PKCE clients and needs no client secret.
+# Adding a confidential OIDC client: add a block below, a `<APP>_OIDC_CLIENT_SECRET hex 64`
 # line to the app's secrets.conf and a matching `_HASH ... hash pbkdf2` line to
 # authelia/secrets.conf, then ./setup-secrets.sh and recreate authelia.
 ---
@@ -61,13 +62,13 @@ identity_validation:
 access_control:
   default_policy: deny
   rules:
-    # Nextcloud bots: allow this host, then deny all other protected hosts.
+    # OpenCloud bots: allow this host, then deny all other protected hosts.
     # Keep these before Ollama/admin/household rules, even for overlapping groups.
-    - domain: 'nextcloud.${DOMAIN}'
-      subject: ['group:nextcloud_bot_accounts']
+    - domain: 'opencloud.${DOMAIN}'
+      subject: ['group:opencloud_bot_accounts']
       policy: one_factor
     - domain_regex: '^.*$'
-      subject: ['group:nextcloud_bot_accounts']
+      subject: ['group:opencloud_bot_accounts']
       policy: deny
 
     # Dedicated LLDAP service accounts: password authentication for Ollama only.
@@ -162,13 +163,13 @@ identity_providers:
     jwks:
       # One line with literal \n, un-escaped by YAML's double quotes.
       - key: "${AUTHELIA_OIDC_JWK_PRIVATE_KEY}"
-    # Nextcloud alone accepts bot accounts; other clients deny this group.
+    # OpenCloud alone accepts bot accounts; other clients deny this group.
     authorization_policies:
-      nextcloud:
+      opencloud:
         default_policy: deny
         rules:
           - policy: one_factor
-            subject: ['group:nextcloud_bot_accounts']
+            subject: ['group:opencloud_bot_accounts']
           - policy: ${AUTH_POLICY}
             subject:
               - 'group:${LLDAP_ADMIN_GROUP}'
@@ -177,7 +178,7 @@ identity_providers:
         default_policy: deny
         rules:
           - policy: deny
-            subject: ['group:nextcloud_bot_accounts']
+            subject: ['group:opencloud_bot_accounts']
           - policy: ${AUTH_POLICY}
             subject:
               - 'group:${LLDAP_ADMIN_GROUP}'
@@ -194,22 +195,69 @@ identity_providers:
       endpoints: ['authorization', 'token', 'revocation', 'userinfo']
       allowed_origins_from_client_redirect_uris: true
     clients:
-      - client_id: 'nextcloud'
-        client_name: 'Nextcloud'
-        client_secret: '${NEXTCLOUD_OIDC_CLIENT_SECRET_HASH}'
-        public: false
-        authorization_policy: 'nextcloud'
+      - client_id: 'opencloud'
+        client_name: 'OpenCloud'
+        public: true
+        authorization_policy: 'opencloud'
         require_pkce: true
         pkce_challenge_method: 'S256'
         redirect_uris:
-          - 'https://nextcloud.${DOMAIN}/apps/user_oidc/code'
-        scopes: ['openid', 'profile', 'email', 'groups']
+          - 'https://opencloud.${DOMAIN}/'
+          - 'https://opencloud.${DOMAIN}/oidc-callback.html'
+          - 'https://opencloud.${DOMAIN}/oidc-silent-redirect.html'
+        scopes: ['openid', 'profile', 'email', 'groups', 'offline_access']
         response_types: ['code']
-        grant_types: ['authorization_code']
-        access_token_signed_response_alg: 'none'
+        grant_types: ['authorization_code', 'refresh_token']
+        access_token_signed_response_alg: 'RS256'
         userinfo_signed_response_alg: 'none'
-        # user_oidc app sends the secret in the POST body.
-        token_endpoint_auth_method: 'client_secret_post'
+        token_endpoint_auth_method: 'none'
+
+      - client_id: 'opencloud-ios'
+        client_name: 'OpenCloud'
+        public: true
+        authorization_policy: 'opencloud'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          - 'oc://ios.opencloud.eu'
+          - 'oc.ios://ios.opencloud.eu'
+        scopes: ['openid', 'profile', 'email', 'groups', 'offline_access']
+        response_types: ['code']
+        grant_types: ['authorization_code', 'refresh_token']
+        access_token_signed_response_alg: 'RS256'
+        userinfo_signed_response_alg: 'none'
+        token_endpoint_auth_method: 'none'
+
+      - client_id: 'opencloud-desktop'
+        client_name: 'OpenCloud'
+        public: true
+        authorization_policy: 'opencloud'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          - 'http://127.0.0.1'
+          - 'http://localhost'
+        scopes: ['openid', 'profile', 'email', 'groups', 'offline_access']
+        response_types: ['code']
+        grant_types: ['authorization_code', 'refresh_token']
+        access_token_signed_response_alg: 'RS256'
+        userinfo_signed_response_alg: 'none'
+        token_endpoint_auth_method: 'none'
+
+      - client_id: 'opencloud-android'
+        client_name: 'OpenCloud'
+        public: true
+        authorization_policy: 'opencloud'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          - 'oc://android.opencloud.eu'
+        scopes: ['openid', 'profile', 'email', 'groups', 'offline_access']
+        response_types: ['code']
+        grant_types: ['authorization_code', 'refresh_token']
+        access_token_signed_response_alg: 'RS256'
+        userinfo_signed_response_alg: 'none'
+        token_endpoint_auth_method: 'none'
 
       - client_id: 'immich'
         client_name: 'Immich'

@@ -19,7 +19,7 @@ _Last updated: 2026-10-12_
 | [`docs/flask.md`](flask.md) | flask, the offline recovery kit: what's on it, which secrets, how it's kept |
 | [`stacks/README.md#updates`](../stacks/README.md#updates) | How image updates arrive (Dependabot PRs, weekly) and old images are cleaned up |
 | [`docs/operations.md`](operations.md) | Deploying a reviewed commit (`scripts/fleet.py`), recovery, proposed recovery targets |
-| [`docs/image-upgrades.md`](image-upgrades.md) | Tag-and-digest pins, paired images, and the upgrades held until acknowledged (Nextcloud, Meilisearch, Traccar, Open WebUI) |
+| [`docs/image-upgrades.md`](image-upgrades.md) | Tag-and-digest pins, paired images, and the upgrades held until acknowledged (OpenCloud, Meilisearch, Traccar, Open WebUI) |
 | [`.github/`](../.github) | Dependabot's update PRs, and the tests run on every PR and push to `main` |
 
 ## Nodes
@@ -53,7 +53,8 @@ _Last updated: 2026-10-12_
 | Links / read-later | Karakeep | grinder |
 | Documents | Paperless-ngx | percolator |
 | Photos, screenshots | Immich | percolator |
-| Files, calendars, contacts | Nextcloud | percolator |
+| Files | [OpenCloud](../stacks/percolator/opencloud/README.md) | percolator |
+| Calendars, contacts | [Radicale](../stacks/percolator/radicale/README.md) | percolator |
 | Tasks | Vikunja | percolator |
 | Passwords | Vaultwarden | percolator |
 | Recipes | Mealie | percolator |

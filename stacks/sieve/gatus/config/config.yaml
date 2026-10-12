@@ -365,7 +365,8 @@ endpoints:
   - {<<: *own-login, group: "apps: percolator", name: lldap, url: "https://lldap.${DOMAIN}/"}
   - {<<: *own-login, group: "apps: percolator", name: vaultwarden, url: "https://vault.${DOMAIN}/"}
   - {<<: *behind-sso, group: "apps: percolator", name: vaultwarden admin, url: "https://vault.${DOMAIN}/admin"}
-  - {<<: *own-login, group: "apps: percolator", name: nextcloud, url: "https://nextcloud.${DOMAIN}/"}
+  - {<<: *own-login, group: "apps: percolator", name: radicale, url: "https://radicale.${DOMAIN}/"}
+  - {<<: *own-login, group: "apps: percolator", name: opencloud, url: "https://opencloud.${DOMAIN}/"}
   - {<<: *own-login, group: "apps: percolator", name: immich, url: "https://immich.${DOMAIN}/"}
   - {<<: *own-login, group: "apps: percolator", name: paperless, url: "https://paperless.${DOMAIN}/"}
   - {<<: *own-login, group: "apps: percolator", name: mealie, url: "https://mealie.${DOMAIN}/"}

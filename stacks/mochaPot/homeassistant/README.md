@@ -58,7 +58,7 @@ stays on SQLite, which works fine, just slower.
 4. Keep the default `homeassistant` provider in `http.auth_providers` too. That's
    the local login, and the way in when Authelia is down.
 
-There's deliberately no ForwardAuth in front of it (same as Nextcloud and
+There's deliberately no ForwardAuth in front of it (same as OpenCloud and
 Paperless): the app's own OIDC is the gate, so its login page is reachable
 without a session.
 

@@ -14,14 +14,14 @@
 #   - moghtech/komodo-core and moghtech/komodo-periphery: same version.
 #   - getmeili/meilisearch: only to the version Karakeep's own compose pins
 #     for the Karakeep release we run (an ignore rule below holds it there).
-# Nextcloud, Meilisearch, Traccar and Open WebUI change their data on the way
+# OpenCloud, Meilisearch, Traccar and Open WebUI change their data on the way
 # up: after the merge, compose.sh holds an existing install until the version
 # is acknowledged in .env.local (stacks/_lib/upgrade-gate.sh,
 # docs/image-upgrades.md).
 # Database images never get major bumps here (see ignore): a major Postgres,
-# Mongo or Redis upgrade is a dump-and-restore, done by hand. Nor Nextcloud:
-# it can only go up one major at a time, and a PR would skip straight to
-# the newest. Names below are Dependabot's: the image without its registry
+# Mongo or Redis upgrade is a dump-and-restore, done by hand. OpenCloud majors
+# also need a reviewed migration and restore plan. The directory wildcard covers
+# OpenCloud and Radicale. Names below omit the registry
 # (checked against its parser, 2026-10-08).
 version: 2
 updates:
@@ -58,7 +58,7 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "valkey/valkey"
         update-types: ["version-update:semver-major"]
-      - dependency-name: "nextcloud"
+      - dependency-name: "opencloudeu/opencloud"
         update-types: ["version-update:semver-major"]
       # Only the version Karakeep's own compose pins (v1.41.0 for 0.33.2): it
       # isn't tested against newer. Raise this with Karakeep, by hand.

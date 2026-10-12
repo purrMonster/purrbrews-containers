@@ -64,7 +64,7 @@ Password manager, compatible with every Bitwarden app and browser extension.
   (plain email+password against Vaultwarden itself), so Authelia becomes
   mandatory, but the master password step after it is permanent.
 - **SSO_ONLY locks out anyone without an Authelia account.** There's no local
-  fallback once it's on — unlike Home Assistant/Paperless/Nextcloud, which all
+  fallback once it's on — unlike Home Assistant/Paperless, which all
   keep a native-login break-glass path, Vaultwarden's own login form is now
   refused entirely. If Authelia is ever down, nobody gets into Vaultwarden
   either, admin included (the `/admin` page is separate — `ADMIN_TOKEN` still

@@ -116,8 +116,8 @@ Every other secret below is also inside the restic backups, so with Tier 1 and
 either the repository or the Drive copy you can get the rest back. The vault holds
 them so a partial failure doesn't need a full restore first.
 
-**Tier 2: keys that encrypt app data.** Restore the data with a different key and
-that data is gone.
+**Tier 2: app recovery keys and internal service credentials.** Restore these
+with their matching data; losing encryption keys can make data unreadable.
 
 | Secret | Where | Lose it and |
 |---|---|---|
@@ -128,14 +128,26 @@ that data is gone.
 | `FRESHRSS_OIDC_CRYPTO_KEY` | percolator/freshrss | FreshRSS's OIDC sign-in |
 | `SPEEDTEST_TRACKER_APP_KEY` | grinder/speedtest-tracker | its encrypted settings |
 | `KOMODO_DATABASE_PASSWORD`, `KOMODO_JWT_SECRET` | cellar/komodo | Komodo's database and sessions |
+| `OPENCLOUD_JWT_SECRET` | percolator/opencloud | restore with generated config and data |
+| `OPENCLOUD_TRANSFER_SECRET` | percolator/opencloud | restore with generated config and data |
+| `OPENCLOUD_MACHINE_AUTH_API_KEY` | percolator/opencloud | restore with generated config and data |
+| `OPENCLOUD_SYSTEM_USER_API_KEY` | percolator/opencloud | restore with generated config and data |
+| `OPENCLOUD_URL_SIGNING_SECRET` | percolator/opencloud | restore with generated config and data |
+| `OPENCLOUD_THUMBNAILS_TRANSFER_TOKEN` | percolator/opencloud | restore with generated config and data |
 
-**Tier 3: emergency logins, for when Authelia or LLDAP is down.**
+OpenCloud also requires the matching whole `opencloud/config` and `opencloud/data`
+restic restore. Its generated `opencloud.yaml` holds internal IDM passwords,
+service-account credentials and IDs that are not in env files. Keep it as a
+protected vault attachment when updating flask; `fill-vault.ps1` only copies
+named env secrets and cannot replace that attachment or the full backup.
+
+**Tier 3: emergency logins and directory integration passwords.**
 
 | Secret | Where |
 |---|---|
 | `LLDAP_ADMIN_PASSWORD` | percolator/lldap |
 | `PAPERLESS_ADMIN_PASSWORD` | percolator/paperless |
-| `NEXTCLOUD_ADMIN_PASSWORD` | percolator/nextcloud |
+| `RADICALE_LDAP_READER_PASSWORD` | percolator/radicale; reader bind only, not a human login |
 | `VAULTWARDEN_ADMIN_PASSWORD` | percolator/vaultwarden |
 | `KOMODO_INIT_ADMIN_PASSWORD` | cellar/komodo |
 | `PIHOLE_WEBPASSWORD` | mochaPot/pihole |

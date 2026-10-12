@@ -1,6 +1,6 @@
 # Authelia
 
-Single sign-on. Every app signs people in with Authelia over OpenID Connect, and
+Single sign-on. Browser apps sign people in with Authelia over OpenID Connect, and
 pages without a login of their own sit behind its ForwardAuth: Homepage and the
 Traefik dashboard here, and the admin UIs on other nodes. Accounts come from LLDAP.
 
@@ -29,7 +29,10 @@ Traefik dashboard here, and the admin UIs on other nodes. Accounts come from LLD
 
 | Client ID | App | Token auth | PKCE |
 |---|---|---|---|
-| `nextcloud` | Nextcloud (user_oidc app) | `client_secret_post` | yes |
+| `opencloud` | OpenCloud web | `none` (public) | S256 |
+| `opencloud-ios` | OpenCloud iPhone | `none` (public) | S256 |
+| `opencloud-desktop` | OpenCloud Mac/Windows | `none` (public) | S256 |
+| `opencloud-android` | OpenCloud Android | `none` (public) | S256 |
 | `immich` | Immich | `client_secret_basic` | yes |
 | `paperless` | Paperless-ngx | `client_secret_basic` | yes |
 | `vaultwarden` | Vaultwarden | `client_secret_basic` | yes |
@@ -38,10 +41,20 @@ Traefik dashboard here, and the admin UIs on other nodes. Accounts come from LLD
 | `actual-budget` | Actual Budget | `client_secret_basic` | no |
 | `freshrss` | FreshRSS | `client_secret_basic` | no |
 
-Each app's `secrets.conf` generates its plaintext secret, and
+Each confidential app's `secrets.conf` generates its plaintext secret, and
 `authelia/secrets.conf` hashes it (PBKDF2) into `authelia/secrets.env.local` in the
 same `./setup-secrets.sh` run, so the two can't drift apart. Adding a client is a
 line in each of those two files plus its block in the template.
+
+OpenCloud uses the `opencloud` authorization policy: bot accounts may use it
+with one factor, humans follow `AUTH_POLICY`, and other users are denied. The
+`household` policy denies `opencloud_bot_accounts` first, even with overlapping
+household membership. All four public clients use PKCE S256 and refresh tokens;
+no client secret or hash is needed. Radicale uses LLDAP Basic authentication
+directly and has no ForwardAuth or OIDC client.
+
+The OpenCloud guide tests Authelia 4.39.28; this repository pins 4.39.27. Confirm
+all four registrations validate and web/iOS/desktop login works before rollout.
 
 ## Bring up
 

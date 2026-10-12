@@ -1,0 +1,3 @@
+# Whole storage and generated identity/config state, with no guessed exclusions.
+path opencloud/data
+path opencloud/config

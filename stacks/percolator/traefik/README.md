@@ -32,7 +32,7 @@ App routes are not here: each app declares its own with labels in its
 - **Real client addresses from the tunnel:** `X-Forwarded-For` is trusted only from
   `SIEVE_LAN_IP` (from `stacks/fleet.env`), where cloudflared runs.
 - **No upload time limit** (`readTimeout: 0s`); Traefik v3's 60 s default breaks
-  large Immich and Nextcloud uploads.
+  large Immich and OpenCloud uploads.
 - **The CrowdSec plugin is a local plugin**, loaded from disk. A catalog plugin is
   downloaded on every start, and when that fails every route using it stops
   working — here that would be all of them.

@@ -1,0 +1,2 @@
+opencloud/config PUID:PGID 700
+opencloud/data PUID:PGID 750
