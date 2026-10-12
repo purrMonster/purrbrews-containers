@@ -1,0 +1,16 @@
+# render-mode: 0644
+# Core web client and Authelia; no office/companion deployment is configured.
+directives:
+  default-src: ["'none'"]
+  child-src: ["'self'"]
+  connect-src: ["'self'", "blob:", "https://authelia.${DOMAIN}"]
+  font-src: ["'self'"]
+  frame-ancestors: ["'self'"]
+  frame-src: ["'self'", "blob:", "https://authelia.${DOMAIN}"]
+  img-src: ["'self'", "data:", "blob:"]
+  manifest-src: ["'self'"]
+  media-src: ["'self'"]
+  object-src: ["'self'", "blob:"]
+  script-src: ["'self'", "'unsafe-inline'", "https://authelia.${DOMAIN}"]
+  style-src: ["'self'", "'unsafe-inline'"]
+  worker-src: ["'self'", "blob:"]
