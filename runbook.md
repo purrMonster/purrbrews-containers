@@ -73,6 +73,48 @@ changes can be made later without re-deriving the reasoning.
 
 ---
 
+## 2026-10-13 — OpenCloud and Radicale reviewed, pushed and merged (#43)
+
+Codex built the replacement on `codex/opencloud-radicale` (entries below).
+Claude reviewed it and, at the owner's request, pushed it, opened #43 and
+merged it.
+
+**Checked before the push (tip `3516f04`, main 0 commits ahead):**
+
+- The tests, in an Ubuntu 24.04 container set up like CI's job (apt
+  `python3-pytest python3-yaml sqlite3 restic rclone shellcheck jq`):
+  `105 passed, 4 skipped` as a normal user and `101 passed, 8 skipped` as
+  root. main at the time had `101 / 4` and `97 / 8`. The suite can't run
+  natively on roastery (`os.geteuid`, no bash); main fails the same way there.
+- Both digests match what Docker Hub served for the tags on 2026-10-13:
+  `opencloudeu/opencloud:7.2.4` (`sha256:6d992ccc…`) and
+  `tomsquest/docker-radicale:3.8.3.0` (`sha256:a3b1b452…`).
+- `git grep -i nextcloud` outside runbook.md: no hits.
+- The diff's added hostnames are public documentation and client redirect
+  hosts only (github.com, docs.opencloud.eu, authelia.com, radicale.org,
+  ios/android.opencloud.eu). No real domain, and nothing that looks like a
+  secret.
+
+**Merged:** #43's 6 checks all passed, and GitHub reported it MERGEABLE/CLEAN.
+It was merged with `--match-head-commit 3516f04` as `5fe4767`, a merge commit.
+The branch is kept.
+
+**Auto-merge stays off:** main has no branch protection (the API answers
+"Branch not protected"), so GitHub's auto-merge would merge without waiting
+for CI.
+
+**Not done:** anything on a node or in a console. Nextcloud still runs on
+percolator.
+
+**Next:** the owner rollout in the Backlog, starting with
+`./compose.sh nextcloud down --remove-orphans` on percolator, before
+percolator checks out `5fe4767` or later.
+
+**Undo:** `git revert -m 1 5fe4767`, then bring Nextcloud back up from its
+untouched `/srv/data/nextcloud`.
+
+---
+
 ## 2026-10-13 — Include the mail-relay merge that arrived during integration
 
 After `1cdee61` merged main at `8bf574d` and `9280efd` selected production
