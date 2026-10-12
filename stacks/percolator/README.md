@@ -98,7 +98,7 @@ signal (in its README) before the next. "Container started" is not a success sig
 |---|---|---|
 | 1 | `./compose.sh traefik up -d` | no ACME errors in `sudo docker logs traefik`; any `https://<anything>.${DOMAIN}` shows a valid wildcard padlock (a 404 page is fine at this point) |
 | 2 | `./compose.sh crowdsec up -d` | `sudo docker exec crowdsec cscli bouncers list` shows `traefik` with a recent last pull |
-| 3 | `./compose.sh lldap up -d` then `./lldap-bootstrap.sh` | groups exist, `barista` created — **save the printed one-time password** |
+| 3 | `./compose.sh lldap up -d` then `./lldap-bootstrap.sh` in an interactive terminal | groups exist, `barista` created — **save the one-time password shown on the terminal** |
 | 4 | `./compose.sh authelia up -d` | log in at `https://authelia.${DOMAIN}` as `barista`; the Traefik dashboard opens; from sieve, `curl -s -o /dev/null -w '%{http_code}' http://192.168.0.11:9091/api/health` gives `200` |
 | 5+ | `./compose.sh <app> up -d` for vaultwarden, nextcloud, immich, paperless, mealie, vikunja, actualbudget, freshrss, homepage | the app's README checklist |
 | last | `./compose.sh komodo-periphery up -d`, `./compose.sh scrutiny-collector up -d` | percolator shows up in Komodo and Scrutiny on cellar (copy `komodo-periphery/keys/core.pub` from cellar first) |
@@ -129,7 +129,7 @@ rendered `*/config/*`.
 ./compose.sh <app> pull && ./compose.sh <app> up -d     # after bumping a tag in git
 ./compose.sh <app> logs -f --tail 100
 ./compose.sh <app> ps
-git pull && ./setup-secrets.sh                          # picks up new keys, secrets, templates
+git fetch && git checkout <reviewed commit> && ./setup-secrets.sh   # new keys, secrets, templates
 sudo docker exec crowdsec cscli decisions list
 sudo docker exec crowdsec cscli decisions delete --ip <address>   # unban
 ```

@@ -33,6 +33,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 trap - ERR
 
 cmd="${1:-list}"; [[ $# -gt 0 ]] && shift
+# Read by warn()/die() from the sourced init script.
+# shellcheck disable=SC2034
 CURRENT_STEP="$cmd"
 FORMAT=table
 PASS=()

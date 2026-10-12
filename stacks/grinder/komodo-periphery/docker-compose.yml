@@ -16,10 +16,10 @@
 # The docker socket mount is the real risk here: whoever controls Komodo
 # Core (its admin login, JWT or webhook secret) has root on this node.
 #
-# Image: ghcr.io/moghtech/komodo-periphery:2.3.2, same as Core. Checked 2026-09-17.
+# Image: ghcr.io/moghtech/komodo-periphery:2.3.3, same as Core. Checked 2026-10-10.
 services:
   komodo-periphery:
-    image: ghcr.io/moghtech/komodo-periphery:2.3.2
+    image: ghcr.io/moghtech/komodo-periphery:2.3.3@sha256:fa3f1a641a265216066676950d5eecdf506955a7bafe2f01996135ae93115cd5
     container_name: komodo-periphery
     init: true
     environment:

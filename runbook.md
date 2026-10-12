@@ -46,37 +46,201 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Tunnel from Git: two-factor in Authelia first, then the switch in `stacks/sieve/cloudflared/README.md` (2026-09-28 entry below)
 - [ ] Apps over the tailnet: roll out in the order in the 2026-09-28 entry below
 - [ ] Bot identity for Claude's commits and pull requests: owner picks bot account or GitHub App, then the setup in the 2026-09-28 entry below
+- [ ] Roll out the 2026-10-12 image pins node by node (`./compose.sh --all pull`, then `up -d`): Pi-hole on mochaPot before sieve; Immich on percolator and roastery together; Nextcloud, Meilisearch, Traccar and Open WebUI only after their steps in `docs/image-upgrades.md` (each waits for its key in `.env.local`); alert-path test after sieve
+- [ ] Fetch-only timer on every Linux node: `git -C /opt/purrbrews pull --ff-only` once more (the helper installs from the checkout), then `sudo bash /opt/purrbrews/init/purrbrews-init.sh --only timers`, then `journalctl -u purrbrews-pull -n 5` shows `OK: fetched origin` (2026-10-12 reviewed-deployments entry); nodes keep pulling until then
+- [ ] roastery: `init\roastery-init.ps1` on the rebuilt PC from an elevated Windows PowerShell 5.1 (owner), after the repository is back from Drive; then the follow-ups it prints for the nodes, ticked here with what was seen (2026-10-12 init entry)
 
 ---
 
-## 2026-10-12 — Proposed: reviewed deployments, nodes stop pulling `main` (owner's decision)
+## 2026-10-12 — Reviewed deployments: nodes fetch `main`, they don't pull it
 
-From PR #23, split out at the owner's request into its own PR **for the owner to
-decide, not merged**: it changes how the whole fleet gets changes.
+From PR #23, split out as #29 and approved by the owner on 2026-10-12. It changes
+how the fleet gets changes: a merge to `main` no longer reaches a node's checkout
+by itself.
 
-- `init/lib/purrbrews-pull.sh` fetches instead of `git pull --ff-only`: the
-  checkout on a node never moves by itself; Git errors stay out of the journal
-  (a remote URL with credentials would land there).
+- `init/lib/purrbrews-pull.sh` fetches instead of `git pull --ff-only`: a node's
+  checkout never moves unattended, and Git errors stay out of the journal (a
+  remote URL with credentials would land there). The timer keeps its name.
 - `scripts/fleet.py`: `validate` / `plan <node>` (read-only) and
   `deploy <node> --release <full commit> --acknowledge-prerequisites`, run on that
   node as barista: refuses the wrong host or OS, root, a dirty checkout or another
   commit; one lock per node; setup → firewall → each app `up -d --wait` in
-  `node.conf` order; keeps replaced images for rollback; per-phase record in
+  `node.conf` order; keeps replaced images for rollback; a per-phase record in
   `.fleet/` (`status`). `fleet.json` adds each node's platform, tier, optional
   apps (cellar's smb, persian-perch) and prerequisites.
 - `docs/operations.md`: the release workflow, recovery, proposed recovery targets.
+  Docs that said "nodes pull `main`" or "wait for the daily pull" now say fetch
+  and check out a reviewed commit (image-upgrades, stacks, persian-perch,
+  percolator, tailscale, init, Dependabot's header, CI's header).
 
-Left out of #23's version: the per-node `scripts/run.sh` wrappers and moving
+Left out of #23's version: per-node `scripts/run.sh` wrappers and the moves of
 `enable-dhcp.sh` / `lldap-bootstrap.sh` into `scripts/` (pure moves), the
-Gitleaks CI mention (not in CI), backup records without journal text (affects
+Gitleaks note (not in CI), backup records without journal text (affects
 persianPerch; separate).
 
-Checked: `fleet.py validate` (6 nodes, 50 apps) and `plan grinder` in WSL
-Debian; the full suite there (75 passed; the 2 `git check-ignore` failures are
-WSL on a Windows worktree, as on `main`); shellcheck. Nothing deployed.
+Worth knowing: after `git checkout <commit>` a node is on a detached HEAD. The
+fetch timer doesn't mind; `purrbrews-init.sh --only repo` still tries
+`pull --ff-only` there, fails, warns and leaves the checkout as it is.
 
-If merged, nodes keep pulling until each one's timer helper is reinstalled
-(`purrbrews-init.sh --only timers`), a change to each node. To undo: revert.
+Checked: `fleet.py validate` (6 nodes, 50 apps) and `plan` for every node in WSL
+Debian; the full suite there (the 2 `git check-ignore` failures are WSL on a
+Windows worktree, as on `main`); shellcheck. Nothing deployed.
+
+**Not live until each node's timer helper is reinstalled** (Backlog line); until
+then that node keeps pulling. To undo: revert the merge commit, and reinstall the
+helper on any node that already has the new one.
+
+---
+
+## 2026-10-12 — `init/roastery-init.ps1`: roastery gets an init
+
+From PR #23 (written 2026-10-08, hardened 2026-10-10 there), split out at the
+owner's request. Repo only: nothing has run on roastery.
+
+**What it is:** one script, run elevated from the repo, with named steps in
+the order of roastery's README ("Rebuilding roastery"): `hostname`, `network`,
+`power`, `prereqs`, `ssh_key`, `remote_access`, `backup_target`, `apps`,
+`traefik`, `game_mode`, `bootstrap`. It calls the existing scripts
+(`remote-access\setup.ps1`, `backup-target\setup.ps1`, `setup-secrets.ps1`,
+`compose.ps1`, `game-mode\install.ps1`) and does what used to be clicks: the
+three firewall rules, Traefik's scheduled task, power. `-Only`/`-Skip`/
+`-ListSteps`/`-Yes`; logged to `C:\ProgramData\purrbrews\logs`.
+
+Choices worth remembering:
+
+- A step that can't finish yet blocks, it doesn't abort: it says what it needs,
+  the run goes on, `-Only <step>` resumes.
+- **Repository first, nodes after** (2026-10-07): `backup_target` refuses while
+  `C:\purrbrews\restic` has no repository (RECOVERY.md part B);
+  `-AllowEmptyRepository` is the deliberate way past it.
+- It never writes `bootstrap\data\authorized_keys`, the fleet's whole SSH trust
+  list; it says how to rebuild it. `bootstrap` is last and asks first.
+- **Traefik's task runs from `%ProgramFiles%\purrbrews-traefik`**, not the
+  checkout: a SYSTEM task running a script any user can edit is a privilege
+  escalation (#23's security review). `init/lib/windows-runtime.ps1` copies the
+  launcher, binary, credentials and config there with Administrators/SYSTEM-only
+  ACLs, refuses unsafe owners, ACLs and junctions, keeps renewed certificates on
+  reinstall. No time limit (Windows' 3-day default killed it on 2026-10-03).
+- Power: never sleep on AC, hibernation off (2026-09-29), until wake-on-demand.
+
+Changed from #23: the GPU probe is CUDA **12.3.1** again (#23 had moved it to
+13.4.2), now by digest. The driver check asks for 545 (CUDA 12.3), immich-ml
+and llama-swap are CUDA 12 builds, and a CUDA 13 probe would fail on a driver
+they run on. `bootstrap` was listed twice in the header. Both PowerShell tests
+wrote fixtures into the repo (`graphify-out/`); now the temp folder, removed after.
+
+Checked: the full suite in WSL Debian (72 passed, 4 skipped; the 2
+`git check-ignore` failures are WSL on a Windows worktree, as on `main`), with
+the `RoasteryInit` class (step order, repository guard, `authorized_keys` never
+written, protected task paths, firewall scopes). `tests/test_windows_runtime.ps1`
+passed under Windows PowerShell 5.1 on roastery's checkout and runs in CI on
+`windows-2025`. Digest for the CUDA probe from `scripts/images.py`.
+**Not checked:** any real step on roastery.
+
+**Undo:** revert the merge commit; the script changes nothing until it runs. What
+it makes on roastery has names: firewall rules `purrbrews-bootstrap`,
+`purrbrews-immich-ml`, `purrbrews-traefik`, the `traefik` task,
+`%ProgramFiles%\purrbrews-traefik`, and the power settings
+(`powercfg /change standby-timeout-ac <minutes>`).
+
+---
+
+## 2026-10-12 — Every image pinned by tag and digest; four upgrades held behind a gate
+
+The image part of PR #23 (`codex/code-sanitization`), split out, reviewed and
+reworked at the owner's request; the rest of #23 goes in its own PRs. Nothing on
+any node changed: this is the repo only, and nodes don't restart on a pull.
+
+What changed:
+
+- Every registry image in Compose files, both Dockerfiles and the restore test
+  is now `name:tag@sha256:…`, at the versions #23 checked on 2026-10-10 (Authelia
+  4.39.28, Immich 3.3.1, Nextcloud 35.0.1, n8n 2.42.6, Paperless 3.3.0, Pi-hole
+  2026.09.0, Traccar 6.16, Komodo 2.3.3, Scrutiny 0.9.5 and the rest). Unbound
+  and Samba, which only publish `main`/`latest`, are now fixed by digest too.
+  This also covers all ten open Dependabot PRs (#10, #12, #15–#22), same or newer.
+- Meilisearch goes to **v1.41.0**, not #23's 1.54.3: v1.41.0 is what Karakeep's
+  own compose pins for 0.33.2 (and on its `main`), checked 2026-10-12.
+- Karakeep's browser is upstream's `karakeep-chrome`, configured as upstream does.
+- `stacks/_lib/upgrade-gate.sh`, called from `prepare.sh` for Nextcloud,
+  Meilisearch, Traccar and Open WebUI: with existing data, `compose.sh up`
+  refuses a version not acknowledged in `.env.local` (keys and steps in
+  `docs/image-upgrades.md`). Unlike #23's version (which fixed the value in the
+  script), the gate reads the pinned version from the compose file, so every
+  later bump, Dependabot's included, closes it again.
+- #23's `image-lock.json` (848 lines) left out: the digests are already in the
+  compose files, and a lock Dependabot can't update would fail every one of its
+  PRs. Tests now require tag + digest everywhere, one digest per tag, and the
+  pairs on one version (Immich, Komodo, Scrutiny, Pi-hole).
+- Fixed from #23: 20 compose files whose dashes and arrows had been
+  double-encoded (UTF-8 read as Windows-1252), now with a test against it;
+  comments that went stale (n8n's "the version that was running", Unbound's
+  reasoning, "Checked" dates).
+- #23's `stacks/_shared/` (Periphery and the collector via `extends`) left out
+  too: Dependabot's `/stacks/*/*` never looked there, so those images would have
+  stopped getting PRs. The per-node copies stay, and a test now requires them
+  to be identical apart from each node's disks, which is the drift #23 was after.
+- Dependabot also watches `bootstrap/Dockerfile`. CI's apt step has its own
+  5-minute limit and retries (a hung mirror timed out #18's run with no tests run).
+
+Checked: the full suite in WSL Debian, 70 passed, 4 skipped; the 2 failures are
+`git check-ignore` not reading a Windows worktree from WSL, and fail the same on
+`main`. shellcheck clean on the new scripts. Digest for meilisearch v1.41.0 from
+`scripts/images.py`; the others are #23's, unchanged.
+
+To undo: revert the merge commit. Nodes that already ran the new images need
+their data restored from before (docs/image-upgrades.md); the image alone
+doesn't go back.
+
+**Next:** the rollout, node by node, in the Backlog line.
+
+---
+
+## 2026-10-12 — Compose wrappers: previews change nothing, a failed `up` stops the run
+
+From PR #23, split out at the owner's request; repo only, no node touched.
+Both `compose.sh` and roastery's `purrbrews.ps1`:
+
+- `--dry-run`, `--help` and look-only commands (`config`, `ps`, `logs`, `pull`)
+  no longer copy renamed keys, create the network or run `prepare.sh`.
+- Option values (`--profile stop up`) no longer hide the command, which could
+  skip the startup checks or reverse the teardown order.
+- A failed `up` inside `--all` came back through an `||` list, where bash's
+  errexit is off, so the run carried on to the image cleanup. It stops now.
+- An unknown app fails before Docker is called. `compose.ps1` gets `--help`
+  and `--list`, and refuses stale renders as `compose.sh` does.
+
+Checked: `tests/test_compose_helpers.py` (5 cases) and the full suite in WSL
+Debian (71 passed; the 2 `git check-ignore` failures are WSL reading a Windows
+worktree, same on `main`); `tests/test_compose_helpers.ps1` passed under
+Windows PowerShell 5.1 on roastery's checkout, and now runs in CI on
+`windows-2025`. shellcheck clean. To undo: revert the merge commit.
+
+---
+
+## 2026-10-12 — lldap-bootstrap.sh keeps credentials out of arguments and logs
+
+From PR #23, split out at the owner's request; repo only. `lldap-bootstrap.sh`
+put LLDAP's admin password and each new user's password on command lines
+(`curl -d`, `docker exec ... --admin-password ... --password ...`), where any
+local user sees them in `ps`, and `sudo` logs them. Now:
+
+- the admin password goes to curl on stdin and is unset after login; the
+  session token goes in a header read from a file descriptor;
+- the new password and the token reach `lldap_set_password` on stdin inside the
+  container, which reads the password from `LLDAP_USER_PASSWORD` (checked in
+  lldap v0.6.3's `set-password/src/main.rs`, the version we run);
+- a new user's one-time password goes to the terminal only (`/dev/tty`), and a
+  run without a terminal refuses to create users; tracing is off (`set +x`).
+
+#23 also moved the script to `percolator/scripts/` behind a forwarder; left out,
+it stays where the README points. Limitation, unchanged: the token is still an
+argument inside the container.
+
+Checked: `tests/test_lldap_bootstrap.py` (a fake curl records every argument,
+and the script runs under `bash -x`: neither credential appears; the in-container
+part runs against a fake tool); the full suite in WSL Debian; shellcheck. Not run
+against the real LLDAP. To undo: revert the merge commit.
 
 ---
 

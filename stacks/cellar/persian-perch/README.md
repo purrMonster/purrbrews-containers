@@ -41,7 +41,7 @@ ntfy token and the healthchecks.io check have to exist before this starts, and t
 ```
 
 `config/whiskers.yml` is tracked: put the real entity ids in it in the repo (a branch, like any change) before
-the node pulls it, not by hand on cellar, or the next daily pull collides with the edit.
+cellar checks that commit out, not by hand on cellar: deployment refuses a checkout with local edits.
 
 `PERSIAN_PERCH_REF` is a persianPerch tag or full commit. To update, change it in `.env.local` and run
 `./compose.sh persian-perch up -d --build`.
