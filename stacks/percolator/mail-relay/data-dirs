@@ -1,0 +1,2 @@
+# <path under DATA_DIR> <uid>:<gid> [mode]. The image re-owns its spool.
+mail-relay/spool 0:0 755

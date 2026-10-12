@@ -87,9 +87,9 @@ The rest are decisions, not fixes — left alone deliberately until asked for:
   (`access_control` in its config) for `nextcloud.${DOMAIN}`; whether Nextcloud's
   *own* 2FA on top of that is worth the extra prompt is a household-UX call, not
   a security gap by itself.
-- **Email test**: needs a real SMTP relay (a Gmail app password, or another
-  provider) that isn't wired up anywhere in this repo yet — *Administration →
-  Basic settings* once one exists.
+- **Email**: not wired yet. The fleet's relay (`../mail-relay`) exists since
+  2026-10-08; Nextcloud would need its CA trusted (`occ security:certificates:import`)
+  and `mail_smtphost=mail-relay`, port 587, STARTTLS, no auth. Proposed, not done.
 - **1 warning in the logs**: check *Administration → Logging* (or
   `occ log:tail`) for what it actually says before treating it as generic noise.
 
