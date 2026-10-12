@@ -192,22 +192,27 @@ node (`/root/.ssh/purrbrews-backup`), pinned host keys in `/etc/purrbrews`.
 
 ## Updates
 
-Every image is pinned (a test fails on a floating tag), so nothing updates on
-its own. [Dependabot](../.github/dependabot.yml) opens a pull request each Monday
+Every image is pinned by tag and digest (a test fails otherwise), so nothing
+updates on its own, not even an upstream `main` or `latest`. [Dependabot](../.github/dependabot.yml) opens a pull request each Monday
 when a pinned image has a new version, one PR per image covering every node that
 runs it, after the release has been out a week. Merging changes nothing running:
-nodes pull `main`, and an app only moves on `./compose.sh <app> up -d`.
+nodes only fetch `main`, and an app moves when a reviewed commit is checked out
+on the node and deployed ([operations](../docs/operations.md)).
 
 - Read the release notes before merging. Pairs that must match arrive as separate
-  PRs: Immich server with roastery's ML, Komodo Core with every Periphery.
+  PRs: Immich server with roastery's ML, Komodo Core with every Periphery (a test
+  fails while they differ).
+- OpenCloud, Meilisearch, Traccar and Open WebUI migrate their data one way: with
+  data there, `compose.sh up` waits for the new version to be acknowledged in
+  `.env.local` ([image upgrades](../docs/image-upgrades.md)).
 - Database majors (Postgres, Mongo, Redis/Valkey) and OpenCloud majors never come
-  as PRs: those require reviewed migration/restore plans, by hand.
+  as PRs: those need reviewed migration and restore plans, by hand.
 - A security fix still waits out the week's cooldown; a critical one is a
   hand-made PR.
 - **Old images clean themselves up.** After a successful `up`, `compose.sh` (and
   roastery's `compose.ps1`) removes the images that app ran before, once nothing
   else uses them. Images shared with another app, or pulled for one not yet
-  restarted, stay. Rolling back is pulling the old tag again;
+  restarted, stay. Rolling back is pulling the old tag and digest again;
   `PURRBREWS_KEEP_IMAGES=1` keeps them.
 
 ## Ingress: a Traefik on every node

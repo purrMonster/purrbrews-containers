@@ -49,6 +49,8 @@ Password manager, compatible with every Bitwarden app and browser extension.
       confirm this deliberately, since it locks out anyone who doesn't have an
       Authelia account yet.
 - [ ] The browser extension syncs; an item added on the phone appears on the laptop.
+- [ ] `/admin` → *SMTP Email Settings* → *Send test email* arrives from
+      `Vaultwarden <purrBrews@${DOMAIN}>` (through `../mail-relay`).
 
 ## Gotchas
 

@@ -29,7 +29,7 @@ changes can be made later without re-deriving the reasoning.
 - [x] roastery: `immich-machine-learning` at Immich's version, Windows Firewall 3003 scoped to percolator. Verified 2026-09-29 on roastery (Claude, owner approved): container `immich-machine-learning:v3.2.1-cuda` matches percolator's `immich-server:v3.2.1`; rule `immich-ml (percolator only)` enabled, remote address `192.168.0.11` only
 - [x] Postgres dump jobs for Immich and Paperless: `pg` lines in their `backup` files (2026-09-27). Retired app history remains in the dated entries.
 - [ ] Remaining node: roastery itself joining the fleet; then archive purrBrews-infra
-- [ ] Gatus: add app checks as stacks land (node pings for percolator, cellar, mochaPot and grinder enabled 2026-09-29). Every app route has an end-to-end check on branch `hardening-2026-10-08` (2026-10-08 second pass); tick once they're green on sieve
+- [ ] Gatus: add app checks as stacks land (node pings for percolator, cellar, mochaPot and grinder enabled 2026-09-29). Every app route has an end-to-end check, on `main` since #9 (2026-10-08; second pass in that day's entry); tick once they're green on sieve
 - [ ] Optional: paste `purrbrews-mac.sh list --format pihole` into Pi-hole's static DHCP list
 - [x] Roll out the 2026-09-26 cleanup on every node: every node pulled it (2026-09-26, per the owner)
 - [ ] Work through the 2026-09-26 live-check plan (entry below)
@@ -37,7 +37,7 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Decide: keep barista in the `docker` group (added 2026-09-26; root without a password) or take it out again once the live-check fixes are done
 - [ ] cellar: confirm Komodo still logs in after `KOMODO_DISABLE_USER_REGISTRATION` went to `true` Core has `KOMODO_DISABLE_USER_REGISTRATION=true` and `KOMODO_LOCAL_AUTH=true` (checked 2026-09-29); the login itself is for the owner (owner)
 - [x] Pin n8n (`latest`), Open WebUI (`main`) and Karakeep (`release`) Done 2026-09-29: n8n `2.39.7` and Karakeep `0.33.2`, each the same digest as what was running; Open WebUI by digest (its `main` build isn't the v0.11.3 release)
-- [ ] meowGram: route and Authelia client prepared on branch `meowgram-sso` (2026-10-04 entry); merge and bring up, then the open items in `stacks/roastery/meowgram/README.md` (backups, web build, the audience check)
+- [ ] meowGram: route and Authelia client on `main` since #3 (2026-10-04 entry); bring up, then the open items in `stacks/roastery/meowgram/README.md` (backups, web build, the audience check)
 - [ ] Open WebUI → roastery's LLMs (llama-swap since 2026-10-07; grinder's `OLLAMA_BASE_URL` still points at the old `:11434`): needs machine-to-machine auth that keeps Authelia in front; options in the 2026-10-07 entry, none chosen
 - [ ] Karakeep: `NEXTAUTH_URL` is the direct-port URL while the route is `karakeep.${DOMAIN}`; check the phone share sheet signs in through the hostname
 - [x] Remote access over Tailscale: rolled out and checked from outside the house (2026-09-28; 2026-09-27 entry below)
@@ -46,20 +46,73 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Tunnel from Git: two-factor in Authelia first, then the switch in `stacks/sieve/cloudflared/README.md` (2026-09-28 entry below)
 - [ ] Apps over the tailnet: roll out in the order in the 2026-09-28 entry below
 - [ ] Bot identity for Claude's commits and pull requests: owner picks bot account or GitHub App, then the setup in the 2026-09-28 entry below
+- [ ] Roll out the 2026-10-12 image pins node by node (`./compose.sh --all pull`, then `up -d`): Pi-hole on mochaPot before sieve; Immich on percolator and roastery together; Nextcloud, Meilisearch, Traccar and Open WebUI only after their steps in `docs/image-upgrades.md` (each waits for its key in `.env.local`); alert-path test after sieve
+- [ ] Fetch-only timer on every Linux node: `git -C /opt/purrbrews pull --ff-only` once more (the helper installs from the checkout), then `sudo bash /opt/purrbrews/init/purrbrews-init.sh --only timers`, then `journalctl -u purrbrews-pull -n 5` shows `OK: fetched origin` (2026-10-12 reviewed-deployments entry); nodes keep pulling until then
+- [ ] persianPerch: confirm it scrubs secrets from the `logTail` that `stacks/_lib/groom-record.py` puts in its records (0644, readable by kitten); if not, scrub there or make the journal text opt-in here (#23 had `GROOM_INCLUDE_LOGS`). Also give persianPerch's copy the 2026-10-12 groom-record fix
+- [ ] roastery: `init\roastery-init.ps1` on the rebuilt PC from an elevated Windows PowerShell 5.1 (owner), after the repository is back from Drive; then the follow-ups it prints for the nodes, ticked here with what was seen (2026-10-12 init entry)
 
-- [ ] (owner) On percolator **before pulling the removal**, run `./compose.sh nextcloud down --remove-orphans`; inspect `docker ps -a` and `docker volume ls`, remove only confirmed leftover project containers/volumes. Keep `/srv/data/nextcloud`; restic snapshots keep their retention.
-- [ ] (owner) LLDAP UI → Users/Groups: create `radicale-reader` with only `lldap_strict_readonly`; rename `nextcloud_bot_accounts` to `opencloud_bot_accounts`; verify all human admins are in `${LLDAP_HOUSEHOLD_GROUP}`. Keep bots out of admin groups; see the OpenCloud README for their user-role prerequisite.
-- [ ] (owner) After review/merge, percolator: `git pull`, `./setup-secrets.sh` (paste reader password), `./render-configs.sh`, `./compose.sh authelia up -d --force-recreate`, `./compose.sh radicale up -d`, then OpenCloud README initialization and `./compose.sh opencloud up -d`. Check each app's README, including admin and household logins; Authelia 4.39.27 is below the guide's tested 4.39.28.
-- [ ] (owner) Cloudflare dashboard → Zero Trust → Networks → Tunnels → published application routes: remove nextcloud; add `opencloud.${DOMAIN}` and `radicale.${DOMAIN}` to percolator HTTPS with matching SNI. The live tunnel is dashboard-managed. Test a file over 1 GB using the OpenCloud clients.
-- [ ] (owner) sieve: `git pull`, `./render-configs.sh`, `./compose.sh gatus up -d --force-recreate`; confirm both checks and deliberately test the ntfy alert/recovery path. On sieve **and** mochaPot render and `./compose.sh pihole up -d` to publish LAN DNS.
-- [ ] (owner) iPhone: sign in to OpenCloud, enable its Files location, add CalDAV and CardDAV accounts at `radicale.${DOMAIN}` with LLDAP credentials; install Mac/Windows clients and verify Windows virtual files.
-- [ ] (owner) Percolator: `sudo ./backup.sh nightly`, then `sudo ./backup.sh restic snapshots`; restore the selected snapshot to an isolated target with `sudo ./backup.sh restic restore <snapshot-id> --target <isolated-directory>`. Follow the OpenCloud README restore rehearsal before trusting it; test Radicale collections too.
-- [ ] (owner) n8n UI on grinder: repoint the GPX WebDAV workflow to an OpenCloud folder with a dedicated bot app token; the workflow belongs to its own repo. Revoke obsolete credentials after verification.
-- [ ] (owner) Decide when `/srv/data/nextcloud` may be deleted; no deletion is part of this repository change.
+- [ ] Fleet mail: Purelymail user `purrBrews@${DOMAIN}`, its 2FA and an app password (owner); then roll out the mail relay (on `main` since 2026-10-12) in the order in the 2026-10-08 mail entry below: percolator before sieve's checkout moves (Gatus would alert), the relay before Vaultwarden (its `prepare.sh` refuses otherwise)
+- [ ] Fleet mailbox: n8n reads `purrBrews@` over IMAP from Purelymail and sorts it with the local model (2026-10-08 mail entry, *Next*). Not started
+- [ ] Wire the other apps' mail to the relay (Nextcloud, Paperless, Immich, Vikunja, Mealie): each needs the relay's CA; proposed, not done
 
-- [ ] (owner) Before publishing DAV, inspect `sudo docker exec crowdsec cscli collections list` and `sudo docker exec crowdsec cscli scenarios list`, then test repeated failed PROPFIND/GET requests from a non-whitelisted test address. The configured Traefik collection includes generic HTTP brute force, but its 401 scenario is POST-only. No stock all-method DAV scenario was found in the upstream Hub; proposal: review a scoped Radicale 401 scenario and ban/recovery test. Do not claim the stock collection protects DAV password attempts.
-- [ ] (owner) Confirm the GPX bot's scope before provisioning: the requested two-role mapping requires household membership, which also permits Radicale under the selected filter. Keep it out of admin groups, limit its OpenCloud shares, and validate token expiry/revocation; locking LLDAP alone does not revoke app tokens.
-- [ ] (owner) Update flask with the six OpenCloud recovery credentials and Radicale reader password (`fill-vault.ps1` after deployment), plus a protected attachment of generated `opencloud/config/opencloud.yaml`; retain the matching full config/data backup.
+
+---
+
+## 2026-10-13 — Merge main into the file and DAV replacement
+
+Merged `origin/main` at `8bf574d` into `codex/opencloud-radicale`, without
+rebasing. Kept main's mail-relay in the app order and its paired-image tests,
+fetch-only deployment workflow, upgrade guidance and all unrelated changes.
+Resolved `stacks/README.md` by retaining both the migration-gate guidance and
+OpenCloud major-version policy. Resolved `node.conf` with mail-relay plus
+Radicale/OpenCloud; the retired stack's README, compose and new prepare script
+remain deleted. Removed its newly merged references, including MAP and tests.
+Moved our October 13 recheck ahead of the October 12 entries; main's dated
+entries remain intact.
+
+Adapted main's upgrade gate to `OPENCLOUD_UPGRADE_READY` (the pinned major),
+with `opencloud/config/opencloud.yaml` as the existing-install marker. Added
+the prepare hook and adapted its behavioral test, fleet prerequisite and
+upstream-linked upgrade/rollback procedure. Kept the other three gates.
+Both added images now have tag plus manifest-list digest resolved using
+`scripts/images.py`; the production-channel decision is the next change.
+No Radicale gate: the tagged v3.8.3 changelog documents compatibility with
+2.x collection storage and no required 3.x collection migration was found
+for our setup; optional sharing is disabled. Future releases still need review.
+Source: https://github.com/Kozea/Radicale/blob/v3.8.3/CHANGELOG.md.
+
+The first merged test snapshot had seven failures because the attempted
+Git deletion was refused for the staged, newly added prepare script, leaving
+the retired files present. Removed the explicitly authorized files and the
+additional MAP reference before repeating the suite. The corrected isolated
+WSL run passed: `105 passed, 3 skipped in 8.78s`; root-only checks separately
+passed: `3 passed, 105 deselected in 20.77s` (108 covered, 2026-10-13).
+No service was run.
+
+Undo: revert this merge with its first parent selected, only after reviewing
+later commits. No push, PR, node or console access. Next: select the verified
+production release, record the owner's accepted bot scope, then final handoff.
+
+---
+
+## 2026-10-13 — Final cleanup: last Dependabot PRs merged, compose comments without versions
+
+At the owner's request ("except codex/opencloud-radicale, merge, delete, clean"):
+
+- Merged #36 (Open WebUI 0.12.0) and #39 (Homepage 2.5.0), held since 2026-10-12
+  for the week's cooldown; the owner chose not to wait. Open WebUI's upgrade gate
+  still holds an existing install until `OPENWEBUI_UPGRADE_READY` names the new
+  version (`docs/image-upgrades.md` reworded to not depend on one).
+- 33 `# Image:` comments repeated the pinned version, and Dependabot only moves
+  the `image:` line: Home Assistant's and Open WebUI's were already wrong. They
+  name the image and keep the reasons; `tests/test_image_comments.py` fails on a
+  comment that repeats a pinned `name:tag`.
+- Archived the idle session "Roastery bootload utility verification (fork)"
+  (its worktree, branch fully on `main`). "Nextcloud decommissioning" and
+  "Roastery bootload utility verification" were refused by the permission
+  check; their worktrees are clean and their branches fully on `main`, left for
+  the owner to archive.
+- **Left alone:** `codex/opencloud-radicale` (the main checkout, local only).
 
 ---
 
@@ -100,6 +153,265 @@ Next: resolve integration against a recorded main revision, then review the
 owner rollout gates. No push or PR. Existing implementation commits remain
 unchanged; this review is recorded by `docs: record replacement recheck and
 integration blockers`. Undo this review by reverting that documentation commit.
+
+## 2026-10-12 — Docs say what the runbook records; groom-record never skips a record
+
+At the owner's request, after the #23 split (its last useful leftovers):
+
+- Corrected statements that had gone stale, each against the runbook's evidence:
+  README ("Backups aren't finished": nightly since 2026-09-28, restore tests
+  passed 2026-09-29, roastery's repository to restore after the 2026-10-07
+  wipe; "never in the `docker` group": barista was added 2026-09-26, decision
+  open; the layout now lists `scripts/`, `fleet.json`, `roastery-init.ps1`),
+  cellar's README and `restic/README.md` (backups "not switched on", roastery
+  "sleeps", Samba "pin its image"), `docs/MAP.md`'s status rows, and two Backlog
+  lines that named branches already merged (`hardening-2026-10-08` as #9,
+  `meowgram-sso` as #3).
+- `stacks/_lib/groom-record.py` (persianPerch's, applied here): a malformed
+  `GROOM_START` raised before the fallback, so the record was lost despite the
+  docstring's "never fails"; it falls back to now. The temporary file is unique
+  per run and removed on failure. Names left as they are, so persianPerch's
+  copy can take the same diff. `tests/test_groom_record.py`.
+- **Not taken from #23:** journal text in records opt-in. The records are for
+  persianPerch, and the docstring says scrubbing secrets is its job; whether it
+  does is the Backlog line below, not a change here.
+
+Checked: the full suite in WSL Debian (the 2 `git check-ignore` failures are WSL
+on a Windows worktree, as always). To undo: revert the merge commit.
+
+---
+
+## 2026-10-12 — PR and branch cleanup after the #23 split; two Dependabot ignores
+
+At the owner's request:
+
+- Closed as superseded by #25 (same or newer pins already on `main`): Dependabot
+  #10, #12, #15–#21; Dependabot deleted their branches. Closed #23, its parts
+  being on `main` via #25–#30; its branch `codex/code-sanitization` is kept for
+  what was left out (graphify, `_shared/`, the backup-log opt-in).
+- Deleted the remote branches already fully on `main` (0 commits ahead, checked
+  with `git rev-list --count origin/main..<branch>`): `claude/ci-shellcheck`,
+  `claude/compose-wrapper-fixes`, `claude/lldap-credentials`,
+  `claude/roastery-init`, `hardening-2026-10-08`. Owner approved the deletion.
+- **Left alone:** `mail-relay`, 6 commits from 2026-10-08 not on `main` and no
+  PR (an outgoing relay to Purelymail for Authelia and Vaultwarden, with a Gatus
+  check). Someone's unfinished work: decide whether it gets a PR.
+- `.github/dependabot.yml` ignores Meilisearch above v1.41.0 (Karakeep's pin) and
+  nginx's odd (mainline) minors for bootstrap.
+- Open Dependabot PRs: #33 (Home Assistant patch) fine to merge; #32 (embedding
+  worker Python 3.12 → 3.14) resolves all 54 packages from wheels on both
+  images (pip dry run in each, 2026-10-12) but rebuild and compare one vector
+  before relying on it; #31 (nginx mainline) to close once this is merged.
+
+**Next:** the Backlog rollout lines (image pins, fetch-only timer, roastery-init).
+
+---
+
+## 2026-10-12 — Reviewed deployments: nodes fetch `main`, they don't pull it
+
+From PR #23, split out as #29 and approved by the owner on 2026-10-12. It changes
+how the fleet gets changes: a merge to `main` no longer reaches a node's checkout
+by itself.
+
+- `init/lib/purrbrews-pull.sh` fetches instead of `git pull --ff-only`: a node's
+  checkout never moves unattended, and Git errors stay out of the journal (a
+  remote URL with credentials would land there). The timer keeps its name.
+- `scripts/fleet.py`: `validate` / `plan <node>` (read-only) and
+  `deploy <node> --release <full commit> --acknowledge-prerequisites`, run on that
+  node as barista: refuses the wrong host or OS, root, a dirty checkout or another
+  commit; one lock per node; setup → firewall → each app `up -d --wait` in
+  `node.conf` order; keeps replaced images for rollback; a per-phase record in
+  `.fleet/` (`status`). `fleet.json` adds each node's platform, tier, optional
+  apps (cellar's smb, persian-perch) and prerequisites.
+- `docs/operations.md`: the release workflow, recovery, proposed recovery targets.
+  Docs that said "nodes pull `main`" or "wait for the daily pull" now say fetch
+  and check out a reviewed commit (image-upgrades, stacks, persian-perch,
+  percolator, tailscale, init, Dependabot's header, CI's header).
+
+Left out of #23's version: per-node `scripts/run.sh` wrappers and the moves of
+`enable-dhcp.sh` / `lldap-bootstrap.sh` into `scripts/` (pure moves), the
+Gitleaks note (not in CI), backup records without journal text (affects
+persianPerch; separate).
+
+Worth knowing: after `git checkout <commit>` a node is on a detached HEAD. The
+fetch timer doesn't mind; `purrbrews-init.sh --only repo` still tries
+`pull --ff-only` there, fails, warns and leaves the checkout as it is.
+
+Checked: `fleet.py validate` (6 nodes, 50 apps) and `plan` for every node in WSL
+Debian; the full suite there (the 2 `git check-ignore` failures are WSL on a
+Windows worktree, as on `main`); shellcheck. Nothing deployed.
+
+**Not live until each node's timer helper is reinstalled** (Backlog line); until
+then that node keeps pulling. To undo: revert the merge commit, and reinstall the
+helper on any node that already has the new one.
+
+---
+
+## 2026-10-12 — `init/roastery-init.ps1`: roastery gets an init
+
+From PR #23 (written 2026-10-08, hardened 2026-10-10 there), split out at the
+owner's request. Repo only: nothing has run on roastery.
+
+**What it is:** one script, run elevated from the repo, with named steps in
+the order of roastery's README ("Rebuilding roastery"): `hostname`, `network`,
+`power`, `prereqs`, `ssh_key`, `remote_access`, `backup_target`, `apps`,
+`traefik`, `game_mode`, `bootstrap`. It calls the existing scripts
+(`remote-access\setup.ps1`, `backup-target\setup.ps1`, `setup-secrets.ps1`,
+`compose.ps1`, `game-mode\install.ps1`) and does what used to be clicks: the
+three firewall rules, Traefik's scheduled task, power. `-Only`/`-Skip`/
+`-ListSteps`/`-Yes`; logged to `C:\ProgramData\purrbrews\logs`.
+
+Choices worth remembering:
+
+- A step that can't finish yet blocks, it doesn't abort: it says what it needs,
+  the run goes on, `-Only <step>` resumes.
+- **Repository first, nodes after** (2026-10-07): `backup_target` refuses while
+  `C:\purrbrews\restic` has no repository (RECOVERY.md part B);
+  `-AllowEmptyRepository` is the deliberate way past it.
+- It never writes `bootstrap\data\authorized_keys`, the fleet's whole SSH trust
+  list; it says how to rebuild it. `bootstrap` is last and asks first.
+- **Traefik's task runs from `%ProgramFiles%\purrbrews-traefik`**, not the
+  checkout: a SYSTEM task running a script any user can edit is a privilege
+  escalation (#23's security review). `init/lib/windows-runtime.ps1` copies the
+  launcher, binary, credentials and config there with Administrators/SYSTEM-only
+  ACLs, refuses unsafe owners, ACLs and junctions, keeps renewed certificates on
+  reinstall. No time limit (Windows' 3-day default killed it on 2026-10-03).
+- Power: never sleep on AC, hibernation off (2026-09-29), until wake-on-demand.
+
+Changed from #23: the GPU probe is CUDA **12.3.1** again (#23 had moved it to
+13.4.2), now by digest. The driver check asks for 545 (CUDA 12.3), immich-ml
+and llama-swap are CUDA 12 builds, and a CUDA 13 probe would fail on a driver
+they run on. `bootstrap` was listed twice in the header. Both PowerShell tests
+wrote fixtures into the repo (`graphify-out/`); now the temp folder, removed after.
+
+Checked: the full suite in WSL Debian (72 passed, 4 skipped; the 2
+`git check-ignore` failures are WSL on a Windows worktree, as on `main`), with
+the `RoasteryInit` class (step order, repository guard, `authorized_keys` never
+written, protected task paths, firewall scopes). `tests/test_windows_runtime.ps1`
+passed under Windows PowerShell 5.1 on roastery's checkout and runs in CI on
+`windows-2025`. Digest for the CUDA probe from `scripts/images.py`.
+**Not checked:** any real step on roastery.
+
+**Undo:** revert the merge commit; the script changes nothing until it runs. What
+it makes on roastery has names: firewall rules `purrbrews-bootstrap`,
+`purrbrews-immich-ml`, `purrbrews-traefik`, the `traefik` task,
+`%ProgramFiles%\purrbrews-traefik`, and the power settings
+(`powercfg /change standby-timeout-ac <minutes>`).
+
+---
+
+## 2026-10-12 — Every image pinned by tag and digest; four upgrades held behind a gate
+
+The image part of PR #23 (`codex/code-sanitization`), split out, reviewed and
+reworked at the owner's request; the rest of #23 goes in its own PRs. Nothing on
+any node changed: this is the repo only, and nodes don't restart on a pull.
+
+What changed:
+
+- Every registry image in Compose files, both Dockerfiles and the restore test
+  is now `name:tag@sha256:…`, at the versions #23 checked on 2026-10-10 (Authelia
+  4.39.28, Immich 3.3.1, Nextcloud 35.0.1, n8n 2.42.6, Paperless 3.3.0, Pi-hole
+  2026.09.0, Traccar 6.16, Komodo 2.3.3, Scrutiny 0.9.5 and the rest). Unbound
+  and Samba, which only publish `main`/`latest`, are now fixed by digest too.
+  This also covers all ten open Dependabot PRs (#10, #12, #15–#22), same or newer.
+- Meilisearch goes to **v1.41.0**, not #23's 1.54.3: v1.41.0 is what Karakeep's
+  own compose pins for 0.33.2 (and on its `main`), checked 2026-10-12.
+- Karakeep's browser is upstream's `karakeep-chrome`, configured as upstream does.
+- `stacks/_lib/upgrade-gate.sh`, called from `prepare.sh` for Nextcloud,
+  Meilisearch, Traccar and Open WebUI: with existing data, `compose.sh up`
+  refuses a version not acknowledged in `.env.local` (keys and steps in
+  `docs/image-upgrades.md`). Unlike #23's version (which fixed the value in the
+  script), the gate reads the pinned version from the compose file, so every
+  later bump, Dependabot's included, closes it again.
+- #23's `image-lock.json` (848 lines) left out: the digests are already in the
+  compose files, and a lock Dependabot can't update would fail every one of its
+  PRs. Tests now require tag + digest everywhere, one digest per tag, and the
+  pairs on one version (Immich, Komodo, Scrutiny, Pi-hole).
+- Fixed from #23: 20 compose files whose dashes and arrows had been
+  double-encoded (UTF-8 read as Windows-1252), now with a test against it;
+  comments that went stale (n8n's "the version that was running", Unbound's
+  reasoning, "Checked" dates).
+- #23's `stacks/_shared/` (Periphery and the collector via `extends`) left out
+  too: Dependabot's `/stacks/*/*` never looked there, so those images would have
+  stopped getting PRs. The per-node copies stay, and a test now requires them
+  to be identical apart from each node's disks, which is the drift #23 was after.
+- Dependabot also watches `bootstrap/Dockerfile`. CI's apt step has its own
+  5-minute limit and retries (a hung mirror timed out #18's run with no tests run).
+
+Checked: the full suite in WSL Debian, 70 passed, 4 skipped; the 2 failures are
+`git check-ignore` not reading a Windows worktree from WSL, and fail the same on
+`main`. shellcheck clean on the new scripts. Digest for meilisearch v1.41.0 from
+`scripts/images.py`; the others are #23's, unchanged.
+
+To undo: revert the merge commit. Nodes that already ran the new images need
+their data restored from before (docs/image-upgrades.md); the image alone
+doesn't go back.
+
+**Next:** the rollout, node by node, in the Backlog line.
+
+---
+
+## 2026-10-12 — Compose wrappers: previews change nothing, a failed `up` stops the run
+
+From PR #23, split out at the owner's request; repo only, no node touched.
+Both `compose.sh` and roastery's `purrbrews.ps1`:
+
+- `--dry-run`, `--help` and look-only commands (`config`, `ps`, `logs`, `pull`)
+  no longer copy renamed keys, create the network or run `prepare.sh`.
+- Option values (`--profile stop up`) no longer hide the command, which could
+  skip the startup checks or reverse the teardown order.
+- A failed `up` inside `--all` came back through an `||` list, where bash's
+  errexit is off, so the run carried on to the image cleanup. It stops now.
+- An unknown app fails before Docker is called. `compose.ps1` gets `--help`
+  and `--list`, and refuses stale renders as `compose.sh` does.
+
+Checked: `tests/test_compose_helpers.py` (5 cases) and the full suite in WSL
+Debian (71 passed; the 2 `git check-ignore` failures are WSL reading a Windows
+worktree, same on `main`); `tests/test_compose_helpers.ps1` passed under
+Windows PowerShell 5.1 on roastery's checkout, and now runs in CI on
+`windows-2025`. shellcheck clean. To undo: revert the merge commit.
+
+---
+
+## 2026-10-12 — lldap-bootstrap.sh keeps credentials out of arguments and logs
+
+From PR #23, split out at the owner's request; repo only. `lldap-bootstrap.sh`
+put LLDAP's admin password and each new user's password on command lines
+(`curl -d`, `docker exec ... --admin-password ... --password ...`), where any
+local user sees them in `ps`, and `sudo` logs them. Now:
+
+- the admin password goes to curl on stdin and is unset after login; the
+  session token goes in a header read from a file descriptor;
+- the new password and the token reach `lldap_set_password` on stdin inside the
+  container, which reads the password from `LLDAP_USER_PASSWORD` (checked in
+  lldap v0.6.3's `set-password/src/main.rs`, the version we run);
+- a new user's one-time password goes to the terminal only (`/dev/tty`), and a
+  run without a terminal refuses to create users; tracing is off (`set +x`).
+
+#23 also moved the script to `percolator/scripts/` behind a forwarder; left out,
+it stays where the README points. Limitation, unchanged: the token is still an
+argument inside the container.
+
+Checked: `tests/test_lldap_bootstrap.py` (a fake curl records every argument,
+and the script runs under `bash -x`: neither credential appears; the in-container
+part runs against a fake tool); the full suite in WSL Debian; shellcheck. Not run
+against the real LLDAP. To undo: revert the merge commit.
+
+- [ ] (owner) On percolator **before pulling the removal**, run `./compose.sh nextcloud down --remove-orphans`; inspect `docker ps -a` and `docker volume ls`, remove only confirmed leftover project containers/volumes. Keep `/srv/data/nextcloud`; restic snapshots keep their retention.
+- [ ] (owner) LLDAP UI → Users/Groups: create `radicale-reader` with only `lldap_strict_readonly`; rename `nextcloud_bot_accounts` to `opencloud_bot_accounts`; verify all human admins are in `${LLDAP_HOUSEHOLD_GROUP}`. Keep bots out of admin groups; see the OpenCloud README for their user-role prerequisite.
+- [ ] (owner) After review/merge, percolator: `git pull`, `./setup-secrets.sh` (paste reader password), `./render-configs.sh`, `./compose.sh authelia up -d --force-recreate`, `./compose.sh radicale up -d`, then OpenCloud README initialization and `./compose.sh opencloud up -d`. Check each app's README, including admin and household logins; Authelia 4.39.27 is below the guide's tested 4.39.28.
+- [ ] (owner) Cloudflare dashboard → Zero Trust → Networks → Tunnels → published application routes: remove nextcloud; add `opencloud.${DOMAIN}` and `radicale.${DOMAIN}` to percolator HTTPS with matching SNI. The live tunnel is dashboard-managed. Test a file over 1 GB using the OpenCloud clients.
+- [ ] (owner) sieve: `git pull`, `./render-configs.sh`, `./compose.sh gatus up -d --force-recreate`; confirm both checks and deliberately test the ntfy alert/recovery path. On sieve **and** mochaPot render and `./compose.sh pihole up -d` to publish LAN DNS.
+- [ ] (owner) iPhone: sign in to OpenCloud, enable its Files location, add CalDAV and CardDAV accounts at `radicale.${DOMAIN}` with LLDAP credentials; install Mac/Windows clients and verify Windows virtual files.
+- [ ] (owner) Percolator: `sudo ./backup.sh nightly`, then `sudo ./backup.sh restic snapshots`; restore the selected snapshot to an isolated target with `sudo ./backup.sh restic restore <snapshot-id> --target <isolated-directory>`. Follow the OpenCloud README restore rehearsal before trusting it; test Radicale collections too.
+- [ ] (owner) n8n UI on grinder: repoint the GPX WebDAV workflow to an OpenCloud folder with a dedicated bot app token; the workflow belongs to its own repo. Revoke obsolete credentials after verification.
+- [ ] (owner) Decide when `/srv/data/nextcloud` may be deleted; no deletion is part of this repository change.
+
+- [ ] (owner) Before publishing DAV, inspect `sudo docker exec crowdsec cscli collections list` and `sudo docker exec crowdsec cscli scenarios list`, then test repeated failed PROPFIND/GET requests from a non-whitelisted test address. The configured Traefik collection includes generic HTTP brute force, but its 401 scenario is POST-only. No stock all-method DAV scenario was found in the upstream Hub; proposal: review a scoped Radicale 401 scenario and ban/recovery test. Do not claim the stock collection protects DAV password attempts.
+- [ ] (owner) Confirm the GPX bot's scope before provisioning: the requested two-role mapping requires household membership, which also permits Radicale under the selected filter. Keep it out of admin groups, limit its OpenCloud shares, and validate token expiry/revocation; locking LLDAP alone does not revoke app tokens.
+- [ ] (owner) Update flask with the six OpenCloud recovery credentials and Radicale reader password (`fill-vault.ps1` after deployment), plus a protected attachment of generated `opencloud/config/opencloud.yaml`; retain the matching full config/data backup.
+
+---
 
 ## 2026-10-12 — Nextcloud decommissioned; OpenCloud and Radicale replace it
 
@@ -356,6 +668,101 @@ each PR from the link.
 - [ ] llama-swap on roastery: `fetch-models`, `up -d`, then its README's checks; Traefik's route after it (`stacks/roastery/llama-swap/README.md`)
 - [ ] Confirm the model picks (Gemma 4 12B, Qwen3.5 9B, Qwen3.5 4B on CPU) against what the LLMs are for: chat, coding, tool calls, documents (owner)
 - [ ] Game mode on roastery: `game-mode\install.ps1`, then its README's checks with a real game; the launcher list in `GAME_PATHS` against what's installed (owner)
+
+---
+
+## 2026-10-08 — Fleet mail through Purelymail
+
+**Why.** Nothing in the fleet could send mail. Authelia's notifier was
+`filesystem`, so every password reset and 2FA enrolment meant the owner reading
+`notification.txt` on percolator; Vaultwarden couldn't invite anyone. The
+owner's mail is at Purelymail.
+
+**Decided with the owner (this session):**
+
+- Sender: `purrBrews@${DOMAIN}`, on the main domain (Purelymail DKIM-signs only
+  that, not subdomains).
+- The relay runs on percolator (i3, 16 GB: plenty for Postfix).
+- Reading mail: no webmail for now. The owner wants an SSO webmail later (a
+  rework of Purelymail's site, so no second login); held. Meanwhile the fleet's
+  mailbox is fetched straight from Purelymail and an n8n workflow with the local
+  model sorts it.
+
+**What was built** (branch `mail-relay`, from `hardening-2026-10-08`; merged to
+`main` on 2026-10-12 after the #23 split, see below; not on any node):
+
+- `stacks/percolator/mail-relay`: Postfix (`boky/postfix:5.1.0-alpine`) that
+  sends on to `smtp.purelymail.com:587` with an app password, upstream
+  certificate verified. Clients: percolator's `proxy` network and
+  `MAIL_RELAY_CLIENTS` (ufw `route` rule on 587), STARTTLS required, certificate
+  from a private CA that `prepare.sh` makes once (ten years). Every message
+  leaves as `purrBrews@`, display name kept. Queue on disk, retried five days.
+- Authelia: SMTP notifier via the relay, trusting its CA through
+  `certificates_directory`; `disable_startup_check: true`.
+- Vaultwarden: SMTP via the relay; `SSL_CERT_FILE` is a bundle of the host's
+  public roots plus the relay CA, rebuilt on every relay `up`.
+- LLDAP: no mail, on purpose. Authelia already does resets for everyone, and
+  LLDAP 0.6.3 can't trust a private CA (rustls with compiled-in roots; ignores
+  `SSL_CERT_FILE`; tested, `UnknownIssuer`).
+- Gatus on sieve: `starttls://192.168.0.11:587`.
+
+**Tested** in the cloud sandbox, 2026-10-08, from the real compose files and
+the rendered Authelia template, against a fake Purelymail (Mailpit requiring
+STARTTLS and the app password, its certificate from a test CA):
+
+- relay healthy in ~15 s; plaintext refused (`530`); a client off the allowed
+  networks refused; a sender outside the domain refused;
+- Authelia's *reset password* arrived as `Authelia <purrBrews@...>`;
+  Vaultwarden's admin test mail arrived as `Vaultwarden <purrBrews@...>`;
+- Authelia with the relay stopped: starts healthy, signs in; a reset then
+  fails at once ("Operation failed") rather than hanging;
+- upstream down, relay recreated, upstream back: the queued mail was delivered;
+- an impostor upstream with an untrusted certificate: mail deferred, no
+  password offered to it;
+- wrong app password: deferred with `535`; fixed, recreated, flushed, delivered.
+
+Two image defaults found only by testing, both fixed in the compose file: the
+image let **any** client relay as long as the sender domain matched
+(`smtpd_client_restrictions` added), and its `/etc/postfix` is a volume that
+Compose keeps across a recreate, so a **new app password never took effect**
+(the image appends the new line after the old, Postfix reads the first). It's
+a tmpfs now, rebuilt from the environment every start.
+
+Not tested: the ufw rule on a real node, the real Purelymail, the Gatus check
+on sieve, the alert path for it.
+
+**Rollout** (needs the owner's go-ahead; every step is on percolator, then sieve):
+
+1. Owner: Purelymail → user `purrBrews@${DOMAIN}`, two-factor on, an app password.
+2. percolator: `git fetch` and check out the reviewed commit (docs/operations.md);
+   `./setup-secrets.sh` (paste the app password; adds `MAIL_RELAY_CLIENTS`);
+   `./compose.sh mail-relay up -d`; `sudo ./firewall.sh`.
+3. `./render-configs.sh`; `./compose.sh authelia up -d --force-recreate`;
+   `./compose.sh vaultwarden up -d --force-recreate`.
+4. The checklist in `mail-relay/README.md`; then sieve's Gatus picks up the new
+   check (`./compose.sh gatus up -d --force-recreate` there) and its alert is
+   tested by stopping the relay for one interval.
+
+**Undo:** `./compose.sh mail-relay down`, then revert the branch's Authelia and
+Vaultwarden commits and recreate both. Authelia goes back to
+`notification.txt`. The Purelymail app password can be revoked on its own.
+
+**Next: the fleet's mailbox, read by n8n** (owner's plan; not started):
+
+- n8n on grinder reads `purrBrews@` over IMAP (`imap.purelymail.com:993`, TLS)
+  with its own app password (separate from the relay's, revocable alone).
+- It asks the local model to sort each mail (alert, account, receipt, newsletter,
+  needs-a-human...) and files or forwards it. The model is llama-swap on
+  roastery, reached as `https://ollama.${DOMAIN}/v1/chat/completions` with
+  Basic auth for an `ollama_api_group` service account (Authelia's
+  forward-auth-basic), so an HTTP Request node, not n8n's OpenAI credential
+  (that sends a Bearer token Authelia won't take). Ask for the `fast` pin.
+- roastery sleeps and has game mode: the workflow must leave mail unread and
+  retry later when the model doesn't answer, never drop it.
+
+**Proposed, not done:** relay mail for Nextcloud, Paperless, Immich, Vikunja and
+Mealie (each has to trust the relay CA its own way); Gatus can't see Purelymail
+refusing mail, only the relay being down, so a growing queue goes unnoticed.
 
 ---
 

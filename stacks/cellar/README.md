@@ -15,7 +15,7 @@ when it doesn't, lives here.
 | [persianPerch](persian-perch/) | `perch.${DOMAIN}` (admins) | The fleet's watcher: containers, backups, disks, endpoints, files dropped, the house. Read-only; alerts to ntfy |
 | [Samba](smb/) | `\\cellar\household`, `\\cellar\archive` | File shares. Built, not in use yet (no firewall rule) |
 | [NFS](nfs/README.md) | `cellar:/srv/media/archive` | Archive export, host-native. Nothing mounts it yet |
-| [restic](restic/README.md) | — | The backup chain's hub, host-native: the dump store, waking roastery, the Drive copy, the morning check. Scripts written, not switched on yet |
+| [restic](restic/README.md) | — | The backup chain's hub, host-native: the dump store, waking roastery, the Drive copy, the morning check. On since 2026-09-28; roastery's repository to restore after its 2026-10-07 wipe |
 
 ## Setup
 
@@ -72,8 +72,9 @@ Then, in order (`node.conf`), checking each before the next:
 
 ## Known gaps
 
-- **Nothing is backed up yet.** The scripts are written (runbook, 2026-09-27) but
-  not tied together: roastery's backup target, the keys, the timers and a
-  restore test are still to do. [restic/README.md](restic/README.md) has the order.
+- **Backups after roastery's wipe.** The chain ran from 2026-09-28 (restore tests
+  passed 2026-09-29), but roastery, which holds the repository, was wiped on
+  2026-10-07. Restore it from Drive before the nodes write again;
+  [restic/README.md](restic/README.md) and roastery's `flask/RECOVERY.md` part B.
 - **Samba isn't reachable**: ufw-docker keeps 139/445 closed until `smb/firewall`
-  gets its rule. Pin its image when it goes into use.
+  gets its rule. Its image is pinned by digest already.

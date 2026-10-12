@@ -1,9 +1,8 @@
-# OpenCloud 8.1.0: GitHub's latest non-prerelease, checked 2026-10-12.
-# Upstream publishes this release as opencloud-rolling; the exact tag is pinned.
-# Authelia's guide tests 7.2.4 / 4.39.28; our IdP is 4.39.27 (README rollout gate).
+# Image: opencloudeu/opencloud-rolling, pinned by tag and registry digest.
+# The production-channel compatibility review is recorded in the runbook.
 services:
   opencloud:
-    image: opencloudeu/opencloud-rolling:8.1.0
+    image: opencloudeu/opencloud-rolling:8.1.0@sha256:8fc64ca861739cc62095cd558814f2eba6a90acf5998d884e439b33a47875da8
     container_name: opencloud
     user: ${PUID}:${PGID}
     restart: unless-stopped

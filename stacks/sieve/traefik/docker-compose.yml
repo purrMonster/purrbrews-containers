@@ -14,10 +14,10 @@
 # No Docker socket: routing is file-based, so Traefik never gets root-equivalent
 # access to the host.
 #
-# Image: traefik:v3.7.13. Checked 2026-09-15.
+# Image: traefik.
 services:
   traefik:
-    image: traefik:v3.7.13
+    image: traefik:v3.7.14@sha256:575fa15b135078fe5e50aa847987d96dbddd7b093c172429618404df73f3fa7c
     container_name: traefik
     command:
       - --global.checkNewVersion=false

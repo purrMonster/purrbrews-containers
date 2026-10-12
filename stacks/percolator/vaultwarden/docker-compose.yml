@@ -2,7 +2,7 @@
 # Image tag checked 2026-09-15.
 services:
   vaultwarden:
-    image: vaultwarden/server:1.37.2
+    image: vaultwarden/server:1.37.4@sha256:efb3cde962015fcc036b2ea625242248611943b27212ebf4392841fb30fad055
     container_name: vaultwarden
     restart: unless-stopped
     environment:
@@ -27,8 +27,19 @@ services:
       SSO_CLIENT_SECRET: ${VAULTWARDEN_OIDC_CLIENT_SECRET}
       SSO_SCOPES: "email profile offline_access"
       SSO_PKCE: "true"
+      # Mail (invites, new-device warnings, emergency access) through the
+      # fleet's relay, STARTTLS verified: SSL_CERT_FILE is the host's public
+      # roots plus the relay's CA (mail-relay/prepare.sh), so OIDC and
+      # everything else Vaultwarden calls still verify against public roots.
+      SMTP_HOST: mail-relay
+      SMTP_PORT: "587"
+      SMTP_SECURITY: starttls
+      SMTP_FROM: purrBrews@${DOMAIN}
+      SMTP_FROM_NAME: Vaultwarden
+      SSL_CERT_FILE: /etc/purrbrews/bundle.crt
     volumes:
       - ${DATA_DIR}/vaultwarden:/data
+      - ${DATA_DIR}/mail-relay/tls-public:/etc/purrbrews:ro
     networks:
       - proxy
     labels:

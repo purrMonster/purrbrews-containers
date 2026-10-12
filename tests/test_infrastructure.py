@@ -359,24 +359,71 @@ class Layout(unittest.TestCase):
                 if fields[1] in ('copy', 'mirror'):
                     self.assertTrue((spec.parent.parent / fields[2]).is_dir(), f'{spec}: {line}')
 
-    # Floating tags, each a decision written down in its compose file. Anything
-    # else must name a version or a digest, so a routine pull changes nothing.
-    FLOATING_ON_PURPOSE = {
-        'klutchell/unbound:main',                  # no version tags upstream; freshness chosen
-        'ghcr.io/servercontainers/samba:latest',   # unused; pinned when something depends on it
-    }
+    # Every registry image by tag and digest: the tag says what it is, the digest
+    # makes a routine pull change nothing (a `main` or `latest` included), and
+    # Dependabot moves both together. Only images built here (:local) are exempt.
+    IMAGE_SOURCES = [
+        *STACKS.glob('*/*/docker-compose.yml'),
+        ROOT / 'bootstrap/Dockerfile',
+        ROOT / 'stacks/grinder/embedding-worker/Dockerfile',
+        ROOT / 'stacks/cellar/restic/restore-test.sh',
+    ]
+
+    def images(self):
+        for source in self.IMAGE_SOURCES:
+            for image in re.findall(r'^(?:\s*(?:image|x-image):\s*(?:&\w+\s+)?|FROM\s+|PG_IMAGE=)(\S+)',
+                                    source.read_text(), re.M):
+                if not image.startswith('*') and not image.endswith(':local'):
+                    yield source, image
 
     def test_images_are_pinned(self):
-        floating = re.compile(r':(latest|stable|main|master|release|edge|nightly|dev|beta|rc)$')
-        for compose in STACKS.glob('*/*/docker-compose.yml'):
-            for image in re.findall(r'^\s*(?:image|x-image):\s*(?:&\w+\s+)?(\S+)', compose.read_text(), re.M):
-                if image.startswith('*') or image.endswith(':local') or '@sha256:' in image:
-                    continue
-                name = image.rsplit('/', 1)[-1]
-                with self.subTest(image=image, file=str(compose.relative_to(ROOT))):
-                    self.assertIn(':', name, 'no tag at all means latest')
-                    if image not in self.FLOATING_ON_PURPOSE:
-                        self.assertIsNone(floating.search(image), 'floating tag: pin a version or a digest')
+        found = 0
+        for source, image in self.images():
+            found += 1
+            with self.subTest(image=image, file=str(source.relative_to(ROOT))):
+                self.assertRegex(image, r'^[^@\s]+:[^@/\s]+@sha256:[0-9a-f]{64}$',
+                                 'pin a tag and its digest (python3 scripts/images.py <image:tag>)')
+        self.assertGreater(found, 40)
+
+    def test_one_digest_per_tag(self):
+        seen = {}
+        for source, image in self.images():
+            tag, digest = image.split('@')
+            with self.subTest(image=tag, file=str(source.relative_to(ROOT))):
+                self.assertEqual(seen.setdefault(tag, digest), digest, 'the same tag pinned to two digests')
+
+    @unittest.skipUnless(yaml, 'needs PyYAML (apt install python3-yaml)')
+    def test_node_agents_are_the_same_everywhere(self):
+        # Periphery and the Scrutiny collector are copied per node, not shared
+        # with `extends`, so Dependabot and plain `docker compose` see each one
+        # whole. The copies may differ only in the node's own disks.
+        periphery = {n: (STACKS / n / 'komodo-periphery/docker-compose.yml').read_text()
+                     for n in LINUX_NODES if (STACKS / n / 'komodo-periphery').is_dir()}
+        self.assertGreaterEqual(len(periphery), 4)
+        self.assertEqual(len(set(periphery.values())), 1, f'Periphery differs between {sorted(periphery)}')
+        collectors = {}
+        for node in LINUX_NODES:
+            file = STACKS / node / 'scrutiny-collector/docker-compose.yml'
+            if file.is_file():
+                service = yaml.safe_load(file.read_text())['services']['scrutiny-collector']
+                service.pop('devices')
+                service['volumes'] = [v for v in service['volumes'] if not v.startswith('./')]
+                collectors[node] = json.dumps(service, sort_keys=True)
+        self.assertGreaterEqual(len(collectors), 4)
+        self.assertEqual(len(set(collectors.values())), 1, 'collectors differ beyond their disks')
+
+    def test_paired_images_move_together(self):
+        def versions(pattern):
+            return {m.group(1) for _, image in self.images() if (m := re.search(pattern, image))}
+        pairs = {
+            'Immich server and machine learning': r'immich-app/immich-(?:server|machine-learning):(v[\d.]+)',
+            'Komodo Core and every Periphery': r'moghtech/komodo-(?:core|periphery):([\d.]+)',
+            'the Scrutiny hub and its collectors': r'analogj/scrutiny:(v[\d.]+)-',
+            'Pi-hole on both DNS hosts': r'pihole/pihole:([\d.]+)',
+        }
+        for name, pattern in pairs.items():
+            with self.subTest(name):
+                self.assertEqual(len(versions(pattern)), 1, f'{name}: {sorted(versions(pattern))}')
 
     @unittest.skipUnless(yaml, 'needs PyYAML (apt install python3-yaml)')
     def test_dependabot_sees_every_compose_file_and_its_ignores_match(self):
@@ -463,8 +510,12 @@ class Firewall(unittest.TestCase):
         self.assertIn('ufw-docker install --docker-subnets', out)
 
     def test_percolator_forward_auth_clients(self):
-        out = self.dry_run('percolator', 'FORWARD_AUTH_CLIENTS=192.168.0.10 192.168.0.12\nPROXY_SUBNET=172.30.0.0/24\n')
+        out = self.dry_run('percolator', 'FORWARD_AUTH_CLIENTS=192.168.0.10 192.168.0.12\nPROXY_SUBNET=172.30.0.0/24\n'
+                                         "MAIL_RELAY_CLIENTS='192.168.0.13 192.168.0.14'\n")
         self.assertIn('ufw route allow proto tcp from 192.168.0.0/24 to any port 443', out)
+        # The mail relay: the listed nodes, and not the whole LAN.
+        self.assertIn('ufw route allow proto tcp from 192.168.0.14 to any port 587', out)
+        self.assertNotIn('from 192.168.0.0/24 to any port 587', out)
         self.assertIn('ufw route allow proto tcp from 192.168.0.10 to any port 9091', out)
         self.assertIn('ufw route allow proto tcp from 192.168.0.12 to any port 9091', out)
         self.assertIn('forward-auth\\ from\\ 192.168.0.12', out)
@@ -1124,6 +1175,141 @@ class Flask(unittest.TestCase):
             if '.git' not in file.parts:
                 bad = [n for n, line in enumerate(file.read_text().splitlines(), 1) if not line.isascii()]
                 self.assertEqual(bad, [], f'{file.relative_to(ROOT)}: non-ASCII on lines {bad}')
+
+    def test_no_double_encoded_text(self):
+        # UTF-8 read as Windows-1252 and written back turns an em dash into
+        # three letters starting with a-circumflex. It happened to 20 compose
+        # files once (2026-10-10), in a PowerShell 5 round trip.
+        broken = re.compile('[\u00c2\u00c3\u00e2][\u0080-\u00bf\u0152-\u2122]')
+        for file in ROOT.rglob('*'):
+            if '.git' in file.parts or not file.is_file() or file.suffix in ('.pyc', '.exe', '.png', '.jpg'):
+                continue
+            try:
+                text = file.read_text(encoding='utf-8')
+            except UnicodeDecodeError:
+                continue
+            bad = [n for n, line in enumerate(text.splitlines(), 1) if broken.search(line)]
+            self.assertEqual(bad, [], f'{file.relative_to(ROOT)}: double-encoded text on lines {bad}')
+
+
+
+class VaultwardenNeedsTheRelayBundle(unittest.TestCase):
+    """Without mail-relay's bundle, SSL_CERT_FILE points at nothing and SSO breaks."""
+
+    def test_prepare_refuses_until_the_bundle_exists(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            fake = root / 'bin'
+            fake.mkdir()
+            (fake / 'sudo').write_text('#!/bin/sh\nexec "$@"\n')
+            (fake / 'sudo').chmod(0o755)
+            env = dict(os.environ, PATH=f'{fake}{os.pathsep}{os.environ["PATH"]}')
+            script = STACKS / 'percolator/vaultwarden/prepare.sh'
+
+            def prepare():
+                return subprocess.run(['bash', str(script), str(root / 'data')], env=env,
+                                      capture_output=True, text=True)
+
+            refused = prepare()
+            self.assertNotEqual(refused.returncode, 0)
+            self.assertIn('mail-relay up -d first', refused.stderr)
+            bundle = root / 'data/mail-relay/tls-public/bundle.crt'
+            bundle.parent.mkdir(parents=True)
+            bundle.write_text('certificates\n')
+            self.assertEqual(prepare().returncode, 0)
+
+
+class UpgradeGates(unittest.TestCase):
+    """Images that migrate their data one way wait for the owner's go-ahead."""
+
+    CASES = [  # node, app, data that exists once it has run, key, what to acknowledge
+        ('percolator', 'opencloud', 'opencloud/config/opencloud.yaml', 'OPENCLOUD_UPGRADE_READY', r'\d+'),
+        ('grinder', 'karakeep', 'karakeep-meilisearch/data.ms', 'KARAKEEP_SEARCH_UPGRADE_READY', r'\d+\.\d+\.\d+'),
+        ('grinder', 'traccar', 'traccar/data/database.mv.db', 'TRACCAR_UPGRADE_READY', r'\d+\.\d+'),
+        ('grinder', 'openwebui', 'openwebui/webui.db', 'OPENWEBUI_UPGRADE_READY', r'\d+\.\d+\.\d+'),
+    ]
+
+    def test_existing_data_waits_for_the_pinned_version(self):
+        for node, app, marker, key, shape in self.CASES:
+            with self.subTest(app=app), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                shutil.copytree(STACKS / '_lib', root / 'stacks/_lib')
+                app_dir = root / 'stacks' / node / app
+                shutil.copytree(STACKS / node / app, app_dir)
+                (app_dir.parent / 'node.conf').write_text(f'APPS=({app})\n')
+                fake = root / 'bin'
+                fake.mkdir()
+                (fake / 'sudo').write_text('#!/bin/sh\nexec "$@"\n')
+                (fake / 'sudo').chmod(0o755)
+                env = dict(os.environ, PATH=f'{fake}{os.pathsep}{os.environ["PATH"]}')
+                data = root / 'data'
+
+                def prepare():
+                    return subprocess.run(['bash', str(app_dir / 'prepare.sh'), str(data)],
+                                          env=env, capture_output=True, text=True)
+
+                self.assertEqual(prepare().returncode, 0, 'a fresh install has nothing to migrate')
+                (data / marker).parent.mkdir(parents=True)
+                (data / marker).touch()
+                refused = prepare()
+                self.assertNotEqual(refused.returncode, 0)
+                version = re.search(rf'{key}=(\S+) in', refused.stderr).group(1)
+                self.assertRegex(version, rf'^{shape}$')
+                (app_dir.parent / '.env.local').write_text(f'{key}=0.0.1\n')
+                self.assertNotEqual(prepare().returncode, 0, 'an older acknowledgement is not this one')
+                (app_dir.parent / '.env.local').write_text(f'{key}={version}\n')
+                self.assertEqual(prepare().returncode, 0, prepare().stderr)
+
+
+class RoasteryInit(unittest.TestCase):
+    """init/roastery-init.ps1: the order and the guards that matter (runbook, 2026-10-08)."""
+
+    SCRIPT = ROOT / 'init' / 'roastery-init.ps1'
+
+    def steps(self):
+        block = re.search(r'\$AllSteps = @\((.*?)\)', self.SCRIPT.read_text(), re.S).group(1)
+        return re.findall(r"'([a-z_]+)'", block)
+
+    def test_every_step_has_a_function_and_a_header_line(self):
+        text = self.SCRIPT.read_text()
+        for step in self.steps():
+            self.assertIn(f'function Step-{step} {{', text)
+            self.assertRegex(text, rf'(?m)^#   {step} ')
+
+    def test_repository_before_anything_trusts_roastery(self):
+        steps = self.steps()
+        self.assertLess(steps.index('backup_target'), steps.index('apps'))
+        self.assertEqual(steps[-1], 'bootstrap', 'the bootstrap server is last and opt-in (README order)')
+        body = re.search(r'^function Step-backup_target \{.*?^\}', self.SCRIPT.read_text(), re.M | re.S).group(0)
+        guard, call = body.index("'config'"), body.index('backup-target\\setup.ps1')
+        self.assertLess(guard, call, 'the empty-repository guard must come before setup.ps1')
+        self.assertIn('-not $AllowEmptyRepository', body)
+
+    def test_bootstrap_never_writes_authorized_keys(self):
+        body = re.search(r'^function Step-bootstrap \{.*?^\}', self.SCRIPT.read_text(), re.M | re.S).group(0)
+        self.assertNotRegex(body, r'(Set-Content|Out-File|Add-Content|Write-LFFile|Copy-Item)[^\n]*\$keys')
+        self.assertIn('Confirm-Change', body)
+
+    def test_traefik_task_has_no_time_limit(self):
+        body = re.search(r'^function Step-traefik \{.*?^\}', self.SCRIPT.read_text(), re.M | re.S).group(0)
+        self.assertIn('-ExecutionTimeLimit ([TimeSpan]::Zero)', body)
+        self.assertIn("'config\\dynamic\\ollama.yml'", body)
+
+    def test_traefik_system_task_uses_protected_runtime(self):
+        body = re.search(r'^function Step-traefik \{.*?^\}', self.SCRIPT.read_text(), re.M | re.S).group(0)
+        self.assertIn("GetFolderPath('ProgramFiles')", body)
+        self.assertIn('Install-TraefikRuntime -Source $dir -Destination $runtime', body)
+        self.assertIn("$start = Join-Path $runtime 'start.ps1'", body)
+        self.assertIn("$exe = Join-Path $runtime 'traefik.exe'", body)
+        self.assertIn('-Execute $powershell -WorkingDirectory $runtime', body)
+        self.assertLess(body.index('Install-TraefikRuntime'), body.index('New-ScheduledTaskAction'))
+
+    def test_firewall_rules_are_scoped(self):
+        text = self.SCRIPT.read_text()
+        rules = re.findall(r"Set-FirewallRule '([a-z-]+)' .*?@\{(.*?)\}", text, re.S)
+        self.assertEqual({name for name, _ in rules}, {'purrbrews-bootstrap', 'purrbrews-immich-ml', 'purrbrews-traefik'})
+        for name, spec in rules:
+            self.assertRegex(spec, r"RemoteAddress = \$(Fleet\['LAN_CIDR'\]|percolator)", name)
 
 
 if __name__ == '__main__':

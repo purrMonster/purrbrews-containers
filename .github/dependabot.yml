@@ -1,16 +1,23 @@
 # Dependabot: pull requests when a pinned image or package has a new version.
 #
-# Every image in this repo is pinned (tests/ insists), so nothing updates by
-# itself; until 2026-10-08 nothing even said an update existed (Diun was
-# removed on 2026-09-18 for telling no one). This is that channel, in the
-# fleet's own way: a bump is a PR to read, nodes only see it after a merge and
-# their daily pull, and even then nothing restarts until `compose.sh up`.
+# Every image in this repo is pinned by tag and digest (tests/ insists), so
+# nothing updates by itself; until 2026-10-08 nothing even said an update
+# existed (Diun was removed on 2026-09-18 for telling no one). This is that
+# channel, in the fleet's own way: a bump is a PR to read, and a node only runs
+# it once a reviewed commit is checked out and deployed there
+# (docs/operations.md). Its PRs move the tag and the digest together.
 #
 # Reading a PR: the release notes come first. Some images must move in pairs
 # and arrive as separate PRs; merge them together:
 #   - immich-app/immich-server (percolator) and
 #     immich-app/immich-machine-learning (roastery): same version, always.
 #   - moghtech/komodo-core and moghtech/komodo-periphery: same version.
+#   - getmeili/meilisearch: only to the version Karakeep's own compose pins
+#     for the Karakeep release we run (an ignore rule below holds it there).
+# OpenCloud, Meilisearch, Traccar and Open WebUI change their data on the way
+# up: after the merge, compose.sh holds an existing install until the version
+# is acknowledged in .env.local (stacks/_lib/upgrade-gate.sh,
+# docs/image-upgrades.md).
 # Database images never get major bumps here (see ignore): a major Postgres,
 # Mongo or Redis upgrade is a dump-and-restore, done by hand. OpenCloud majors
 # also need a reviewed migration and restore plan. The directory wildcard covers
@@ -53,6 +60,10 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "opencloudeu/opencloud-rolling"
         update-types: ["version-update:semver-major"]
+      # Only the version Karakeep's own compose pins (v1.41.0 for 0.33.2): it
+      # isn't tested against newer. Raise this with Karakeep, by hand.
+      - dependency-name: "getmeili/meilisearch"
+        versions: [">1.41.0"]
     commit-message:
       prefix: "deps"
     labels: ["dependencies", "images"]
@@ -71,13 +82,20 @@ updates:
       prefix: "deps"
     labels: ["dependencies", "python"]
 
+  # Dockerfile base images: the embedding worker's and purrbrews-bootstrap's.
   - package-ecosystem: docker
-    directory: "/stacks/grinder/embedding-worker"
+    directories:
+      - "/stacks/grinder/embedding-worker"
+      - "/bootstrap"
     schedule:
       interval: monthly
       timezone: Asia/Kolkata
     cooldown:
       default-days: 7
+    ignore:
+      # nginx's odd minors are its mainline; bootstrap stays on stable (even).
+      - dependency-name: "nginx"
+        versions: ["1.31.x", "1.33.x", "1.35.x", "1.37.x", "1.39.x"]
     commit-message:
       prefix: "deps"
     labels: ["dependencies", "images"]

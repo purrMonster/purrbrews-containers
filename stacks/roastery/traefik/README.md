@@ -48,14 +48,26 @@ It reaches llama-swap and meowGram on the ports Docker Desktop publishes on
    `PIHOLE_DNS_EXTRA_HOSTS` on both sieve and mochaPot (`192.168.0.20 roastery`,
    semicolon-separated from anything already there), then `./render-configs.sh` and
    `./compose.sh pihole up -d` on each. Also kept across a roastery rebuild.
-8. **Run it:** `.\traefik\start.ps1`. It stays in the foreground. Before the
-   2026-10-07 wipe it ran as a `traefik` scheduled task at boot, made by hand
-   and not in this repo, so it went with the wipe. Recreate it the same way, and
-   untick *Stop the task if it runs longer than*, or Windows kills it after 3
-   days (runbook, 2026-10-04).
+8. **Install the boot task:** from the repository root in elevated **Windows
+   PowerShell 5.1**, run `powershell -NoProfile -File init\roastery-init.ps1 -Only traefik`.
+   This copies the launcher, binary, credentials and rendered config to
+   `%ProgramFiles%\purrbrews-traefik`, accessible only to Administrators/SYSTEM.
+   The `traefik` task runs from that protected directory with no time limit.
+   A protected wrapper that calls back into the writable checkout is unsafe.
 
-After a template changes: pull, `.\render-configs.ps1`. Traefik watches the dynamic
-directory; restart it for static config or token changes.
+After a template, binary or token changes: render in the checkout, review the
+inputs, back up the protected runtime as administrator, then rerun the elevated
+`-Only traefik` step. Checkout edits do not automatically reach the SYSTEM task.
+The step stops the existing task; if installation fails, correct the reported
+problem and rerun it before expecting service. Unsafe owners, ACLs or reparse
+points are rejected rather than silently trusted. Foreground `start.ps1` remains
+available for manual diagnostics, but do not register it from a user-writable path.
+
+The first installation copies `data\acme.json` from the checkout if present.
+Subsequent installs retain the protected runtime's certificate data. Back up
+`%ProgramFiles%\purrbrews-traefik\data` with administrator-only access; for rollback,
+restore the prior trusted runtime files there and restart the task, preserving
+current certificates. Keep any `CF_DNS_API_TOKEN_FILE` under administrator control.
 
 **A leftover `config\dynamic\ollama.yml`** (rendered before 2026-10-07, gitignored)
 must be deleted: Traefik loads every file in that folder, and its `authelia`
