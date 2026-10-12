@@ -13,7 +13,7 @@
 #     immich-app/immich-machine-learning (roastery): same version, always.
 #   - moghtech/komodo-core and moghtech/komodo-periphery: same version.
 #   - getmeili/meilisearch: only to the version Karakeep's own compose pins
-#     for the Karakeep release we run; Karakeep isn't tested against newer.
+#     for the Karakeep release we run (an ignore rule below holds it there).
 # Nextcloud, Meilisearch, Traccar and Open WebUI change their data on the way
 # up: after the merge, compose.sh holds an existing install until the version
 # is acknowledged in .env.local (stacks/_lib/upgrade-gate.sh,
@@ -60,6 +60,10 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "nextcloud"
         update-types: ["version-update:semver-major"]
+      # Only the version Karakeep's own compose pins (v1.41.0 for 0.33.2): it
+      # isn't tested against newer. Raise this with Karakeep, by hand.
+      - dependency-name: "getmeili/meilisearch"
+        versions: [">1.41.0"]
     commit-message:
       prefix: "deps"
     labels: ["dependencies", "images"]
@@ -88,6 +92,10 @@ updates:
       timezone: Asia/Kolkata
     cooldown:
       default-days: 7
+    ignore:
+      # nginx's odd minors are its mainline; bootstrap stays on stable (even).
+      - dependency-name: "nginx"
+        versions: ["1.31.x", "1.33.x", "1.35.x", "1.37.x", "1.39.x"]
     commit-message:
       prefix: "deps"
     labels: ["dependencies", "images"]

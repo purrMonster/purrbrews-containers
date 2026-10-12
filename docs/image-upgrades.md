@@ -71,7 +71,8 @@ background jobs running, a login, an upload and a download.
 
 v1.41.0 is the version Karakeep's own compose pins for the release we run
 (0.33.2), not the newest Meilisearch: Karakeep is only tested against that one.
-Move it when Karakeep's compose moves.
+Move it when Karakeep's compose moves, and raise the `getmeili/meilisearch`
+ignore rule in `.github/dependabot.yml` with it.
 
 A newer Meilisearch won't open an older index. The index holds nothing of its
 own (bookmarks are in Karakeep's SQLite), so the simple way is to rebuild it:

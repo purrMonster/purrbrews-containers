@@ -52,6 +52,32 @@ changes can be made later without re-deriving the reasoning.
 
 ---
 
+## 2026-10-12 — PR and branch cleanup after the #23 split; two Dependabot ignores
+
+At the owner's request:
+
+- Closed as superseded by #25 (same or newer pins already on `main`): Dependabot
+  #10, #12, #15–#21; Dependabot deleted their branches. Closed #23, its parts
+  being on `main` via #25–#30; its branch `codex/code-sanitization` is kept for
+  what was left out (graphify, `_shared/`, the backup-log opt-in).
+- Deleted the remote branches already fully on `main` (0 commits ahead, checked
+  with `git rev-list --count origin/main..<branch>`): `claude/ci-shellcheck`,
+  `claude/compose-wrapper-fixes`, `claude/lldap-credentials`,
+  `claude/roastery-init`, `hardening-2026-10-08`. Owner approved the deletion.
+- **Left alone:** `mail-relay`, 6 commits from 2026-10-08 not on `main` and no
+  PR (an outgoing relay to Purelymail for Authelia and Vaultwarden, with a Gatus
+  check). Someone's unfinished work: decide whether it gets a PR.
+- `.github/dependabot.yml` ignores Meilisearch above v1.41.0 (Karakeep's pin) and
+  nginx's odd (mainline) minors for bootstrap.
+- Open Dependabot PRs: #33 (Home Assistant patch) fine to merge; #32 (embedding
+  worker Python 3.12 → 3.14) resolves all 54 packages from wheels on both
+  images (pip dry run in each, 2026-10-12) but rebuild and compare one vector
+  before relying on it; #31 (nginx mainline) to close once this is merged.
+
+**Next:** the Backlog rollout lines (image pins, fetch-only timer, roastery-init).
+
+---
+
 ## 2026-10-12 — Reviewed deployments: nodes fetch `main`, they don't pull it
 
 From PR #23, split out as #29 and approved by the owner on 2026-10-12. It changes
