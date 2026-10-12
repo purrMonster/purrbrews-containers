@@ -29,7 +29,7 @@ changes can be made later without re-deriving the reasoning.
 - [x] roastery: `immich-machine-learning` at Immich's version, Windows Firewall 3003 scoped to percolator. Verified 2026-09-29 on roastery (Claude, owner approved): container `immich-machine-learning:v3.2.1-cuda` matches percolator's `immich-server:v3.2.1`; rule `immich-ml (percolator only)` enabled, remote address `192.168.0.11` only
 - [x] Postgres dump job for percolator's databases (Nextcloud, Immich, Paperless): `pg` lines in their `backup` files (2026-09-27)
 - [ ] Remaining node: roastery itself joining the fleet; then archive purrBrews-infra
-- [ ] Gatus: add app checks as stacks land (node pings for percolator, cellar, mochaPot and grinder enabled 2026-09-29). Every app route has an end-to-end check on branch `hardening-2026-10-08` (2026-10-08 second pass); tick once they're green on sieve
+- [ ] Gatus: add app checks as stacks land (node pings for percolator, cellar, mochaPot and grinder enabled 2026-09-29). Every app route has an end-to-end check, on `main` since #9 (2026-10-08; second pass in that day's entry); tick once they're green on sieve
 - [ ] Optional: paste `purrbrews-mac.sh list --format pihole` into Pi-hole's static DHCP list
 - [x] Roll out the 2026-09-26 cleanup on every node: every node pulled it (2026-09-26, per the owner)
 - [ ] Work through the 2026-09-26 live-check plan (entry below)
@@ -37,7 +37,7 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Decide: keep barista in the `docker` group (added 2026-09-26; root without a password) or take it out again once the live-check fixes are done
 - [ ] cellar: confirm Komodo still logs in after `KOMODO_DISABLE_USER_REGISTRATION` went to `true` Core has `KOMODO_DISABLE_USER_REGISTRATION=true` and `KOMODO_LOCAL_AUTH=true` (checked 2026-09-29); the login itself is for the owner (owner)
 - [x] Pin n8n (`latest`), Open WebUI (`main`) and Karakeep (`release`) Done 2026-09-29: n8n `2.39.7` and Karakeep `0.33.2`, each the same digest as what was running; Open WebUI by digest (its `main` build isn't the v0.11.3 release)
-- [ ] meowGram: route and Authelia client prepared on branch `meowgram-sso` (2026-10-04 entry); merge and bring up, then the open items in `stacks/roastery/meowgram/README.md` (backups, web build, the audience check)
+- [ ] meowGram: route and Authelia client on `main` since #3 (2026-10-04 entry); bring up, then the open items in `stacks/roastery/meowgram/README.md` (backups, web build, the audience check)
 - [ ] Open WebUI → roastery's LLMs (llama-swap since 2026-10-07; grinder's `OLLAMA_BASE_URL` still points at the old `:11434`): needs machine-to-machine auth that keeps Authelia in front; options in the 2026-10-07 entry, none chosen
 - [ ] Karakeep: `NEXTAUTH_URL` is the direct-port URL while the route is `karakeep.${DOMAIN}`; check the phone share sheet signs in through the hostname
 - [x] Remote access over Tailscale: rolled out and checked from outside the house (2026-09-28; 2026-09-27 entry below)
@@ -48,12 +48,40 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Bot identity for Claude's commits and pull requests: owner picks bot account or GitHub App, then the setup in the 2026-09-28 entry below
 - [ ] Roll out the 2026-10-12 image pins node by node (`./compose.sh --all pull`, then `up -d`): Pi-hole on mochaPot before sieve; Immich on percolator and roastery together; Nextcloud, Meilisearch, Traccar and Open WebUI only after their steps in `docs/image-upgrades.md` (each waits for its key in `.env.local`); alert-path test after sieve
 - [ ] Fetch-only timer on every Linux node: `git -C /opt/purrbrews pull --ff-only` once more (the helper installs from the checkout), then `sudo bash /opt/purrbrews/init/purrbrews-init.sh --only timers`, then `journalctl -u purrbrews-pull -n 5` shows `OK: fetched origin` (2026-10-12 reviewed-deployments entry); nodes keep pulling until then
+- [ ] persianPerch: confirm it scrubs secrets from the `logTail` that `stacks/_lib/groom-record.py` puts in its records (0644, readable by kitten); if not, scrub there or make the journal text opt-in here (#23 had `GROOM_INCLUDE_LOGS`). Also give persianPerch's copy the 2026-10-12 groom-record fix
 - [ ] roastery: `init\roastery-init.ps1` on the rebuilt PC from an elevated Windows PowerShell 5.1 (owner), after the repository is back from Drive; then the follow-ups it prints for the nodes, ticked here with what was seen (2026-10-12 init entry)
 
 - [ ] Fleet mail: Purelymail user `purrBrews@${DOMAIN}`, its 2FA and an app password (owner); then roll out the mail relay (on `main` since 2026-10-12) in the order in the 2026-10-08 mail entry below: percolator before sieve's checkout moves (Gatus would alert), the relay before Vaultwarden (its `prepare.sh` refuses otherwise)
 - [ ] Fleet mailbox: n8n reads `purrBrews@` over IMAP from Purelymail and sorts it with the local model (2026-10-08 mail entry, *Next*). Not started
 - [ ] Wire the other apps' mail to the relay (Nextcloud, Paperless, Immich, Vikunja, Mealie): each needs the relay's CA; proposed, not done
 
+
+---
+
+## 2026-10-12 — Docs say what the runbook records; groom-record never skips a record
+
+At the owner's request, after the #23 split (its last useful leftovers):
+
+- Corrected statements that had gone stale, each against the runbook's evidence:
+  README ("Backups aren't finished": nightly since 2026-09-28, restore tests
+  passed 2026-09-29, roastery's repository to restore after the 2026-10-07
+  wipe; "never in the `docker` group": barista was added 2026-09-26, decision
+  open; the layout now lists `scripts/`, `fleet.json`, `roastery-init.ps1`),
+  cellar's README and `restic/README.md` (backups "not switched on", roastery
+  "sleeps", Samba "pin its image"), `docs/MAP.md`'s status rows, and two Backlog
+  lines that named branches already merged (`hardening-2026-10-08` as #9,
+  `meowgram-sso` as #3).
+- `stacks/_lib/groom-record.py` (persianPerch's, applied here): a malformed
+  `GROOM_START` raised before the fallback, so the record was lost despite the
+  docstring's "never fails"; it falls back to now. The temporary file is unique
+  per run and removed on failure. Names left as they are, so persianPerch's
+  copy can take the same diff. `tests/test_groom_record.py`.
+- **Not taken from #23:** journal text in records opt-in. The records are for
+  persianPerch, and the docstring says scrubbing secrets is its job; whether it
+  does is the Backlog line below, not a change here.
+
+Checked: the full suite in WSL Debian (the 2 `git check-ignore` failures are WSL
+on a Windows worktree, as always). To undo: revert the merge commit.
 
 ---
 
