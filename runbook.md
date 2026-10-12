@@ -63,6 +63,44 @@ changes can be made later without re-deriving the reasoning.
 
 ---
 
+## 2026-10-13 — OpenCloud and Radicale recheck; integration still required
+
+Rechecked the seven replacement commits `b39aa2a` through `51a2ccf` against
+their original base `38ed5a9`. The working tree was clean. No new confirmed
+configuration defect was found; this review changes only this handoff.
+
+Evidence on 2026-10-13: the isolated WSL snapshot ran the repository suite with
+portable PowerShell 7.5.4: `73 passed, 3 skipped in 7.93s`. The three skipped
+root-only tests ran separately as root: `3 passed, 73 deselected in 17.76s`.
+All 76 tests therefore ran successfully, including the retired-name guard,
+rendering, route/DNS checks and initialization safeguards. `git diff --check
+38ed5a9 HEAD` was clean. These are repository tests, not live service tests.
+
+Re-read OpenCloud v8.1.0's initializer and its Viper v1.21.0 dependency:
+environment bindings are appended in order, so `OC_CONFIG_DIR` takes precedence
+over `OC_BASE_DATA_PATH` for initialization. No startup-path fix is needed.
+Radicale v3.8.3's LDAP implementation accepts the configured option names,
+escapes the login before substituting `{0}`, and strips the password file's
+trailing newline. OpenCloud's tagged auth-app README confirms the documented
+username/token credentials and CLI expiry flag. The four clients were checked
+again against Authelia's OpenCloud integration guide.
+
+- [ ] Integrate the newer main before proposing deployment: the inspected
+  `origin/main` was `4c8336c`, 42 commits beyond the original base. Read-only
+  `git merge-tree --trivial-merge 38ed5a9 HEAD 4c8336c` showed text conflicts in
+  `stacks/README.md` and `stacks/percolator/node.conf`, plus modify/delete
+  conflicts in the retired stack's README and compose file. Main also added
+  its `prepare.sh`, which must not survive retirement. Preserve main's new
+  fleet/image tooling and mail-relay integration, then rerun the combined
+  suite and retirement scan. Main was not merged during this recheck.
+- [ ] (owner) The existing login/client, upload, bot scope, restore, CrowdSec
+  and monitoring acceptance checks remain open; no node or console was accessed.
+
+Next: resolve integration against a recorded main revision, then review the
+owner rollout gates. No push or PR. Existing implementation commits remain
+unchanged; this review is recorded by `docs: record replacement recheck and
+integration blockers`. Undo this review by reverting that documentation commit.
+
 ## 2026-10-12 — Nextcloud decommissioned; OpenCloud and Radicale replace it
 
 Owner decision: retire Nextcloud without migration or a side-by-side trial.
