@@ -9,11 +9,11 @@
 # The recorder, trusted proxies and OIDC all live in configuration.yaml, not
 # here; README.md has the snippets.
 #
-# Image: ghcr.io/home-assistant/home-assistant:2026.10.0, what `stable` was on
-# 2026-10-08 (same digest). Pinned, so a routine `--all pull` can't upgrade
+# Image: ghcr.io/home-assistant/home-assistant, a release by tag and digest
+# (first pinned 2026-10-08 to what `stable` was). Pinned, so a routine `--all pull` can't upgrade
 # it mid-month: HA's database migrations only go forward, and a release that
 # breaks an integration should be a choice. To upgrade: read the release
-# notes, bump the tag, pull, up. postgres:16.15.
+# notes, bump the tag (Dependabot does), pull, up. Postgres stays on 16.
 services:
   homeassistant:
     image: ghcr.io/home-assistant/home-assistant:2026.10.1@sha256:130241f28d01fa80dfa3b44f7d89781c188d8642ecab9024f079f19f9f82baa0

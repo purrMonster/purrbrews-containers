@@ -96,11 +96,13 @@ Traccar migrates its H2 database on start. With Traccar stopped, copy
 `${DATA_DIR}/traccar/data`, set `TRACCAR_UPGRADE_READY=6.16`, start it, and
 check the bike's latest position arrives and Home Assistant still sees it.
 
-### Open WebUI `main` build → v0.11.4
+### Open WebUI `main` build → a release
 
-The running build came from `main` (reported 0.11.3, wasn't that release).
-Back up `openwebui/webui.db` (grinder's `sqlite` backup line does this nightly),
-set `OPENWEBUI_UPGRADE_READY=0.11.4`, start it, check a login and a chat.
+The running build came from `main` (reported 0.11.3, wasn't that release); the
+repo now pins a release (0.12.0 since 2026-10-13). Read the release notes from
+0.11.3 up, back up `openwebui/webui.db` (grinder's `sqlite` backup line does this
+nightly), set `OPENWEBUI_UPGRADE_READY` to the version `compose.sh` names, start
+it, check a login and a chat.
 
 ## Others worth a look before deploying
 

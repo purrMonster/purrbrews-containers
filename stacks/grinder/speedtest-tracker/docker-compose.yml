@@ -4,7 +4,7 @@
 # run if SPEEDTEST_SCHEDULE is set and picked up, and when it isn't there's
 # no error, just silence. Check the logs show a run.
 #
-# Image: lscr.io/linuxserver/speedtest-tracker:v1.15.0-ls174.
+# Image: lscr.io/linuxserver/speedtest-tracker.
 services:
   speedtest-tracker:
     image: lscr.io/linuxserver/speedtest-tracker:v1.15.0-ls174@sha256:3f8a2d06703bde3a6d04dcc8178fcd6251b601ce3b8b52958779d5335b5719d1

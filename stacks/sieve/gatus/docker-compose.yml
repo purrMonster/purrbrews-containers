@@ -8,7 +8,7 @@
 # config/config.yaml is tracked and read as-is; Gatus substitutes ${VARS} from
 # this container's environment itself, so no secret is ever rendered to disk.
 #
-# Image: twinproduction/gatus:v5.37.0 (the current `stable`). Checked 2026-10-10.
+# Image: twinproduction/gatus (the current `stable`).
 services:
   gatus:
     image: twinproduction/gatus:v5.37.0@sha256:094eb186e55235db367e90e9d56140e5897b7044c41de23cde4cc18e6da1242e

@@ -5,7 +5,7 @@
 # All three apps are host-networked and keep their ports open: that's the way
 # in when Authelia or Traefik is down.
 #
-# Image: traefik:v3.7.14. v3.2's Docker client was too old for the upgraded
+# Image: traefik. v3.2's Docker client was too old for the upgraded
 # engine ("client version 1.24 is too old") and the docker provider looped.
 services:
   traefik:

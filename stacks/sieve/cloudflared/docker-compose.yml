@@ -4,7 +4,7 @@
 # Token-based, remotely managed tunnel: public hostnames are set in the Cloudflare
 # Zero Trust dashboard, not in a local config file. See README.md for the routes.
 #
-# Image: cloudflare/cloudflared:2026.10.0. Checked 2026-10-10.
+# Image: cloudflare/cloudflared.
 services:
   cloudflared:
     image: cloudflare/cloudflared:2026.10.0@sha256:9b49eed8f62806d5d45ddf59ecefb5710429598ea6d3fcccd2af938f621b2b07
