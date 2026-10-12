@@ -7,7 +7,8 @@
 # Two runs, because the scripts under test refuse root and the backup tests
 # need it: first as the runner's normal user (most of the suite, PowerShell's
 # included; pwsh is on GitHub's Ubuntu image), then as root with restic,
-# rclone and sqlite3 for the dump, backup and drive-sync tests.
+# rclone and sqlite3 for the dump, backup and drive-sync tests. shellcheck
+# runs over every shell script first.
 #
 # Read-only token; the action is pinned to a commit, not a tag that can move.
 name: tests
@@ -40,6 +41,12 @@ jobs:
         run: |
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y -qq python3-pytest python3-yaml sqlite3 restic rclone
+
+      # Warnings and up: unused or unset variables, bad quoting, broken tests.
+      # The suite's own `bash -n` only catches syntax. shellcheck comes with
+      # GitHub's Ubuntu image.
+      - name: shellcheck
+        run: find bootstrap init stacks tailscale -type f -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning
 
       - name: Tests (normal user)
         run: python3 -m pytest -q -rs tests
