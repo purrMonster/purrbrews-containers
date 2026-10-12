@@ -47,6 +47,60 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Apps over the tailnet: roll out in the order in the 2026-09-28 entry below
 - [ ] Bot identity for Claude's commits and pull requests: owner picks bot account or GitHub App, then the setup in the 2026-09-28 entry below
 - [ ] Roll out the 2026-10-12 image pins node by node (`./compose.sh --all pull`, then `up -d`): Pi-hole on mochaPot before sieve; Immich on percolator and roastery together; Nextcloud, Meilisearch, Traccar and Open WebUI only after their steps in `docs/image-upgrades.md` (each waits for its key in `.env.local`); alert-path test after sieve
+- [ ] roastery: `init\roastery-init.ps1` on the rebuilt PC from an elevated Windows PowerShell 5.1 (owner), after the repository is back from Drive; then the follow-ups it prints for the nodes, ticked here with what was seen (2026-10-12 init entry)
+
+---
+
+## 2026-10-12 — `init/roastery-init.ps1`: roastery gets an init
+
+From PR #23 (written 2026-10-08, hardened 2026-10-10 there), split out at the
+owner's request. Repo only: nothing has run on roastery.
+
+**What it is:** one script, run elevated from the repo, with named steps in
+the order of roastery's README ("Rebuilding roastery"): `hostname`, `network`,
+`power`, `prereqs`, `ssh_key`, `remote_access`, `backup_target`, `apps`,
+`traefik`, `game_mode`, `bootstrap`. It calls the existing scripts
+(`remote-access\setup.ps1`, `backup-target\setup.ps1`, `setup-secrets.ps1`,
+`compose.ps1`, `game-mode\install.ps1`) and does what used to be clicks: the
+three firewall rules, Traefik's scheduled task, power. `-Only`/`-Skip`/
+`-ListSteps`/`-Yes`; logged to `C:\ProgramData\purrbrews\logs`.
+
+Choices worth remembering:
+
+- A step that can't finish yet blocks, it doesn't abort: it says what it needs,
+  the run goes on, `-Only <step>` resumes.
+- **Repository first, nodes after** (2026-10-07): `backup_target` refuses while
+  `C:\purrbrews\restic` has no repository (RECOVERY.md part B);
+  `-AllowEmptyRepository` is the deliberate way past it.
+- It never writes `bootstrap\data\authorized_keys`, the fleet's whole SSH trust
+  list; it says how to rebuild it. `bootstrap` is last and asks first.
+- **Traefik's task runs from `%ProgramFiles%\purrbrews-traefik`**, not the
+  checkout: a SYSTEM task running a script any user can edit is a privilege
+  escalation (#23's security review). `init/lib/windows-runtime.ps1` copies the
+  launcher, binary, credentials and config there with Administrators/SYSTEM-only
+  ACLs, refuses unsafe owners, ACLs and junctions, keeps renewed certificates on
+  reinstall. No time limit (Windows' 3-day default killed it on 2026-10-03).
+- Power: never sleep on AC, hibernation off (2026-09-29), until wake-on-demand.
+
+Changed from #23: the GPU probe is CUDA **12.3.1** again (#23 had moved it to
+13.4.2), now by digest. The driver check asks for 545 (CUDA 12.3), immich-ml
+and llama-swap are CUDA 12 builds, and a CUDA 13 probe would fail on a driver
+they run on. `bootstrap` was listed twice in the header. Both PowerShell tests
+wrote fixtures into the repo (`graphify-out/`); now the temp folder, removed after.
+
+Checked: the full suite in WSL Debian (72 passed, 4 skipped; the 2
+`git check-ignore` failures are WSL on a Windows worktree, as on `main`), with
+the `RoasteryInit` class (step order, repository guard, `authorized_keys` never
+written, protected task paths, firewall scopes). `tests/test_windows_runtime.ps1`
+passed under Windows PowerShell 5.1 on roastery's checkout and runs in CI on
+`windows-2025`. Digest for the CUDA probe from `scripts/images.py`.
+**Not checked:** any real step on roastery.
+
+**Undo:** revert the merge commit; the script changes nothing until it runs. What
+it makes on roastery has names: firewall rules `purrbrews-bootstrap`,
+`purrbrews-immich-ml`, `purrbrews-traefik`, the `traefik` task,
+`%ProgramFiles%\purrbrews-traefik`, and the power settings
+(`powercfg /change standby-timeout-ac <minutes>`).
 
 ---
 
