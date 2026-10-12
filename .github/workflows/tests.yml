@@ -46,3 +46,17 @@ jobs:
 
       - name: "Tests (root: dumps, backups, drive-sync)"
         run: sudo python3 -m pytest -q -rs tests
+
+  # roastery's wrapper (stacks/_lib/purrbrews.ps1) under Windows PowerShell 5.1,
+  # which is what roastery runs. Docker is a function in the test: no daemon.
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: PowerShell wrapper
+        shell: powershell
+        run: ./tests/test_compose_helpers.ps1
