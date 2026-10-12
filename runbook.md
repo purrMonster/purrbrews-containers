@@ -57,6 +57,10 @@ changes can be made later without re-deriving the reasoning.
 - [ ] (owner) n8n UI on grinder: repoint the GPX WebDAV workflow to an OpenCloud folder with a dedicated bot app token; the workflow belongs to its own repo. Revoke obsolete credentials after verification.
 - [ ] (owner) Decide when `/srv/data/nextcloud` may be deleted; no deletion is part of this repository change.
 
+- [ ] (owner) Before publishing DAV, inspect `sudo docker exec crowdsec cscli collections list` and `sudo docker exec crowdsec cscli scenarios list`, then test repeated failed PROPFIND/GET requests from a non-whitelisted test address. The configured Traefik collection includes generic HTTP brute force, but its 401 scenario is POST-only. No stock all-method DAV scenario was found in the upstream Hub; proposal: review a scoped Radicale 401 scenario and ban/recovery test. Do not claim the stock collection protects DAV password attempts.
+- [ ] (owner) Confirm the GPX bot's scope before provisioning: the requested two-role mapping requires household membership, which also permits Radicale under the selected filter. Keep it out of admin groups, limit its OpenCloud shares, and validate token expiry/revocation; locking LLDAP alone does not revoke app tokens.
+- [ ] (owner) Update flask with the six OpenCloud recovery credentials and Radicale reader password (`fill-vault.ps1` after deployment), plus a protected attachment of generated `opencloud/config/opencloud.yaml`; retain the matching full config/data backup.
+
 ---
 
 ## 2026-10-12 — Nextcloud decommissioned; OpenCloud and Radicale replace it
@@ -88,8 +92,87 @@ previous rendered configs, identity groups and dashboard routes. Retain the old
 matching data and secrets. Do not delete either app's new data to roll back.
 No runtime retirement is claimed by this repository entry.
 
-Implementation and verification are pending. Next: add the two stacks, wire
-identity/ingress/monitoring, remove active references, and record final evidence.
+Repository implementation is complete; live deployment and acceptance remain
+owner work. The table records what was actually checked on 2026-10-12.
+
+### Review evidence
+
+| Requested check | Finding and evidence |
+|---|---|
+| Radicale version/dependencies | `tomsquest/docker-radicale:3.8.3.0` exists (registry HTTP 200). Its [tagged Dockerfile](https://github.com/tomsquest/docker-radicale/blob/3.8.3.0/Dockerfile) sets Radicale 3.8.3 and installs `ldap3`, curl and the /venv executable. The 3.8.3 floor follows the LDAP sharing fix. No custom image is necessary. |
+| Radicale identity and storage | Image default 2999:2999; the tagged entrypoint accepts explicit non-root execution. Compose runs PUID:PGID, matching data-dirs and the ops-owned private password render. Entire `radicale/collections` is backed up. Actual node ownership remains unchecked. |
+| LDAP options and rights | [Radicale 3.x docs](https://radicale.org/v3.html#auth) and v3.8.3 config source confirm `ldap_uri`, `ldap_base`, `ldap_reader_dn`, `ldap_secret_file`, `ldap_filter`, `ldap_user_attribute`, and default delay 1 second. Config uses the strict read-only reader, household memberOf filter and owner_only. No admin bind or ForwardAuth. |
+| Admin membership | `stacks/percolator/lldap-bootstrap.sh` adds processed users to both configured groups. That is not evidence about existing live accounts; LLDAP owner verification remains open. |
+| DAV discovery/root/health | v3.8.3 `radicale/app/__init__.py` redirects both well-known DAV paths to `/`; `get.py` redirects unauthenticated root GET to `/.web`. No extra middleware. Image curl supports the healthcheck. Gatus own-login accepts the redirect and rejects disconnect/404/5xx; this does not test LDAP. |
+| OpenCloud release | [GitHub latest](https://github.com/opencloud-eu/opencloud/releases/tag/v8.1.0) is v8.1.0. Official Compose uses `opencloudeu/opencloud-rolling:8.1.0`; registry HEAD returned 200. The exact release tag is pinned, not the rolling alias. Tagged multiarch Dockerfile includes curl; PUID:PGID overrides its default UID 1000. |
+| OIDC version gap | Main pins Authelia 4.39.27. [Integration guide](https://www.authelia.com/integration/openid-connect/clients/opencloud/) tests 4.39.28 with OpenCloud 7.2.4. This branch leaves Authelia unchanged and uses the required JWT/public PKCE setup. The official Compose Authelia override still warns about desktop OIDC roles; web/iPhone/desktop compatibility must be demonstrated, not assumed. |
+| Claims, clients and roles | Four public clients have guide redirect URIs, S256, no client secret, code/refresh grants and offline_access. Human authorization follows AUTH_POLICY. Proxy auto-provisions username/email/name/groups; role map is admin first then household user, with no default role. v8.1.0 `services/proxy/pkg/userroles/oidcroles.go` confirms first matching role wins. Regression tests cover bot-deny precedence and public-client boundaries. |
+| Internal IdP/DNS/CSP | Built-in idp excluded; internal IDM retained for account metadata. Existing `authelia.${DOMAIN}` proxy-network alias reaches Traefik with valid TLS. CSP allows that issuer. Both new labels are discovered by `_lib/dns-records.py`; the DNS test explicitly checks both names at percolator's address. |
+| Initialization/secrets/backup | Six signing, transfer, machine and system secrets come from secrets.conf. Tagged init source confirms remaining UUIDs, internal IDM passwords and service-account credentials are in generated `opencloud.yaml`; both whole config/data trees are backed up, without cache exclusions. Startup refuses missing config beside existing data, empty config and failed init; behavioral tests prove those refusal paths and restart preservation. Restore consistency is still an owner gate. |
+| Bot DAV credentials | [Tagged auth-app docs](https://github.com/opencloud-eu/opencloud/blob/v8.1.0/services/auth-app/README.md) confirm enabled-by-default app tokens, CLI/API issuance, username/token Basic credentials and explicit revocation. Standard password Basic auth and impersonation remain disabled. Disabling the external IdP account does not revoke tokens. README records the bot role/household scope caveat and a live DAV check. |
+| Tunnel/monitoring/Homepage | New routes use percolator HTTPS with matching SNI; old route/check/tile removed. Both use own-login checks and get separate tiles. Tunnel published-set, Gatus coverage and DNS tests pass. The live dashboard, DNS refresh and alert path remain owner steps. |
+| Dependabot | Existing `/stacks/*/*` wildcard covers both directories; old ignore removed, OpenCloud major releases now require manual review. Existing coverage/ignore test passes. |
+| CrowdSec | Compose requests `crowdsecurity/linux crowdsecurity/traefik`. [Traefik collection](https://github.com/crowdsecurity/hub/blob/master/collections/crowdsecurity/traefik.yaml) includes base HTTP scenarios, whose [generic brute-force file](https://github.com/crowdsecurity/hub/blob/master/scenarios/crowdsecurity/http-generic-bf.yaml) limits 401 handling to POST. Traefik parser does not mark every 401 as auth_fail. No suitable stock DAV-all-method scenario found; no unsupported protection claim or speculative rule added. Installed live collections and real visitor-IP bans are unverified. |
+| Recovery/docs/removal | MAP date and data rows, node inventory/diagram/order, secret examples, client docs, flask tiers, GPX comment and incidental references updated. Five tracked files in the retired stack deleted. No data migration, node operation, console change, push or PR occurred. |
+
+Registry observations (not extra image updates): OpenCloud tag resolved to
+`sha256:8fc64ca861739cc62095cd558814f2eba6a90acf5998d884e439b33a47875da8`;
+Radicale tag to `sha256:a3b1b452f4bc3d1aee43015b85bc2d9ee5de0ff7e96d5d2b47f1d889aa682409`.
+
+### Verification and handoff
+
+On 2026-10-12, all **76 distinct tests passed** in an isolated local Debian
+source snapshot. The working sources were copied without ignored private state
+or old artifacts, with LF normalization and temporary Git metadata for ignore
+checks. `python3 -m pytest tests -q -p no:cacheprovider` ran as the normal user;
+the three root-only backup tests ran separately against isolated local fixtures.
+PowerShell parity ran with portable PowerShell 7.5.4, downloaded from Microsoft's
+GitHub release and checked against its published SHA256
+`1fd7983fe56ca9e6233f126925edb24bf6b6b33e356b69996d925c4db94e2fef`.
+No system-wide tool installation was made.
+
+```text
+Root-only backup run:
+3 passed, 73 deselected in 20.82s
+Normal-user full suite (including PowerShell parity):
+73 passed, 3 skipped in 7.77s
+```
+
+The three normal-user skips are exactly the tests passed in the root-only run.
+`git diff origin/main --check` passed. `git grep -il nextcloud` returned only
+`runbook.md`. Manual added-diff review and an added-line credential-pattern scan
+found no literal credentials, private endpoints, ping URLs or ntfy topics; new
+app endpoints use `${DOMAIN}`. This is source review, not a full history or
+image-layer security scan. Every preceding implementation commit had a passing
+normal-user full suite (68 tests before new regressions, 72 afterwards; root
+and initially unavailable PowerShell skips were reported explicitly).
+
+The requested legacy-name scan over authored repository files finds only this
+runbook (required retirement commands/backlog plus dated history). The new test
+checks tracked and unignored new files, including file names. Preserved local
+`graphify-out` artifacts contain old snapshots; they were locally excluded at
+the owner's instruction, not deleted or rewritten to make a recursive scan pass.
+The prior graph's CLI failed; a read-only fallback traversal showed it belongs
+to the old branch, so current main source files were used for implementation.
+
+Earlier verification attempts exposed test-environment problems (an interrupted
+copy/test run and two ignore tests failing without temporary Git metadata), then
+two coverage failures while OpenCloud route registration was incomplete. Those
+were corrected before the relevant commits; no failed result is counted as a
+pass. Text encoding in two wiring files was corrected before the final diff.
+
+Commits on `codex/opencloud-radicale`, based on `38ed5a9`:
+`b39aa2a` plan; `f347e69` Radicale; `f34b704` OpenCloud;
+`b400670` OIDC policies/clients; `1d1296a` documentation/flask;
+`cef065a` retirement/wiring/regressions. The final commit is this handoff
+(`docs: record replacement verification and owner rollout gates`).
+
+Not done: all live owner steps in the Backlog, actual image execution, real OIDC
+validation, authenticated DAV/authorization, phone/desktop sync, >1 GB tunnel
+upload, CrowdSec ban test, alert delivery, restore rehearsal and GPX workflow.
+Next: owner reviews the branch and resolves the noted version/DAV/bot gates;
+then separately publishes/merges it and follows the ordered Backlog. Keep the
+retired data and snapshots until the owner explicitly decides otherwise.
 
 ---
 
