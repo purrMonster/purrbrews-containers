@@ -7,7 +7,8 @@
 # Two runs, because the scripts under test refuse root and the backup tests
 # need it: first as the runner's normal user (most of the suite, PowerShell's
 # included; pwsh is on GitHub's Ubuntu image), then as root with restic,
-# rclone and sqlite3 for the dump, backup and drive-sync tests.
+# rclone and sqlite3 for the dump, backup and drive-sync tests. shellcheck
+# runs over every shell script first.
 #
 # Read-only token; the action is pinned to a commit, not a tag that can move.
 name: tests
@@ -33,16 +34,39 @@ jobs:
         with:
           persist-credentials: false
 
+      # A hung mirror once ate the whole 15 minutes here (PR #18, 2026-10-08):
+      # time the step out on its own, and let apt retry instead of waiting.
       - name: Tools the tests use
+        timeout-minutes: 5
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq python3-pytest python3-yaml sqlite3 restic rclone
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y -qq python3-pytest python3-yaml sqlite3 restic rclone
+
+      # Warnings and up: unused or unset variables, bad quoting, broken tests.
+      # The suite's own `bash -n` only catches syntax. shellcheck comes with
+      # GitHub's Ubuntu image.
+      - name: shellcheck
+        run: find bootstrap init stacks tailscale -type f -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning
 
       - name: Tests (normal user)
         run: python3 -m pytest -q -rs tests
 
       - name: "Tests (root: dumps, backups, drive-sync)"
         run: sudo python3 -m pytest -q -rs tests
+
+  # roastery's wrapper (stacks/_lib/purrbrews.ps1) under Windows PowerShell 5.1,
+  # which is what roastery runs. Docker is a function in the test: no daemon.
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: PowerShell wrapper
+        shell: powershell
+        run: ./tests/test_compose_helpers.ps1
 
   # init/roastery-init.ps1's protected Traefik runtime (init/lib/windows-runtime.ps1):
   # ACL and ownership checks under Windows PowerShell 5.1. No task or rule is made.

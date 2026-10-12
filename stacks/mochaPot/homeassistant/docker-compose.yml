@@ -13,10 +13,10 @@
 # 2026-10-08 (same digest). Pinned, so a routine `--all pull` can't upgrade
 # it mid-month: HA's database migrations only go forward, and a release that
 # breaks an integration should be a choice. To upgrade: read the release
-# notes, bump the tag, pull, up. postgres:16.
+# notes, bump the tag, pull, up. postgres:16.15.
 services:
   homeassistant:
-    image: ghcr.io/home-assistant/home-assistant:2026.10.0
+    image: ghcr.io/home-assistant/home-assistant:2026.10.0@sha256:1b64d38f38d922bf9d59336451fd6453e1d614f934456af4ee3d2a51061be3a4
     container_name: homeassistant
     network_mode: host
     # Explicit, because Docker copies the host's resolv.conf once, at create
@@ -55,7 +55,7 @@ services:
       - traefik.http.services.homeassistant.loadbalancer.server.url=http://${NODE_IP:?}:8123
 
   postgres-homeassistant:
-    image: postgres:16
+    image: postgres:16.15@sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d
     container_name: postgres-homeassistant
     environment:
       POSTGRES_USER: ${HA_DB_USERNAME}

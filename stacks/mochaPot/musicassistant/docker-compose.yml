@@ -5,10 +5,10 @@
 # No login of its own. Through Traefik it's behind Authelia; the direct port
 # (8095) is only as private as the LAN.
 #
-# Image: ghcr.io/music-assistant/server:2.9.8.
+# Image: ghcr.io/music-assistant/server:2.10.6.
 services:
   musicassistant:
-    image: ghcr.io/music-assistant/server:2.9.8
+    image: ghcr.io/music-assistant/server:2.10.6@sha256:45fdb050e06962097a07feeb092606ad119fac17965c8228a57146448d5fa772
     container_name: musicassistant
     network_mode: host
     # Same resolv.conf snapshot problem as Home Assistant.
