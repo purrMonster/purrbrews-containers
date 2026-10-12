@@ -24,6 +24,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -42,7 +43,10 @@ def startedAt(unit: str, now: datetime) -> datetime:
     Falls back to now: a record with the wrong start is better than no record."""
     override = os.environ.get("GROOM_START")
     if override:
-        return datetime.fromtimestamp(int(override), UTC)
+        try:
+            return datetime.fromtimestamp(int(override), UTC)
+        except (OverflowError, OSError, ValueError):
+            return now
     try:
         out = subprocess.run(
             ["systemctl", "show", unit, "-p", "ExecMainStartTimestamp", "--value", "--timestamp=unix"],
@@ -52,7 +56,7 @@ def startedAt(unit: str, now: datetime) -> datetime:
             check=True,
         ).stdout.strip()
         return datetime.fromtimestamp(int(out.lstrip("@")), UTC)
-    except (OSError, subprocess.SubprocessError, ValueError):
+    except (OSError, subprocess.SubprocessError, OverflowError, ValueError):
         return now
 
 
@@ -88,10 +92,17 @@ def write(root: Path, job: str, start: datetime, record: dict) -> Path:
         directory.mkdir(mode=0o755, exist_ok=True)
         directory.chmod(0o755)
     target = folder / f"{start.strftime('%Y%m%dT%H%M%SZ')}.json"
-    temporary = folder / f".{target.name}.tmp"  # kitten reads *.json only, so it never sees this
-    temporary.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
-    temporary.chmod(0o644)
-    os.replace(temporary, target)
+    # A unique dot-file per run (kitten reads *.json only, so it never sees one),
+    # removed if anything fails before the rename.
+    descriptor, name = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=folder)
+    temporary = Path(name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            stream.write(json.dumps(record, indent=2) + "\n")
+        temporary.chmod(0o644)
+        os.replace(temporary, target)
+    finally:
+        temporary.unlink(missing_ok=True)
     return target
 
 

@@ -73,9 +73,11 @@ Speedtest Tracker). Every node also runs its own Traefik, a Komodo Periphery age
 a Scrutiny collector. The workstation, [`roastery`](stacks/roastery/README.md), lends
 its GPU to Immich and to the local LLMs (llama-swap, which replaced Ollama).
 
-All five nodes are up and running their stacks. Backups aren't finished yet: the
-database dumps, restic's sources and a restore test are still open
-([runbook](runbook.md)).
+All five nodes are up and running their stacks. Every node backs up nightly; the
+runbook records restore tests from roastery and from Google Drive on 2026-09-29
+and the first clean night on 2026-09-30. roastery was wiped on 2026-10-07, so its
+backup repository has to be restored before the nodes write to it again
+([runbook](runbook.md) Backlog; these docs don't prove what's live today).
 
 MACs are derived from the node name, so a reinstall or NIC swap never changes how the
 network sees a machine (see [`init/README.md`](init/README.md)).
@@ -88,14 +90,17 @@ the nodes and Remote Desktop to roastery, with no port open on the router
 
 ```
 bootstrap/                  workstation container that serves node setup on the LAN
-init/                       fresh Debian → ready node: hardening, Docker, network, timers
+init/                       fresh Debian → ready node (hardening, Docker, network, timers);
+                            roastery-init.ps1 for the Windows workstation
 stacks/fleet.env            LAN facts every node shares
 stacks/_lib/                the scripts every node uses: setup, render, compose, firewall
 stacks/<node>/node.conf     that node's apps in bring-up order, its network, its DNS role
 stacks/<node>/<app>/        docker-compose.yml, plus secrets.conf / firewall / data-dirs as needed
+scripts/                    fleet.py (plan and deploy a reviewed commit), images.py (digests)
+fleet.json                  each node's platform, tier, optional apps and prerequisites
 tailscale/                  remote access: the tailnet policy and how every machine joins
 runbook.md                  dated decisions and the backlog: the why, not just the what
-docs/                       audits and the map of everything; start at docs/MAP.md
+docs/                       the map of everything (start at docs/MAP.md), operations, image upgrades
 tests/                      offline checks: python3 -m unittest discover -s tests
 ```
 
@@ -163,8 +168,9 @@ sudo ./firewall.sh
   login (Authelia on percolator, reached on its firewalled port 9091) is shared. A
   broken proxy or a dead node takes down that node's pages, not the fleet's.
 - **Least privilege.** Key-only SSH, no root login, and the ops user reaches root only
-  through a password-gated `sudo`. The ops user is never in the `docker` group, which
-  would be root without a password.
+  through a password-gated `sudo`. Membership of the `docker` group is root without a
+  password; barista was added to it on 2026-09-26, and whether it stays is an open
+  Backlog decision.
 - **Pinned and verified.** Image tags and downloaded tools are pinned, and third-party
   scripts are checked against a SHA-256 before they run.
 - **The same everywhere.** One set of scripts for every node; what differs lives in
