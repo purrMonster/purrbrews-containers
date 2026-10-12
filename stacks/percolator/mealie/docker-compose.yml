@@ -22,6 +22,16 @@ services:
       OIDC_AUTO_REDIRECT: "false"
       OIDC_USER_GROUP: ${LLDAP_HOUSEHOLD_GROUP}
       OIDC_ADMIN_GROUP: ${LLDAP_ADMIN_GROUP}
+      # Mail (invitations, password resets) through the fleet's relay, no
+      # credentials. STARTTLS is used, but the relay's certificate is not
+      # checked: Mealie calls starttls() without a context, which in Python
+      # means no verification, and no setting changes that. The hop stays on
+      # percolator's proxy network.
+      SMTP_HOST: mail-relay
+      SMTP_PORT: "587"
+      SMTP_AUTH_STRATEGY: TLS
+      SMTP_FROM_NAME: Mealie
+      SMTP_FROM_EMAIL: purrBrews@${DOMAIN}
     volumes:
       - ${DATA_DIR}/mealie:/app/data
     networks:

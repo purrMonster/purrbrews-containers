@@ -30,6 +30,12 @@ Photo and video library with phone backup, sharing, face recognition and search.
 3. *Administration → Settings → Machine Learning*: the URL should already be
    `IMMICH_ML_URL`. Run *Jobs → Smart Search / Face Detection* once roastery answers.
 4. On phones: server URL `https://immich.${DOMAIN}`, sign in with Authelia, enable backup.
+5. *Administration → Settings → Notification Settings → Email* (mail goes through
+   `../mail-relay`; Immich has no environment variables for it):
+   - Enabled; Host `mail-relay`, Port `587`; Username and Password empty
+   - *Ignore certificate errors* off: `NODE_EXTRA_CA_CERTS` gives Immich the relay's CA
+   - From `Immich <purrBrews@${DOMAIN}>`
+   - *Send test email*
 
 ## Is it working?
 
@@ -39,6 +45,7 @@ Photo and video library with phone backup, sharing, face recognition and search.
 - [ ] A phone backup of a long video finishes (no cut-off at 60 s).
 - [ ] With roastery awake: *Administration → Jobs* shows Smart Search progressing, and
       searching for "dog" finds dogs.
+- [ ] The Email settings' test mail arrives from `Immich <purrBrews@${DOMAIN}>`.
 
 ## Gotchas
 
