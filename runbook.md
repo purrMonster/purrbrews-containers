@@ -49,6 +49,28 @@ changes can be made later without re-deriving the reasoning.
 
 ---
 
+## 2026-10-12 — Compose wrappers: previews change nothing, a failed `up` stops the run
+
+From PR #23, split out at the owner's request; repo only, no node touched.
+Both `compose.sh` and roastery's `purrbrews.ps1`:
+
+- `--dry-run`, `--help` and look-only commands (`config`, `ps`, `logs`, `pull`)
+  no longer copy renamed keys, create the network or run `prepare.sh`.
+- Option values (`--profile stop up`) no longer hide the command, which could
+  skip the startup checks or reverse the teardown order.
+- A failed `up` inside `--all` came back through an `||` list, where bash's
+  errexit is off, so the run carried on to the image cleanup. It stops now.
+- An unknown app fails before Docker is called. `compose.ps1` gets `--help`
+  and `--list`, and refuses stale renders as `compose.sh` does.
+
+Checked: `tests/test_compose_helpers.py` (5 cases) and the full suite in WSL
+Debian (71 passed; the 2 `git check-ignore` failures are WSL reading a Windows
+worktree, same on `main`); `tests/test_compose_helpers.ps1` passed under
+Windows PowerShell 5.1 on roastery's checkout, and now runs in CI on
+`windows-2025`. shellcheck clean. To undo: revert the merge commit.
+
+---
+
 ## 2026-10-11 — barista's uid comes from PUID, not a hardcoded 1000
 
 On the reinstalls the Debian installer's own account takes uid 1000, so the
