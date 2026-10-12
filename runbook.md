@@ -46,15 +46,106 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Tunnel from Git: two-factor in Authelia first, then the switch in `stacks/sieve/cloudflared/README.md` (2026-09-28 entry below)
 - [ ] Apps over the tailnet: roll out in the order in the 2026-09-28 entry below
 - [ ] Bot identity for Claude's commits and pull requests: owner picks bot account or GitHub App, then the setup in the 2026-09-28 entry below
-- [ ] Roll out the 2026-10-12 image pins node by node (`./compose.sh --all pull`, then `up -d`): Pi-hole on mochaPot before sieve; Immich on percolator and roastery together; Nextcloud, Meilisearch, Traccar and Open WebUI only after their steps in `docs/image-upgrades.md` (each waits for its key in `.env.local`); alert-path test after sieve
+- [ ] Roll out the 2026-10-12 image pins node by node (`./compose.sh --all pull`, then `up -d`): Pi-hole on mochaPot before sieve; Immich on percolator and roastery together; OpenCloud, Meilisearch, Traccar and Open WebUI only after their steps in `docs/image-upgrades.md` (each waits for its key in `.env.local`); alert-path test after sieve
 - [ ] Fetch-only timer on every Linux node: `git -C /opt/purrbrews pull --ff-only` once more (the helper installs from the checkout), then `sudo bash /opt/purrbrews/init/purrbrews-init.sh --only timers`, then `journalctl -u purrbrews-pull -n 5` shows `OK: fetched origin` (2026-10-12 reviewed-deployments entry); nodes keep pulling until then
 - [ ] persianPerch: confirm it scrubs secrets from the `logTail` that `stacks/_lib/groom-record.py` puts in its records (0644, readable by kitten); if not, scrub there or make the journal text opt-in here (#23 had `GROOM_INCLUDE_LOGS`). Also give persianPerch's copy the 2026-10-12 groom-record fix
 - [ ] roastery: `init\roastery-init.ps1` on the rebuilt PC from an elevated Windows PowerShell 5.1 (owner), after the repository is back from Drive; then the follow-ups it prints for the nodes, ticked here with what was seen (2026-10-12 init entry)
 
 - [ ] Fleet mail: Purelymail user `purrBrews@${DOMAIN}`, its 2FA and an app password (owner); then roll out the mail relay (on `main` since 2026-10-12) in the order in the 2026-10-08 mail entry below: percolator before sieve's checkout moves (Gatus would alert), the relay before Vaultwarden (its `prepare.sh` refuses otherwise)
 - [ ] Fleet mailbox: n8n reads `purrBrews@` over IMAP from Purelymail and sorts it with the local model (2026-10-08 mail entry, *Next*). Not started
-- [ ] Wire the other apps' mail to the relay (Nextcloud, Paperless, Immich, Vikunja, Mealie): each needs the relay's CA; proposed, not done
+- [ ] Wire the other apps' mail to the relay (Paperless, Immich, Vikunja, Mealie): each needs the relay's CA; proposed, not done
 
+
+- [ ] (owner) On percolator **before pulling the removal**, run `./compose.sh nextcloud down --remove-orphans`; inspect `docker ps -a` and `docker volume ls`, remove only confirmed leftover project containers/volumes. Keep `/srv/data/nextcloud`; restic snapshots keep their retention.
+- [ ] (owner) LLDAP UI → Users/Groups: create `radicale-reader` with only `lldap_strict_readonly`; rename `nextcloud_bot_accounts` to `opencloud_bot_accounts`; verify all human admins are in `${LLDAP_HOUSEHOLD_GROUP}`. Keep bots out of admin groups; see the OpenCloud README for their user-role prerequisite.
+- [ ] (owner) After review/merge, percolator: `git fetch origin`, `git checkout --detach <reviewed-commit>`, `./setup-secrets.sh` (paste reader password), `./render-configs.sh`, `./compose.sh authelia up -d --force-recreate`, `./compose.sh radicale up -d`, then OpenCloud README initialization and `./compose.sh opencloud up -d`. Check each app's README, including admin and household logins. The repository now matches the guide's tested OpenCloud 7.2.4 / Authelia 4.39.28.
+- [ ] (owner) Cloudflare dashboard → Zero Trust → Networks → Tunnels → published application routes: remove nextcloud; add `opencloud.${DOMAIN}` and `radicale.${DOMAIN}` to percolator HTTPS with matching SNI. The live tunnel is dashboard-managed. Test a file over 1 GB using the OpenCloud clients.
+- [ ] (owner) sieve: `git fetch origin`, `git checkout --detach <reviewed-commit>`, `./render-configs.sh`, `./compose.sh gatus up -d --force-recreate`; confirm both checks and deliberately test the ntfy alert/recovery path. On sieve **and** mochaPot render and `./compose.sh pihole up -d` to publish LAN DNS.
+- [ ] (owner) iPhone: sign in to OpenCloud, enable its Files location, add CalDAV and CardDAV accounts at `radicale.${DOMAIN}` with LLDAP credentials; install Mac/Windows clients and verify Windows virtual files.
+- [ ] (owner) Percolator: `sudo ./backup.sh nightly`, then `sudo ./backup.sh restic snapshots`; restore the selected snapshot to an isolated target with `sudo ./backup.sh restic restore <snapshot-id> --target <isolated-directory>`. Follow the OpenCloud README restore rehearsal before trusting it; test Radicale collections too.
+- [ ] (owner) n8n UI on grinder: repoint the GPX WebDAV workflow to an OpenCloud folder with a dedicated bot app token; the workflow belongs to its own repo. Revoke obsolete credentials after verification.
+- [ ] (owner) Decide when `/srv/data/nextcloud` may be deleted; no deletion is part of this repository change.
+
+- [ ] (owner) Before publishing DAV, inspect `sudo docker exec crowdsec cscli collections list` and `sudo docker exec crowdsec cscli scenarios list`, then test repeated failed PROPFIND/GET requests from a non-whitelisted test address. The configured Traefik collection includes generic HTTP brute force, but its 401 scenario is POST-only. No stock all-method DAV scenario was found in the upstream Hub; proposal: review a scoped Radicale 401 scenario and ban/recovery test. Do not claim the stock collection protects DAV password attempts.
+- [x] (owner) GPX bot Radicale access accepted on 2026-10-13 in this session: household membership permits authentication, while `owner_only` limits access to its own collections.
+- [ ] (owner) Keep the GPX bot out of admin groups, limit OpenCloud shares, and verify DAV isolation plus app-token expiry/revocation; disabling LLDAP alone does not revoke tokens.
+- [ ] (owner) Update flask with the six OpenCloud recovery credentials and Radicale reader password (`fill-vault.ps1` after deployment), plus a protected attachment of generated `opencloud/config/opencloud.yaml`; retain the matching full config/data backup.
+
+---
+
+## 2026-10-13 — Select OpenCloud production and accept the bot DAV scope
+
+The merge is `1cdee61` (second parent `8bf574d`). Production OpenCloud 7.2.4
+supports this deployment, so replace the undeployed rolling 8.1.0 definition.
+This is not approval to downgrade an existing 8.x data directory. Authelia is
+now main's 4.39.28; the selected pair matches the integration guide.
+
+Evidence checked 2026-10-13:
+
+- [Release lifecycle](https://docs.opencloud.eu/docs/admin/resources/lifecycle/)
+  and [Docker Hub tags](https://hub.docker.com/r/opencloudeu/opencloud/tags)
+  list 7.2.4 as the newest production release. The future October 26 release
+  is not an available tag. Production focuses on stability.
+- [Tagged core config](https://github.com/opencloud-eu/opencloud/blob/v7.2.4/pkg/config/config.go)
+  supports `OC_EXCLUDE_RUN_SERVICES=idp`. [Proxy config](https://github.com/opencloud-eu/opencloud/blob/v7.2.4/services/proxy/pkg/config/config.go)
+  supports external issuer/JWT verification, `oidc` role assignment and
+  `PROXY_ENABLE_APP_AUTH`; [role implementation](https://github.com/opencloud-eu/opencloud/blob/v7.2.4/services/proxy/pkg/userroles/oidcroles.go)
+  retains the configured ordered mappings. All Compose environment names were
+  found in 63 relevant tagged configuration files (excluding TZ and the two
+  paths, checked separately in the initializer). No env rename is necessary.
+- [Tagged auth-app docs](https://github.com/opencloud-eu/opencloud/blob/v7.2.4/services/auth-app/README.md)
+  document CLI issuance, username/token authentication and revocation limits.
+- [External-IDP documentation](https://docs.opencloud.eu/docs/admin/configuration/authentication-and-user-management/external-idp/)
+  documents iOS WebFinger and desktop support starting at 4.0. Desktop's current
+  GitHub release is v4.0.0. [Tagged WebFinger config](https://github.com/opencloud-eu/opencloud/blob/v7.2.4/services/webfinger/pkg/config/config.go)
+  has the four IDs and scopes used here. iOS GitHub's latest release marker is
+  older than its store distribution; the current public 7.2 documentation,
+  not that marker, supports the protocol compatibility decision. Actual
+  installed client versions and end-to-end behavior remain owner checks.
+- [Authelia's guide](https://www.authelia.com/integration/openid-connect/clients/opencloud/)
+  tests the selected server/IdP pair and the four public PKCE clients.
+
+Registry results from `scripts/images.py` (manifest-list digests, including
+linux/amd64 and linux/arm64):
+
+- `opencloudeu/opencloud:7.2.4@sha256:6d992ccc5f1cbc7b2a9b272ba25f879b1b159c2d7ed7f5527e09059f16295697`
+- `tomsquest/docker-radicale:3.8.3.0@sha256:a3b1b452f4bc3d1aee43015b85bc2d9ee5de0ff7e96d5d2b47f1d889aa682409`
+
+Dependabot and the prepare hook now name the production image. The gate expects
+major `7`; tests additionally check that a patch keeps the acknowledgement and
+a new major closes the gate. The upgrade guide links OpenCloud's own procedure,
+including version-specific configuration migration and restoring matching
+config/data/secrets for rollback. No Radicale collection migration gate is
+needed for this pinned release, as recorded in the merge entry.
+
+Owner decision (2026-10-13): the GPX bot may authenticate to Radicale through
+household membership, since `owner_only` restricts it to its own collections.
+Updated the active backlog and README; live isolation and token tests remain
+open. Also moved the replacement's owner checklist back into the Backlog:
+Git's automatic merge had placed it after a main history entry.
+
+Verification (2026-10-13): isolated WSL `python3 -m pytest tests` with
+portable PowerShell 7.5.4 passed: `105 passed, 3 skipped in 10.29s`; the three
+root-only cases separately passed: `3 passed, 105 deselected in 23.00s`.
+All 108 cases covered. Shellcheck warning-level checks passed for start.sh,
+prepare.sh and upgrade-gate.sh; `git diff --check` was clean. The retired-name
+guard passed; tracked paths and active docs/config/tests have no remaining
+retired-stack name outside this runbook. The
+[tagged Dockerfile](https://github.com/opencloud-eu/opencloud/blob/v7.2.4/opencloud/docker/Dockerfile.multiarch)
+confirms curl and UID 1000. Registry queries downloaded manifests only.
+
+Undo: revert this production-selection commit only before deployment. After
+any deployment or migration, use the matched backup restore procedure; never
+substitute the rolling image as an unreviewed rollback. Next: final test and
+handoff; no live operation, push or PR is included.
+
+Handoff: merge `1cdee61` and `feat: select production OpenCloud with guarded
+major upgrades` complete the repo work. Production/Radicale pins, conflicts,
+gate tests and accepted bot scope are verified above. Next is owner review
+and the Backlog rollout/acceptance checklist. No node access or deployment
+was performed; real iOS/desktop behavior, app-token isolation, >1 GB tunnel
+uploads, backup restore and alert delivery remain unverified. Windows-specific
+ACL CI jobs were not run in the Linux test snapshot.
 
 ---
 
@@ -397,19 +488,6 @@ and the script runs under `bash -x`: neither credential appears; the in-containe
 part runs against a fake tool); the full suite in WSL Debian; shellcheck. Not run
 against the real LLDAP. To undo: revert the merge commit.
 
-- [ ] (owner) On percolator **before pulling the removal**, run `./compose.sh nextcloud down --remove-orphans`; inspect `docker ps -a` and `docker volume ls`, remove only confirmed leftover project containers/volumes. Keep `/srv/data/nextcloud`; restic snapshots keep their retention.
-- [ ] (owner) LLDAP UI → Users/Groups: create `radicale-reader` with only `lldap_strict_readonly`; rename `nextcloud_bot_accounts` to `opencloud_bot_accounts`; verify all human admins are in `${LLDAP_HOUSEHOLD_GROUP}`. Keep bots out of admin groups; see the OpenCloud README for their user-role prerequisite.
-- [ ] (owner) After review/merge, percolator: `git pull`, `./setup-secrets.sh` (paste reader password), `./render-configs.sh`, `./compose.sh authelia up -d --force-recreate`, `./compose.sh radicale up -d`, then OpenCloud README initialization and `./compose.sh opencloud up -d`. Check each app's README, including admin and household logins; Authelia 4.39.27 is below the guide's tested 4.39.28.
-- [ ] (owner) Cloudflare dashboard → Zero Trust → Networks → Tunnels → published application routes: remove nextcloud; add `opencloud.${DOMAIN}` and `radicale.${DOMAIN}` to percolator HTTPS with matching SNI. The live tunnel is dashboard-managed. Test a file over 1 GB using the OpenCloud clients.
-- [ ] (owner) sieve: `git pull`, `./render-configs.sh`, `./compose.sh gatus up -d --force-recreate`; confirm both checks and deliberately test the ntfy alert/recovery path. On sieve **and** mochaPot render and `./compose.sh pihole up -d` to publish LAN DNS.
-- [ ] (owner) iPhone: sign in to OpenCloud, enable its Files location, add CalDAV and CardDAV accounts at `radicale.${DOMAIN}` with LLDAP credentials; install Mac/Windows clients and verify Windows virtual files.
-- [ ] (owner) Percolator: `sudo ./backup.sh nightly`, then `sudo ./backup.sh restic snapshots`; restore the selected snapshot to an isolated target with `sudo ./backup.sh restic restore <snapshot-id> --target <isolated-directory>`. Follow the OpenCloud README restore rehearsal before trusting it; test Radicale collections too.
-- [ ] (owner) n8n UI on grinder: repoint the GPX WebDAV workflow to an OpenCloud folder with a dedicated bot app token; the workflow belongs to its own repo. Revoke obsolete credentials after verification.
-- [ ] (owner) Decide when `/srv/data/nextcloud` may be deleted; no deletion is part of this repository change.
-
-- [ ] (owner) Before publishing DAV, inspect `sudo docker exec crowdsec cscli collections list` and `sudo docker exec crowdsec cscli scenarios list`, then test repeated failed PROPFIND/GET requests from a non-whitelisted test address. The configured Traefik collection includes generic HTTP brute force, but its 401 scenario is POST-only. No stock all-method DAV scenario was found in the upstream Hub; proposal: review a scoped Radicale 401 scenario and ban/recovery test. Do not claim the stock collection protects DAV password attempts.
-- [ ] (owner) Confirm the GPX bot's scope before provisioning: the requested two-role mapping requires household membership, which also permits Radicale under the selected filter. Keep it out of admin groups, limit its OpenCloud shares, and validate token expiry/revocation; locking LLDAP alone does not revoke app tokens.
-- [ ] (owner) Update flask with the six OpenCloud recovery credentials and Radicale reader password (`fill-vault.ps1` after deployment), plus a protected attachment of generated `opencloud/config/opencloud.yaml`; retain the matching full config/data backup.
 
 ---
 

@@ -23,7 +23,8 @@ remains the photo backup. Office, Tika and email are not configured here.
 5. iPhone: install the OpenCloud iOS app, enter the HTTPS server URL and finish
    browser sign-in through Authelia. In Files → Browse → menu → Edit, enable
    OpenCloud as a location. Verify opening a file from another app.
-6. Mac and Windows: install the official OpenCloud desktop client, enter the
+6. Mac and Windows: install the official OpenCloud desktop client 4.0 or newer
+   (needed for WebFinger discovery of our client IDs), enter the
    same server URL and complete browser sign-in. On Windows choose virtual
    files for files on demand; pin a folder locally when it must work offline.
 
@@ -66,12 +67,12 @@ is an LLDAP account in `opencloud_bot_accounts`, never the admin group. It also
 needs `${LLDAP_HOUSEHOLD_GROUP}` for the **user** role: the special bot group is
 an Authelia policy boundary, not a third OpenCloud role. The `household` OIDC
 policy still denies bots before its human allow rules. This extra membership
-also permits Radicale login under the chosen household LDAP filter; an owner
-must accept that scope or use a separately reviewed bot role/filter design.
+also permits Radicale login under the chosen household LDAP filter. The owner
+accepted this on 2026-10-13: `owner_only` confines it to its own collections.
 Give the bot only the GPX folder/share it needs; do not share household roots.
 
 Sign in as the bot through the `opencloud` OIDC policy once to provision it.
-OpenCloud 8.1.0's auth-app service supports app tokens and is enabled by default.
+OpenCloud 7.2.4's auth-app service supports app tokens and is enabled by default.
 An operator can issue a time-limited token locally with
 `./compose.sh opencloud exec opencloud opencloud auth-app create --user-name=<bot> --expiration=720h`.
 Copy the displayed value directly into n8n's credential store as the password,
@@ -102,20 +103,27 @@ role assignment before switching the workflow.
 
 ## Version checks and gotchas
 
-- Checked 2026-10-12: GitHub's [latest release is v8.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v8.1.0),
-  published as `opencloudeu/opencloud-rolling:8.1.0` by the official Compose project.
-  The name describes the release channel; the deployment uses an exact tag.
+- Checked 2026-10-13: [production 7.2.4](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.4)
+  is the newest production release in the [upstream lifecycle](https://docs.opencloud.eu/docs/admin/resources/lifecycle/)
+  and Docker Hub tags. Compose pins `opencloudeu/opencloud` by tag and digest.
+  It supports external OIDC, the `oidc` role driver, auth-app tokens and
+  WebFinger client discovery; all configured environment names were checked
+  against the release's configuration source. No environment rename is needed.
 - [Authelia's guide](https://www.authelia.com/integration/openid-connect/clients/opencloud/)
-  tests OpenCloud 7.2.4 / Authelia 4.39.28. This repo pins Authelia 4.39.27.
-  The four public PKCE clients, claims, CSP and OIDC role settings follow that
-  guide. Compatibility with this release pair remains an owner rollout gate.
-  The official Compose project's older Authelia override still warns about
-  desktop role assignment and uses different settings; do not silently switch
-  to default roles. Verify desktop login with the required OIDC mapping.
-- The [tagged startup source](https://github.com/opencloud-eu/opencloud/tree/v8.1.0/opencloud/pkg/init)
+  tests OpenCloud 7.2.4 / Authelia 4.39.28, now the pair pinned here after merging
+  main. The previous version gap is closed. Client and app-token acceptance
+  still need live testing; matching versions is not proof of this deployment.
+- This changes an undeployed repository definition from rolling to production.
+  Do not point this older release at data already used by rolling 8.x.
+  For upgrades, follow [the migration and rollback procedure](../../../docs/image-upgrades.md#opencloud-majors).
+  With an existing generated config, `prepare.sh` requires
+  `OPENCLOUD_UPGRADE_READY=7` in the node's `.env.local`; a fresh install passes.
+  Record that baseline after the first successful setup; review and back up
+  before acknowledging any new major. Never initialize over restored data.
+- The [tagged startup source](https://github.com/opencloud-eu/opencloud/tree/v7.2.4/opencloud/pkg/init)
   defines generated config state; the image includes curl and normally runs as
   UID 1000. Compose overrides it to PUID:PGID, matching `data-dirs`.
-- [Auth-app documentation](https://github.com/opencloud-eu/opencloud/blob/v8.1.0/services/auth-app/README.md)
+- [Auth-app documentation](https://github.com/opencloud-eu/opencloud/blob/v7.2.4/services/auth-app/README.md)
   documents token creation and external-IdP revocation limits.
 - Never rotate startup credentials as an incidental reinstall. Restore their
   original values with the data/config; record deliberate rotations separately.

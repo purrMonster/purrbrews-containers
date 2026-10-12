@@ -41,7 +41,7 @@ start a version that hasn't been acknowledged in the node's `.env.local`.
 
 | App (node) | Key in `.env.local` | Acknowledge |
 |---|---|---|
-| OpenCloud (percolator) | `OPENCLOUD_UPGRADE_READY` | the pinned major, e.g. `8` |
+| OpenCloud (percolator) | `OPENCLOUD_UPGRADE_READY` | the pinned major, e.g. `7` |
 | Meilisearch for Karakeep (grinder) | `KARAKEEP_SEARCH_UPGRADE_READY` | the version, e.g. `1.41.0` |
 | Traccar (grinder) | `TRACCAR_UPGRADE_READY` | the version, e.g. `6.16` |
 | Open WebUI (grinder) | `OPENWEBUI_UPGRADE_READY` | the version, e.g. `0.11.4` |
@@ -81,7 +81,8 @@ config, data, secrets and image digest. An image-only downgrade is not a rollbac
 The major gate is a reminder; patch/minor releases still need release-note review.
 Radicale has no gate: no mandatory collection-format migration was found for
 our standalone 3.8.3 storage configuration in the
-[Radicale v3 documentation](https://radicale.org/v3.html). Review future release
+[tagged changelog](https://github.com/Kozea/Radicale/blob/v3.8.3/CHANGELOG.md)
+and [v3 documentation](https://radicale.org/v3.html). Review future release
 notes; optional sharing formats are not enabled here.
 
 ### Meilisearch 1.10 → 1.41.0 (Karakeep)

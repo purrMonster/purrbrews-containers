@@ -58,7 +58,7 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "valkey/valkey"
         update-types: ["version-update:semver-major"]
-      - dependency-name: "opencloudeu/opencloud-rolling"
+      - dependency-name: "opencloudeu/opencloud"
         update-types: ["version-update:semver-major"]
       # Only the version Karakeep's own compose pins (v1.41.0 for 0.33.2): it
       # isn't tested against newer. Raise this with Karakeep, by hand.

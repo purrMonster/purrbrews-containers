@@ -1260,6 +1260,19 @@ class UpgradeGates(unittest.TestCase):
                 (app_dir.parent / '.env.local').write_text(f'{key}={version}\n')
                 self.assertEqual(prepare().returncode, 0, prepare().stderr)
 
+                if app == 'opencloud':
+                    compose = app_dir / 'docker-compose.yml'
+                    original = compose.read_text()
+                    image = re.search(r'image: (opencloudeu/opencloud):(\d+)\.(\d+)\.(\d+)', original)
+                    self.assertIsNotNone(image)
+                    repository, major, minor, patch = image.groups()
+                    same_major = f'image: {repository}:{major}.{minor}.{int(patch) + 1}'
+                    compose.write_text(original.replace(image.group(0), same_major))
+                    self.assertEqual(prepare().returncode, 0, 'patch retains major acknowledgement')
+                    new_major = f'image: {repository}:{int(major) + 1}.0.0'
+                    compose.write_text(original.replace(image.group(0), new_major))
+                    self.assertNotEqual(prepare().returncode, 0, 'a later major closes the gate again')
+
 
 class RoasteryInit(unittest.TestCase):
     """init/roastery-init.ps1: the order and the guards that matter (runbook, 2026-10-08)."""

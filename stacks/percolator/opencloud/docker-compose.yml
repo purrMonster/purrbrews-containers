@@ -1,8 +1,9 @@
-# Image: opencloudeu/opencloud-rolling, pinned by tag and registry digest.
-# The production-channel compatibility review is recorded in the runbook.
+# Image: opencloudeu/opencloud, production channel, pinned by tag and digest.
+# External OIDC, roles, app tokens and client discovery verified in tagged source.
+# Existing installs wait for major acknowledgement via prepare.sh (image-upgrades.md).
 services:
   opencloud:
-    image: opencloudeu/opencloud-rolling:8.1.0@sha256:8fc64ca861739cc62095cd558814f2eba6a90acf5998d884e439b33a47875da8
+    image: opencloudeu/opencloud:7.2.4@sha256:6d992ccc5f1cbc7b2a9b272ba25f879b1b159c2d7ed7f5527e09059f16295697
     container_name: opencloud
     user: ${PUID}:${PGID}
     restart: unless-stopped
