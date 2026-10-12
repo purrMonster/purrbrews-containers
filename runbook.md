@@ -123,6 +123,32 @@ Windows PowerShell 5.1 on roastery's checkout, and now runs in CI on
 
 ---
 
+## 2026-10-12 — lldap-bootstrap.sh keeps credentials out of arguments and logs
+
+From PR #23, split out at the owner's request; repo only. `lldap-bootstrap.sh`
+put LLDAP's admin password and each new user's password on command lines
+(`curl -d`, `docker exec ... --admin-password ... --password ...`), where any
+local user sees them in `ps`, and `sudo` logs them. Now:
+
+- the admin password goes to curl on stdin and is unset after login; the
+  session token goes in a header read from a file descriptor;
+- the new password and the token reach `lldap_set_password` on stdin inside the
+  container, which reads the password from `LLDAP_USER_PASSWORD` (checked in
+  lldap v0.6.3's `set-password/src/main.rs`, the version we run);
+- a new user's one-time password goes to the terminal only (`/dev/tty`), and a
+  run without a terminal refuses to create users; tracing is off (`set +x`).
+
+#23 also moved the script to `percolator/scripts/` behind a forwarder; left out,
+it stays where the README points. Limitation, unchanged: the token is still an
+argument inside the container.
+
+Checked: `tests/test_lldap_bootstrap.py` (a fake curl records every argument,
+and the script runs under `bash -x`: neither credential appears; the in-container
+part runs against a fake tool); the full suite in WSL Debian; shellcheck. Not run
+against the real LLDAP. To undo: revert the merge commit.
+
+---
+
 ## 2026-10-11 — barista's uid comes from PUID, not a hardcoded 1000
 
 On the reinstalls the Debian installer's own account takes uid 1000, so the
