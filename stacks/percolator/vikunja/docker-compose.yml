@@ -16,10 +16,22 @@ services:
       # The provider itself is declared in config/config.yml; its secret
       # comes from here so the rendered file holds no secrets.
       VIKUNJA_AUTH_OPENID_PROVIDERS_AUTHELIA_CLIENTSECRET: ${VIKUNJA_OIDC_CLIENT_SECRET}
+      # Mail (reminders, overdue digests, password resets) through the fleet's
+      # relay. With no username Vikunja sends no credentials; it takes STARTTLS
+      # when offered (the relay insists) and verifies against the system roots:
+      # SSL_CERT_FILE is the host's public roots plus the relay's CA
+      # (mail-relay/prepare.sh), and Go uses it for the OIDC login too.
+      # Vikunja adds the display name itself ("Vikunja <...>").
+      VIKUNJA_MAILER_ENABLED: "true"
+      VIKUNJA_MAILER_HOST: mail-relay
+      VIKUNJA_MAILER_PORT: "587"
+      VIKUNJA_MAILER_FROMEMAIL: purrBrews@${DOMAIN}
+      SSL_CERT_FILE: /etc/purrbrews/bundle.crt
     volumes:
       - ./config/config.yml:/etc/vikunja/config.yml:ro
       - ${DATA_DIR}/vikunja/db:/db
       - ${DATA_DIR}/vikunja/files:/app/vikunja/files
+      - ${DATA_DIR}/mail-relay/tls-public:/etc/purrbrews:ro
     networks:
       - proxy
     labels:

@@ -53,10 +53,51 @@ changes can be made later without re-deriving the reasoning.
 
 - [ ] Fleet mail: Purelymail user `purrBrews@${DOMAIN}`, its 2FA and an app password (owner); then roll out the mail relay (on `main` since 2026-10-12) in the order in the 2026-10-08 mail entry below: percolator before sieve's checkout moves (Gatus would alert), the relay before Vaultwarden (its `prepare.sh` refuses otherwise)
 - [ ] Fleet mailbox: n8n reads `purrBrews@` over IMAP from Purelymail and sorts it with the local model (2026-10-08 mail entry, *Next*). Not started
-- [ ] Wire the other apps' mail to the relay (Nextcloud, Paperless, Immich, Vikunja, Mealie): each needs the relay's CA; proposed, not done
+- [ ] Paperless, Immich, Vikunja, Mealie mail through the relay: in the repo on branch `claude/mail-relay-clients` (2026-10-13 entry), not merged, on no node. Once merged and the relay is up: recreate the four, Immich's settings in its UI, each one's test mail. Until the relay has run once, Paperless and Vikunja won't start (their `prepare.sh` refuses, like Vaultwarden's). Nextcloud left out: up for deprecation (owner, 2026-10-13)
 
 
 ---
+
+## 2026-10-13 — Paperless, Immich, Vikunja and Mealie send mail through the relay
+
+At the owner's request ("connect the rest to it ... ignore nextcloud as it is up
+for deprecation"), on branch `claude/mail-relay-clients`. Repo only, no node touched.
+
+How each one sends and checks the relay's certificate. This comes from reading each
+app's upstream mail code on 2026-10-13, not from running them:
+
+- **Paperless**: `PAPERLESS_EMAIL_*` → `mail-relay:587`, STARTTLS, no credentials,
+  from `Paperless <purrBrews@${DOMAIN}>`. Django verifies against the default trust
+  store, so `SSL_CERT_FILE` = the relay's `bundle.crt`, as Vaultwarden has. OIDC
+  (requests) keeps certifi's roots.
+- **Vikunja**: `VIKUNJA_MAILER_*`, no username (Vikunja then skips auth), from
+  `purrBrews@` (it adds "Vikunja"). go-mail takes STARTTLS when offered and verifies
+  against the system roots: `SSL_CERT_FILE` = `bundle.crt`, which the Authelia login
+  then uses too.
+- **Immich**: `NODE_EXTRA_CA_CERTS` = the relay's `ca.crt`, added to Node's roots.
+  SMTP itself exists only in the admin UI (its README's *First run* step 5).
+- **Mealie**: `SMTP_*`, strategy `TLS`, no credentials. **Its certificate isn't checked**:
+  Mealie calls `starttls()` with no context, which in Python means no
+  verification, and no setting changes that. The hop stays on the `proxy` network.
+- The "refuse without `bundle.crt`" check moved from `vaultwarden/prepare.sh` into
+  `mail-relay/require-bundle.sh`, which Vaultwarden, Paperless and Vikunja call.
+  The test now covers all three, and fails if a compose file uses the bundle
+  without the guard.
+
+**Tests:** `python -m pytest tests` in Debian WSL: 101 passed, 4 skipped. The two
+`*_gitignored` tests needed `GIT_DIR` pointed at the worktree, because WSL's git
+can't follow a Windows worktree's `.git` file. Not tested: any of the four
+actually sending. That needs the relay running.
+
+**Rollout** (needs the owner's go-ahead, after the relay's own rollout above): on
+percolator, `./compose.sh <app> up -d --force-recreate` for paperless, immich,
+vikunja and mealie; Immich's Email settings; the test mail in each README's
+*Is it working?*.
+
+**Undo:** revert the branch's commit and recreate the four. Vaultwarden's guard
+behaves the same either way.
+
+**Next:** merge (owner), then the rollout.
 
 ## 2026-10-13 — Final cleanup: last Dependabot PRs merged, compose comments without versions
 

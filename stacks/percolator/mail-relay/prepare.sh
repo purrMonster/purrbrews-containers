@@ -8,15 +8,17 @@
 #                                        mounts this folder as its certificates)
 #                                        and bundle.crt, rebuilt on every run:
 #                                        this host's public roots + ca.crt, for
-#                                        apps that take one file (Vaultwarden's
-#                                        SSL_CERT_FILE), so they keep trusting the
+#                                        apps that take one file (the
+#                                        SSL_CERT_FILE of Vaultwarden, Paperless
+#                                        and Vikunja), so they keep trusting the
 #                                        public internet too, as current as the
 #                                        host's ca-certificates at the last `up`
 #
 # Ten years, no renewal to forget. The certificate names `mail-relay` (the
 # proxy network) and percolator's LAN address (the other nodes).
 # To replace it: delete both folders, `./compose.sh mail-relay up -d`, then
-# recreate Authelia and Vaultwarden so they read the new CA.
+# recreate the apps that send through it (README.md, *First run* step 4) so
+# they read the new CA.
 set -euo pipefail
 
 DATA_DIR="${1:?usage: prepare.sh <DATA_DIR>}"

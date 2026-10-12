@@ -1091,30 +1091,40 @@ class Flask(unittest.TestCase):
 
 
 
-class VaultwardenNeedsTheRelayBundle(unittest.TestCase):
+class AppsNeedTheRelayBundle(unittest.TestCase):
     """Without mail-relay's bundle, SSL_CERT_FILE points at nothing and SSO breaks."""
 
+    def test_every_app_on_the_bundle_has_the_guard(self):
+        users = sorted(p.parent.name for p in (STACKS / 'percolator').glob('*/docker-compose.yml')
+                       if 'SSL_CERT_FILE: /etc/purrbrews/bundle.crt' in p.read_text(encoding='utf-8'))
+        self.assertEqual(users, ['paperless', 'vaultwarden', 'vikunja'])
+        for app in users:
+            prepare = STACKS / 'percolator' / app / 'prepare.sh'
+            self.assertIn('mail-relay/require-bundle.sh', prepare.read_text(encoding='utf-8'), app)
+
     def test_prepare_refuses_until_the_bundle_exists(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            fake = root / 'bin'
-            fake.mkdir()
-            (fake / 'sudo').write_text('#!/bin/sh\nexec "$@"\n')
-            (fake / 'sudo').chmod(0o755)
-            env = dict(os.environ, PATH=f'{fake}{os.pathsep}{os.environ["PATH"]}')
-            script = STACKS / 'percolator/vaultwarden/prepare.sh'
+        for app in ('vaultwarden', 'paperless', 'vikunja'):
+            with self.subTest(app=app), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                fake = root / 'bin'
+                fake.mkdir()
+                (fake / 'sudo').write_text('#!/bin/sh\nexec "$@"\n')
+                (fake / 'sudo').chmod(0o755)
+                env = dict(os.environ, PATH=f'{fake}{os.pathsep}{os.environ["PATH"]}')
+                script = STACKS / 'percolator' / app / 'prepare.sh'
 
-            def prepare():
-                return subprocess.run(['bash', str(script), str(root / 'data')], env=env,
-                                      capture_output=True, text=True)
+                def prepare():
+                    return subprocess.run(['bash', str(script), str(root / 'data')], env=env,
+                                          capture_output=True, text=True)
 
-            refused = prepare()
-            self.assertNotEqual(refused.returncode, 0)
-            self.assertIn('mail-relay up -d first', refused.stderr)
-            bundle = root / 'data/mail-relay/tls-public/bundle.crt'
-            bundle.parent.mkdir(parents=True)
-            bundle.write_text('certificates\n')
-            self.assertEqual(prepare().returncode, 0)
+                refused = prepare()
+                self.assertNotEqual(refused.returncode, 0)
+                self.assertIn(f'{app}/prepare.sh:', refused.stderr)
+                self.assertIn('mail-relay up -d first', refused.stderr)
+                bundle = root / 'data/mail-relay/tls-public/bundle.crt'
+                bundle.parent.mkdir(parents=True)
+                bundle.write_text('certificates\n')
+                self.assertEqual(prepare().returncode, 0)
 
 
 class UpgradeGates(unittest.TestCase):

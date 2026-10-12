@@ -8,6 +8,7 @@ Scanned and emailed documents: OCR, tags, full-text search.
 | URL | `https://paperless.${DOMAIN}` |
 | Data | `/srv/data/paperless/{data,media,export,consume}`, `/srv/data/paperless/{postgres,valkey}` |
 | Secrets | `PAPERLESS_ADMIN_PASSWORD`, `PAPERLESS_SECRET_KEY`, `PAPERLESS_DB_PASSWORD`, `PAPERLESS_OIDC_CLIENT_SECRET` |
+| Mail | through `../mail-relay`, as `Paperless <purrBrews@${DOMAIN}>`; the relay must have been `up` once (`prepare.sh` checks) |
 
 ## Bring up
 
@@ -32,6 +33,8 @@ Scanned and emailed documents: OCR, tags, full-text search.
 - [ ] A dropped PDF appears within a minute with searchable text.
 - [ ] `./compose.sh paperless logs paperless` shows the consumer and scheduler
       running, no Redis or database errors.
+- [ ] A test mail arrives from `Paperless <purrBrews@${DOMAIN}>`:
+      `sudo docker exec paperless python3 manage.py sendtestemail <your address>`.
 
 ## Gotchas
 
@@ -43,6 +46,11 @@ Scanned and emailed documents: OCR, tags, full-text search.
   aren't in this stack. PDFs and images work.
 - **Postgres 18 stores data under `postgres/18/docker`**; the whole
   `/var/lib/postgresql` is mounted, not `.../data`.
+- **`SSL_CERT_FILE` is the relay's bundle** (the host's public roots plus the
+  relay's CA), so Paperless can verify `mail-relay`. It also replaces the trust
+  store for IMAP mail fetching, which still works because the public roots are in
+  it. Without the file Paperless trusts nothing, so `prepare.sh` refuses to start
+  it until `./compose.sh mail-relay up -d` has made it.
 - **Back up with the exporter** as well as the database:
   `sudo docker exec paperless document_exporter ../export` writes to
   `/srv/data/paperless/export`.
