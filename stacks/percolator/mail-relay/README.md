@@ -2,7 +2,8 @@
 
 The fleet's outgoing mail. Apps hand their mail to this Postfix, which sends it
 on to Purelymail as `purrBrews@${DOMAIN}`: Authelia's password resets and 2FA
-enrolment, Vaultwarden's invites and alerts, and whatever else is wired up later.
+enrolment, Vaultwarden's invites and alerts, and the notifications of Paperless,
+Immich, Vikunja and Mealie. LLDAP has none on purpose (below).
 
 | | |
 |---|---|
@@ -48,7 +49,9 @@ why the list is short and the port is not published beyond it.
 | Client | Verifies the relay? | How |
 |---|---|---|
 | Authelia | yes | `certificates_directory` = `tls-public/` (holds `ca.crt`) |
-| Vaultwarden | yes | `SSL_CERT_FILE` = `tls-public/bundle.crt` (the host's public roots + `ca.crt`, rebuilt on every `up`) |
+| Vaultwarden, Paperless, Vikunja | yes | `SSL_CERT_FILE` = `tls-public/bundle.crt` (the host's public roots + `ca.crt`, rebuilt on every `up`) |
+| Immich | yes | `NODE_EXTRA_CA_CERTS` = `tls-public/ca.crt` (added to Node's own roots); SMTP itself is set in its admin UI |
+| Mealie | no | it calls Python's `starttls()` without a context: encrypted, unverified, no setting for it |
 | LLDAP | not wired | see below |
 | Gatus on sieve | no (`insecure`) | it only checks the relay answers and offers STARTTLS |
 | Another node's app | when given `ca.crt` | copy `tls-public/ca.crt` to that node; it's public |
@@ -78,13 +81,20 @@ CA: its TLS library has the public roots compiled in and ignores
    ./render-configs.sh
    ./compose.sh authelia up -d --force-recreate
    ./compose.sh vaultwarden up -d --force-recreate
+   ./compose.sh paperless up -d --force-recreate
+   ./compose.sh immich up -d --force-recreate
+   ./compose.sh vikunja up -d --force-recreate
+   ./compose.sh mealie up -d --force-recreate
    ```
+   Then Immich's mail settings in its admin UI (`../immich/README.md`, *First run*).
 
 Order matters only the first time: the relay's `up` creates `tls-public/`,
-which Authelia and Vaultwarden mount. `node.conf` lists it before them, and
-`vaultwarden/prepare.sh` refuses to start Vaultwarden without `bundle.crt`:
-its `SSL_CERT_FILE` would point at nothing, and it would stop trusting even
-Authelia (no SSO login), not just the relay.
+which the apps above mount. `node.conf` lists it before them, and the
+`prepare.sh` of Vaultwarden, Paperless and Vikunja (`require-bundle.sh`)
+refuses to start them without `bundle.crt`: their `SSL_CERT_FILE` would point
+at nothing, and they would stop trusting even Authelia (no SSO login), not
+just the relay. Until the relay has run once, those three can't be brought up
+or recreated at all.
 
 Gatus on sieve reloads its config when the file changes, so its *mail relay*
 check starts with the commit that brings it. Bring the relay up on percolator
@@ -96,6 +106,8 @@ before sieve's checkout moves to that commit, or expect one alert.
 - [ ] **Authelia**: *Reset password* on the login page for a user with a real
       email; the mail arrives from `Authelia <purrBrews@${DOMAIN}>`.
 - [ ] **Vaultwarden**: `/admin` → *SMTP Email Settings* → *Send test email*.
+- [ ] **Paperless, Immich, Vikunja, Mealie**: the test mail in each one's
+      *Is it working?*
 - [ ] The relay's log shows `status=sent` for both:
       `docker logs mail-relay 2>&1 | grep status=`
 - [ ] From a LAN laptop, `nc -vz 192.168.0.11 587` times out; from a node in
@@ -145,6 +157,6 @@ fixed, recreated, queued mail delivered.
   Postfix reads the first). Change settings in `docker-compose.yml`, never
   inside the container.
 - **Replacing the certificate**: delete `tls/` and `tls-public/`, `up -d` the
-  relay, then recreate Authelia and Vaultwarden (they hold the old CA).
+  relay, then recreate the apps in *First run* step 4 (they hold the old CA).
 - **Reading mail is not this.** The fleet's mailbox (`purrBrews@`) is read
   over IMAP from Purelymail directly; see the runbook Backlog.

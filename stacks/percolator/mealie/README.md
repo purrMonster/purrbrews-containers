@@ -36,9 +36,16 @@ Recipe manager, meal planner and shopping list.
 - [ ] *Login with Authelia* works; `barista` has the admin menu.
 - [ ] Importing a recipe from a URL works (outbound internet from the container).
 - [ ] *Admin → Site Settings* shows no red items.
+- [ ] *Admin → Site Settings → Email Configuration*: the test mail arrives from
+      `Mealie <purrBrews@${DOMAIN}>`.
 
 ## Gotchas
 
 - **`invalid_client` at sign-in** means the secret or its hash is wrong. Check with the
   `curl` test in `../authelia/README.md` before anything else.
 - **SQLite must stay on local disk.**
+- **Mail goes through `../mail-relay` without checking its certificate.** Mealie
+  calls Python's `starttls()` with no context, which encrypts without
+  verifying, and no setting changes that. The hop never leaves percolator's
+  `proxy` network. If a later Mealie verifies, it will need the relay's
+  bundle as `SSL_CERT_FILE`, as Paperless has.

@@ -40,11 +40,22 @@ services:
       PAPERLESS_SOCIAL_AUTO_SIGNUP: "true"
       PAPERLESS_SOCIALACCOUNT_PROVIDERS: >-
         {"openid_connect":{"SCOPE":["openid","profile","email"],"OAUTH_PKCE_ENABLED":true,"APPS":[{"provider_id":"authelia","name":"Authelia","client_id":"paperless","secret":"${PAPERLESS_OIDC_CLIENT_SECRET}","settings":{"server_url":"https://authelia.${DOMAIN}","token_auth_method":"client_secret_basic"}}]}}
+      # Mail (password resets, workflow emails) through the fleet's relay, no
+      # credentials, STARTTLS verified: Django checks the relay against the
+      # default trust store, so SSL_CERT_FILE is the host's public roots plus
+      # the relay's CA (mail-relay/prepare.sh). The OIDC login goes through
+      # requests, which keeps its own roots (certifi).
+      PAPERLESS_EMAIL_HOST: mail-relay
+      PAPERLESS_EMAIL_PORT: "587"
+      PAPERLESS_EMAIL_USE_TLS: "true"
+      PAPERLESS_EMAIL_FROM: Paperless <purrBrews@${DOMAIN}>
+      SSL_CERT_FILE: /etc/purrbrews/bundle.crt
     volumes:
       - ${DATA_DIR}/paperless/data:/usr/src/paperless/data
       - ${DATA_DIR}/paperless/media:/usr/src/paperless/media
       - ${DATA_DIR}/paperless/export:/usr/src/paperless/export
       - ${DATA_DIR}/paperless/consume:/usr/src/paperless/consume
+      - ${DATA_DIR}/mail-relay/tls-public:/etc/purrbrews:ro
     networks:
       - proxy
       - default

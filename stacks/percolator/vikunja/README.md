@@ -21,6 +21,11 @@ Shared to-do lists, projects and kanban boards.
   directories as `1000:0` before the first start; otherwise it crash-loops on
   "permission denied".
 - **Self-registration is off.** Accounts come from Authelia.
+- **Mail goes through `../mail-relay`** (reminders, overdue digests), as
+  `Vikunja <purrBrews@${DOMAIN}>`, with no credentials. `SSL_CERT_FILE` is the
+  relay's bundle (the host's public roots plus its CA), which Go also uses for
+  the Authelia login, so `prepare.sh` refuses to start Vikunja until
+  `./compose.sh mail-relay up -d` has made it.
 
 ## Bring up
 
@@ -35,6 +40,8 @@ Shared to-do lists, projects and kanban boards.
 - [ ] `./compose.sh vikunja logs vikunja` has no `OpenID Connect provider 'Authelia'
       not available` after startup.
 - [ ] An attachment uploads (proves `files/` is writable).
+- [ ] A test mail arrives from `Vikunja <purrBrews@${DOMAIN}>`:
+      `sudo docker exec vikunja /app/vikunja/vikunja testmail <your address>`.
 
 ## Gotchas
 

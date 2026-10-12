@@ -22,9 +22,14 @@ services:
       IMMICH_TRUSTED_PROXIES: ${PROXY_SUBNET}
       # Default for new installs; can be overridden in Administration → Machine Learning.
       IMMICH_MACHINE_LEARNING_URL: ${IMMICH_ML_URL}
+      # The relay's CA, added to Node's public roots (not replacing them), so
+      # mail to mail-relay verifies. The SMTP settings themselves are in the
+      # admin UI (README.md). A missing file only logs a warning.
+      NODE_EXTRA_CA_CERTS: /etc/purrbrews/ca.crt
     volumes:
       - ${DATA_DIR}/immich/library:/data
       - /etc/localtime:/etc/localtime:ro
+      - ${DATA_DIR}/mail-relay/tls-public:/etc/purrbrews:ro
     networks:
       - proxy
       - default

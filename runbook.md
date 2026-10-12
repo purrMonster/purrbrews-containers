@@ -53,7 +53,7 @@ changes can be made later without re-deriving the reasoning.
 
 - [ ] Fleet mail: Purelymail user `purrBrews@${DOMAIN}`, its 2FA and an app password (owner); then roll out the mail relay (on `main` since 2026-10-12) in the order in the 2026-10-08 mail entry below: percolator before sieve's checkout moves (Gatus would alert), the relay before Vaultwarden (its `prepare.sh` refuses otherwise)
 - [ ] Fleet mailbox: n8n reads `purrBrews@` over IMAP from Purelymail and sorts it with the local model (2026-10-08 mail entry, *Next*). Not started
-- [ ] Wire the other apps' mail to the relay (Paperless, Immich, Vikunja, Mealie): each needs the relay's CA; proposed, not done
+- [ ] Paperless, Immich, Vikunja, Mealie mail through the relay: merged to main in #42 (2026-10-13 entry), on no node. Once the relay is up: recreate the four, Immich's settings in its UI, each one's test mail. Until the relay has run once, Paperless and Vikunja won't start (their `prepare.sh` refuses, like Vaultwarden's). Retired file stack left out (owner, 2026-10-13)
 
 
 - [ ] (owner) On percolator **before pulling the removal**, run `./compose.sh nextcloud down --remove-orphans`; inspect `docker ps -a` and `docker volume ls`, remove only confirmed leftover project containers/volumes. Keep `/srv/data/nextcloud`; restic snapshots keep their retention.
@@ -70,6 +70,38 @@ changes can be made later without re-deriving the reasoning.
 - [x] (owner) GPX bot Radicale access accepted on 2026-10-13 in this session: household membership permits authentication, while `owner_only` limits access to its own collections.
 - [ ] (owner) Keep the GPX bot out of admin groups, limit OpenCloud shares, and verify DAV isolation plus app-token expiry/revocation; disabling LLDAP alone does not revoke tokens.
 - [ ] (owner) Update flask with the six OpenCloud recovery credentials and Radicale reader password (`fill-vault.ps1` after deployment), plus a protected attachment of generated `opencloud/config/opencloud.yaml`; retain the matching full config/data backup.
+
+---
+
+## 2026-10-13 — Include the mail-relay merge that arrived during integration
+
+After `1cdee61` merged main at `8bf574d` and `9280efd` selected production
+OpenCloud, origin/main advanced to `222d99e` (#42, mail-relay clients).
+Merged that revision too, without rewriting history. Kept all its app,
+certificate-bundle and test changes. The only conflict was the Backlog's
+mail proposal versus main's implemented-mail checklist: kept the latter and
+updated its merge status from the observed #42 merge. Both sets of dated
+entries and the replacement's Backlog steps remain in place.
+
+The retirement guard caught two references in main's new mail-relay README.
+Removed its obsolete prose and table row; all actual mail wiring is unchanged.
+Two intermediate runs each had only that guard failure (`105 passed, 3 skipped`)
+while the references were removed. The active-file scan is now clean.
+
+Final verification (2026-10-13): `python3 -m pytest tests` in the isolated
+WSL snapshot passed: `106 passed, 3 skipped in 8.86s`; root-only cases passed
+separately: `3 passed, 106 deselected in 19.45s` (all 109 cases covered).
+`git diff --check` and the retirement guard passed. The image selection and
+shellcheck evidence in the next entry still apply.
+
+Handoff: merge `1cdee61`, production selection `9280efd`, and this follow-up
+merge (`merge: retain new mail-relay clients alongside the file replacement`)
+include main through `222d99e`. All requested repository changes are done;
+next is owner review and the Backlog rollout. Live login/client compatibility,
+DAV isolation, large uploads, restore and alert-path delivery remain untested.
+No push, PR, node or console access. No additional deployment is authorized.
+Next: owner review and the existing rollout/acceptance steps. Undo this follow-up by reverting its merge with
+first parent selected; review the consequences for the mail clients first.
 
 ---
 
@@ -185,6 +217,47 @@ later commits. No push, PR, node or console access. Next: select the verified
 production release, record the owner's accepted bot scope, then final handoff.
 
 ---
+
+## 2026-10-13 — Paperless, Immich, Vikunja and Mealie send mail through the relay
+
+At the owner's request ("connect the rest to it ... ignore nextcloud as it is up
+for deprecation"), on branch `claude/mail-relay-clients`. Repo only, no node touched.
+
+How each one sends and checks the relay's certificate. This comes from reading each
+app's upstream mail code on 2026-10-13, not from running them:
+
+- **Paperless**: `PAPERLESS_EMAIL_*` → `mail-relay:587`, STARTTLS, no credentials,
+  from `Paperless <purrBrews@${DOMAIN}>`. Django verifies against the default trust
+  store, so `SSL_CERT_FILE` = the relay's `bundle.crt`, as Vaultwarden has. OIDC
+  (requests) keeps certifi's roots.
+- **Vikunja**: `VIKUNJA_MAILER_*`, no username (Vikunja then skips auth), from
+  `purrBrews@` (it adds "Vikunja"). go-mail takes STARTTLS when offered and verifies
+  against the system roots: `SSL_CERT_FILE` = `bundle.crt`, which the Authelia login
+  then uses too.
+- **Immich**: `NODE_EXTRA_CA_CERTS` = the relay's `ca.crt`, added to Node's roots.
+  SMTP itself exists only in the admin UI (its README's *First run* step 5).
+- **Mealie**: `SMTP_*`, strategy `TLS`, no credentials. **Its certificate isn't checked**:
+  Mealie calls `starttls()` with no context, which in Python means no
+  verification, and no setting changes that. The hop stays on the `proxy` network.
+- The "refuse without `bundle.crt`" check moved from `vaultwarden/prepare.sh` into
+  `mail-relay/require-bundle.sh`, which Vaultwarden, Paperless and Vikunja call.
+  The test now covers all three, and fails if a compose file uses the bundle
+  without the guard.
+
+**Tests:** `python -m pytest tests` in Debian WSL: 101 passed, 4 skipped. The two
+`*_gitignored` tests needed `GIT_DIR` pointed at the worktree, because WSL's git
+can't follow a Windows worktree's `.git` file. Not tested: any of the four
+actually sending. That needs the relay running.
+
+**Rollout** (needs the owner's go-ahead, after the relay's own rollout above): on
+percolator, `./compose.sh <app> up -d --force-recreate` for paperless, immich,
+vikunja and mealie; Immich's Email settings; the test mail in each README's
+*Is it working?*.
+
+**Undo:** revert the branch's commit and recreate the four. Vaultwarden's guard
+behaves the same either way.
+
+**Next:** merge (owner), then the rollout.
 
 ## 2026-10-13 — Final cleanup: last Dependabot PRs merged, compose comments without versions
 
