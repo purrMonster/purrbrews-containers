@@ -27,7 +27,7 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Backups to roastery, cellar as the dump store, second copy of everything on Google Drive (decided 2026-09-26; design in the 2026-09-27 entries). Scripts written 2026-09-27; every node's backups on since 2026-09-28; Drive set up 2026-09-29, first upload running. Restore tests from roastery and from Drive passed 2026-09-29; the first full night clean 2026-09-30. Next: the Drive client and `rclone.conf` into the vault, stick B, and the first monthly verify on 2026-10-01 (2026-09-27 wiring entry). Replaces the old "enable cellar's roastery mirror and Google Drive sync" item
 - [ ] Replace cellar's old disk (ST1000LM035, 5–8 years old) once it's only the dump store; the SanDisk on mochaPot is the same age. Superseded 2026-09-28: it's out of use on cellar and becomes the offline copy after a long self-test (2026-09-28 flask entry)
 - [x] roastery: `immich-machine-learning` at Immich's version, Windows Firewall 3003 scoped to percolator. Verified 2026-09-29 on roastery (Claude, owner approved): container `immich-machine-learning:v3.2.1-cuda` matches percolator's `immich-server:v3.2.1`; rule `immich-ml (percolator only)` enabled, remote address `192.168.0.11` only
-- [x] Postgres dump job for percolator's databases (Nextcloud, Immich, Paperless): `pg` lines in their `backup` files (2026-09-27)
+- [x] Postgres dump jobs for Immich and Paperless: `pg` lines in their `backup` files (2026-09-27). Retired app history remains in the dated entries.
 - [ ] Remaining node: roastery itself joining the fleet; then archive purrBrews-infra
 - [ ] Gatus: add app checks as stacks land (node pings for percolator, cellar, mochaPot and grinder enabled 2026-09-29). Every app route has an end-to-end check on branch `hardening-2026-10-08` (2026-10-08 second pass); tick once they're green on sieve
 - [ ] Optional: paste `purrbrews-mac.sh list --format pihole` into Pi-hole's static DHCP list
@@ -46,6 +46,50 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Tunnel from Git: two-factor in Authelia first, then the switch in `stacks/sieve/cloudflared/README.md` (2026-09-28 entry below)
 - [ ] Apps over the tailnet: roll out in the order in the 2026-09-28 entry below
 - [ ] Bot identity for Claude's commits and pull requests: owner picks bot account or GitHub App, then the setup in the 2026-09-28 entry below
+
+- [ ] (owner) On percolator **before pulling the removal**, run `./compose.sh nextcloud down --remove-orphans`; inspect `docker ps -a` and `docker volume ls`, remove only confirmed leftover project containers/volumes. Keep `/srv/data/nextcloud`; restic snapshots keep their retention.
+- [ ] (owner) LLDAP UI → Users/Groups: create `radicale-reader` with only `lldap_strict_readonly`; rename `nextcloud_bot_accounts` to `opencloud_bot_accounts`; verify all human admins are in `${LLDAP_HOUSEHOLD_GROUP}`. Keep bots out of admin groups; see the OpenCloud README for their user-role prerequisite.
+- [ ] (owner) After review/merge, percolator: `git pull`, `./setup-secrets.sh` (paste reader password), `./render-configs.sh`, `./compose.sh authelia up -d --force-recreate`, `./compose.sh radicale up -d`, then OpenCloud README initialization and `./compose.sh opencloud up -d`. Check each app's README, including admin and household logins; Authelia 4.39.27 is below the guide's tested 4.39.28.
+- [ ] (owner) Cloudflare dashboard → Zero Trust → Networks → Tunnels → published application routes: remove nextcloud; add `opencloud.${DOMAIN}` and `radicale.${DOMAIN}` to percolator HTTPS with matching SNI. The live tunnel is dashboard-managed. Test a file over 1 GB using the OpenCloud clients.
+- [ ] (owner) sieve: `git pull`, `./render-configs.sh`, `./compose.sh gatus up -d --force-recreate`; confirm both checks and deliberately test the ntfy alert/recovery path. On sieve **and** mochaPot render and `./compose.sh pihole up -d` to publish LAN DNS.
+- [ ] (owner) iPhone: sign in to OpenCloud, enable its Files location, add CalDAV and CardDAV accounts at `radicale.${DOMAIN}` with LLDAP credentials; install Mac/Windows clients and verify Windows virtual files.
+- [ ] (owner) Percolator: `sudo ./backup.sh nightly`, then `sudo ./backup.sh restic snapshots`; restore the selected snapshot to an isolated target with `sudo ./backup.sh restic restore <snapshot-id> --target <isolated-directory>`. Follow the OpenCloud README restore rehearsal before trusting it; test Radicale collections too.
+- [ ] (owner) n8n UI on grinder: repoint the GPX WebDAV workflow to an OpenCloud folder with a dedicated bot app token; the workflow belongs to its own repo. Revoke obsolete credentials after verification.
+- [ ] (owner) Decide when `/srv/data/nextcloud` may be deleted; no deletion is part of this repository change.
+
+---
+
+## 2026-10-12 — Nextcloud decommissioned; OpenCloud and Radicale replace it
+
+Owner decision: retire Nextcloud without migration or a side-by-side trial.
+Four containers, PHP, Postgres, Valkey and one-major-at-a-time upgrades cost too
+much for the functions used. OpenCloud on percolator provides files through
+Authelia OIDC with its built-in IdP disabled. Standalone Radicale provides DAV
+calendars and contacts using LLDAP, not OpenCloud's Radicale integration.
+Both routes remain available through the Cloudflare tunnel. The iPhone uses
+OpenCloud's app and Files integration; Mac and Windows use desktop clients.
+Immich remains the photo backup. Office, Tika and email are outside this change.
+
+Alternatives considered and rejected: Seafile adds MariaDB and a block store;
+Syncthing lacks the cloud-drive experience and has weak iOS support via Möbius;
+Samba suits LAN laptops only; building this ourselves puts sync bugs in the
+protocol implementations we would have to maintain.
+
+Repository work only, on `codex/opencloud-radicale` from `origin/main` at
+`38ed5a9`. No node or console access, push or PR. The previously checked-out
+refactor branch is not this base. Local graphify artifacts are retained untouched
+and excluded locally with owner approval. Main pins Authelia 4.39.27; the
+upstream OpenCloud guide tests 4.39.28 with OpenCloud 7.2.4. Compatibility with
+the selected release needs the owner login checks below.
+
+Undo: revert this branch's replacement commits in reverse order and restore the
+previous rendered configs, identity groups and dashboard routes. Retain the old
+`/srv/data/nextcloud` and restic retention; restoring old services needs their
+matching data and secrets. Do not delete either app's new data to roll back.
+No runtime retirement is claimed by this repository entry.
+
+Implementation and verification are pending. Next: add the two stacks, wire
+identity/ingress/monitoring, remove active references, and record final evidence.
 
 ---
 
