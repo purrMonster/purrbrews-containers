@@ -12,7 +12,7 @@
 # Local login only, no Authelia/OIDC. That was a choice, not a gap: if
 # Authelia is down, Komodo is the thing I'll want to reach.
 #
-# Images: komodo-core / komodo-periphery 2.3.3, by tag and digest (Core has
+# Images: komodo-core / komodo-periphery, by tag and digest (Core has
 # root on every node; I don't want it changing under me), mongo 7.0. Core and
 # every Periphery move together.
 services:

@@ -4,7 +4,7 @@
 # re-applied on every start and shown read-only in the web UI, so the compose file
 # stays the source of truth and a rebuilt container comes back identical.
 #
-# Image: pihole/pihole:2026.09.0 (Pi-hole v6, FTL v6). Checked 2026-10-10.
+# Image: pihole/pihole (Pi-hole v6, FTL v6).
 services:
   pihole:
     image: pihole/pihole:2026.09.0@sha256:5b9c8cf51de7d6d3f2240dbe72baf5f06e1fd39cb4d77a99fab4fa13e23bd1be

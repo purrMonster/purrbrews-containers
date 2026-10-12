@@ -58,6 +58,27 @@ changes can be made later without re-deriving the reasoning.
 
 ---
 
+## 2026-10-13 — Final cleanup: last Dependabot PRs merged, compose comments without versions
+
+At the owner's request ("except codex/opencloud-radicale, merge, delete, clean"):
+
+- Merged #36 (Open WebUI 0.12.0) and #39 (Homepage 2.5.0), held since 2026-10-12
+  for the week's cooldown; the owner chose not to wait. Open WebUI's upgrade gate
+  still holds an existing install until `OPENWEBUI_UPGRADE_READY` names the new
+  version (`docs/image-upgrades.md` reworded to not depend on one).
+- 33 `# Image:` comments repeated the pinned version, and Dependabot only moves
+  the `image:` line: Home Assistant's and Open WebUI's were already wrong. They
+  name the image and keep the reasons; `tests/test_image_comments.py` fails on a
+  comment that repeats a pinned `name:tag`.
+- Archived the idle session "Roastery bootload utility verification (fork)"
+  (its worktree, branch fully on `main`). "Nextcloud decommissioning" and
+  "Roastery bootload utility verification" were refused by the permission
+  check; their worktrees are clean and their branches fully on `main`, left for
+  the owner to archive.
+- **Left alone:** `codex/opencloud-radicale` (the main checkout, local only).
+
+---
+
 ## 2026-10-12 — Docs say what the runbook records; groom-record never skips a record
 
 At the owner's request, after the #23 split (its last useful leftovers):

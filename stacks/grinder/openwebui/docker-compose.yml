@@ -6,7 +6,7 @@
 # help: Open WebUI can't do the Authelia login. That needs machine-to-machine
 # auth that keeps Authelia in front; see the README's known gaps.
 #
-# Image: the v0.11.4 release, by tag and digest (2026-10-10). It replaces the
+# Image: a release, by tag and digest. On 2026-10-10 it replaced the
 # `main` build pinned on 2026-09-29 (which reported 0.11.3 but wasn't that
 # release). It migrates the database on start: prepare.sh holds an existing
 # install until OPENWEBUI_UPGRADE_READY is set (docs/image-upgrades.md).

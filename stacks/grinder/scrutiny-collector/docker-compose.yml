@@ -4,7 +4,7 @@
 # DISK_DEVICE is set in .env.local. Check it with `lsblk -d -o NAME,SIZE,MODEL`;
 # for NVMe use the controller (/dev/nvme0), not the namespace (/dev/nvme0n1).
 #
-# Image: ghcr.io/analogj/scrutiny:v0.9.5-collector, the same version as the
+# Image: ghcr.io/analogj/scrutiny (collector), the same version as the
 # hub on cellar (keep them together). Not `latest-collector`: upstream's own
 # README calls the floating tags dangerous. Checked 2026-09-16.
 services:

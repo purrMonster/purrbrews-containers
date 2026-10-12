@@ -2,9 +2,9 @@
 # upstream's own compose: the app, a headless Chrome for screenshots and
 # archiving, and Meilisearch for full-text search.
 #
-# Image: ghcr.io/karakeep-app/karakeep:0.33.2, pinned 2026-09-29 to the version
-# that was running (same digest as the `release` it replaced). Meilisearch is
-# v1.41.0, the version upstream's compose pins for this release, not the newest:
+# Image: ghcr.io/karakeep-app/karakeep by tag and digest (first pinned
+# 2026-09-29 to the `release` that was running). Meilisearch is the version
+# upstream's compose pins for the Karakeep release we run, not the newest:
 # Karakeep is only tested against that one. A new Meilisearch can't open an old
 # index; prepare.sh holds an existing one until KARAKEEP_SEARCH_UPGRADE_READY
 # is set (docs/image-upgrades.md).

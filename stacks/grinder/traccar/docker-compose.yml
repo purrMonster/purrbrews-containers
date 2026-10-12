@@ -8,7 +8,7 @@
 # The default login is admin/admin and can't be set from here. Change it on
 # the first visit.
 #
-# Image: traccar/traccar:6.16-alpine, by tag and digest (2026-10-10). It
+# Image: traccar/traccar, by tag and digest. It
 # migrates the H2 database on start: prepare.sh holds existing data until
 # TRACCAR_UPGRADE_READY is set (docs/image-upgrades.md).
 services:

@@ -1,6 +1,6 @@
 # NetAlertX — who is on the LAN: new-device alerts, presence, device inventory.
 #
-# Image: ghcr.io/netalertx/netalertx:26.10.0. Checked 2026-10-10.
+# Image: ghcr.io/netalertx/netalertx.
 # Based on NetAlertX's own hardened "baseline" compose file.
 services:
   netalertx:

@@ -15,8 +15,8 @@
 # from a private CA made once by prepare.sh, which Authelia trusts.
 # Upstream TLS is verified (`secure`), so the app password can't be intercepted.
 #
-# Image: boky/postfix:5.1.0-alpine by tag and digest, the latest release (2026-01,
-# checked 2026-10-12). Has its own healthcheck. Dependabot proposes bumps.
+# Image: boky/postfix by tag and digest; it has its own healthcheck.
+# Dependabot proposes bumps.
 services:
   mail-relay:
     image: boky/postfix:5.1.0-alpine@sha256:6e761312e833947f77af755072c0e77b67d298d127595470a79e9454008dd594

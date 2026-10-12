@@ -2,7 +2,7 @@
 # lands in Nextcloud, n8n picks it up and posts it here. Its own Postgres,
 # because every app on this fleet gets its own database.
 #
-# Image: fittrackee/fittrackee:v1.3.5, the tag upstream's compose pins. Not
+# Image: fittrackee/fittrackee, by tag and digest, as upstream's compose pins it. Not
 # `latest`: the image ships no default command (see below), so an untested
 # bump is exactly how this would break again.
 services:
