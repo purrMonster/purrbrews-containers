@@ -129,7 +129,7 @@ rendered `*/config/*`.
 ./compose.sh <app> pull && ./compose.sh <app> up -d     # after bumping a tag in git
 ./compose.sh <app> logs -f --tail 100
 ./compose.sh <app> ps
-git pull && ./setup-secrets.sh                          # picks up new keys, secrets, templates
+git fetch && git checkout <reviewed commit> && ./setup-secrets.sh   # new keys, secrets, templates
 sudo docker exec crowdsec cscli decisions list
 sudo docker exec crowdsec cscli decisions delete --ip <address>   # unban
 ```

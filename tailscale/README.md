@@ -77,7 +77,7 @@ roastery like any other key; the nodes pick it up within the hour.
 **3. Each node** (sudo is yours; one node at a time, at a terminal):
 
 ```bash
-cd /opt/purrbrews && git pull --ff-only          # or wait for the daily pull
+cd /opt/purrbrews && git fetch && git checkout <reviewed commit>   # docs/operations.md
 sudo bash init/purrbrews-init.sh --only tailscale
 ```
 

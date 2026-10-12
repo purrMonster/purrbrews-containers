@@ -196,7 +196,8 @@ Every image is pinned by tag and digest (a test fails otherwise), so nothing
 updates on its own, not even an upstream `main` or `latest`. [Dependabot](../.github/dependabot.yml) opens a pull request each Monday
 when a pinned image has a new version, one PR per image covering every node that
 runs it, after the release has been out a week. Merging changes nothing running:
-nodes pull `main`, and an app only moves on `./compose.sh <app> up -d`.
+nodes only fetch `main`, and an app moves when a reviewed commit is checked out
+on the node and deployed ([operations](../docs/operations.md)).
 
 - Read the release notes before merging. Pairs that must match arrive as separate
   PRs: Immich server with roastery's ML, Komodo Core with every Periphery (a test

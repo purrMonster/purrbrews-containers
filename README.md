@@ -34,7 +34,7 @@ flowchart LR
         N5["grinder<br/>.14"]
     end
     B -- "1 · bootstrap over pinned TLS" --> fleet
-    GH -- "2 · clone + daily pull (anonymous)" --> fleet
+    GH -- "2 · clone + daily fetch (anonymous)" --> fleet
     B -. "hourly SSH key sync" .-> fleet
 ```
 
@@ -45,7 +45,8 @@ flowchart LR
    its static IP and fixed MAC, clones this repo to `/opt/purrbrews` and sets up timers.
 3. **Run.** Each node brings up its own stacks from `stacks/<node>/`. Secrets are
    generated on the node and never leave it.
-4. **Stay current.** Nodes fast-forward the repo daily and re-sync SSH keys hourly.
+4. **Stay current.** Nodes fetch the repo daily and re-sync SSH keys hourly; a
+   reviewed commit is checked out and deployed by hand ([operations](docs/operations.md)).
    Adding or revoking a key is a one-line edit in one place.
 
 ## The fleet

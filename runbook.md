@@ -47,7 +47,48 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Apps over the tailnet: roll out in the order in the 2026-09-28 entry below
 - [ ] Bot identity for Claude's commits and pull requests: owner picks bot account or GitHub App, then the setup in the 2026-09-28 entry below
 - [ ] Roll out the 2026-10-12 image pins node by node (`./compose.sh --all pull`, then `up -d`): Pi-hole on mochaPot before sieve; Immich on percolator and roastery together; Nextcloud, Meilisearch, Traccar and Open WebUI only after their steps in `docs/image-upgrades.md` (each waits for its key in `.env.local`); alert-path test after sieve
+- [ ] Fetch-only timer on every Linux node: `git -C /opt/purrbrews pull --ff-only` once more (the helper installs from the checkout), then `sudo bash /opt/purrbrews/init/purrbrews-init.sh --only timers`, then `journalctl -u purrbrews-pull -n 5` shows `OK: fetched origin` (2026-10-12 reviewed-deployments entry); nodes keep pulling until then
 - [ ] roastery: `init\roastery-init.ps1` on the rebuilt PC from an elevated Windows PowerShell 5.1 (owner), after the repository is back from Drive; then the follow-ups it prints for the nodes, ticked here with what was seen (2026-10-12 init entry)
+
+---
+
+## 2026-10-12 — Reviewed deployments: nodes fetch `main`, they don't pull it
+
+From PR #23, split out as #29 and approved by the owner on 2026-10-12. It changes
+how the fleet gets changes: a merge to `main` no longer reaches a node's checkout
+by itself.
+
+- `init/lib/purrbrews-pull.sh` fetches instead of `git pull --ff-only`: a node's
+  checkout never moves unattended, and Git errors stay out of the journal (a
+  remote URL with credentials would land there). The timer keeps its name.
+- `scripts/fleet.py`: `validate` / `plan <node>` (read-only) and
+  `deploy <node> --release <full commit> --acknowledge-prerequisites`, run on that
+  node as barista: refuses the wrong host or OS, root, a dirty checkout or another
+  commit; one lock per node; setup → firewall → each app `up -d --wait` in
+  `node.conf` order; keeps replaced images for rollback; a per-phase record in
+  `.fleet/` (`status`). `fleet.json` adds each node's platform, tier, optional
+  apps (cellar's smb, persian-perch) and prerequisites.
+- `docs/operations.md`: the release workflow, recovery, proposed recovery targets.
+  Docs that said "nodes pull `main`" or "wait for the daily pull" now say fetch
+  and check out a reviewed commit (image-upgrades, stacks, persian-perch,
+  percolator, tailscale, init, Dependabot's header, CI's header).
+
+Left out of #23's version: per-node `scripts/run.sh` wrappers and the moves of
+`enable-dhcp.sh` / `lldap-bootstrap.sh` into `scripts/` (pure moves), the
+Gitleaks note (not in CI), backup records without journal text (affects
+persianPerch; separate).
+
+Worth knowing: after `git checkout <commit>` a node is on a detached HEAD. The
+fetch timer doesn't mind; `purrbrews-init.sh --only repo` still tries
+`pull --ff-only` there, fails, warns and leaves the checkout as it is.
+
+Checked: `fleet.py validate` (6 nodes, 50 apps) and `plan` for every node in WSL
+Debian; the full suite there (the 2 `git check-ignore` failures are WSL on a
+Windows worktree, as on `main`); shellcheck. Nothing deployed.
+
+**Not live until each node's timer helper is reinstalled** (Backlog line); until
+then that node keeps pulling. To undo: revert the merge commit, and reinstall the
+helper on any node that already has the new one.
 
 ---
 

@@ -13,8 +13,9 @@ To pin something by hand, `python3 scripts/images.py <image:tag> …` asks the
 public registry for the digest without credentials, pulls or containers. A
 resolvable digest proves the image exists, not that it works with our data.
 
-Merging a PR changes nothing on a node: nodes pull `main` daily, but nothing
-restarts until `./compose.sh <app> up -d` on that node.
+Merging a PR changes nothing on a node: nodes only fetch `main` daily, and a
+node moves when a reviewed commit is checked out and deployed there
+([operations](operations.md)).
 
 ## Images that move together
 

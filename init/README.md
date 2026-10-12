@@ -16,7 +16,7 @@ init/
     ├── net-apply.sh               static IP + MAC switch with automatic rollback
     ├── sync-ssh-keys.sh           key sync from roastery (pinned), hourly timer
     ├── windows-runtime.ps1        roastery-init: Traefik's admin-only runtime under Program Files
-    └── purrbrews-pull.sh          daily fast-forward of /opt/purrbrews (anonymous, public repo)
+    └── purrbrews-pull.sh          daily fetch; the checkout stays where it is (anonymous, public repo)
 ```
 
 roastery isn't a Debian node and doesn't go through `purrbrews-init.sh`; its own
@@ -121,7 +121,7 @@ Each run is logged to `/var/log/purrbrews/init-*.log`.
 ```bash
 systemctl list-timers 'purrbrews-*'
 journalctl -u purrbrews-ssh-keys -n 20      # key syncs ("UNREACHABLE" = roastery asleep, harmless)
-journalctl -u purrbrews-pull -n 20          # repo pulls
+journalctl -u purrbrews-pull -n 20          # daily fetches
 cat /var/log/purrbrews/net-apply.log        # IP/MAC switches and rollbacks
 sudo /usr/local/lib/purrbrews/sync-ssh-keys.sh --dry-run
 ```
@@ -132,7 +132,7 @@ sudo /usr/local/lib/purrbrews/sync-ssh-keys.sh --dry-run
   reservation that was keyed on the old MAC.
 - **Public repo:** nodes need no credentials to pull, so nothing expires — but nothing
   secret may ever be committed. The script refuses a `GITHUB_TOKEN` or a URL with
-  credentials. Set `PULL_HEALTHCHECK_URL` so a silently failing pull still alerts you.
+  credentials. Set `PULL_HEALTHCHECK_URL` so a silently failing fetch still alerts you.
 - **`AllowUsers barista`** locks the installer account out of SSH (the console still
   works). Add it to `SSH_ALLOW_USERS` if you want to keep it.
 - **`bad interpreter: /bin/bash^M`** means CRLF line endings. The repo forces LF; the

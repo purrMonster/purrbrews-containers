@@ -18,6 +18,7 @@ _Last updated: 2026-10-12_
 | [`tailscale/README.md`](../tailscale/README.md) | Remote access: SSH to the nodes and RDP to roastery over the tailnet |
 | [`docs/flask.md`](flask.md) | flask, the offline recovery kit: what's on it, which secrets, how it's kept |
 | [`stacks/README.md#updates`](../stacks/README.md#updates) | How image updates arrive (Dependabot PRs, weekly) and old images are cleaned up |
+| [`docs/operations.md`](operations.md) | Deploying a reviewed commit (`scripts/fleet.py`), recovery, proposed recovery targets |
 | [`docs/image-upgrades.md`](image-upgrades.md) | Tag-and-digest pins, paired images, and the upgrades held until acknowledged (Nextcloud, Meilisearch, Traccar, Open WebUI) |
 | [`.github/`](../.github) | Dependabot's update PRs, and the tests run on every PR and push to `main` |
 
