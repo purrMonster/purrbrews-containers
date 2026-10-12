@@ -86,7 +86,7 @@ class DNS(unittest.TestCase):
 
     def test_actual_routes(self):
         lines, hosts = dns.records(ROOT, 'example.test', io.StringIO(FLEET), '192.168.0.20 roastery')
-        for host, ip in [('authelia', 11), ('komodo', 12), ('homeassistant', 13), ('n8n', 14), ('pihole', 10), ('ollama', 20)]:
+        for host, ip in [('authelia', 11), ('opencloud', 11), ('radicale', 11), ('komodo', 12), ('homeassistant', 13), ('n8n', 14), ('pihole', 10), ('ollama', 20)]:
             self.assertIn(f'address=/{host}.example.test/192.168.0.{ip}', lines)
             self.assertIn(f'local=/{host}.example.test/', lines)
         self.assertIn('filter-AAAA', lines)
@@ -906,6 +906,108 @@ class RemoteAccess(unittest.TestCase):
         self.assertIn("$Tailnet = '100.64.0.0/10'", script)
         self.assertIn('-LocalPort 3389 -RemoteAddress $from', script)
         self.assertIn('UserAuthentication -Value 1', script)   # Network Level Authentication
+
+
+class FileAndDAVReplacement(unittest.TestCase):
+    """Retirement, public-client boundaries and safe first-start invariants."""
+
+    def test_retired_app_name_only_occurs_in_runbook(self):
+        # Git's authored inputs include new files but exclude local credentials,
+        # caches and preserved artifacts from other branches. Split the needle
+        # so the guard does not introduce the retired name itself.
+        needle = b'next' + b'cloud'
+        names = subprocess.check_output(
+            ['git', '-C', str(ROOT), 'ls-files', '-co', '--exclude-standard', '-z'])
+        for name in set(names.decode().split('\0')):
+            path = ROOT / name
+            if not name or name == 'runbook.md' or not path.is_file():
+                continue
+            self.assertNotIn(needle, name.lower().encode(), name)
+            self.assertNotIn(needle, path.read_bytes().lower(), name)
+
+    @unittest.skipUnless(yaml, 'needs PyYAML')
+    def test_public_clients_keep_pkce_and_bot_deny_precedence(self):
+        config = yaml.safe_load((STACKS / 'percolator/authelia/config/configuration.yml.template').read_text())
+        oidc = config['identity_providers']['oidc']
+        clients = [c for c in oidc['clients'] if c['client_id'].startswith('opencloud')]
+        self.assertEqual({c['client_id'] for c in clients},
+                         {'opencloud', 'opencloud-ios', 'opencloud-desktop', 'opencloud-android'})
+        for client in clients:
+            self.assertTrue(client['public'])
+            self.assertNotIn('client_secret', client)
+            self.assertTrue(client['require_pkce'])
+            self.assertEqual(client['pkce_challenge_method'], 'S256')
+            self.assertEqual(client['token_endpoint_auth_method'], 'none')
+            self.assertEqual(client['authorization_policy'], 'opencloud')
+            self.assertEqual(set(client['grant_types']), {'authorization_code', 'refresh_token'})
+        policies = oidc['authorization_policies']
+        deny = policies['household']['rules'][0]
+        self.assertEqual(deny, {'policy': 'deny', 'subject': ['group:opencloud_bot_accounts']})
+        self.assertEqual(policies['opencloud']['default_policy'], 'deny')
+        self.assertEqual(policies['opencloud']['rules'][1]['policy'], '${AUTH_POLICY}')
+        mapping = yaml.safe_load((STACKS / 'percolator/opencloud/config/proxy.yaml.template').read_text())
+        self.assertEqual(mapping['role_assignment']['oidc_role_mapper']['role_mapping'], [
+            {'role_name': 'admin', 'claim_value': '${LLDAP_ADMIN_GROUP}'},
+            {'role_name': 'user', 'claim_value': '${LLDAP_HOUSEHOLD_GROUP}'}])
+
+    def test_dav_reader_is_separate_and_household_scoped(self):
+        import configparser
+        cfg = configparser.ConfigParser(interpolation=None)
+        cfg.read(STACKS / 'percolator/radicale/config/config.template')
+        auth = cfg['auth']
+        self.assertEqual(auth['type'], 'ldap')
+        self.assertTrue(auth['ldap_reader_dn'].startswith('uid=radicale-reader,'))
+        self.assertIn('(uid={0})', auth['ldap_filter'])
+        self.assertIn('(memberOf=cn=${LLDAP_HOUSEHOLD_GROUP},ou=groups,${LDAP_BASE_DN})', auth['ldap_filter'])
+        self.assertEqual(auth['ldap_user_attribute'], 'uid')
+        self.assertNotIn('ldap_secret', auth)
+        self.assertEqual(auth['ldap_secret_file'], '/run/secrets/ldap-password')
+        self.assertGreaterEqual(float(auth['delay']), 1)
+        self.assertEqual(cfg['rights']['type'], 'owner_only')
+
+    def test_initialization_never_replaces_existing_identity_state(self):
+        source = (STACKS / 'percolator/opencloud/start.sh').read_text()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_dir, data_dir = root / 'config', root / 'data'
+            config_dir.mkdir()
+            data_dir.mkdir()
+            config = config_dir / 'opencloud.yaml'
+            calls = root / 'calls'
+            binary = root / 'opencloud'
+            binary.write_text('#!/bin/sh\n'
+                              'echo "$1" >> "$CALLS"\n'
+                              'if [ "$1" = init ]; then\n'
+                              '  [ "${FAIL_INIT:-0}" = 0 ] || exit 23\n'
+                              '  echo preserved-identity > "$CONFIG"\n'
+                              'fi\n')
+            binary.chmod(0o755)
+            script = root / 'start.sh'
+            script.write_text(source.replace('/etc/opencloud', str(config_dir))
+                              .replace('/var/lib/opencloud', str(data_dir)))
+            env = dict(os.environ, PATH=f"{root}:{os.environ['PATH']}",
+                       CALLS=str(calls), CONFIG=str(config))
+
+            def run(**extra):
+                return subprocess.run(['sh', str(script)], env=dict(env, **extra),
+                                      capture_output=True, text=True)
+
+            self.assertEqual(run().returncode, 0)
+            self.assertEqual(calls.read_text().splitlines(), ['init', 'server'])
+            self.assertEqual(run().returncode, 0)
+            self.assertEqual(calls.read_text().splitlines(), ['init', 'server', 'server'])
+            self.assertEqual(config.read_text(), 'preserved-identity\n')
+            config.unlink()
+            (data_dir / 'existing').touch()
+            self.assertNotEqual(run().returncode, 0)
+            self.assertFalse(config.exists())
+            config.touch()
+            self.assertNotEqual(run().returncode, 0)
+            self.assertEqual(calls.read_text().splitlines(), ['init', 'server', 'server'])
+            config.unlink()
+            (data_dir / 'existing').unlink()
+            self.assertEqual(run(FAIL_INIT='1').returncode, 23)
+            self.assertEqual(calls.read_text().splitlines(), ['init', 'server', 'server', 'init'])
 
 
 class Tunnel(unittest.TestCase):

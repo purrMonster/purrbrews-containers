@@ -46,9 +46,6 @@ ingress:
   - hostname: opencloud.${DOMAIN}
     service: https://${PERCOLATOR_LAN_IP}:443
     originRequest: {originServerName: opencloud.${DOMAIN}}
-  - hostname: nextcloud.${DOMAIN}
-    service: https://${PERCOLATOR_LAN_IP}:443
-    originRequest: {originServerName: nextcloud.${DOMAIN}}
   - hostname: paperless.${DOMAIN}
     service: https://${PERCOLATOR_LAN_IP}:443
     originRequest: {originServerName: paperless.${DOMAIN}}

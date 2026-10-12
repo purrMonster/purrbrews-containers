@@ -12,9 +12,9 @@
 #     immich-app/immich-machine-learning (roastery): same version, always.
 #   - moghtech/komodo-core and moghtech/komodo-periphery: same version.
 # Database images never get major bumps here (see ignore): a major Postgres,
-# Mongo or Redis upgrade is a dump-and-restore, done by hand. Nor Nextcloud:
-# it can only go up one major at a time, and a PR would skip straight to
-# the newest. Names below are Dependabot's: the image without its registry
+# Mongo or Redis upgrade is a dump-and-restore, done by hand. OpenCloud majors
+# also need a reviewed migration and restore plan. The directory wildcard covers
+# OpenCloud and Radicale. Names below omit the registry
 # (checked against its parser, 2026-10-08).
 version: 2
 updates:
@@ -51,7 +51,7 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "valkey/valkey"
         update-types: ["version-update:semver-major"]
-      - dependency-name: "nextcloud"
+      - dependency-name: "opencloudeu/opencloud-rolling"
         update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "deps"

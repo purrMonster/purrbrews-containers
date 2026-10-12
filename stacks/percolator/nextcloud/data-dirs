@@ -1,3 +1,0 @@
-# <path under DATA_DIR> <uid>:<gid> [mode]. PUID:PGID is the ops user.
-nextcloud/html 33:33 750
-nextcloud/postgres 0:0 700
