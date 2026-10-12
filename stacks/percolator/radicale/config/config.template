@@ -7,7 +7,7 @@ hosts = 0.0.0.0:5232
 type = ldap
 ldap_uri = ldap://lldap:3890
 ldap_base = ou=people,${LDAP_BASE_DN}
-ldap_reader_dn = uid=radicale-reader,ou=people,${LDAP_BASE_DN}
+ldap_reader_dn = uid=scottishfold,ou=people,${LDAP_BASE_DN}
 ldap_secret_file = /run/secrets/ldap-password
 ldap_filter = (&(uid={0})(memberOf=cn=${LLDAP_HOUSEHOLD_GROUP},ou=groups,${LDAP_BASE_DN}))
 ldap_user_attribute = uid

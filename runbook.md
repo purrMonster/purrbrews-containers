@@ -57,19 +57,50 @@ changes can be made later without re-deriving the reasoning.
 
 
 - [ ] (owner) On percolator **before pulling the removal**, run `./compose.sh nextcloud down --remove-orphans`; inspect `docker ps -a` and `docker volume ls`, remove only confirmed leftover project containers/volumes. Keep `/srv/data/nextcloud`; restic snapshots keep their retention.
-- [ ] (owner) LLDAP UI → Users/Groups: create `radicale-reader` with only `lldap_strict_readonly`; rename `nextcloud_bot_accounts` to `opencloud_bot_accounts`; verify all human admins are in `${LLDAP_HOUSEHOLD_GROUP}`. Keep bots out of admin groups; see the OpenCloud README for their user-role prerequisite.
+- [ ] (owner) LLDAP UI → Users/Groups: create `scottishfold` (Radicale's read-only bind) with only `lldap_strict_readonly`; rename `nextcloud_bot_accounts` to `opencloud_bot_accounts`; create the GPX bot `pixiebob` in `opencloud_bot_accounts` and `${LLDAP_HOUSEHOLD_GROUP}`; verify all human admins are in `${LLDAP_HOUSEHOLD_GROUP}`. Keep bots out of admin groups; see the OpenCloud README for their user-role prerequisite.
 - [ ] (owner) After review/merge, percolator: `git fetch origin`, `git checkout --detach <reviewed-commit>`, `./setup-secrets.sh` (paste reader password), `./render-configs.sh`, `./compose.sh authelia up -d --force-recreate`, `./compose.sh radicale up -d`, then OpenCloud README initialization and `./compose.sh opencloud up -d`. Check each app's README, including admin and household logins. The repository now matches the guide's tested OpenCloud 7.2.4 / Authelia 4.39.28.
 - [ ] (owner) Cloudflare dashboard → Zero Trust → Networks → Tunnels → published application routes: remove nextcloud; add `opencloud.${DOMAIN}` and `radicale.${DOMAIN}` to percolator HTTPS with matching SNI. The live tunnel is dashboard-managed. Test a file over 1 GB using the OpenCloud clients.
 - [ ] (owner) sieve: `git fetch origin`, `git checkout --detach <reviewed-commit>`, `./render-configs.sh`, `./compose.sh gatus up -d --force-recreate`; confirm both checks and deliberately test the ntfy alert/recovery path. On sieve **and** mochaPot render and `./compose.sh pihole up -d` to publish LAN DNS.
 - [ ] (owner) iPhone: sign in to OpenCloud, enable its Files location, add CalDAV and CardDAV accounts at `radicale.${DOMAIN}` with LLDAP credentials; install Mac/Windows clients and verify Windows virtual files.
 - [ ] (owner) Percolator: `sudo ./backup.sh nightly`, then `sudo ./backup.sh restic snapshots`; restore the selected snapshot to an isolated target with `sudo ./backup.sh restic restore <snapshot-id> --target <isolated-directory>`. Follow the OpenCloud README restore rehearsal before trusting it; test Radicale collections too.
-- [ ] (owner) n8n UI on grinder: repoint the GPX WebDAV workflow to an OpenCloud folder with a dedicated bot app token; the workflow belongs to its own repo. Revoke obsolete credentials after verification.
+- [ ] (owner) n8n UI on grinder: repoint the GPX WebDAV workflow to an OpenCloud folder with a `pixiebob` app token; the workflow belongs to its own repo. Revoke obsolete credentials after verification.
 - [ ] (owner) Decide when `/srv/data/nextcloud` may be deleted; no deletion is part of this repository change.
 
 - [ ] (owner) Before publishing DAV, inspect `sudo docker exec crowdsec cscli collections list` and `sudo docker exec crowdsec cscli scenarios list`, then test repeated failed PROPFIND/GET requests from a non-whitelisted test address. The configured Traefik collection includes generic HTTP brute force, but its 401 scenario is POST-only. No stock all-method DAV scenario was found in the upstream Hub; proposal: review a scoped Radicale 401 scenario and ban/recovery test. Do not claim the stock collection protects DAV password attempts.
 - [x] (owner) GPX bot Radicale access accepted on 2026-10-13 in this session: household membership permits authentication, while `owner_only` limits access to its own collections.
-- [ ] (owner) Keep the GPX bot out of admin groups, limit OpenCloud shares, and verify DAV isolation plus app-token expiry/revocation; disabling LLDAP alone does not revoke tokens.
+- [ ] (owner) Keep the GPX bot `pixiebob` out of admin groups, limit OpenCloud shares, and verify DAV isolation plus app-token expiry/revocation; disabling LLDAP alone does not revoke tokens.
+- [ ] (owner) persianPerch's Gatus account `ocicat` → `sphynx` (2026-10-13 entry): LLDAP UI, create `sphynx` with a new password, only in `perch_api_group`; on cellar set `PERCH_GLARE_USER=sphynx` and the new `PERCH_GLARE_PASSWORD` in `persian-perch/secrets.env.local` by hand (setup keeps existing values), `./compose.sh persian-perch up -d --force-recreate`, check that perch's glare feed still reads Gatus; then delete `ocicat` in LLDAP. Also rename it in persianPerch's own `integration/ROLLOUT.md` (its repo)
 - [ ] (owner) Update flask with the six OpenCloud recovery credentials and Radicale reader password (`fill-vault.ps1` after deployment), plus a protected attachment of generated `opencloud/config/opencloud.yaml`; retain the matching full config/data backup.
+
+---
+
+## 2026-10-13 — Bots have cat names: scottishfold, pixiebob, sphynx
+
+Every bot or service account on the fleet gets a cat-breed name that suits its
+job, never a functional one. #43 broke this: Codex named Radicale's LDAP bind
+account `radicale-reader` and left the GPX bot unnamed (`<bot>`). The owner
+picked the names:
+
+| Account | Job | Was |
+|---|---|---|
+| `scottishfold` | Radicale's read-only LDAP bind (`lldap_strict_readonly`); chosen as the studious one | `radicale-reader` |
+| `pixiebob` | the GPX bot: an OpenCloud app token that n8n reads ride tracks with | unnamed |
+| `sphynx` | persianPerch's Gatus API account (`perch_api_group`) | `ocicat` |
+
+Changed: Radicale's `config.template` (bind DN), its `secrets.conf` prompt, its
+README and the test that checks the bind DN; the OpenCloud README's bot section
+and `auth-app create` command; persian-perch's `secrets.conf` (`PERCH_GLARE_USER`)
+and README; the Backlog steps above. Dated entries below keep the old names, as
+they were written then. AGENTS.md now states the rule (under Nodes), so the next
+agent doesn't repeat the miss.
+
+`scottishfold` and `pixiebob` don't exist on any node yet, so nothing running
+changes. `sphynx` does: cellar keeps `PERCH_GLARE_USER=ocicat` until its
+`secrets.env.local` is edited, because setup never overwrites a value that's
+already set. The Backlog step does that swap and deletes `ocicat` after.
+
+Undo: revert this commit. For perch, put `ocicat` back in cellar's secrets
+file, as long as `ocicat` hasn't been deleted from LLDAP yet.
 
 ---
 

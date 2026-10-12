@@ -1007,7 +1007,7 @@ class FileAndDAVReplacement(unittest.TestCase):
         cfg.read(STACKS / 'percolator/radicale/config/config.template')
         auth = cfg['auth']
         self.assertEqual(auth['type'], 'ldap')
-        self.assertTrue(auth['ldap_reader_dn'].startswith('uid=radicale-reader,'))
+        self.assertTrue(auth['ldap_reader_dn'].startswith('uid=scottishfold,'))
         self.assertIn('(uid={0})', auth['ldap_filter'])
         self.assertIn('(memberOf=cn=${LLDAP_HOUSEHOLD_GROUP},ou=groups,${LDAP_BASE_DN})', auth['ldap_filter'])
         self.assertEqual(auth['ldap_user_attribute'], 'uid')
