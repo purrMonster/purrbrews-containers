@@ -1,10 +1,10 @@
 # render-mode: 0644
-# Rendered by ../../render-configs.sh — edit the .template. Nothing secret in
+# Rendered by ../../render-configs.sh â€” edit the .template. Nothing secret in
 # here, and cloudflared runs as a non-root user, so the rendered file is 0644.
 #
 # The tunnel's public routes, in Git instead of the Cloudflare dashboard
 # (a locally-managed tunnel). Not wired in yet: docker-compose.yml still runs
-# the token-based tunnel. What's left is in ../README.md → "Moving to this file".
+# the token-based tunnel. What's left is in ../README.md â†’ "Moving to this file".
 #
 # Which apps are here: every Traefik route in the repo except the hosts in
 # Authelia's admin-only list (percolator/authelia/config/configuration.yml.template,
@@ -23,12 +23,12 @@
 credentials-file: /etc/cloudflared/credentials.json
 
 ingress:
-  # ── sieve ──────────────────────────────────────────────────────────────────
+  # â”€â”€ sieve â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   # Straight to the container, so phones get alerts even if Traefik is down.
   - hostname: ntfy.${DOMAIN}
     service: http://ntfy:8080
 
-  # ── percolator: identity and the daily apps ───────────────────────────────
+  # â”€â”€ percolator: identity and the daily apps â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   # Authelia's portal has to be public for any protected app to be: every
   # login redirect lands here.
   - hostname: authelia.${DOMAIN}
@@ -40,6 +40,9 @@ ingress:
   - hostname: immich.${DOMAIN}
     service: https://${PERCOLATOR_LAN_IP}:443
     originRequest: {originServerName: immich.${DOMAIN}}
+  - hostname: radicale.${DOMAIN}
+    service: https://${PERCOLATOR_LAN_IP}:443
+    originRequest: {originServerName: radicale.${DOMAIN}}
   - hostname: nextcloud.${DOMAIN}
     service: https://${PERCOLATOR_LAN_IP}:443
     originRequest: {originServerName: nextcloud.${DOMAIN}}
@@ -72,7 +75,7 @@ ingress:
   #   service: https://${PERCOLATOR_LAN_IP}:443
   #   originRequest: {originServerName: lldap.${DOMAIN}}
 
-  # ── mochaPot: the house ────────────────────────────────────────────────────
+  # â”€â”€ mochaPot: the house â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   # Home Assistant has its own login, no Authelia in front (the app needs that).
   - hostname: homeassistant.${DOMAIN}
     service: https://${MOCHAPOT_LAN_IP}:443
@@ -81,7 +84,7 @@ ingress:
     service: https://${MOCHAPOT_LAN_IP}:443
     originRequest: {originServerName: music.${DOMAIN}}
 
-  # ── grinder: automation and the rest ──────────────────────────────────────
+  # â”€â”€ grinder: automation and the rest â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   - hostname: chat.${DOMAIN}
     service: https://${GRINDER_LAN_IP}:443
     originRequest: {originServerName: chat.${DOMAIN}}

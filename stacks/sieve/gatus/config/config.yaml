@@ -1,15 +1,15 @@
-# Gatus — sieve's view of the fleet.
+# Gatus â€” sieve's view of the fleet.
 #
 # ${VARS} come from the container environment (see ../docker-compose.yml).
 # Add an endpoint here when a stack lands on another node.
 #
 # Alert routing:
-#   ntfy    → self-hosted ntfy on sieve, topic NTFY_ALERT_TOPIC. Everyday alerts.
+#   ntfy    â†’ self-hosted ntfy on sieve, topic NTFY_ALERT_TOPIC. Everyday alerts.
 #             (Straight to the container, not through Traefik, so a broken proxy
 #             can still report itself.)
-#   custom  → public ntfy.sh, topic NTFY_CRITICAL_TOPIC. For failures that stop the
+#   custom  â†’ public ntfy.sh, topic NTFY_CRITICAL_TOPIC. For failures that stop the
 #             self-hosted path from reaching a phone: ntfy itself, the tunnel.
-#   Nothing on sieve can report sieve being down — healthchecks.io does that.
+#   Nothing on sieve can report sieve being down â€” healthchecks.io does that.
 
 storage:
   type: sqlite
@@ -84,15 +84,15 @@ alerting:
       ALERT_TRIGGERED_OR_RESOLVED:
         # The emoji live here, not in a fixed tag, so a recovery doesn't look
         # like an outage on a lock screen.
-        TRIGGERED: "🚨 DOWN"
-        RESOLVED: "✅ back up"
+        TRIGGERED: "ðŸš¨ DOWN"
+        RESOLVED: "âœ… back up"
     default-alert:
       failure-threshold: 3
       success-threshold: 2
       send-on-resolved: true
 
 endpoints:
-  # ── Dead man's switch ─────────────────────────────────────────────────────
+  # â”€â”€ Dead man's switch â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   # Not a check: each run pings healthchecks.io. If sieve, Gatus or the internet
   # connection dies, the pings stop and healthchecks.io alerts on its own.
   - name: healthchecks.io heartbeat
@@ -102,8 +102,8 @@ endpoints:
     conditions:
       - "[STATUS] == 200"
 
-  # ── Network (sieve) ───────────────────────────────────────────────────────
-  - name: pihole → unbound (recursion)
+  # â”€â”€ Network (sieve) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  - name: pihole â†’ unbound (recursion)
     group: network
     url: ${NODE_IP}
     interval: 1m
@@ -114,7 +114,7 @@ endpoints:
       - "[DNS_RCODE] == NOERROR"
     alerts:
       - type: ntfy
-        description: LAN DNS is failing — clients will stall
+        description: LAN DNS is failing â€” clients will stall
 
   - name: pihole local override
     group: network
@@ -195,7 +195,7 @@ endpoints:
       - "[STATUS] == 200"
     alerts:
       - type: ntfy
-        description: sieve's reverse proxy is down — its web UIs are unreachable
+        description: sieve's reverse proxy is down â€” its web UIs are unreachable
 
   # Resolved through Pi-hole, like a LAN client. Checks the certificate and that
   # SSO answers: an unauthenticated request must be refused or sent to Authelia
@@ -223,7 +223,7 @@ endpoints:
       - "[STATUS] == 200"
     alerts:
       - type: custom
-        description: tunnel down — nothing is reachable from outside
+        description: tunnel down â€” nothing is reachable from outside
 
   - name: ntfy
     group: network
@@ -234,7 +234,7 @@ endpoints:
       - "[BODY].healthy == true"
     alerts:
       - type: custom
-        description: self-hosted ntfy is down — routine alerts can't be delivered
+        description: self-hosted ntfy is down â€” routine alerts can't be delivered
 
   - name: ntfy (public)
     group: network
@@ -250,7 +250,7 @@ endpoints:
       - "[BODY].healthy == true"
     alerts:
       - type: custom
-        description: ntfy isn't reachable through the tunnel — phones away from home get nothing
+        description: ntfy isn't reachable through the tunnel â€” phones away from home get nothing
 
   - name: netalertx
     group: network
@@ -281,7 +281,7 @@ endpoints:
       - type: ntfy
         description: no internet from sieve
 
-  # ── Fleet ─────────────────────────────────────────────────────────────────
+  # â”€â”€ Fleet â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   # Node reachability, all four enabled 2026-09-29. roastery stays out: it sleeps
   # and wakes by Wake-on-LAN, so a ping would alert every night. Add each node's
   # app checks here as its stacks land.
@@ -313,7 +313,7 @@ endpoints:
     conditions: ["[CONNECTED] == true"]
     alerts: [{type: ntfy}]
 
-  # ── persianPerch (cellar) ─────────────────────────────────────────────────
+  # â”€â”€ persianPerch (cellar) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   # perch watches everything else; these two watch perch. /healthz is allowed from the fleet's node
   # addresses (sieve is one) without Authelia; the page itself must still be behind it.
   - name: perch
@@ -345,7 +345,7 @@ endpoints:
       - type: ntfy
         description: perch.${DOMAIN} is answering without a login, or its certificate is about to expire
 
-  # ── Every app, end to end ─────────────────────────────────────────────────
+  # â”€â”€ Every app, end to end â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   # What the household actually opens, the way a browser on the LAN does:
   # Pi-hole's record, the node's Traefik and certificate, the router, and the
   # app (or Authelia) behind it. Each node's container healthchecks say a
@@ -365,6 +365,7 @@ endpoints:
   - {<<: *own-login, group: "apps: percolator", name: lldap, url: "https://lldap.${DOMAIN}/"}
   - {<<: *own-login, group: "apps: percolator", name: vaultwarden, url: "https://vault.${DOMAIN}/"}
   - {<<: *behind-sso, group: "apps: percolator", name: vaultwarden admin, url: "https://vault.${DOMAIN}/admin"}
+  - {<<: *own-login, group: "apps: percolator", name: radicale, url: "https://radicale.${DOMAIN}/"}
   - {<<: *own-login, group: "apps: percolator", name: nextcloud, url: "https://nextcloud.${DOMAIN}/"}
   - {<<: *own-login, group: "apps: percolator", name: immich, url: "https://immich.${DOMAIN}/"}
   - {<<: *own-login, group: "apps: percolator", name: paperless, url: "https://paperless.${DOMAIN}/"}
