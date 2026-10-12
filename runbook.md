@@ -46,6 +46,58 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Tunnel from Git: two-factor in Authelia first, then the switch in `stacks/sieve/cloudflared/README.md` (2026-09-28 entry below)
 - [ ] Apps over the tailnet: roll out in the order in the 2026-09-28 entry below
 - [ ] Bot identity for Claude's commits and pull requests: owner picks bot account or GitHub App, then the setup in the 2026-09-28 entry below
+- [ ] Roll out the 2026-10-12 image pins node by node (`./compose.sh --all pull`, then `up -d`): Pi-hole on mochaPot before sieve; Immich on percolator and roastery together; Nextcloud, Meilisearch, Traccar and Open WebUI only after their steps in `docs/image-upgrades.md` (each waits for its key in `.env.local`); alert-path test after sieve
+
+---
+
+## 2026-10-12 — Every image pinned by tag and digest; four upgrades held behind a gate
+
+The image part of PR #23 (`codex/code-sanitization`), split out, reviewed and
+reworked at the owner's request; the rest of #23 goes in its own PRs. Nothing on
+any node changed: this is the repo only, and nodes don't restart on a pull.
+
+What changed:
+
+- Every registry image in Compose files, both Dockerfiles and the restore test
+  is now `name:tag@sha256:…`, at the versions #23 checked on 2026-10-10 (Authelia
+  4.39.28, Immich 3.3.1, Nextcloud 35.0.1, n8n 2.42.6, Paperless 3.3.0, Pi-hole
+  2026.09.0, Traccar 6.16, Komodo 2.3.3, Scrutiny 0.9.5 and the rest). Unbound
+  and Samba, which only publish `main`/`latest`, are now fixed by digest too.
+  This also covers all ten open Dependabot PRs (#10, #12, #15–#22), same or newer.
+- Meilisearch goes to **v1.41.0**, not #23's 1.54.3: v1.41.0 is what Karakeep's
+  own compose pins for 0.33.2 (and on its `main`), checked 2026-10-12.
+- Karakeep's browser is upstream's `karakeep-chrome`, configured as upstream does.
+- `stacks/_lib/upgrade-gate.sh`, called from `prepare.sh` for Nextcloud,
+  Meilisearch, Traccar and Open WebUI: with existing data, `compose.sh up`
+  refuses a version not acknowledged in `.env.local` (keys and steps in
+  `docs/image-upgrades.md`). Unlike #23's version (which fixed the value in the
+  script), the gate reads the pinned version from the compose file, so every
+  later bump, Dependabot's included, closes it again.
+- #23's `image-lock.json` (848 lines) left out: the digests are already in the
+  compose files, and a lock Dependabot can't update would fail every one of its
+  PRs. Tests now require tag + digest everywhere, one digest per tag, and the
+  pairs on one version (Immich, Komodo, Scrutiny, Pi-hole).
+- Fixed from #23: 20 compose files whose dashes and arrows had been
+  double-encoded (UTF-8 read as Windows-1252), now with a test against it;
+  comments that went stale (n8n's "the version that was running", Unbound's
+  reasoning, "Checked" dates).
+- #23's `stacks/_shared/` (Periphery and the collector via `extends`) left out
+  too: Dependabot's `/stacks/*/*` never looked there, so those images would have
+  stopped getting PRs. The per-node copies stay, and a test now requires them
+  to be identical apart from each node's disks, which is the drift #23 was after.
+- Dependabot also watches `bootstrap/Dockerfile`. CI's apt step has its own
+  5-minute limit and retries (a hung mirror timed out #18's run with no tests run).
+
+Checked: the full suite in WSL Debian, 70 passed, 4 skipped; the 2 failures are
+`git check-ignore` not reading a Windows worktree from WSL, and fail the same on
+`main`. shellcheck clean on the new scripts. Digest for meilisearch v1.41.0 from
+`scripts/images.py`; the others are #23's, unchanged.
+
+To undo: revert the merge commit. Nodes that already ran the new images need
+their data restored from before (docs/image-upgrades.md); the image alone
+doesn't go back.
+
+**Next:** the rollout, node by node, in the Backlog line.
 
 ---
 

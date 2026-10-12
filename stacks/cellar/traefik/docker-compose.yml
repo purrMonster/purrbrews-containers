@@ -6,11 +6,11 @@
 # Authelia or Traefik is down: Komodo still has its own login there,
 # Scrutiny has none (see its compose file).
 #
-# Image: traefik:v3.7.13. v3.2's Docker client was too old for the upgraded
+# Image: traefik:v3.7.14. v3.2's Docker client was too old for the upgraded
 # engine ("client version 1.24 is too old") and the docker provider looped.
 services:
   traefik:
-    image: traefik:v3.7.13
+    image: traefik:v3.7.14@sha256:575fa15b135078fe5e50aa847987d96dbddd7b093c172429618404df73f3fa7c
     container_name: traefik
     command:
       - --configFile=/etc/traefik/traefik.yml
