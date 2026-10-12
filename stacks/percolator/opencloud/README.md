@@ -63,7 +63,8 @@ preserved with that config/data pair. Recreating them is not a restore.
 ## GPX bot over WebDAV
 
 The n8n workflow on grinder belongs to its own repo. Here the supported pattern
-is an LLDAP account in `opencloud_bot_accounts`, never the admin group. It also
+is an LLDAP account in `opencloud_bot_accounts`, never the admin group: `pixiebob`
+(the fleet's bots have cat names). It also
 needs `${LLDAP_HOUSEHOLD_GROUP}` for the **user** role: the special bot group is
 an Authelia policy boundary, not a third OpenCloud role. The `household` OIDC
 policy still denies bots before its human allow rules. This extra membership
@@ -74,9 +75,9 @@ Give the bot only the GPX folder/share it needs; do not share household roots.
 Sign in as the bot through the `opencloud` OIDC policy once to provision it.
 OpenCloud 7.2.4's auth-app service supports app tokens and is enabled by default.
 An operator can issue a time-limited token locally with
-`./compose.sh opencloud exec opencloud opencloud auth-app create --user-name=<bot> --expiration=720h`.
+`./compose.sh opencloud exec opencloud opencloud auth-app create --user-name=pixiebob --expiration=720h`.
 Copy the displayed value directly into n8n's credential store as the password,
-using the bot username. Do not paste it into this repo or logs. The authenticated
+with `pixiebob` as the username. Do not paste it into this repo or logs. The authenticated
 `/auth-app/tokens` API can create/list/revoke tokens as well; impersonation stays off.
 Use the folder's WebDAV URL shown by OpenCloud, not a guessed path. Verify listing
 and downloading the GPX file from n8n, and verify access to an unrelated folder fails.

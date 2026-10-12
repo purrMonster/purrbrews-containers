@@ -6,8 +6,9 @@ Authelia ForwardAuth would break DAV clients. This is independent of OpenCloud.
 
 ## Bring up
 
-1. In LLDAP's Users/Groups UI create `radicale-reader`, set a password, and add
-   it only to `lldap_strict_readonly`. Do not use the directory admin account.
+1. In LLDAP's Users/Groups UI create `scottishfold`, Radicale's read-only bind
+   account (the fleet's bots have cat names), set a password, and add it only to
+   `lldap_strict_readonly`. Do not use the directory admin account.
 2. Confirm each intended user, including admins, belongs to
    `${LLDAP_HOUSEHOLD_GROUP}`. `lldap-bootstrap.sh` adds the users it processes to
    both configured groups; it does not prove every existing admin is a member.
