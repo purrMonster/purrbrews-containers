@@ -78,8 +78,13 @@ What changed:
   PRs. Tests now require tag + digest everywhere, one digest per tag, and the
   pairs on one version (Immich, Komodo, Scrutiny, Pi-hole).
 - Fixed from #23: 20 compose files whose dashes and arrows had been
-  double-encoded (`â€”`), now with a test against it; comments that went stale
-  (n8n's "the version that was running", Unbound's reasoning, "Checked" dates).
+  double-encoded (UTF-8 read as Windows-1252), now with a test against it;
+  comments that went stale (n8n's "the version that was running", Unbound's
+  reasoning, "Checked" dates).
+- #23's `stacks/_shared/` (Periphery and the collector via `extends`) left out
+  too: Dependabot's `/stacks/*/*` never looked there, so those images would have
+  stopped getting PRs. The per-node copies stay, and a test now requires them
+  to be identical apart from each node's disks, which is the drift #23 was after.
 - Dependabot also watches `bootstrap/Dockerfile`. CI's apt step has its own
   5-minute limit and retries (a hung mirror timed out #18's run with no tests run).
 

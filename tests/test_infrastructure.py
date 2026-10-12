@@ -392,6 +392,26 @@ class Layout(unittest.TestCase):
             with self.subTest(image=tag, file=str(source.relative_to(ROOT))):
                 self.assertEqual(seen.setdefault(tag, digest), digest, 'the same tag pinned to two digests')
 
+    @unittest.skipUnless(yaml, 'needs PyYAML (apt install python3-yaml)')
+    def test_node_agents_are_the_same_everywhere(self):
+        # Periphery and the Scrutiny collector are copied per node, not shared
+        # with `extends`, so Dependabot and plain `docker compose` see each one
+        # whole. The copies may differ only in the node's own disks.
+        periphery = {n: (STACKS / n / 'komodo-periphery/docker-compose.yml').read_text()
+                     for n in LINUX_NODES if (STACKS / n / 'komodo-periphery').is_dir()}
+        self.assertGreaterEqual(len(periphery), 4)
+        self.assertEqual(len(set(periphery.values())), 1, f'Periphery differs between {sorted(periphery)}')
+        collectors = {}
+        for node in LINUX_NODES:
+            file = STACKS / node / 'scrutiny-collector/docker-compose.yml'
+            if file.is_file():
+                service = yaml.safe_load(file.read_text())['services']['scrutiny-collector']
+                service.pop('devices')
+                service['volumes'] = [v for v in service['volumes'] if not v.startswith('./')]
+                collectors[node] = json.dumps(service, sort_keys=True)
+        self.assertGreaterEqual(len(collectors), 4)
+        self.assertEqual(len(set(collectors.values())), 1, 'collectors differ beyond their disks')
+
     def test_paired_images_move_together(self):
         def versions(pattern):
             return {m.group(1) for _, image in self.images() if (m := re.search(pattern, image))}
