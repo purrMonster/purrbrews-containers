@@ -20,8 +20,16 @@ and I spent an evening on 400s learning so.
 http:
   use_x_forwarded_for: true
   trusted_proxies:
-    - 172.30.13.0/24   # PROXY_SUBNET
+    - 172.30.13.0/24    # PROXY_SUBNET: this node's Traefik
+    - 192.168.0.10/32   # sieve: cloudflared (tunnel) in front of Traefik
 ```
+
+HA reads `X-Forwarded-For` right to left and stops at the first untrusted
+address. Through the tunnel it gets `<visitor>, 192.168.0.10` (Traefik trusts
+sieve's header and appends it), so without sieve's `/32` every tunnel visitor is
+logged and IP-banned as sieve. Never trust Cloudflare's ranges (they never
+connect here), Tailscale's `100.64.0.0/10` or the whole LAN: any host in a
+trusted range can claim any client address.
 
 **Recorder on Postgres, and trimmed before the sensors arrive.** ESPHome publishes
 diagnostic entities that update constantly and nobody reads.

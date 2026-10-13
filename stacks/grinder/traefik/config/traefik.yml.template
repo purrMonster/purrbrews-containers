@@ -16,6 +16,11 @@ entryPoints:
           scheme: https
   websecure:
     address: ":443"
+    # sieve's cloudflared: trust its X-Forwarded-For so logs and apps
+    # see tunnel visitors' real addresses instead of sieve's.
+    forwardedHeaders:
+      trustedIPs:
+        - "${SIEVE_LAN_IP}/32"
 
 certificatesResolvers:
   cloudflare:

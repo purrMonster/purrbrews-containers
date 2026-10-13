@@ -1001,6 +1001,14 @@ class FileAndDAVReplacement(unittest.TestCase):
             {'role_name': 'admin', 'claim_value': '${LLDAP_ADMIN_GROUP}'},
             {'role_name': 'user', 'claim_value': '${LLDAP_HOUSEHOLD_GROUP}'}])
 
+    def test_tunnel_nodes_trust_only_sieves_forwarded_headers(self):
+        # cloudflared on sieve fronts these Traefiks; without this every
+        # tunnel visitor reaches the apps (and CrowdSec) as sieve.
+        for node in ('percolator', 'mochaPot', 'grinder'):
+            cfg = yaml.safe_load((STACKS / node / 'traefik/config/traefik.yml.template').read_text())
+            trusted = cfg['entryPoints']['websecure']['forwardedHeaders']['trustedIPs']
+            self.assertEqual(trusted, ['${SIEVE_LAN_IP}/32'], node)
+
     def test_dav_reader_is_separate_and_household_scoped(self):
         import configparser
         cfg = configparser.ConfigParser(interpolation=None)
