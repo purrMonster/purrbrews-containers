@@ -46,6 +46,12 @@ start a version that hasn't been acknowledged in the node's `.env.local`.
 | Traccar (grinder) | `TRACCAR_UPGRADE_READY` | the version, e.g. `6.16` |
 | Open WebUI (grinder) | `OPENWEBUI_UPGRADE_READY` | the version, e.g. `0.11.4` |
 
+The gate records the version the data is on in `.upgrade-gate-<KEY>`, beside
+the data (so it's backed up and restored with it): on a fresh install, and
+after an acknowledged upgrade. Redeploying that same version, a fresh node's
+second deploy included, needs no key. Data without a record (from before
+2026-10-13) needs the key once, then it's recorded.
+
 The refusal names the exact value. Every later bump (major for OpenCloud) changes the acknowledged version,
 so the gate closes again by itself. It is a reminder, not a backup: set the key
 only after the steps below. Plain `docker compose` bypasses it.
