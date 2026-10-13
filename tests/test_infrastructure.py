@@ -1017,7 +1017,9 @@ class FileAndDAVReplacement(unittest.TestCase):
         for path in STACKS.glob('*/*/docker-compose.yml'):
             for name, service in (yaml.safe_load(path.read_text()) or {}).get('services', {}).items():
                 env = service.get('environment') or {}
-                if isinstance(env, dict) and env.get('N8N_LISTEN_ADDRESS') == '0.0.0.0':
+                ipv4_only = (isinstance(env, dict) and env.get('N8N_LISTEN_ADDRESS') == '0.0.0.0'
+                             or 'fittrackee/fittrackee' in str(service.get('image', '')))  # gunicorn on 0.0.0.0
+                if ipv4_only:
                     test = ' '.join(service['healthcheck']['test'])
                     self.assertNotIn('localhost', test, f'{path}: {name}')
                     self.assertIn('127.0.0.1', test, f'{path}: {name}')
