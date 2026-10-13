@@ -1016,6 +1016,14 @@ class FileAndDAVReplacement(unittest.TestCase):
         self.assertGreaterEqual(float(auth['delay']), 1)
         self.assertEqual(cfg['rights']['type'], 'owner_only')
 
+    def test_homeassistant_has_bluetooth_access(self):
+        # Without raw HCI access HA runs its Bluetooth adapter in degraded mode.
+        compose = yaml.safe_load((STACKS / 'mochaPot/homeassistant/docker-compose.yml').read_text())
+        ha = compose['services']['homeassistant']
+        self.assertEqual(ha['network_mode'], 'host')
+        self.assertTrue({'NET_ADMIN', 'NET_RAW'} <= set(ha['cap_add']))
+        self.assertIn('/run/dbus:/run/dbus:ro', ha['volumes'])
+
     def test_radicale_storage_parent_is_mounted(self):
         # The image's /data is radicale(2999) mode 770; running as PUID, a mount
         # of only /data/collections sits under a directory it can't traverse.
