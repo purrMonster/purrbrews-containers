@@ -76,6 +76,27 @@ changes can be made later without re-deriving the reasoning.
 
 - [ ] (owner) HA Bluetooth fix (2026-10-13 entry): after merge, mochaPot `git pull --ff-only`, `./compose.sh homeassistant up -d --force-recreate --wait`; the "Bluetooth adapter requires additional permissions" repair clears.
 
+- [ ] (owner) Tunnel client IPs (2026-10-13 entry): after merge, mochaPot and grinder `./render-configs.sh`, `./compose.sh traefik up -d --force-recreate --wait`; on mochaPot add `192.168.0.10/32` to HA's `trusted_proxies` (homeassistant README) and restart HA. Check with a tunnel request: Traefik's access log and HA show the visitor's IP, not `192.168.0.10`.
+
+---
+
+## 2026-10-13 — Tunnel visitors appear as sieve on mochaPot and grinder: trust cloudflared's header
+
+cloudflared on sieve forwards tunnel traffic to each node's Traefik. percolator's
+`websecure` entrypoint already trusted `${SIEVE_LAN_IP}/32` in
+`forwardedHeaders.trustedIPs`; mochaPot's and grinder's didn't, so Traefik
+replaced the visitor's `X-Forwarded-For` with sieve's address and every app
+(Home Assistant's IP bans included) saw tunnel visitors as `192.168.0.10`.
+
+Both now trust sieve only, the same way as percolator. A test keeps all three
+equal. Home Assistant also needs sieve's `/32` in `trusted_proxies`, since it
+reads the header right to left and would otherwise stop at sieve; its README
+snippet now says so. Cloudflare's ranges, Tailscale's and the LAN stay
+untrusted. cellar's Traefik isn't behind the tunnel and is unchanged.
+
+Undo: revert the commit, render, and recreate Traefik on mochaPot and grinder;
+drop the `/32` from HA's configuration.yaml.
+
 ---
 
 ## 2026-10-13 — Home Assistant's Bluetooth ran in degraded mode: add NET_ADMIN, NET_RAW
