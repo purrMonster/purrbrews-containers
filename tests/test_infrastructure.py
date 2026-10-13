@@ -1388,10 +1388,31 @@ class RoasteryInit(unittest.TestCase):
 
     def test_firewall_rules_are_scoped(self):
         text = self.SCRIPT.read_text()
-        rules = re.findall(r"Set-FirewallRule '([a-z-]+)' .*?@\{(.*?)\}", text, re.S)
-        self.assertEqual({name for name, _ in rules}, {'purrbrews-bootstrap', 'purrbrews-immich-ml', 'purrbrews-traefik'})
-        for name, spec in rules:
+        rules = re.findall(r"Set-FirewallRule '([a-z0-9-]+)' .*?@\{(.*?)\}( -Action Block)?", text, re.S)
+        allows = {name: spec for name, spec, block in rules if not block}
+        blocks = {name: spec for name, spec, block in rules if block}
+        self.assertEqual(set(allows), {'purrbrews-bootstrap', 'purrbrews-immich-ml', 'purrbrews-traefik'})
+        for name, spec in allows.items():
             self.assertRegex(spec, r"RemoteAddress = \$(Fleet\['LAN_CIDR'\]|percolator)", name)
+        # Docker Desktop's own rule allows every port from anywhere, so the
+        # percolator-only allow needs blocks for everyone else (2026-10-13).
+        self.assertEqual(set(blocks), {'purrbrews-immich-ml-block-v4', 'purrbrews-immich-ml-block-v6'})
+        for spec in blocks.values():
+            self.assertIn('LocalPort = 3003', spec)
+        self.assertIn('Get-IPv4RangesExcept $percolator', blocks['purrbrews-immich-ml-block-v4'])
+
+    def test_runs_only_from_the_deploy_checkout(self):
+        text = self.SCRIPT.read_text()
+        self.assertIn("$DeployRoot = 'C:\\purrbrews-deploy'", text)
+        backup = re.search(r"\$BackupRoot = '([^']+)'", text).group(1)
+        deploy = re.search(r"\$DeployRoot = '([^']+)'", text).group(1)
+        self.assertFalse(deploy.lower().startswith(backup.lower() + '\\'),
+                         'the deploy checkout must not sit in the backup chroot')
+        main = text[text.index('# Main'):]
+        self.assertLess(main.index('Assert-DeployCheckout'), main.index('foreach ($step in $run)'))
+        guard = re.search(r'^function Assert-DeployCheckout \{.*?^\}', text, re.M | re.S).group(0)
+        for check in ("-ne $DeployRoot", "-ne 'main'", '--untracked-files=no'):
+            self.assertIn(check, guard)
 
 
 if __name__ == '__main__':

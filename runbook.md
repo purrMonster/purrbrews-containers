@@ -72,17 +72,106 @@ changes can be made later without re-deriving the reasoning.
 - [ ] (owner) persianPerch's Gatus account `ocicat` → `sphynx` (2026-10-13 entry): LLDAP UI, create `sphynx` with a new password, only in `perch_api_group`; on cellar set `PERCH_GLARE_USER=sphynx` and the new `PERCH_GLARE_PASSWORD` in `persian-perch/secrets.env.local` by hand (setup keeps existing values), `./compose.sh persian-perch up -d --force-recreate`, check that perch's glare feed still reads Gatus; then delete `ocicat` in LLDAP. Also rename it in persianPerch's own `integration/ROLLOUT.md` (its repo)
 - [ ] (owner) Update flask with the six OpenCloud recovery credentials and Radicale reader password (`fill-vault.ps1` after deployment), plus a protected attachment of generated `opencloud/config/opencloud.yaml`; retain the matching full config/data backup.
 
-- [ ] (owner) Radicale mount fix (2026-10-13 entry): after merge, percolator `git pull --ff-only`, `./compose.sh radicale up -d --wait`, then `radicale.${DOMAIN}` answers instead of 404.
+- [x] (owner) Radicale mount fix (2026-10-13 entry): after merge, percolator `git pull --ff-only`, `./compose.sh radicale up -d --wait`, then `radicale.${DOMAIN}` answers instead of 404. Done 2026-10-13: percolator deployed at 868a910 by `fleet.py` (succeeded), `radicale` healthy, `radicale.${DOMAIN}` → 302 `/.web`, unauthenticated PROPFIND → 401 (Claude, from percolator)
 
-- [ ] (owner) HA Bluetooth fix (2026-10-13 entry): after merge, mochaPot `git pull --ff-only`, `./compose.sh homeassistant up -d --force-recreate --wait`; the "Bluetooth adapter requires additional permissions" repair clears.
+- [x] (owner) HA Bluetooth fix (2026-10-13 entry): after merge, mochaPot `git pull --ff-only`, `./compose.sh homeassistant up -d --force-recreate --wait`; the "Bluetooth adapter requires additional permissions" repair clears. Done 2026-10-13: mochaPot deployed at ee4b354 (succeeded); HA's `repairs.issue_registry` no longer lists the Bluetooth issue (Claude)
 
-- [ ] (owner) Tunnel client IPs (2026-10-13 entry): after merge, mochaPot and grinder `./render-configs.sh`, `./compose.sh traefik up -d --force-recreate --wait`; on mochaPot add `192.168.0.10/32` to HA's `trusted_proxies` (homeassistant README) and restart HA. Check with a tunnel request: Traefik's access log and HA show the visitor's IP, not `192.168.0.10`.
+- [ ] (owner) Tunnel client IPs (2026-10-13 entry): after merge, mochaPot and grinder `./render-configs.sh`, `./compose.sh traefik up -d --force-recreate --wait`; on mochaPot add `192.168.0.10/32` to HA's `trusted_proxies` (homeassistant README) and restart HA. Check with a tunnel request: Traefik's access log and HA show the visitor's IP, not `192.168.0.10`. Partly 2026-10-13: both Traefiks deployed with `forwardedHeaders.trustedIPs` = sieve (grinder's rendered `traefik.yml` checked); HA's trusted proxies are set in HA's **UI** in this version (`.storage/http`, `yaml_migration_done`), not `configuration.yaml`: owner set `172.30.13.0/24` + `192.168.0.10/32` there and HA answers 200 through Traefik. Missing: the tunnel-request check, which waits for the Cloudflare pass
 
-- [ ] (owner) n8n health check fix (2026-10-13 entry): after merge, grinder `git pull --ff-only` and rerun `fleet.py deploy grinder --release <merge commit>`; n8n turns healthy and the deploy continues past it.
+- [x] (owner) n8n health check fix (2026-10-13 entry): after merge, grinder `git pull --ff-only` and rerun `fleet.py deploy grinder --release <merge commit>`; n8n turns healthy and the deploy continues past it. Done 2026-10-13: n8n `healthy` in grinder's `docker ps` (owner's paste), deploy continued
 
-- [ ] (owner) Karakeep Chrome health check (2026-10-13 entry): after merge, grinder `git pull --ff-only` and rerun `fleet.py deploy grinder --release <merge commit>`; karakeep-chrome turns healthy, karakeep starts and the deploy continues.
+- [x] (owner) Karakeep Chrome health check (2026-10-13 entry): after merge, grinder `git pull --ff-only` and rerun `fleet.py deploy grinder --release <merge commit>`; karakeep-chrome turns healthy, karakeep starts and the deploy continues. Done 2026-10-13: karakeep-chrome and karakeep `healthy` (owner's paste); `karakeep.${DOMAIN}` → Authelia (Claude)
 
-- [ ] (owner) FitTrackee health check (2026-10-13 entry): after merge, grinder `git pull --ff-only` and rerun `fleet.py deploy grinder --release <merge commit>`; fittrackee turns healthy and the deploy continues.
+- [x] (owner) FitTrackee health check (2026-10-13 entry): after merge, grinder `git pull --ff-only` and rerun `fleet.py deploy grinder --release <merge commit>`; fittrackee turns healthy and the deploy continues. Done 2026-10-13: grinder deployed at 34cb88b, `fleet.py status` succeeded through scrutiny-collector, fittrackee `healthy` (owner's paste)
+
+- [ ] (owner) Upgrade-gate records (2026-10-13 entry): data made before this change has no record, so it needs its key once: grinder `OPENWEBUI_UPGRADE_READY=0.12.0`, `KARAKEEP_SEARCH_UPGRADE_READY=1.41.0` (and `TRACCAR_UPGRADE_READY=6.16` if Traccar ran before the merge); percolator `OPENCLOUD_UPGRADE_READY=7` before its next deploy. After one start each, the record carries it. grinder done 2026-10-13: records read back `0.12.0`, `1.41.0`, `6.16` (Claude). Open: percolator's OpenCloud key
+
+- [ ] (owner) Format roastery, americano (the Mac), the iPhone 16 (name: owner picks) and cortado (the S24), one at a time (2026-10-13 handoff entry). Before roastery: `~\.ssh\purrbrews-roastery` (the only key every node trusts; password login is off) and, optionally, the `purrbrews-bootstrap_certs` volume into flask. After: roastery from `C:\purrbrews-deploy` with `roastery-init.ps1`; restore that key before anything needs the nodes
+- [ ] Scrutiny: percolator's `DISK_DEVICE_2` and cellar's `DISK_DEVICE` are `/dev/nvme0n1`, and neither NVMe reports to the hub; grinder's `/dev/nvme0` does (2026-10-13). Set both to `/dev/nvme0` in `.env.local`, recreate the collector (percolator) and scrutiny (cellar)
+- [ ] Scrutiny flags cellar's ST1000 HDD and mochaPot's SanDisk SSD (status 2: its Backblaze thresholds, not the drives' own SMART, which passes). Seagate's 188 is a packed raw value Scrutiny misreads; the SanDisk has 9924 command timeouts (188) and a vendor 201 at 70/5. Recheck `smartctl -A` in a few days; replace the SanDisk if 188/199/5/187 climb
+- [ ] Proposal: the homeassistant README still puts `trusted_proxies` in `configuration.yaml`; this HA version keeps HTTP settings in its UI after a one-time YAML import. Document the UI path, with `/24` spelled out (a `/32` typo there gave 400s on 2026-10-13)
+- [ ] Proposal: `fleet.py deploy` on a fresh node fails at `firewall` when the node pins no network subnet (grinder: `grinder_net` didn't exist yet). Pin a subnet per node, as mochaPot does, or have the runner create the network first
+- [ ] Proposal: the GitHub address 185.199.109.133 is unreachable from this ISP (traceroute dies after its gateway), so ~1 in 4 GitHub release downloads hang (HACS). Option: both Pi-holes return only the three working addresses for GitHub's asset hostnames; ISP ticket alongside
+- [ ] sieve and cellar have no `fleet.py` deploy record (brought up by hand on 2026-10-12/13): one `fleet.py deploy` each at the current main, after the agents step, puts every node on one recorded commit
+
+---
+
+## 2026-10-13 — Fresh fleet up: all five Linux nodes deployed and checked (session handoff)
+
+The nodes were reinstalled and `purrbrews-init` ran on 2026-10-12; this session
+(Claude, with the owner running every sudo command) brought the stacks up in
+order, all data and secrets fresh. Nothing was restored from backups.
+
+**State at the end of the day**, checked read-only from roastery:
+
+| Node | Commit | Deploy record | Notes |
+|---|---|---|---|
+| sieve | 868a910 | none (by hand) | unbound, Pi-hole (sole DHCP; router DHCP off), ntfy, cloudflared, Traefik, NetAlertX. Gatus not yet: last, to avoid an alert storm |
+| percolator | 868a910 | succeeded | every app incl. Radicale and OpenCloud (#43); first logins done for the OIDC apps |
+| cellar | 9bb3247 | none (by hand) | Komodo, Scrutiny hub, Traefik. persianPerch not yet |
+| mochaPot | ee4b354 | succeeded | secondary Pi-hole, HA (Authelia via hass-oidc-auth from HACS, UI-configured), Music Assistant, Traefik |
+| grinder | 34cb88b | succeeded | all apps; native first logins not done (owner: "when they get stuck") |
+| roastery | n/a | n/a | immich-ml (v3.2.1, GPU), llama-swap, bootstrap running; no Traefik, no backup target. To be formatted |
+
+Every LAN route was probed from percolator: both Pi-holes return the same
+address for all 28 repo routes, every certificate is valid for its name, and
+each answers (200, the app's login, or Authelia). Not answering, as expected:
+`meow` and `ollama` (roastery has no Traefik), `perch` (not deployed), and Gatus
+behind its route (no container).
+
+**Merged today** (each has its own entry below): #48 Radicale's data mount,
+#49 HA Bluetooth capabilities, #50 tunnel client IPs on mochaPot and grinder,
+#51 n8n and #54 FitTrackee health checks on 127.0.0.1, #52 Karakeep Chrome's
+health check over HTTP/1.1, #53 upgrade gates remembering the installed
+version. This PR: roastery-init runs only from `C:\purrbrews-deploy` and blocks
+immich-ml for everyone but percolator.
+
+**Changed on nodes and devices, outside git** (all by the owner, on Claude's
+instructions):
+- Every node's NetworkManager profile: DNS `192.168.0.10, 192.168.0.13`,
+  `ipv4.ignore-auto-dns yes` (was 1.1.1.1/9.9.9.9 from bootstrap). Undo:
+  `nmcli con mod <profile> ipv4.dns 1.1.1.1,9.9.9.9` + `nmcli dev reapply`.
+  Containers pick it up when next recreated.
+- `.env.local`: `PIHOLE_DNS_EXTRA_HOSTS='192.168.0.15 roastery'` on sieve and
+  mochaPot (render failed without it); mochaPot `DISK_DEVICE=/dev/sda` (first
+  written as `sda`, which Compose rejects), grinder `/dev/nvme0`; grinder's
+  three `*_UPGRADE_READY` keys. `restic` passwords pasted on percolator,
+  mochaPot, grinder; sieve's is still blank. Closing Vaultwarden sign-ups
+  (`VAULTWARDEN_SIGNUPS_ALLOWED=false`) was given to the owner; unverified.
+- `grinder_net` created by hand before grinder's first deploy (proposal above).
+- HA: `recorder:` (Postgres) in `configuration.yaml`, `recorder_db_url` and
+  `oidc_client_secret` in `secrets.yaml`; trusted proxies in HA's UI.
+- roastery: Windows Firewall blocks 3003 for every address but percolator
+  (IPv4 and IPv6), now also in roastery-init. Checked: percolator gets
+  `pong`, sieve, cellar and mochaPot time out.
+- LLDAP: `scottishfold`, `opencloud_bot_accounts`, and barista's groups; the
+  owner reset barista's password after losing an unsaved note of passwords
+  (every generated one was still in the nodes' `secrets.env.local`).
+
+**Gotchas from today**, for the next bring-up:
+- A `( … ) && … ||` wrapper hides `set -e`: percolator's Traefik was skipped
+  and the loop printed OK. Use `|| { echo FAILED; break; }`.
+- `setup-secrets.sh` exits 1 while any value is still `REPLACE_ME`, so
+  `fleet.py deploy` stops at `configure` until the restic password is pasted.
+- Busybox `wget localhost` inside a container tries `::1` only: apps bound to
+  IPv4 look unhealthy (n8n, FitTrackee).
+- HA keeps HTTP settings in its UI after the first YAML import; YAML edits to
+  `http:` are then ignored.
+- Docker Desktop's "Docker Desktop Backend" rule opens every port on roastery;
+  scope ports with block rules, not allow rules.
+- PowerShell 5.1: `[ordered]@{ 13 = … }` indexes by position, not key; use
+  string keys. Windows Firewall rejects `0.0.0.0` and `::/0` in ranges.
+
+**Next, in order**: format the devices (Backlog line above; roastery last
+after americano can reach the nodes, or with its SSH key restored from
+flask); roastery from `C:\purrbrews-deploy`; the agents step (cellar's
+`core.pub` to every node, Komodo onboarding keys, collectors incl. the NVMe
+fix); backups (fresh repository on roastery, first nightly per node, restore
+test incl. OpenCloud's rehearsal); Gatus last on sieve with the alert-path
+test; persianPerch; the Cloudflare tunnel hostnames in one pass, then checks
+from outside.
+
+Undo for this entry: nothing to undo; it records state.
 
 ---
 
@@ -97,7 +186,6 @@ localhost with wget but listen dual-stack, so they're unaffected (MA and ntfy
 are healthy); left as they are.
 
 Undo: revert the commit and `./compose.sh fittrackee up -d`.
-- [ ] (owner) Upgrade-gate records (2026-10-13 entry): data made before this change has no record, so it needs its key once: grinder `OPENWEBUI_UPGRADE_READY=0.12.0`, `KARAKEEP_SEARCH_UPGRADE_READY=1.41.0` (and `TRACCAR_UPGRADE_READY=6.16` if Traccar ran before the merge); percolator `OPENCLOUD_UPGRADE_READY=7` before its next deploy. After one start each, the record carries it.
 
 ---
 

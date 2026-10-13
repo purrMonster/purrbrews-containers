@@ -25,14 +25,27 @@ repository and the model files, so a reinstall is this list, in this order.
 The first time through was the 2026-10-07 wipe (runbook).
 
 **[`init\roastery-init.ps1`](../../init/roastery-init.ps1) walks this list**, from
-an elevated PowerShell in the repo:
+an elevated PowerShell in the **deploy checkout**:
 
 ```powershell
 winget install -e --id Git.Git        # a fresh install has no git; new window after
-git clone https://github.com/purrMonster/purrbrews-containers.git
-cd purrbrews-containers
+git clone https://github.com/purrMonster/purrbrews-containers.git C:\purrbrews-deploy
+cd C:\purrbrews-deploy
 powershell -ExecutionPolicy Bypass -File .\init\roastery-init.ps1
 ```
+
+**Two clones, two jobs** (2026-10-13). `C:\purrbrews-deploy` is what roastery
+runs, like `/opt/purrbrews` on a node: `.env.local`, the secrets and
+`traefik.exe` live there, the containers start from it, and it only ever moves
+to reviewed commits (`git fetch`, then `git switch main` + `git pull --ff-only`,
+or `git checkout --detach <commit>`). Development (branches, agent worktrees)
+happens in a second clone elsewhere, which runs nothing and holds no secrets.
+One folder doing both is how roastery came to run a feature branch.
+`roastery-init.ps1` refuses any other folder, a branch other than main, or
+tracked changes. The deploy clone isn't under `C:\purrbrews`: that's the backup
+account's chroot, locked to SYSTEM and Administrators. Traefik already runs from
+its own protected copy in `C:\Program Files\purrbrews-traefik`, refreshed from
+the deploy clone by `-Only traefik`.
 
 It does what used to be clicks or hand-made tasks (the PC's name, the network
 profile, power, winget installs, WSL, every firewall rule, Traefik's scheduled
@@ -108,11 +121,19 @@ New-NetFirewallRule -DisplayName "immich-ml (percolator only)" `
   -RemoteAddress 192.168.0.11 -Action Allow
 ```
 
-Windows allows a packet if *any* rule does, so check a broad Docker or vpnkit rule
-isn't already letting everyone in:
+Windows allows a packet if *any* rule does, and Docker Desktop's own "Docker
+Desktop Backend" rule allows every port from anywhere: on 2026-10-13 sieve,
+cellar and mochaPot all got a `pong` despite the rule above. A block rule beats
+every allow rule, so `roastery-init.ps1` (apps step) also blocks 3003 for every
+other address. By hand, the same thing (Windows rejects `0.0.0.0` and `::/0`):
 
 ```powershell
-Get-NetFirewallRule | Where-Object { $_.DisplayName -like "*docker*" -or $_.DisplayName -like "*vpnkit*" } | Get-NetFirewallPortFilter
+New-NetFirewallRule -DisplayName "immich-ml (block all but percolator, IPv4)" `
+  -Direction Inbound -Protocol TCP -LocalPort 3003 -Action Block -Profile Any `
+  -RemoteAddress '1.0.0.0-192.168.0.10','192.168.0.12-255.255.255.255'
+New-NetFirewallRule -DisplayName "immich-ml (block all, IPv6)" `
+  -Direction Inbound -Protocol TCP -LocalPort 3003 -Action Block -Profile Any `
+  -RemoteAddress '2000::/3','fc00::/7','fe80::/10'
 ```
 
 Then `.\compose.ps1 immich-ml up -d`, put `http://<roastery IP>:3003` in
