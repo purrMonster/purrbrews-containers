@@ -6,10 +6,23 @@
 # itself. It follows stacks/roastery/README.md, "Rebuilding roastery", step by
 # step, and does the parts that used to be clicks or hand-made tasks.
 #
-# Run from an elevated PowerShell (Run as administrator), from the repo:
+# Run from an elevated PowerShell (Run as administrator), from the deploy
+# checkout, C:\purrbrews-deploy: the clone roastery runs from, like
+# /opt/purrbrews on the nodes. It holds .env.local, the secrets and
+# traefik.exe, the containers start from it, and nobody develops in it.
+# Development happens in a separate clone that runs nothing and holds no
+# secrets (2026-10-13: one folder doing both had roastery running a feature
+# branch). Not under C:\purrbrews: that's the backup account's chroot, and
+# backup-target\setup.ps1 locks it to SYSTEM and Administrators.
 #
+#   git clone https://github.com/purrMonster/purrbrews-containers.git C:\purrbrews-deploy
+#   cd C:\purrbrews-deploy
 #   powershell -ExecutionPolicy Bypass -File .\init\roastery-init.ps1
 #
+# It refuses to run from anywhere else, or from a checkout with tracked
+# changes or on a branch other than main (a detached reviewed commit is fine).
+#
+#   -AllowAnyCheckout          skip that check (testing the script from a dev clone)
 #   -ListSteps                 print the step names and exit
 #   -Only a,b / -Skip a,b      run only / all but these steps
 #   -Yes                       don't ask before the rename, the joins, the task
@@ -31,7 +44,9 @@
 #                  refused while C:\purrbrews\restic holds no repository: the
 #                  repository comes back from Drive first (RECOVERY.md part B)
 #   apps           .env.local + render, the GPU check, immich-ml (+ its firewall
-#                  rule), Komodo Periphery, llama-swap (fetch-models, up)
+#                  rules: allow percolator, block everyone else, since Docker
+#                  Desktop's own rule allows every port from anywhere),
+#                  Komodo Periphery, llama-swap (fetch-models, up)
 #   traefik        firewall for traefik.exe, the leftover ollama.yml removed, and
 #                  the `traefik` scheduled task (at boot, as SYSTEM, no time limit)
 #   game_mode      stacks\roastery\game-mode\install.ps1
@@ -57,7 +72,8 @@ param(
     [switch]$AllowLan,
     [switch]$AllowEmptyRepository,
     [string]$WakeAdapter = '',
-    [switch]$SkipModels
+    [switch]$SkipModels,
+    [switch]$AllowAnyCheckout
 )
 
 # The order of roastery's README, "Rebuilding roastery".
@@ -72,6 +88,7 @@ $ErrorActionPreference = 'Stop'
 $Hostname = 'roastery'
 $Roastery = Join-Path $script:Stacks 'roastery'
 $BackupRoot = 'C:\purrbrews'
+$DeployRoot = 'C:\purrbrews-deploy'
 $LogDir = Join-Path $env:ProgramData 'purrbrews\logs'
 
 # -- output and bookkeeping ----------------------------------------------------
@@ -128,10 +145,37 @@ function Get-LanAdapter {
     }
 }
 
-function Set-FirewallRule([string]$Name, [string]$Display, [hashtable]$Spec) {
+function Set-FirewallRule([string]$Name, [string]$Display, [hashtable]$Spec, [string]$Action = 'Allow') {
     # Ours by Name: removed and made again, so a re-run is the whole truth.
     Get-NetFirewallRule -Name $Name -ErrorAction SilentlyContinue | Remove-NetFirewallRule
-    New-NetFirewallRule -Name $Name -DisplayName $Display -Direction Inbound -Action Allow @Spec | Out-Null
+    New-NetFirewallRule -Name $Name -DisplayName $Display -Direction Inbound -Action $Action @Spec | Out-Null
+}
+
+function Get-IPv4RangesExcept([string]$Ip) {
+    # Every IPv4 sender but $Ip, as ranges Windows Firewall accepts (it
+    # rejects 0.0.0.0 and /0, so the ranges start at 1.0.0.0).
+    $o = $Ip.Split('.') | ForEach-Object { [int64]$_ }
+    $n = $o[0] * 16777216 + $o[1] * 65536 + $o[2] * 256 + $o[3]
+    $text = { param([int64]$v) '{0}.{1}.{2}.{3}' -f (($v -shr 24) -band 255), (($v -shr 16) -band 255), (($v -shr 8) -band 255), ($v -band 255) }
+    return @("1.0.0.0-$(& $text ($n - 1))", "$(& $text ($n + 1))-255.255.255.255")
+}
+
+function Assert-DeployCheckout {
+    # roastery runs from one clone and develops in another (header). Running
+    # this from a dev clone is how a feature branch ended up in production.
+    $here = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..')).TrimEnd('\')
+    if ($here -ne $DeployRoot) {
+        throw ("Run roastery-init from the deploy checkout $DeployRoot, not $here " +
+               "(git clone https://github.com/purrMonster/purrbrews-containers.git $DeployRoot). -AllowAnyCheckout to override.")
+    }
+    $branch = (& git -C $here rev-parse --abbrev-ref HEAD 2>$null)
+    if ($LASTEXITCODE -ne 0) { throw "$here isn't a git checkout." }
+    if ($branch -ne 'HEAD' -and $branch -ne 'main') {
+        throw "$here is on branch '$branch'. The deploy checkout runs main or a detached reviewed commit: git -C $here switch main"
+    }
+    $changed = @(& git -C $here status --porcelain --untracked-files=no)
+    if ($changed.Count) { throw "$here has $($changed.Count) changed tracked file(s); the deploy checkout runs reviewed commits only (git -C $here status)." }
+    Ok "deploy checkout $here at $(& git -C $here rev-parse --short HEAD)$(if ($branch -eq 'main') { ' (main)' } else { ' (detached)' })"
 }
 
 $Fleet = Read-EnvFile (Join-Path $script:Stacks 'fleet.env')
@@ -404,11 +448,17 @@ function Step-apps {
         Set-FirewallRule 'purrbrews-immich-ml' 'immich-ml (percolator only)' @{
             Protocol = 'TCP'; LocalPort = 3003; RemoteAddress = $percolator; Profile = 'Any'
         }
-        Ok "3003/tcp from $percolator only"
-        # Windows lets a packet in if *any* rule does.
-        $broad = @(Get-NetFirewallRule -Enabled True -Direction Inbound -Action Allow -ErrorAction SilentlyContinue |
-            Where-Object { $_.DisplayName -like '*docker*' -or $_.DisplayName -like '*vpnkit*' -or $_.DisplayName -like '*com.docker*' })
-        foreach ($r in $broad) { Warn "'$($r.DisplayName)' may let 3003 in from anywhere; check it (stacks\roastery\README.md, immich-ml)" }
+        # Windows lets a packet in if *any* rule allows it, and Docker Desktop's
+        # own "Docker Desktop Backend" rule allows every port from anywhere: on
+        # 2026-10-13 sieve, cellar and mochaPot all got immich-ml's pong. A
+        # block rule beats every allow rule, so block everyone but percolator.
+        Set-FirewallRule 'purrbrews-immich-ml-block-v4' 'immich-ml (block all but percolator, IPv4)' @{
+            Protocol = 'TCP'; LocalPort = 3003; RemoteAddress = (Get-IPv4RangesExcept $percolator); Profile = 'Any'
+        } -Action Block
+        Set-FirewallRule 'purrbrews-immich-ml-block-v6' 'immich-ml (block all, IPv6)' @{
+            Protocol = 'TCP'; LocalPort = 3003; RemoteAddress = @('2000::/3', 'fc00::/7', 'fe80::/10'); Profile = 'Any'
+        } -Action Block
+        Ok "3003/tcp from $percolator only (allowed for it, blocked for everyone else)"
         & $compose immich-ml up -d
         Ok 'immich-ml up; its tag must match immich-server on percolator'
         Todo "From percolator: curl http://$($Fleet['ROASTERY_LAN_IP']):3003/ping answers; from anywhere else it must not"
@@ -522,6 +572,8 @@ try { Start-Transcript -LiteralPath $log | Out-Null } catch { $log = $null }
 
 try {
     Write-Host "roastery-init: $($run -join ', ')"
+    if ($AllowAnyCheckout) { Warn "-AllowAnyCheckout: not checking that this is $DeployRoot" }
+    else { Assert-DeployCheckout }
     foreach ($step in $run) {
         $script:Current = $step
         Write-Step $step
