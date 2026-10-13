@@ -80,6 +80,21 @@ changes can be made later without re-deriving the reasoning.
 
 - [ ] (owner) n8n health check fix (2026-10-13 entry): after merge, grinder `git pull --ff-only` and rerun `fleet.py deploy grinder --release <merge commit>`; n8n turns healthy and the deploy continues past it.
 
+- [ ] (owner) Karakeep Chrome health check (2026-10-13 entry): after merge, grinder `git pull --ff-only` and rerun `fleet.py deploy grinder --release <merge commit>`; karakeep-chrome turns healthy, karakeep starts and the deploy continues.
+
+---
+
+## 2026-10-13 — Karakeep never started: Chrome's health check spoke HTTP/1.0
+
+grinder's deploy stopped at `deploy:karakeep`: karakeep stayed `Created` because
+it waits for `karakeep-chrome` to be healthy, and Chrome failed every check while
+working. Its log: `Cannot handle request with protocol: HTTP/1.0`, once a minute,
+matching the check's raw `GET /json/version HTTP/1.0`. The DevTools server in the
+pinned karakeep-chrome image accepts HTTP/1.1 only. The check now sends HTTP/1.1
+with `Connection: close`; a test keeps raw `/dev/tcp` probes off HTTP/1.0.
+
+Undo: revert the commit and `./compose.sh karakeep up -d`.
+
 ---
 
 ## 2026-10-13 — n8n reported unhealthy while working: health check on localhost hit ::1
