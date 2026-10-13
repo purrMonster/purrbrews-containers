@@ -82,6 +82,22 @@ changes can be made later without re-deriving the reasoning.
 
 - [ ] (owner) Karakeep Chrome health check (2026-10-13 entry): after merge, grinder `git pull --ff-only` and rerun `fleet.py deploy grinder --release <merge commit>`; karakeep-chrome turns healthy, karakeep starts and the deploy continues.
 
+- [ ] (owner) FitTrackee health check (2026-10-13 entry): after merge, grinder `git pull --ff-only` and rerun `fleet.py deploy grinder --release <merge commit>`; fittrackee turns healthy and the deploy continues.
+
+---
+
+## 2026-10-13 — FitTrackee reported unhealthy while working: same localhost/::1 trap as n8n
+
+grinder's deploy stopped at `deploy:fittrackee` ("container fittrackee is
+unhealthy") while `/api/ping` answered `{"message":"pong!"}` (200) from the host.
+Its gunicorn listens on IPv4; busybox wget in the check resolved localhost to
+`::1` only. The check now uses `127.0.0.1`, and the IPv4 health-check test covers
+FitTrackee as well as n8n. Music Assistant, ntfy and Traccar also check
+localhost with wget but listen dual-stack, so they're unaffected (MA and ntfy
+are healthy); left as they are.
+
+Undo: revert the commit and `./compose.sh fittrackee up -d`.
+
 ---
 
 ## 2026-10-13 — Karakeep never started: Chrome's health check spoke HTTP/1.0
