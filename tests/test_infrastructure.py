@@ -1016,6 +1016,14 @@ class FileAndDAVReplacement(unittest.TestCase):
         self.assertGreaterEqual(float(auth['delay']), 1)
         self.assertEqual(cfg['rights']['type'], 'owner_only')
 
+    def test_radicale_storage_parent_is_mounted(self):
+        # The image's /data is radicale(2999) mode 770; running as PUID, a mount
+        # of only /data/collections sits under a directory it can't traverse.
+        compose = yaml.safe_load((STACKS / 'percolator/radicale/docker-compose.yml').read_text())
+        volumes = compose['services']['radicale']['volumes']
+        self.assertIn('${DATA_DIR}/radicale:/data', volumes)
+        self.assertFalse([v for v in volumes if v.split(':')[1].startswith('/data/')])
+
     def test_initialization_never_replaces_existing_identity_state(self):
         source = (STACKS / 'percolator/opencloud/start.sh').read_text()
         with tempfile.TemporaryDirectory() as tmp:
