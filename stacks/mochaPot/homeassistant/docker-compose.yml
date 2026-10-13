@@ -29,6 +29,10 @@ services:
       - ${DATA_DIR:?}/homeassistant:/config
       - /etc/localtime:/etc/localtime:ro
       - /run/dbus:/run/dbus:ro   # Bluetooth integrations
+    # Bluetooth: raw HCI access for active scanning and connections; without
+    # these HA reports the adapter in "degraded mode" (HA docs: Bluetooth
+    # permissions for Docker).
+    cap_add: [NET_ADMIN, NET_RAW]
     environment:
       TZ: ${TZ}
     depends_on:

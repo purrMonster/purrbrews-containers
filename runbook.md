@@ -74,6 +74,23 @@ changes can be made later without re-deriving the reasoning.
 
 - [ ] (owner) Radicale mount fix (2026-10-13 entry): after merge, percolator `git pull --ff-only`, `./compose.sh radicale up -d --wait`, then `radicale.${DOMAIN}` answers instead of 404.
 
+- [ ] (owner) HA Bluetooth fix (2026-10-13 entry): after merge, mochaPot `git pull --ff-only`, `./compose.sh homeassistant up -d --force-recreate --wait`; the "Bluetooth adapter requires additional permissions" repair clears.
+
+---
+
+## 2026-10-13 — Home Assistant's Bluetooth ran in degraded mode: add NET_ADMIN, NET_RAW
+
+On mochaPot's fresh bring-up HA raised a repair: hci0 (Intel 8087:0a2a) "is
+operating in degraded mode because your container needs additional permissions".
+The host side was fine (bluetoothd and dbus active, `/run/dbus` mounted); the
+container lacked raw HCI access. Per HA's "Bluetooth permissions for Docker",
+the compose file now adds `cap_add: [NET_ADMIN, NET_RAW]`. HA is host-networked,
+so these apply to the host's network stack: the documented trade-off, the same
+trust HA OS gives its core. A test keeps the capabilities, dbus mount and host
+networking together.
+
+Undo: revert the commit and `./compose.sh homeassistant up -d --force-recreate`.
+
 ---
 
 ## 2026-10-13 — Radicale crash-looped on first start: mount /data, not /data/collections
