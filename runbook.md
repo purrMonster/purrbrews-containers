@@ -78,6 +78,22 @@ changes can be made later without re-deriving the reasoning.
 
 - [ ] (owner) Tunnel client IPs (2026-10-13 entry): after merge, mochaPot and grinder `./render-configs.sh`, `./compose.sh traefik up -d --force-recreate --wait`; on mochaPot add `192.168.0.10/32` to HA's `trusted_proxies` (homeassistant README) and restart HA. Check with a tunnel request: Traefik's access log and HA show the visitor's IP, not `192.168.0.10`.
 
+- [ ] (owner) n8n health check fix (2026-10-13 entry): after merge, grinder `git pull --ff-only` and rerun `fleet.py deploy grinder --release <merge commit>`; n8n turns healthy and the deploy continues past it.
+
+---
+
+## 2026-10-13 — n8n reported unhealthy while working: health check on localhost hit ::1
+
+grinder's first deploy stopped at `deploy:n8n`: "container n8n is unhealthy".
+n8n was fine (`/healthz` gave `{"status":"ok"}` from the host). Inside the
+container, `wget http://localhost:5678/healthz` was refused while
+`http://127.0.0.1:5678/healthz` answered: localhost resolves to `::1` first, and
+n8n listens on IPv4 only (`N8N_LISTEN_ADDRESS: 0.0.0.0`, pinned 2026-10-08 after
+it refused to start on `::`). The check now uses `127.0.0.1`; a test fails if an
+IPv4-pinned n8n is checked on localhost again.
+
+Undo: revert the commit and `./compose.sh n8n up -d`.
+
 ---
 
 ## 2026-10-13 — Tunnel visitors appear as sieve on mochaPot and grinder: trust cloudflared's header

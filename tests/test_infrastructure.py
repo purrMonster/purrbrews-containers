@@ -1001,6 +1001,17 @@ class FileAndDAVReplacement(unittest.TestCase):
             {'role_name': 'admin', 'claim_value': '${LLDAP_ADMIN_GROUP}'},
             {'role_name': 'user', 'claim_value': '${LLDAP_HOUSEHOLD_GROUP}'}])
 
+    def test_ipv4_only_listeners_are_health_checked_on_ipv4(self):
+        # localhost is ::1 first inside containers; an app bound to 0.0.0.0
+        # refuses it, and the health check fails on a working service.
+        for path in STACKS.glob('*/*/docker-compose.yml'):
+            for name, service in (yaml.safe_load(path.read_text()) or {}).get('services', {}).items():
+                env = service.get('environment') or {}
+                if isinstance(env, dict) and env.get('N8N_LISTEN_ADDRESS') == '0.0.0.0':
+                    test = ' '.join(service['healthcheck']['test'])
+                    self.assertNotIn('localhost', test, f'{path}: {name}')
+                    self.assertIn('127.0.0.1', test, f'{path}: {name}')
+
     def test_tunnel_nodes_trust_only_sieves_forwarded_headers(self):
         # cloudflared on sieve fronts these Traefiks; without this every
         # tunnel visitor reaches the apps (and CrowdSec) as sieve.
