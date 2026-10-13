@@ -97,6 +97,30 @@ localhost with wget but listen dual-stack, so they're unaffected (MA and ntfy
 are healthy); left as they are.
 
 Undo: revert the commit and `./compose.sh fittrackee up -d`.
+- [ ] (owner) Upgrade-gate records (2026-10-13 entry): data made before this change has no record, so it needs its key once: grinder `OPENWEBUI_UPGRADE_READY=0.12.0`, `KARAKEEP_SEARCH_UPGRADE_READY=1.41.0` (and `TRACCAR_UPGRADE_READY=6.16` if Traccar ran before the merge); percolator `OPENCLOUD_UPGRADE_READY=7` before its next deploy. After one start each, the record carries it.
+
+---
+
+## 2026-10-13 — Upgrade gates remember the installed version
+
+grinder's second deploy stopped at Open WebUI: "existing data and a new
+ghcr.io/open-webui/open-webui version (0.12.0; acknowledged: none)". The data
+was an hour old and on that same version: the gate couldn't tell a routine
+redeploy from an upgrade, so every fresh node needed hand-written keys before
+its second deploy (Open WebUI, Karakeep's Meilisearch, Traccar; OpenCloud on
+percolator).
+
+`stacks/_lib/upgrade-gate.sh` now writes the version the data is on to
+`.upgrade-gate-<KEY>` beside the data: on a fresh install, and after an
+acknowledged upgrade. Same version: it passes. A bump: it still waits for the
+key, as before. The record sits in the app's data directory, so it's backed up
+and comes back with a restore of that data. Data from before this change has no
+record and needs its key once (Backlog line above). docs/image-upgrades.md
+says the same; the gate test covers fresh, redeploy, unrecorded, acknowledged,
+older record and the OpenCloud major cases.
+
+Undo: revert the commit; the `.upgrade-gate-*` files are then ignored and can
+be deleted.
 
 ---
 

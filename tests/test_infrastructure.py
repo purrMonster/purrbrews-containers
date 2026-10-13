@@ -1305,9 +1305,14 @@ class UpgradeGates(unittest.TestCase):
                     return subprocess.run(['bash', str(app_dir / 'prepare.sh'), str(data)],
                                           env=env, capture_output=True, text=True)
 
+                record = (data / marker).parent / f'.upgrade-gate-{key}'
+                (data / marker).parent.mkdir(parents=True)   # data-dirs runs before prepare.sh
                 self.assertEqual(prepare().returncode, 0, 'a fresh install has nothing to migrate')
-                (data / marker).parent.mkdir(parents=True)
+                self.assertTrue(record.exists(), 'a fresh install records its version')
                 (data / marker).touch()
+                self.assertEqual(prepare().returncode, 0, 'a redeploy of the recorded version needs no key')
+
+                record.unlink()   # data from before the record existed
                 refused = prepare()
                 self.assertNotEqual(refused.returncode, 0)
                 version = re.search(rf'{key}=(\S+) in', refused.stderr).group(1)
@@ -1316,6 +1321,13 @@ class UpgradeGates(unittest.TestCase):
                 self.assertNotEqual(prepare().returncode, 0, 'an older acknowledgement is not this one')
                 (app_dir.parent / '.env.local').write_text(f'{key}={version}\n')
                 self.assertEqual(prepare().returncode, 0, prepare().stderr)
+                self.assertEqual(record.read_text().strip(), version, 'an acknowledged start is recorded')
+                (app_dir.parent / '.env.local').write_text('')
+                self.assertEqual(prepare().returncode, 0, 'the record carries it once the key is gone')
+
+                record.write_text('0.0.1\n')   # data on an older version
+                self.assertNotEqual(prepare().returncode, 0, 'an older record still waits for the key')
+                (app_dir.parent / '.env.local').write_text(f'{key}={version}\n')
 
                 if app == 'opencloud':
                     compose = app_dir / 'docker-compose.yml'

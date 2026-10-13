@@ -6,11 +6,13 @@
 #   upgrade-gate.sh <app dir> <DATA_DIR> <existing data> <KEY> <image> [major]
 #
 # <existing data> is a path under DATA_DIR that only exists once the app has
-# run. Without it (a fresh install) the gate is open. With it, the gate opens
-# only when .env.local has KEY=<the version this app's compose file pins>: the
-# owner's note that the backup and the steps in docs/image-upgrades.md were
-# done for that version. A later bump, a Dependabot PR included, changes the
-# pinned version, so the gate closes again until that one is acknowledged.
+# run. Without it (a fresh install) the gate is open, and the pinned version is
+# recorded beside it in .upgrade-gate-KEY. With it, the gate opens when that
+# record matches the version this app's compose file pins (a redeploy), or
+# when .env.local has KEY=<that version>: the owner's note that the backup and
+# the steps in docs/image-upgrades.md were done for it, after which the record
+# is updated. A later bump, a Dependabot PR included, changes the pinned
+# version, so the gate closes again until that one is acknowledged.
 #
 # The version is the tag without a leading v or a -variant suffix
 # (v1.41.0 -> 1.41.0, 6.16-alpine -> 6.16). `major` compares only the first
@@ -38,11 +40,26 @@ version="${version%%-*}"
 
 SUDO=()
 [[ $EUID -eq 0 ]] || SUDO=(sudo)
+
+# The version the data is on, kept next to it (so it's in the app's backup and
+# comes back with a restore). Written on a fresh install and after an
+# acknowledged upgrade; a redeploy of that same version then needs nothing.
+marker="$(dirname "$data_dir/$existing")/.upgrade-gate-$key"
+record() {
+  "${SUDO[@]}" test -d "$(dirname "$marker")" || return 0
+  printf '%s\n' "$version" | "${SUDO[@]}" tee "$marker" >/dev/null
+}
+
 # The data is often owned by the container's user, so the check goes through sudo.
 if ! "${SUDO[@]}" test -e "$data_dir/$existing"; then
+  record   # fresh install: the data this creates will be on $version
   exit 0
 fi
 
+installed="$("${SUDO[@]}" cat "$marker" 2>/dev/null || true)"
+[[ "$installed" == "$version" ]] && exit 0
+
 acknowledged="$(env_value "$key")"
 [[ "$acknowledged" == "$version" ]] || die \
-  "$(basename "$app_dir"): existing data and a new $image version ($version; acknowledged: ${acknowledged:-none}). Follow docs/image-upgrades.md, then put $key=$version in $NODE_NAME's .env.local."
+  "$(basename "$app_dir"): existing data (on ${installed:-an unrecorded version}) and a new $image version ($version; acknowledged: ${acknowledged:-none}). Follow docs/image-upgrades.md, then put $key=$version in $NODE_NAME's .env.local."
+record
