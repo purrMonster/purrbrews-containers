@@ -1001,6 +1001,16 @@ class FileAndDAVReplacement(unittest.TestCase):
             {'role_name': 'admin', 'claim_value': '${LLDAP_ADMIN_GROUP}'},
             {'role_name': 'user', 'claim_value': '${LLDAP_HOUSEHOLD_GROUP}'}])
 
+    def test_raw_http_health_checks_speak_http_1_1(self):
+        # Chrome's DevTools server rejects HTTP/1.0, so a raw 1.0 probe marks a
+        # working browser unhealthy and blocks everything that depends on it.
+        for path in STACKS.glob('*/*/docker-compose.yml'):
+            for name, service in (yaml.safe_load(path.read_text()) or {}).get('services', {}).items():
+                test = ' '.join((service.get('healthcheck') or {}).get('test') or [])
+                if '/dev/tcp/' in test:
+                    self.assertNotIn('HTTP/1.0', test, f'{path}: {name}')
+                    self.assertIn('Connection: close', test, f'{path}: {name}')
+
     def test_ipv4_only_listeners_are_health_checked_on_ipv4(self):
         # localhost is ::1 first inside containers; an app bound to 0.0.0.0
         # refuses it, and the health check fails on a working service.
