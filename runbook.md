@@ -72,6 +72,28 @@ changes can be made later without re-deriving the reasoning.
 - [ ] (owner) persianPerch's Gatus account `ocicat` → `sphynx` (2026-10-13 entry): LLDAP UI, create `sphynx` with a new password, only in `perch_api_group`; on cellar set `PERCH_GLARE_USER=sphynx` and the new `PERCH_GLARE_PASSWORD` in `persian-perch/secrets.env.local` by hand (setup keeps existing values), `./compose.sh persian-perch up -d --force-recreate`, check that perch's glare feed still reads Gatus; then delete `ocicat` in LLDAP. Also rename it in persianPerch's own `integration/ROLLOUT.md` (its repo)
 - [ ] (owner) Update flask with the six OpenCloud recovery credentials and Radicale reader password (`fill-vault.ps1` after deployment), plus a protected attachment of generated `opencloud/config/opencloud.yaml`; retain the matching full config/data backup.
 
+- [ ] (owner) Radicale mount fix (2026-10-13 entry): after merge, percolator `git pull --ff-only`, `./compose.sh radicale up -d --wait`, then `radicale.${DOMAIN}` answers instead of 404.
+
+---
+
+## 2026-10-13 — Radicale crash-looped on first start: mount /data, not /data/collections
+
+On the fresh percolator bring-up Radicale restarted in a loop:
+`Cannot create storage path '/data/collections' (Permission denied) … path='/data'
+owner=radicale(2999) mode=40770 / Effective user: 1001`. The image's own `/data`
+belongs to its radicale user with mode 770; compose runs the container as PUID
+(1001) and bind-mounted only `/data/collections`, which sat under a directory
+1001 can't traverse, so Radicale saw it as missing. The host side was right
+(`/srv/data/radicale/collections` barista 750).
+
+Fix: mount `${DATA_DIR}/radicale` at `/data`. The host parent is `root:barista`
+2755, so 1001 can enter it; `collections` stays the only writable place. Config
+(`filesystem_folder = /data/collections`), `data-dirs`, backup paths and the
+on-disk location are unchanged, and the collections directory was still empty,
+so nothing moves. A test now fails if the mount goes back to a subdirectory.
+
+Undo: revert the commit and `./compose.sh radicale up -d`.
+
 ---
 
 ## 2026-10-13 — Bots have cat names: scottishfold, pixiebob, sphynx

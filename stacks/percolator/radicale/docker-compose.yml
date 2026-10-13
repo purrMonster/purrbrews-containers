@@ -15,7 +15,9 @@ services:
     volumes:
       - ./config/config:/config/config:ro
       - ./config/ldap-password:/run/secrets/ldap-password:ro
-      - ${DATA_DIR}/radicale/collections:/data/collections
+      # Mount the parent, not just collections: the image's own /data is
+      # radicale(2999) mode 770, which uid ${PUID} can't traverse.
+      - ${DATA_DIR}/radicale:/data
     healthcheck:
       # GET / redirects to /.web without credentials; curl fails on 4xx/5xx.
       test: ["CMD", "curl", "--fail", "--silent", "--max-time", "5", "http://127.0.0.1:5232/"]
