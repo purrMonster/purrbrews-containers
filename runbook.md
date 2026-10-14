@@ -145,6 +145,61 @@ rollout (Backlog line above).
 Undo: revert the commit and recreate the collectors; the drives keep the last
 label they were sent until a run sends an empty one.
 
+- [ ] (owner) purrCafe on percolator (2026-10-14 entry): after merge, percolator `git fetch origin`, `git checkout --detach <merge commit>`, `./setup-secrets.sh` (blank is fine for every Café prompt), `./render-configs.sh`, `./compose.sh authelia up -d --force-recreate`, `./compose.sh purrcafe up -d`; then `./compose.sh homepage up -d` for the tile. sieve: the same checkout, `./render-configs.sh`, `./compose.sh gatus up -d --force-recreate` (if Gatus is up by then) and the alert-path test. Cloudflare dashboard: add `cafe.${DOMAIN}` → percolator HTTPS with matching SNI. Check: README's *Is it working?*
+- [ ] (owner) purrCafe panels, one at a time (its README): Actual Sync ID + session token; HA non-admin user + token, entities in `/srv/data/purrcafe/config/home.json`; Gatus service account in `perch_api_group`; LLDAP group `purrbrews_wall_display` + kiosk account (only that group). Bot/user names: owner picks cat breeds
+- [ ] (owner) Copy `CAFE_APP_ENCRYPTION_KEY` from `purrcafe/secrets.env.local` into flask
+- [ ] Proposal: pin Traefik's address on `proxy` (percolator), so purrCafe's trusted-proxy /32 can't go stale when Traefik is recreated. Touches ingress; needs the owner's go-ahead
+
+---
+
+## 2026-10-14 — purrCafe joins percolator
+
+**What.** purrCafe (household dashboard, its own repo `purrMonster/purrCafe`)
+becomes `stacks/percolator/purrcafe`, deployed from its published image like any
+other app: tag and digest pinned (`1.1.0`), `setup-secrets.sh` makes the key,
+`compose.sh` brings it up after Homepage. It ran on percolator before the
+reinstall (deployed by hand from its own checkout, 2026-10-02); nothing of that
+install was carried over, so saved mailboxes are reconnected by each person.
+
+**Why percolator** (owner, this session): Actual and Authelia are local, so the
+budget is read over `proxy` (`http://actualbudget:5006`; its public name fails
+behind the OIDC login) and ForwardAuth is one hop; percolator is the data node
+with the backups. grinder was the alternative (no battery, Actual over the LAN).
+
+**How it's wired.**
+- Route `cafe.${DOMAIN}`, ForwardAuth `authelia@file`. Authelia: household and
+  admins by the catch-all; a new rule lets `CAFE_WALL_GROUP` into this host only.
+- Trusted proxy: Traefik's own /32, looked up by `purrcafe/prepare.sh` on every
+  `up` into `proxy.env.local` (gitignored). Not `PROXY_SUBNET` like the other
+  apps: Café takes identity from Remote-User, so any container on `proxy` could
+  otherwise sign in as an admin. Pinning Traefik's address would remove the
+  re-up after a Traefik recreate (backlog proposal).
+- Home Assistant over `http://${MOCHAPOT_LAN_IP}:8123` with a token; Gatus over
+  `gatus-api.${DOMAIN}` with Basic auth (`secrets.hook` builds the header from a
+  service account), both as persianPerch does. IMAP host, locale and currency
+  in `.env.local`. All integrations optional; blank shows "set up".
+- Data `/srv/data/purrcafe/{data,config}` in the node backup (`backup`), the key
+  in `secrets.env.local` (also in the node backup; copy to flask).
+- Gatus `apps: percolator` → `purrcafe` (behind-sso), Homepage tile, tunnel
+  ingress (every non-admin route is published, test-enforced), MAP.
+
+**Evidence.** `python -m pytest tests` as a non-root user: 111 passed, 4 skipped
+(PowerShell, restic). `docker compose config` resolves with sample env files.
+purrCafe's own `server/config.mjs` accepts the resolved environment (origin,
+`en-IN`, `INR`, the /32, the four fleet nodes, service URLs). The secrets hook
+builds `Basic <base64>` and blanks it when either half is empty. Digest from
+`scripts/images.py ghcr.io/purrmonster/purrcafe:1.1.0`.
+
+**Not verified:** anything on the node. No container has run (no Docker daemon
+where this was written); the `up`, the Traefik /32 lookup, the Authelia rule
+and every panel wait for the owner's deploy (backlog).
+
+**Undo:** `./compose.sh purrcafe down`, revert this PR, re-render Authelia and
+`up -d --force-recreate` it. `/srv/data/purrcafe` stays until deleted by hand.
+
+**Where we stopped / next step:** PR open for review. After merge: the backlog
+items above, deploy first, then panels one at a time.
+
 ---
 
 ## 2026-10-13 — Fresh fleet up: all five Linux nodes deployed and checked (session handoff)
