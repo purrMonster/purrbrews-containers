@@ -62,5 +62,4 @@ Start-ScheduledTask purrbrews-scrutiny-collector      # a run now, instead of wa
 ```
 
 Then Scrutiny (`http://${CELLAR_LAN_IP}:8080` or `scrutiny.${DOMAIN}`) lists
-roastery's NVMe and its old Seagate under `roastery`. The Seagate is the same
-model as cellar's flagged ST1000, so expect the same misread attribute 188.
+roastery's NVMe and its old 2.5" HDD (a WD WD10JMVW) under `roastery`.

@@ -87,22 +87,79 @@ changes can be made later without re-deriving the reasoning.
 - [ ] (owner) Upgrade-gate records (2026-10-13 entry): data made before this change has no record, so it needs its key once: grinder `OPENWEBUI_UPGRADE_READY=0.12.0`, `KARAKEEP_SEARCH_UPGRADE_READY=1.41.0` (and `TRACCAR_UPGRADE_READY=6.16` if Traccar ran before the merge); percolator `OPENCLOUD_UPGRADE_READY=7` before its next deploy. After one start each, the record carries it. grinder done 2026-10-13: records read back `0.12.0`, `1.41.0`, `6.16` (Claude). Open: percolator's OpenCloud key
 
 - [ ] (owner) Format roastery, americano (the Mac), the iPhone 16 (name: owner picks) and cortado (the S24), one at a time (2026-10-13 handoff entry). Before roastery: `~\.ssh\purrbrews-roastery` (the only key every node trusts; password login is off) and, optionally, the `purrbrews-bootstrap_certs` volume into flask. After: roastery from `C:\purrbrews-deploy` with `roastery-init.ps1`; restore that key before anything needs the nodes
-- [ ] Scrutiny: percolator's `DISK_DEVICE_2` and cellar's `DISK_DEVICE` are `/dev/nvme0n1`, and neither NVMe reports to the hub; grinder's `/dev/nvme0` does (2026-10-13). Set both to `/dev/nvme0` in `.env.local`, recreate the collector (percolator) and scrutiny (cellar)
+- [x] Scrutiny: percolator's `DISK_DEVICE_2` and cellar's `DISK_DEVICE` are `/dev/nvme0n1`, and neither NVMe reports to the hub; grinder's `/dev/nvme0` does (2026-10-13). Set both to `/dev/nvme0` in `.env.local`, recreate the collector (percolator) and scrutiny (cellar) Done 2026-10-14: both set to `/dev/nvme0` (owner); percolator's EVMNV 1 TB and cellar's EVMNV 256 GB report to the hub (Claude, hub API, 13:30 and 13:33 IST)
 - [ ] Scrutiny flags cellar's ST1000 HDD and mochaPot's SanDisk SSD (status 2: its Backblaze thresholds, not the drives' own SMART, which passes). Seagate's 188 is a packed raw value Scrutiny misreads; the SanDisk has 9924 command timeouts (188) and a vendor 201 at 70/5. Recheck `smartctl -A` in a few days; replace the SanDisk if 188/199/5/187 climb
 - [ ] Proposal: the homeassistant README still puts `trusted_proxies` in `configuration.yaml`; this HA version keeps HTTP settings in its UI after a one-time YAML import. Document the UI path, with `/24` spelled out (a `/32` typo there gave 400s on 2026-10-13)
 - [ ] Proposal: `fleet.py deploy` on a fresh node fails at `firewall` when the node pins no network subnet (grinder: `grinder_net` didn't exist yet). Pin a subnet per node, as mochaPot does, or have the runner create the network first
 - [ ] Proposal: the GitHub address 185.199.109.133 is unreachable from this ISP (traceroute dies after its gateway), so ~1 in 4 GitHub release downloads hang (HACS). Option: both Pi-holes return only the three working addresses for GitHub's asset hostnames; ISP ticket alongside
 - [ ] sieve and cellar have no `fleet.py` deploy record (brought up by hand on 2026-10-12/13): one `fleet.py deploy` each at the current main, after the agents step, puts every node on one recorded commit
-- [ ] Scrutiny host labels (2026-10-14 entry): after merge, on sieve, percolator, mochaPot and grinder `./compose.sh scrutiny-collector up -d --force-recreate`, on cellar `./compose.sh scrutiny up -d --force-recreate`; then each drive shows under its node in the dashboard (trigger a run with `sudo docker exec scrutiny-collector scrutiny-collector-metrics run` instead of waiting six hours)
-- [ ] (owner) roastery's Scrutiny collector (2026-10-14 entry): after merge, update `C:\purrbrews-deploy` to main, then from an elevated Windows PowerShell 5.1 `powershell -ExecutionPolicy Bypass -File .\stacks\roastery\scrutiny-collector\install.ps1`; it ends with `Last result: 0`, and Scrutiny lists roastery's drives under `roastery`
+- [x] Scrutiny host labels (2026-10-14 entry): after merge, on sieve, percolator, mochaPot and grinder `./compose.sh scrutiny-collector up -d --force-recreate`, on cellar `./compose.sh scrutiny up -d --force-recreate`; then each drive shows under its node in the dashboard (trigger a run with `sudo docker exec scrutiny-collector scrutiny-collector-metrics run` instead of waiting six hours) Done 2026-10-14: every node at `0c21d76`, collectors recreated (owner); the hub API lists all seven Linux drives with their node's `host_id`, each reported 14:19–14:21 IST (Claude)
+- [x] (owner) roastery's Scrutiny collector (2026-10-14 entry): after merge, update `C:\purrbrews-deploy` to main, then from an elevated Windows PowerShell 5.1 `powershell -ExecutionPolicy Bypass -File .\stacks\roastery\scrutiny-collector\install.ps1`; it ends with `Last result: 0`, and Scrutiny lists roastery's drives under `roastery` Done 2026-10-14: installed (owner); the hub lists roastery's Samsung MZVL21T0HCLR (NVMe) and WD WD10JMVW (2.5" HDD) under `roastery`, status 0, reported 14:21 IST (Claude, hub API)
+
+---
+
+## 2026-10-14 — Agents step done: Komodo pairs all six machines, Scrutiny sees every drive (session handoff)
+
+The 2026-10-13 handoff's "agents" step, with the owner running every sudo
+command and Claude checking read-only from roastery's Linux VM and the
+GitHub API. roastery, americano and the phones had been formatted and set up
+again before this session (owner).
+
+**Komodo.** Every Linux node got cellar's `core.pub` in
+`stacks/<node>/komodo-periphery/keys/` (root-owned, 0644; same SHA-256 on all
+five plus roastery), an onboarding key named after it, and a recreated
+Periphery. All six machines show as Servers in Komodo (owner); Komodo answers
+`/version` on cellar (Claude). The onboarding keys were deactivated in
+Komodo's UI and left in each node's `komodo-periphery/secrets.env.local`:
+deactivated, they're useless to anyone (owner's call).
+
+Gotchas, for the next rebuild:
+- A Periphery started before `keys/core.pub` exists makes `keys/` itself, as
+  root: a later `scp` of `core.pub` as barista gets "Permission denied". Put
+  the key there with `sudo install -m 644` (or before the first `up`).
+- `setup-secrets.sh` won't ask again for an optional key that was answered
+  blank once (`_lib/secrets.sh`): delete the `PERIPHERY_ONBOARDING_KEY=` line
+  first, then run it.
+- roastery: a fresh Windows blocks every `.ps1` run directly; use
+  `powershell -NoProfile -ExecutionPolicy Bypass -File .\compose.ps1 ...`. A
+  Notepad edit of `.env.local` that never got saved looked exactly like a bad
+  key ("Matching Server onboarding key not found"): check the value's length
+  in the container before anything else.
+
+**Scrutiny.** The NVMe fix on percolator and cellar, sieve's collector up,
+host labels (#56) and roastery's Windows collector (#57), all rolled out and
+ticked in the Backlog above. The hub now has nine drives, each under its node.
+roastery's old drive is a **WD WD10JMVW**, not the Seagate ST1000LM035 the
+2026-09-27 entries and roastery's README describe. Either the drive was
+swapped since or that note was wrong (owner knows); the current docs now say
+what smartctl reads. Still flagged, unchanged: cellar's ST1000 (misread 188) and
+mochaPot's SanDisk (real command timeouts), Backlog above.
+
+**Not verified:** the new SSH host keys of mochaPot
+(`SHA256:GRJzg2LL…glkI`) and grinder (`SHA256:6VbIxcUX…uI7s`) were accepted
+on roastery without a console comparison (owner, at the console:
+`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`). Whether sieve's
+`RESTIC_PASSWORD` was pasted during its `setup-secrets` run: not asked yet.
+
+**Commits:** #56 (`7de0e3c`), #57 (`3530a2b`), merged as `741b93d` and
+`0c21d76`; this entry. Every Linux node's checkout is at `0c21d76` or later
+(owner).
+
+**Where we stopped / next step:** backups (fresh repository on roastery,
+sieve's restic password, the first nightly per node, a restore test incl.
+OpenCloud's rehearsal); then persianPerch and the Cloudflare pass, per the
+2026-10-13 handoff. Gatus is already up (purrCafe entry).
+
+Undo: nothing to undo; it records state.
 
 ---
 
 ## 2026-10-14 — roastery's drives in Scrutiny: the native Windows collector
 
 roastery was the only machine Scrutiny didn't watch: Docker Desktop can't pass
-raw Windows disks to the collector image (2026-09-16). Its old 2.5" Seagate is
-the same model as cellar's flagged ST1000, so it's worth watching.
+raw Windows disks to the collector image (2026-09-16). Its 2.5" HDD is old,
+so it's worth watching. (This entry first called it a Seagate like cellar's
+ST1000; the collector's first run shows a WD WD10JMVW: handoff entry above.)
 
 `stacks/roastery/scrutiny-collector/install.ps1` installs Scrutiny's Windows
 build of the collector (the release `.exe`, pinned to the hub's version and to
