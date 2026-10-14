@@ -1,0 +1,4 @@
+# purrCafe: encrypted mailbox files and the budget cache, plus home.json. The
+# key that opens the mailboxes is CAFE_APP_ENCRYPTION_KEY in secrets.env.local,
+# which every node backup carries too; restore them together.
+path    purrcafe

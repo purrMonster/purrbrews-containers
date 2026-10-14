@@ -1,0 +1,4 @@
+# <path under DATA_DIR> <uid>:<gid> [mode]. PUID:PGID is the ops user.
+# data: the image runs as `node` (1000). config: home.json, written by the ops user, read-only in the container.
+purrcafe/data 1000:1000 700
+purrcafe/config PUID:PGID 755

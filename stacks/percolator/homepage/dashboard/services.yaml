@@ -1,6 +1,10 @@
 # One tile per app. {{HOMEPAGE_VAR_DOMAIN}} comes from the container env.
 # Add an app's tile in the same commit as the app. Icons: https://gethomepage.dev/configs/services/#icons
 - Daily:
+    - purrCafe:
+        href: https://cafe.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: mdi-coffee
+        description: Household dashboard
     - OpenCloud:
         href: https://opencloud.{{HOMEPAGE_VAR_DOMAIN}}
         icon: mdi-folder-cloud
