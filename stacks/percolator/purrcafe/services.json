@@ -1,0 +1,16 @@
+[
+  {"name":"Photos","group":"Everyday","host":"immich"},
+  {"name":"Files","group":"Everyday","host":"opencloud"},
+  {"name":"Passwords","group":"Everyday","host":"vault"},
+  {"name":"Documents","group":"Everyday","host":"paperless"},
+  {"name":"Budget","group":"Home","host":"actualbudget"},
+  {"name":"Recipes","group":"Home","host":"mealie"},
+  {"name":"To-do lists","group":"Home","host":"vikunja"},
+  {"name":"News","group":"Home","host":"freshrss"},
+  {"name":"Chat","group":"Home","host":"meow"},
+  {"name":"Home automation","group":"Home","host":"homeassistant"},
+  {"name":"Status","group":"Operations","host":"gatus","admin":true},
+  {"name":"Fleet watcher","group":"Operations","host":"perch","admin":true},
+  {"name":"Accounts","group":"Operations","host":"lldap","admin":true},
+  {"name":"Containers","group":"Operations","host":"komodo","admin":true}
+]
