@@ -16,6 +16,8 @@ services:
       - SYS_ADMIN   # smartctl on NVMe
     environment:
       COLLECTOR_API_ENDPOINT: http://${CELLAR_LAN_IP}:8080
+      # Groups this node's disks under its name in the dashboard.
+      COLLECTOR_HOST_ID: ${NODE:?NODE comes from /opt/purrbrews/.env}
       COLLECTOR_CRON_SCHEDULE: "0 */6 * * *"
     volumes:
       - /run/udev:/run/udev:ro
