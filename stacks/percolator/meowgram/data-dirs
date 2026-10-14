@@ -1,0 +1,5 @@
+# <path under DATA_DIR> <uid>:<gid> [mode]. PUID:PGID is the ops user.
+# The server runs as appuser (10001) and only reads secrets/; the ops user
+# drops the Firebase file in through the group (setgid keeps it on new files).
+meowgram/secrets 10001:PGID 2770
+meowgram/postgres 999:999 700

@@ -61,4 +61,4 @@ _Last updated: 2026-10-14_
 | Recipes | Mealie | percolator |
 | Budget | Actual Budget | percolator |
 | Household dashboard (saved mailboxes, home.json) | purrCafe (own repo) | percolator |
-| Chat | meowGram (own repo) | roastery, for now |
+| Chat | [meowGram](../stacks/percolator/meowgram/README.md) (own repo) | percolator |
