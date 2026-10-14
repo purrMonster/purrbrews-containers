@@ -98,6 +98,42 @@ changes can be made later without re-deriving the reasoning.
 
 ---
 
+## 2026-10-15 — persianPerch runs its release image; cellar no longer builds it
+
+persianPerch now publishes `ghcr.io/purrmonster/persian-perch` from a `v*` tag
+(its own GitHub Actions: CI first, SBOM, provenance, attestation). cellar ran
+`build:` from the repo at `PERSIAN_PERCH_REF`; it now pins the image by tag and
+digest like every other image here (meowGram's pattern), so Dependabot's
+`/stacks/*/*` proposes later releases as ordinary bumps.
+
+Changed, from persianPerch's `integration/fleet-ghcr-image.patch` (made against
+`72e3f7b`, applied clean): perch's compose `image:` line
+(`0.1.0@sha256:c1bce82d…c43c4b`), its README and `secrets.conf`, and
+`PERSIAN_PERCH_REF` out of cellar's `local.env.example`. Not in the patch:
+cellar's README step 5 (`up -d`, no `--build`).
+
+Checked (Claude): the digest is the 0.1.0 manifest index on GHCR, fetched with
+an anonymous token, so the package is public and cellar pulls without a login.
+Fleet tests: 105 passed, 11 skipped. perch is not deployed yet; nothing ran on
+a node.
+
+Worth knowing: GHCR also lists `0.1` and `latest` tags, though persianPerch's
+release workflow says tags only, no `latest` (owner, 2026-10-14). Harmless here
+(the digest pins it); a question for persianPerch's workflow.
+
+On cellar, an old `PERSIAN_PERCH_REF=` line in `.env.local` is now unused and
+harmless; delete it when convenient. The first `up` after this pulls instead of
+building: `./compose.sh persian-perch up -d`.
+
+Undo: revert this commit; cellar builds from `PERSIAN_PERCH_REF` again (it must
+be set in `.env.local`).
+
+Where we stopped / next step: perch bring-up, step 1 (credentials: `sphynx` in
+LLDAP, Komodo read-only key, perch's ntfy user, critical topic, healthchecks.io
+check), then cellar's `setup-secrets.sh` and `up -d`.
+
+---
+
 ## 2026-10-14 — Agents step done: Komodo pairs all six machines, Scrutiny sees every drive (session handoff)
 
 The 2026-10-13 handoff's "agents" step, with the owner running every sudo
