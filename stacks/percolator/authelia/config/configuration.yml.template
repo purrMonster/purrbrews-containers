@@ -397,7 +397,7 @@ identity_providers:
 
       - client_id: 'meowgram'
         client_name: 'meowGram'
-        # meowGram (own repo, runs on roastery for now; stacks/roastery/meowgram).
+        # meowGram (own repo, runs on percolator: stacks/percolator/meowgram).
         # A public client: the Flutter app runs on people's devices and in the
         # browser, so it can't keep a secret. PKCE stands in for it.
         public: true

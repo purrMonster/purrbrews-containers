@@ -446,7 +446,7 @@ class Layout(unittest.TestCase):
 
     # Routes Gatus deliberately doesn't check end to end (the reasons are in
     # sieve/gatus/config/config.yaml). Everything else must have a check.
-    NOT_WATCHED = {'ollama', 'meow'}
+    NOT_WATCHED = {'ollama'}
 
     @unittest.skipUnless(yaml, 'needs PyYAML (apt install python3-yaml)')
     def test_every_route_has_an_end_to_end_check(self):

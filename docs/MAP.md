@@ -4,7 +4,7 @@ One page to find everything. Update it whenever a project, doc or node is added.
 Decisions and their reasons live in [`runbook.md`](../runbook.md); this page only
 points.
 
-_Last updated: 2026-10-12_
+_Last updated: 2026-10-14_
 
 ## Start here
 
@@ -59,4 +59,4 @@ _Last updated: 2026-10-12_
 | Passwords | Vaultwarden | percolator |
 | Recipes | Mealie | percolator |
 | Budget | Actual Budget | percolator |
-| Chat | meowGram (own repo) | roastery, for now |
+| Chat | [meowGram](../stacks/percolator/meowgram/README.md) (own repo) | percolator |

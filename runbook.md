@@ -37,7 +37,7 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Decide: keep barista in the `docker` group (added 2026-09-26; root without a password) or take it out again once the live-check fixes are done
 - [ ] cellar: confirm Komodo still logs in after `KOMODO_DISABLE_USER_REGISTRATION` went to `true` Core has `KOMODO_DISABLE_USER_REGISTRATION=true` and `KOMODO_LOCAL_AUTH=true` (checked 2026-09-29); the login itself is for the owner (owner)
 - [x] Pin n8n (`latest`), Open WebUI (`main`) and Karakeep (`release`) Done 2026-09-29: n8n `2.39.7` and Karakeep `0.33.2`, each the same digest as what was running; Open WebUI by digest (its `main` build isn't the v0.11.3 release)
-- [ ] meowGram: route and Authelia client on `main` since #3 (2026-10-04 entry); bring up, then the open items in `stacks/roastery/meowgram/README.md` (backups, web build, the audience check)
+- [ ] meowGram on percolator (2026-10-14 entry): `./setup-secrets.sh`, `./compose.sh meowgram up -d`, Pi-hole on sieve and mochaPot, the tunnel route, Gatus; then `stacks/percolator/meowgram/README.md` "Is it working?". Web build, audience check and backups are covered by the move; open: `meowgram://callback` in Authelia (owner) and the matching PR in the meowGram repo
 - [ ] Open WebUI → roastery's LLMs (llama-swap since 2026-10-07; grinder's `OLLAMA_BASE_URL` still points at the old `:11434`): needs machine-to-machine auth that keeps Authelia in front; options in the 2026-10-07 entry, none chosen
 - [ ] Karakeep: `NEXTAUTH_URL` is the direct-port URL while the route is `karakeep.${DOMAIN}`; check the phone share sheet signs in through the hostname
 - [x] Remote access over Tailscale: rolled out and checked from outside the house (2026-09-28; 2026-09-27 entry below)
@@ -93,6 +93,60 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Proposal: `fleet.py deploy` on a fresh node fails at `firewall` when the node pins no network subnet (grinder: `grinder_net` didn't exist yet). Pin a subnet per node, as mochaPot does, or have the runner create the network first
 - [ ] Proposal: the GitHub address 185.199.109.133 is unreachable from this ISP (traceroute dies after its gateway), so ~1 in 4 GitHub release downloads hang (HACS). Option: both Pi-holes return only the three working addresses for GitHub's asset hostnames; ISP ticket alongside
 - [ ] sieve and cellar have no `fleet.py` deploy record (brought up by hand on 2026-10-12/13): one `fleet.py deploy` each at the current main, after the agents step, puts every node on one recorded commit
+
+---
+
+## 2026-10-14 — meowGram moves to percolator, from GHCR images
+
+**What.** meowGram (household chat, own repo) gets a stack on percolator,
+`stacks/percolator/meowgram`, like every other app there: `docker-compose.yml`
+with images pinned by tag and digest, `secrets.conf` (`MEOWGRAM_DB_PASSWORD`,
+hex 64), `backup` (a `pg` dump of `meowgram-postgres`, plus the push key),
+`data-dirs`, a README with the checklist, and its place in `node.conf` after
+vikunja. roastery's route (`traefik/config/dynamic/meow.yml.template`) and its
+`meowgram` folder are gone; the tunnel's `meow` ingress points at percolator;
+Gatus checks `https://meow.${DOMAIN}/healthz` (it was skipped while roastery
+slept); MAP, READMEs and roastery-init no longer say it runs on roastery.
+Not deployed: nothing on a node has changed.
+
+**Why percolator.** It's the household tier: Authelia is local (the backend's
+JWKS fetch and the users' sign-in don't cross nodes), the `meow.${DOMAIN}` name
+is covered by the wildcard certificate, the tunnel already lands there, and its
+nightly dumps cover the chat, which was backed up nowhere on roastery. The app
+is small (a Go binary, nginx with static files, a Postgres). Not grinder ("nothing
+household-critical"), not mochaPot (home automation, and less memory), not
+cellar (recovery tier), and not roastery (a workstation that sleeps, games and is
+about to be formatted).
+
+**Why GHCR images and not a build from the meowGram checkout.** meowGram's
+release workflow (v1.1.0, 2026-10-13) builds `meowgram-server` and
+`meowgram-web` from a version tag and pushes them to GHCR, domain-free. Pinned by
+tag and digest they follow this repo's rules (tests, Dependabot, the image
+cleanup) and need no Flutter build on an M710q. They are still built from that
+repo's Git, but meowGram's own `AGENTS.md` §2/§3 and runbook §10.6 say "built from
+`deploy/docker-compose.yml`"; that repo needs a matching PR.
+
+**Differences from meowGram's own compose, on purpose:** no published ports
+(Traefik on the `proxy` network only; Postgres on the project network), no
+`db-backup` sidecar (the fleet's `backup` file does the dump and the off-host
+copy), no dev Traefik profile, Postgres 18.6 (the same pin as Paperless's; a
+fresh database, nothing carried over from roastery, per the October reset),
+`AUTHELIA_AUDIENCE` strict to `https://meow.${DOMAIN}`, `ENVIRONMENT=production`.
+
+**Bring-up** (owner, after review and merge): percolator `git fetch`, check out
+the reviewed commit, `./setup-secrets.sh`, `./compose.sh meowgram up -d`; sieve
+and mochaPot render and `./compose.sh pihole up -d`; sieve render and recreate
+`cloudflared` and `gatus`; in the Cloudflare dashboard move the published
+`meow` route to percolator HTTPS (the live tunnel is dashboard-managed). Then the
+README's checklist.
+
+**Not in this change (proposals):** `meowgram://callback` in the `meowgram`
+Authelia client, without which the Android and iOS apps can't sign in (an auth
+change, owner's call); the meowGram repo PR above.
+
+**Undo:** revert the commit. On a node: `./compose.sh meowgram down` on
+percolator, re-render the Pi-holes and cloudflared from the reverted commit.
+The data stays under `/srv/data/meowgram` until removed by hand.
 
 ---
 

@@ -14,7 +14,6 @@ the side, so not a fleet node: no `init/purrbrews-init.sh` (it has its own,
 | [llama-swap](llama-swap/README.md) | `./compose.ps1 llama-swap up -d` | local LLMs on the 3080, `127.0.0.1:9292` only |
 | [Traefik → llama-swap](traefik/README.md) | `.\traefik\start.ps1`, native | `ollama.${DOMAIN}` (old name kept), admins, via Authelia |
 | [Game mode](game-mode/README.md) | scheduled task, `game-mode\install.ps1` | llama-swap to its CPU-only profile while a game runs |
-| [meowGram](meowgram/README.md) | its own repo's compose, Docker Desktop | `meow.${DOMAIN}` through the same Traefik; Authelia OIDC |
 | [Backup target](#backup-target) | OpenSSH (SFTP), `backup-target\setup.ps1` | `C:\purrbrews\restic`, the fleet's restic repository |
 | [Remote access](#remote-access) | Tailscale + Remote Desktop, `remote-access\setup.ps1` | `mstsc /v:roastery` from the tailnet |
 
@@ -75,8 +74,7 @@ It never touches a node: what the nodes need afterwards is printed at the end.
 7. **Traefik** ([its README](traefik/README.md)), including its scheduled task
    with no time limit.
 8. **Game mode:** `game-mode\install.ps1` ([its README](game-mode/README.md)).
-9. **meowGram** from its own repo ([meowgram/README.md](meowgram/README.md)).
-10. **The bootstrap container**, if a node needs (re)building
+9. **The bootstrap container**, if a node needs (re)building
     ([bootstrap/README.md](../../bootstrap/README.md)).
 
 What this list can't bring back: anything on roastery that wasn't pushed. Push
