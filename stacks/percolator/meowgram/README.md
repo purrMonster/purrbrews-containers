@@ -7,7 +7,7 @@ sleeps or games, and its database is in percolator's nightly dumps.
 
 | | |
 |---|---|
-| Images | `ghcr.io/purrmonster/meowgram-server` and `meowgram-web`, built by meowGram's release workflow from a version tag; `postgres:18.6` |
+| Images | `ghcr.io/purrmonster/meowgram-server` and `meowgram-web`, built by meowGram's release workflow from a version tag; `postgres:18.6`. meowGram's own compose builds from source, for its testing only |
 | URL | `https://meow.${DOMAIN}` (web app; `/api`, `/ws`, `/healthz` go to the backend) |
 | Sign-in | Authelia OIDC, public client `meowgram` (PKCE), `household` policy. No ForwardAuth |
 | Data | `/srv/data/meowgram/postgres` (dumped nightly, `backup`), `/srv/data/meowgram/secrets` (push key, optional) |
@@ -102,6 +102,3 @@ The server migrates the database at start, so take a dump first
 - **Mobile sign-in:** add `meowgram://callback` to the `meowgram` client's
   redirect URIs in Authelia (an auth change: owner's call), or the published APK
   and iOS build can't sign in.
-- **meowGram's own repo** still describes the roastery deployment (its
-  `AGENTS.md` §3, runbook §10.6, `deploy/docker-compose.yml` as "what runs"). It
-  needs a matching PR there once this is live.

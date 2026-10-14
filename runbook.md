@@ -37,7 +37,7 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Decide: keep barista in the `docker` group (added 2026-09-26; root without a password) or take it out again once the live-check fixes are done
 - [ ] cellar: confirm Komodo still logs in after `KOMODO_DISABLE_USER_REGISTRATION` went to `true` Core has `KOMODO_DISABLE_USER_REGISTRATION=true` and `KOMODO_LOCAL_AUTH=true` (checked 2026-09-29); the login itself is for the owner (owner)
 - [x] Pin n8n (`latest`), Open WebUI (`main`) and Karakeep (`release`) Done 2026-09-29: n8n `2.39.7` and Karakeep `0.33.2`, each the same digest as what was running; Open WebUI by digest (its `main` build isn't the v0.11.3 release)
-- [ ] meowGram on percolator (2026-10-14 entry): `./setup-secrets.sh`, `./compose.sh meowgram up -d`, Pi-hole on sieve and mochaPot, the tunnel route, Gatus; then `stacks/percolator/meowgram/README.md` "Is it working?". Web build, audience check and backups are covered by the move; open: `meowgram://callback` in Authelia (owner) and the matching PR in the meowGram repo
+- [ ] meowGram on percolator (2026-10-14 entry): `./setup-secrets.sh`, `./compose.sh meowgram up -d`, Pi-hole on sieve and mochaPot, the tunnel route, Gatus; then `stacks/percolator/meowgram/README.md` "Is it working?". Web build, audience check and backups are covered by the move; open: `meowgram://callback` in Authelia
 - [ ] Open WebUI → roastery's LLMs (llama-swap since 2026-10-07; grinder's `OLLAMA_BASE_URL` still points at the old `:11434`): needs machine-to-machine auth that keeps Authelia in front; options in the 2026-10-07 entry, none chosen
 - [ ] Karakeep: `NEXTAUTH_URL` is the direct-port URL while the route is `karakeep.${DOMAIN}`; check the phone share sheet signs in through the hostname
 - [x] Remote access over Tailscale: rolled out and checked from outside the house (2026-09-28; 2026-09-27 entry below)
@@ -122,9 +122,9 @@ about to be formatted).
 release workflow (v1.1.0, 2026-10-13) builds `meowgram-server` and
 `meowgram-web` from a version tag and pushes them to GHCR, domain-free. Pinned by
 tag and digest they follow this repo's rules (tests, Dependabot, the image
-cleanup) and need no Flutter build on an M710q. They are still built from that
-repo's Git, but meowGram's own `AGENTS.md` §2/§3 and runbook §10.6 say "built from
-`deploy/docker-compose.yml`"; that repo needs a matching PR.
+cleanup) and need no Flutter build on an M710q. Owner's decision (2026-10-14):
+meowGram's own compose builds from source for its testing; purrBrews brings up
+the published release.
 
 **Differences from meowGram's own compose, on purpose:** no published ports
 (Traefik on the `proxy` network only; Postgres on the project network), no
@@ -142,7 +142,7 @@ README's checklist.
 
 **Not in this change (proposals):** `meowgram://callback` in the `meowgram`
 Authelia client, without which the Android and iOS apps can't sign in (an auth
-change, owner's call); the meowGram repo PR above.
+change, owner's call).
 
 **Undo:** revert the commit. On a node: `./compose.sh meowgram down` on
 percolator, re-render the Pi-holes and cloudflared from the reverted commit.
