@@ -37,7 +37,7 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Decide: keep barista in the `docker` group (added 2026-09-26; root without a password) or take it out again once the live-check fixes are done
 - [ ] cellar: confirm Komodo still logs in after `KOMODO_DISABLE_USER_REGISTRATION` went to `true` Core has `KOMODO_DISABLE_USER_REGISTRATION=true` and `KOMODO_LOCAL_AUTH=true` (checked 2026-09-29); the login itself is for the owner (owner)
 - [x] Pin n8n (`latest`), Open WebUI (`main`) and Karakeep (`release`) Done 2026-09-29: n8n `2.39.7` and Karakeep `0.33.2`, each the same digest as what was running; Open WebUI by digest (its `main` build isn't the v0.11.3 release)
-- [ ] meowGram on percolator (2026-10-14 entry): `./setup-secrets.sh`, `./compose.sh meowgram up -d`, Pi-hole on sieve and mochaPot, the tunnel route, Gatus; then `stacks/percolator/meowgram/README.md` "Is it working?". Web build, audience check and backups are covered by the move; open: `meowgram://callback` in Authelia
+- [ ] meowGram on percolator (2026-10-14 entries): live on percolator at ef25dbc. Done 2026-10-14: `meowgram` up, Authelia recreated with `meowgram://callback`; through percolator's Traefik `/healthz` → `"status":"ok"`, `/api/client-config` → issuer `https://authelia.${DOMAIN}`, `client_id` `meowgram` (owner's paste); Pi-hole re-rendered on mochaPot then sieve, Gatus recreated on sieve (owner). Missing: `sudo docker ps` health line and the two `dig` results (not pasted); the APK sign-in test (owner, this evening); the tunnel route, with the other apps in one Cloudflare pass (owner); README "Is it working?" rest; roastery's leftover rendered `traefik/config/dynamic/meow.yml` (gitignored, harmless once DNS moved) to delete or let the format clear
 - [ ] Open WebUI → roastery's LLMs (llama-swap since 2026-10-07; grinder's `OLLAMA_BASE_URL` still points at the old `:11434`): needs machine-to-machine auth that keeps Authelia in front; options in the 2026-10-07 entry, none chosen
 - [ ] Karakeep: `NEXTAUTH_URL` is the direct-port URL while the route is `karakeep.${DOMAIN}`; check the phone share sheet signs in through the hostname
 - [x] Remote access over Tailscale: rolled out and checked from outside the house (2026-09-28; 2026-09-27 entry below)
@@ -151,6 +151,43 @@ OpenCloud's rehearsal); then persianPerch and the Cloudflare pass, per the
 2026-10-13 handoff. Gatus is already up (purrCafe entry).
 
 Undo: nothing to undo; it records state.
+
+---
+
+## 2026-10-14 — meowGram live on percolator (bring-up)
+
+**What.** #59, #60 and #61 brought up on the nodes at `ef25dbc` (owner ran
+every command; Claude gave them in chat). #60 had merged into #59's branch
+after #59 landed, so it never reached `main`; #61 re-landed the same commit.
+
+- percolator: checkout `ef25dbc`, `./setup-secrets.sh` (made
+  `MEOWGRAM_DB_PASSWORD`; purrCafe's optional prompts left blank),
+  `./compose.sh meowgram up -d --wait`, `./compose.sh authelia up -d
+  --force-recreate --wait`. Not via `fleet.py deploy`: that would also have
+  brought up every other app at this commit, so percolator has no deploy
+  record for it.
+- Checked through percolator's own Traefik with `curl --resolve`, before DNS
+  moved: `/healthz` → `"status":"ok"`, environment `production`;
+  `/api/client-config` → issuer `https://authelia.${DOMAIN}`, `client_id`
+  `meowgram` (owner's paste). Plain `docker ps` failed with permission
+  denied: barista isn't in the docker group (open decision); `sudo docker ps` is
+  the read.
+- mochaPot, then sieve: checkout `ef25dbc`, `./render-configs.sh`,
+  `./compose.sh pihole up -d --wait`; sieve also `./compose.sh gatus up -d
+  --force-recreate --wait` for the new `meowgram` check (Gatus was already up
+  and its alert path tested in the purrCafe entry). Owner: done; the `dig`
+  output wasn't pasted.
+- Not done: cloudflared (owner: every tunnel route in one pass once all apps
+  are up); the APK sign-in test (owner, this evening).
+
+**Where we stopped / next step:** APK sign-in (`meowgram://callback`), then
+the rest of `stacks/percolator/meowgram/README.md` "Is it working?" (second
+device sees a message live; `sudo ./backup.sh plan` lists the dump), then the
+Cloudflare pass. Backlog line above has the open bits.
+
+**Undo:** percolator `./compose.sh meowgram down`; check out the previous
+commit on percolator, mochaPot and sieve and re-render; recreate Authelia,
+Pi-hole and Gatus. Data stays in `/srv/data/meowgram` until removed by hand.
 
 ---
 
