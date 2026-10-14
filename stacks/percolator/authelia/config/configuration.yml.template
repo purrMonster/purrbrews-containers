@@ -416,6 +416,10 @@ identity_providers:
           - 'https://meow.${DOMAIN}'
           # Desktop: the RFC 8252 loopback listener the app opens on 8088.
           - 'http://127.0.0.1:8088/callback'
+          # Android and iOS: the app's own URL scheme (RFC 8252 private-use
+          # scheme). PKCE is what makes this safe: another app claiming the
+          # scheme gets a code it can't redeem without the verifier.
+          - 'meowgram://callback'
         scopes: ['openid', 'profile', 'email', 'offline_access']
         response_types: ['code']
         grant_types: ['authorization_code', 'refresh_token']
