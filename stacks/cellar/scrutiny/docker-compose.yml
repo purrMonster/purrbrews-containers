@@ -39,6 +39,8 @@ services:
       # Same schedule as the collectors on the other nodes (every 6 hours, UTC).
       # Without it the hub collects once a day, so cellar's disks lagged.
       COLLECTOR_CRON_SCHEDULE: "0 */6 * * *"
+      # Groups cellar's own disks under its name, like the other nodes' collectors.
+      COLLECTOR_HOST_ID: ${NODE:?NODE comes from /opt/purrbrews/.env}
     # Liveness of the web app and its API. It answered {"success":true} with
     # InfluxDB stopped too (tested 2026-10-08), so it says nothing about the
     # database; Scrutiny's own UI shows that.
