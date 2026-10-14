@@ -37,6 +37,9 @@ ingress:
   - hostname: homepage.${DOMAIN}
     service: https://${PERCOLATOR_LAN_IP}:443
     originRequest: {originServerName: homepage.${DOMAIN}}
+  - hostname: cafe.${DOMAIN}
+    service: https://${PERCOLATOR_LAN_IP}:443
+    originRequest: {originServerName: cafe.${DOMAIN}}
   - hostname: immich.${DOMAIN}
     service: https://${PERCOLATOR_LAN_IP}:443
     originRequest: {originServerName: immich.${DOMAIN}}

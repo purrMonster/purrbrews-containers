@@ -377,6 +377,7 @@ endpoints:
   - {<<: *own-login, group: "apps: percolator", name: actualbudget, url: "https://actualbudget.${DOMAIN}/"}
   - {<<: *own-login, group: "apps: percolator", name: freshrss, url: "https://freshrss.${DOMAIN}/"}
   - {<<: *behind-sso, group: "apps: percolator", name: homepage, url: "https://homepage.${DOMAIN}/"}
+  - {<<: *behind-sso, group: "apps: percolator", name: purrcafe, url: "https://cafe.${DOMAIN}/"}
   - {<<: *behind-sso, group: "apps: percolator", name: traefik, url: "https://traefik.${DOMAIN}/"}
   # Not a web app: the fleet's outgoing mail (percolator/mail-relay). Checks it
   # answers and offers STARTTLS. `insecure` because its certificate is from

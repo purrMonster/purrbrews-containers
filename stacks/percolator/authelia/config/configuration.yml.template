@@ -118,6 +118,12 @@ access_control:
     - domain: 'vault.${DOMAIN}'
       resources: ['^/admin([/?#].*)?$']
       policy: deny
+    # purrCafe's kiosk account: its /wall view, on this one host. The catch-all
+    # below names only admins and household, so default_policy denies it
+    # everywhere else. one_factor: a wall screen can't answer a second factor.
+    - domain: 'cafe.${DOMAIN}'
+      subject: ['group:${CAFE_WALL_GROUP}']
+      policy: one_factor
     - domain: '*.${DOMAIN}'
       subject: ['group:${LLDAP_ADMIN_GROUP}', 'group:${LLDAP_HOUSEHOLD_GROUP}']
       policy: ${AUTH_POLICY}

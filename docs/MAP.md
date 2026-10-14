@@ -44,6 +44,7 @@ _Last updated: 2026-10-14_
 | flask (offline recovery kit: two bootable USB sticks + paper) | Stick A built and verified 2026-09-29; vault, B and paper next | [docs/flask.md](flask.md) | 2026-09-28 — flask, the recovery kit |
 | Local LLMs on roastery (llama-swap replaces Ollama; game mode) | On `main` (#7); to bring up on the rebuilt roastery (`roastery-init.ps1`, `apps` step) | [llama-swap](../stacks/roastery/llama-swap/README.md), [game mode](../stacks/roastery/game-mode/README.md) | 2026-10-07 — roastery wiped; llama-swap replaces Ollama |
 | Fleet mail (relay to Purelymail as `purrBrews@`; reading the mailbox with n8n + local AI next) | On `main` (#37), not yet running; needs the Purelymail app password | [mail-relay](../stacks/percolator/mail-relay/README.md) | 2026-10-08 — Fleet mail through Purelymail |
+| purrCafe (household dashboard, own repo; wall view for the kiosk) | Stack on percolator (this PR), not yet running; panels filled in one at a time | [purrcafe](../stacks/percolator/purrcafe/README.md) | 2026-10-14 — purrCafe joins percolator |
 | Smart desk / smart mirror | Idea | — | — |
 
 ## Where data lives (quick reference)
@@ -59,4 +60,5 @@ _Last updated: 2026-10-14_
 | Passwords | Vaultwarden | percolator |
 | Recipes | Mealie | percolator |
 | Budget | Actual Budget | percolator |
+| Household dashboard (saved mailboxes, home.json) | purrCafe (own repo) | percolator |
 | Chat | [meowGram](../stacks/percolator/meowgram/README.md) (own repo) | percolator |

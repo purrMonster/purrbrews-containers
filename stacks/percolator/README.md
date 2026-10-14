@@ -24,6 +24,7 @@ and shared household accounts. Radicale authenticates DAV directly against LLDAP
 | [Actual Budget](actualbudget/) | `actualbudget.${DOMAIN}` | Budgeting |
 | [FreshRSS](freshrss/) | `freshrss.${DOMAIN}` | News feeds |
 | [Homepage](homepage/) | `homepage.${DOMAIN}` | Start page: a tile for every app |
+| [purrCafe](purrcafe/) | `cafe.${DOMAIN}` | Household dashboard: home, budget, inbox, fleet; `/wall` for the kiosk |
 | Komodo Periphery | — | Lets Komodo on cellar manage this node's containers |
 | Scrutiny collector | — | SMART data for both disks, sent to the hub on cellar |
 
@@ -45,7 +46,7 @@ flowchart LR
       T --> DAV["Radicale"]
       DAV -->|LDAP| L
       A --- R[("Redis")]
-      T --> Apps["Vaultwarden · OpenCloud · Immich · Paperless<br/>Mealie · Vikunja · Actual · FreshRSS · Homepage"]
+      T --> Apps["Vaultwarden · OpenCloud · Immich · Paperless<br/>Mealie · Vikunja · Actual · FreshRSS · Homepage · purrCafe"]
       Apps -->|"OIDC via authelia.DOMAIN<br/>(alias to Traefik)"| T
       Apps --- DB[("own Postgres / Valkey<br/>per app, private")]
     end
@@ -106,7 +107,7 @@ signal (in its README) before the next. "Container started" is not a success sig
 | 2b | `./compose.sh mail-relay up -d` (after the Purelymail app password: [its README](mail-relay/README.md)) | `mail-relay` is `healthy`; `/srv/data/mail-relay/tls-public/ca.crt` exists |
 | 3 | `./compose.sh lldap up -d` then `./lldap-bootstrap.sh` in an interactive terminal | groups exist, `barista` created — **save the one-time password shown on the terminal** |
 | 4 | `./compose.sh authelia up -d` | log in at `https://authelia.${DOMAIN}` as `barista`; the Traefik dashboard opens; from sieve, `curl -s -o /dev/null -w '%{http_code}' http://192.168.0.11:9091/api/health` gives `200` |
-| 5+ | `./compose.sh <app> up -d` for radicale, opencloud, vaultwarden, immich, paperless, mealie, vikunja, meowgram, actualbudget, freshrss, homepage | the app's README checklist |
+| 5+ | `./compose.sh <app> up -d` for radicale, opencloud, vaultwarden, immich, paperless, mealie, vikunja, meowgram, actualbudget, freshrss, homepage, purrcafe | the app's README checklist |
 | last | `./compose.sh komodo-periphery up -d`, `./compose.sh scrutiny-collector up -d` | percolator shows up in Komodo and Scrutiny on cellar (copy `komodo-periphery/keys/core.pub` from cellar first) |
 
 Once everything has been up once, `./compose.sh --all up -d` brings the whole node up
@@ -131,7 +132,7 @@ in `node.conf` and the files in each app folder.
 | `lldap-bootstrap.sh` | Creates the two groups and a user in both. Idempotent; `--dry-run` |
 
 Files that exist only on the node (gitignored): `.env.local`, `*/secrets.env.local`,
-rendered `*/config/*`.
+`purrcafe/proxy.env.local`, rendered `*/config/*`.
 
 ## Day-2
 
@@ -183,6 +184,7 @@ Everything lives under `/srv/data/<app>/` on the NVMe:
 | `paperless/{data,media,export}`, `paperless/postgres` | documents, database | **yes** (database as a dump) |
 | `mealie`, `vikunja`, `actualbudget`, `freshrss` | SQLite + files | **yes** |
 | `meowgram/postgres`, `meowgram/secrets` | chat history, the push key | **yes** (database as a dump) |
+| `purrcafe` | encrypted mailboxes, budget cache, `home.json` | **yes**, with `purrcafe/secrets.env.local` (the key) |
 | `crowdsec`, `traefik/logs`, `*/valkey`, `authelia/redis` | caches, logs, queues | no |
 | `mail-relay/spool`, `mail-relay/tls*` | queued mail; the relay's own CA (remade if lost: see its README) | no |
 
