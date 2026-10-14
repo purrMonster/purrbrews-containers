@@ -425,6 +425,21 @@ class Layout(unittest.TestCase):
             with self.subTest(name):
                 self.assertEqual(len(versions(pattern)), 1, f'{name}: {sorted(versions(pattern))}')
 
+    def test_roastery_scrutiny_collector_matches_the_hub(self):
+        # Dependabot bumps the images, not the .exe pinned in this script: a
+        # Scrutiny bump fails here until the script's version and hash follow.
+        script = (STACKS / 'roastery' / 'scrutiny-collector' / 'install.ps1').read_text()
+        pinned = re.search(r"\$CollectorVersion = '(v[\d.]+)'", script).group(1)
+        hub = {m.group(1) for _, image in self.images() if (m := re.search(r'analogj/scrutiny:(v[\d.]+)-', image))}
+        self.assertEqual(hub, {pinned})
+        self.assertRegex(script, r"\$CollectorSha256 = '[0-9a-f]{64}'")
+        self.assertRegex(script, r"\$SmartmontoolsVersion = '\d+\.\d+'")
+        # SYSTEM runs only what's in the protected runtime, hashed there.
+        self.assertIn("GetFolderPath('ProgramFiles')) 'purrbrews-scrutiny'", script)
+        self.assertLess(script.index('Copy-AdminOnlyFile $source $staged'), script.index('Get-FileHash -LiteralPath $staged'))
+        self.assertIn("-UserId 'SYSTEM'", script)
+        self.assertIn('Assert-AdminOnlyPath $Smartctl -Ancestor', script)
+
     @unittest.skipUnless(yaml, 'needs PyYAML (apt install python3-yaml)')
     def test_dependabot_sees_every_compose_file_and_its_ignores_match(self):
         import fnmatch

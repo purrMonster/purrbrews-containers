@@ -94,6 +94,34 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Proposal: the GitHub address 185.199.109.133 is unreachable from this ISP (traceroute dies after its gateway), so ~1 in 4 GitHub release downloads hang (HACS). Option: both Pi-holes return only the three working addresses for GitHub's asset hostnames; ISP ticket alongside
 - [ ] sieve and cellar have no `fleet.py` deploy record (brought up by hand on 2026-10-12/13): one `fleet.py deploy` each at the current main, after the agents step, puts every node on one recorded commit
 - [ ] Scrutiny host labels (2026-10-14 entry): after merge, on sieve, percolator, mochaPot and grinder `./compose.sh scrutiny-collector up -d --force-recreate`, on cellar `./compose.sh scrutiny up -d --force-recreate`; then each drive shows under its node in the dashboard (trigger a run with `sudo docker exec scrutiny-collector scrutiny-collector-metrics run` instead of waiting six hours)
+- [ ] (owner) roastery's Scrutiny collector (2026-10-14 entry): after merge, update `C:\purrbrews-deploy` to main, then from an elevated Windows PowerShell 5.1 `powershell -ExecutionPolicy Bypass -File .\stacks\roastery\scrutiny-collector\install.ps1`; it ends with `Last result: 0`, and Scrutiny lists roastery's drives under `roastery`
+
+---
+
+## 2026-10-14 — roastery's drives in Scrutiny: the native Windows collector
+
+roastery was the only machine Scrutiny didn't watch: Docker Desktop can't pass
+raw Windows disks to the collector image (2026-09-16). Its old 2.5" Seagate is
+the same model as cellar's flagged ST1000, so it's worth watching.
+
+`stacks/roastery/scrutiny-collector/install.ps1` installs Scrutiny's Windows
+build of the collector (the release `.exe`, pinned to the hub's version and to
+its published SHA-256; a test keeps the version in step with the images) and
+smartmontools (winget, pinned version), and registers a scheduled task that
+runs it as SYSTEM every six hours from 05:35, a few minutes after the Linux
+collectors, with host `roastery`. SYSTEM because `smartctl` needs admin to
+read the disks; so the `.exe` and its `collector.yaml` live in
+`C:\Program Files\purrbrews-scrutiny` with an admin-only ACL, copied there and
+hashed there, using Traefik's runtime helpers (`init\lib\windows-runtime.ps1`).
+`smartctl.exe` gets the same ancestor check. Not added to roastery-init: a
+separate step there is a later, separate change.
+
+Tested in the cloud: the script parses (PowerShell 7), the generated YAML
+loads, the tests pass. Not run on Windows yet (Backlog line above).
+
+Undo: `install.ps1 -Uninstall` (task and folder), `winget uninstall --id
+smartmontools.smartmontools --exact`, then delete roastery's drives in
+Scrutiny's UI; revert the commit.
 
 ---
 
