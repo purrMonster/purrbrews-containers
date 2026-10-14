@@ -28,9 +28,9 @@ Authelia's `/jwks.json`. So Authelia's `meowgram` client differs from the others
   for origins in a client's redirect URIs, since the web app calls them from the
   browser.
 
-Redirect URIs: `https://meow.${DOMAIN}` (web, the home-screen PWA) and
-`http://127.0.0.1:8088/callback` (desktop). The Android and iOS apps use
-`meowgram://callback`, which is **not registered yet** (Open, below).
+Redirect URIs: `https://meow.${DOMAIN}` (web, the home-screen PWA),
+`http://127.0.0.1:8088/callback` (desktop) and `meowgram://callback` (Android,
+iOS: the app's own scheme, safe because of PKCE).
 
 No default account: the first sign-in through Authelia creates the user from the
 token's `sub`. Anyone in `${LLDAP_HOUSEHOLD_GROUP}` can sign in.
@@ -70,6 +70,8 @@ don't get notified while the app is closed.
       without a token: `401`.
 - [ ] `https://meow.${DOMAIN}/` loads the web app; signing in goes to Authelia and
       back, and messages show your username, not a long ID.
+- [ ] The Android app (published APK) signs in: Authelia opens in the browser and
+      hands back to meowGram.
 - [ ] A message sent from the web shows on a second device without a refresh (the
       WebSocket through Traefik).
 - [ ] `ss -tlnp` on percolator shows nothing new; `5432` and `8080` aren't
@@ -97,8 +99,3 @@ The server migrates the database at start, so take a dump first
   headers on purpose (they can be forged), so the global bucket is shared by every
   client; the per-user buckets are what limit one person.
 
-## Open
-
-- **Mobile sign-in:** add `meowgram://callback` to the `meowgram` client's
-  redirect URIs in Authelia (an auth change: owner's call), or the published APK
-  and iOS build can't sign in.

@@ -96,6 +96,32 @@ changes can be made later without re-deriving the reasoning.
 
 ---
 
+## 2026-10-14 — meowGram's phone apps can sign in: `meowgram://callback` in Authelia
+
+**What.** The `meowgram` OIDC client gets a third redirect URI,
+`meowgram://callback`, the scheme the Android and iOS apps open after sign-in
+(meowGram runbook §10.4.2). Without it Authelia refuses the published APK's and
+iOS build's login. Owner approved the auth change in this session.
+
+**Why it's safe.** A private-use scheme (RFC 8252) can be claimed by another app
+on the phone, but the client requires PKCE (S256): a stolen code is useless
+without the verifier, which never leaves the meowGram app. CORS is unaffected
+(`allowed_origins_from_client_redirect_uris` only matters to browser origins).
+
+**Evidence.** The rendered template, with dummy secrets, loaded by
+`authelia validate-config` from the pinned 4.39.28 image: no errors (only the
+existing OpenCloud audience warnings). Negative control: `meowgram callback`
+in the same place fails with "redirect uri … must have a scheme", so the
+validator does check this list.
+
+**Bring-up** (owner, after merge, with or after the move to percolator):
+percolator `./render-configs.sh`, `./compose.sh authelia up -d --force-recreate`,
+then sign in from the published APK.
+
+**Undo:** revert the commit, render, recreate Authelia.
+
+---
+
 ## 2026-10-14 — meowGram moves to percolator, from GHCR images
 
 **What.** meowGram (household chat, own repo) gets a stack on percolator,
