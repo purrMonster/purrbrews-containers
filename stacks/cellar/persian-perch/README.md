@@ -9,7 +9,7 @@ anything on the fleet. Source, design and decisions:
 
 | | |
 |---|---|
-| Image | built on cellar from the public persianPerch repo at `PERSIAN_PERCH_REF` (a tag or full commit) |
+| Image | `ghcr.io/purrmonster/persian-perch`, persianPerch's release image, pinned by tag and digest |
 | URL | `https://perch.${DOMAIN}` (admins, behind Authelia). Two paths skip Authelia, see below |
 | Ports | none published: Traefik reaches it over `cellar_net` |
 | Data | `/srv/data/persian-perch` (scentTrail, SQLite in WAL mode); 300 MB memory limit |
@@ -36,15 +36,15 @@ Read persianPerch's `integration/ROLLOUT.md` first: the Komodo key, the `sphynx`
 ntfy token and the healthchecks.io check have to exist before this starts, and the order matters.
 
 ```bash
-./setup-secrets.sh            # asks PERSIAN_PERCH_REF (.env.local) and the prompts in secrets.conf
-./compose.sh persian-perch up -d --build
+./setup-secrets.sh            # the prompts in secrets.conf
+./compose.sh persian-perch up -d
 ```
 
 `config/whiskers.yml` is tracked: put the real entity ids in it in the repo (a branch, like any change) before
 cellar checks that commit out, not by hand on cellar: deployment refuses a checkout with local edits.
 
-`PERSIAN_PERCH_REF` is a persianPerch tag or full commit. To update, change it in `.env.local` and run
-`./compose.sh persian-perch up -d --build`.
+To update perch, change the `image:` line (tag and digest, from the release's notes) in a reviewed
+commit and deploy cellar. `curl -s https://perch.${DOMAIN}/healthz` from a node shows the running `version`.
 
 ## Is it working?
 
@@ -63,5 +63,5 @@ cellar checks that commit out, not by hand on cellar: deployment refuses a check
 - **The domain and the addresses are not in persianPerch's repo.** `${DOMAIN}` and the node addresses come from `.env.local` and `fleet.env` here, like every other app.
 - **A placeholder `whiskers.yml` is silent, not broken.** Until the entity ids are real, whiskers watches nothing, so a leak sensor would not be seen. Edit it before relying on the house.
 - **While whiskers is down perch cannot see leak or smoke sensors.** Home Assistant's own alerts must cover them (persianPerch decided that a Home Assistant outage is a tailFlick for whiskers, not a hiss, because purr and glare already hiss for the same outage).
-- **Pull the checkout before an update.** perch lists `/opt/purrbrews` (tracked files only); it shows what this node last pulled.
-- **Recovery.** Lose the container and nothing is lost but history: `./compose.sh persian-perch up -d --build` rebuilds it, and the nightly dump of scentTrail is in restic if you want the history back.
+- **perch shows this node's checkout.** It lists `/opt/purrbrews` (tracked files only) at the commit cellar last deployed.
+- **Recovery.** Lose the container and nothing is lost but history: `./compose.sh persian-perch up -d` starts it again, and the nightly dump of scentTrail is in restic if you want the history back.
