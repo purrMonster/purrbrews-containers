@@ -35,7 +35,7 @@ Then, in order (`node.conf`), checking each before the next:
 | 2 | `./compose.sh scrutiny up -d` | both disks listed at `http://192.168.0.12:8080` |
 | 3 | `./compose.sh traefik up -d` | certificates issued in `sudo docker logs traefik`; `https://komodo.${DOMAIN}` asks for an Authelia login |
 | 4 | `./compose.sh smb up -d` | only when the shares are wanted; add the rule in `smb/firewall` first |
-| 5 | `./compose.sh persian-perch up -d --build` | its [README](persian-perch/README.md) checklist; read persianPerch's `integration/ROLLOUT.md` before the first run |
+| 5 | `./compose.sh persian-perch up -d` | its [README](persian-perch/README.md) checklist; read persianPerch's `integration/ROLLOUT.md` before the first run |
 | — | `sudo ./nfs/setup-nfs.sh`, then [restic/README.md](restic/README.md) | host-native, whenever needed |
 
 `./compose.sh --all up -d` does 1–5 in that order once everything has been up once.

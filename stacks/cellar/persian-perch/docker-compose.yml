@@ -7,9 +7,9 @@
 # both. It joins cellar_net, so Komodo is http://komodo-core:9120 and Scrutiny is
 # http://scrutiny:8080 by container name.
 #
-# Image: built here from the public repo at a pinned ref (PERSIAN_PERCH_REF in .env.local: a
-# release tag or a full commit, never a branch name), so there is no registry to publish to.
-# To update: change the ref, then ./compose.sh persian-perch up -d --build.
+# Image: persianPerch's release, published by its GitHub Actions from a v* tag and pinned here by
+# tag and digest like every image of the fleet (the release's job summary prints this line).
+# To update: change the line in a reviewed commit (Dependabot proposes it), then deploy cellar.
 #
 # No port is published, on purpose. perch has no login of its own, so the only ways in are
 # the three Traefik routers below. Two of them skip Authelia and say why next to them.
@@ -18,9 +18,7 @@
 # secrets.conf (generated or asked for by ./setup-secrets.sh) and fleet.env.
 services:
   persian-perch:
-    build:
-      context: https://github.com/purrMonster/persianPerch.git#${PERSIAN_PERCH_REF:?set PERSIAN_PERCH_REF in .env.local (a tag or full commit of persianPerch)}
-    image: persian-perch:local
+    image: ghcr.io/purrmonster/persian-perch:0.1.0@sha256:c1bce82db4948333e8e8e9b00b9d4662993b5772d81266df07af3ba092c43c4b
     container_name: persian-perch
     restart: unless-stopped
     read_only: true
