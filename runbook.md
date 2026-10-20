@@ -95,9 +95,45 @@ changes can be made later without re-deriving the reasoning.
 - [ ] sieve and cellar have no `fleet.py` deploy record (brought up by hand on 2026-10-12/13): one `fleet.py deploy` each at the current main, after the agents step, puts every node on one recorded commit
 - [x] Scrutiny host labels (2026-10-14 entry): after merge, on sieve, percolator, mochaPot and grinder `./compose.sh scrutiny-collector up -d --force-recreate`, on cellar `./compose.sh scrutiny up -d --force-recreate`; then each drive shows under its node in the dashboard (trigger a run with `sudo docker exec scrutiny-collector scrutiny-collector-metrics run` instead of waiting six hours) Done 2026-10-14: every node at `0c21d76`, collectors recreated (owner); the hub API lists all seven Linux drives with their node's `host_id`, each reported 14:19–14:21 IST (Claude)
 - [x] (owner) roastery's Scrutiny collector (2026-10-14 entry): after merge, update `C:\purrbrews-deploy` to main, then from an elevated Windows PowerShell 5.1 `powershell -ExecutionPolicy Bypass -File .\stacks\roastery\scrutiny-collector\install.ps1`; it ends with `Last result: 0`, and Scrutiny lists roastery's drives under `roastery` Done 2026-10-14: installed (owner); the hub lists roastery's Samsung MZVL21T0HCLR (NVMe) and WD WD10JMVW (2.5" HDD) under `roastery`, status 0, reported 14:21 IST (Claude, hub API)
+- [ ] (owner) pourOver on grinder (2026-10-21 entry): merge pourOver #7, tag `v0.1.0`, make the GHCR package public, put the digest in `stacks/grinder/pourover/docker-compose.yml`; then the bring-up in its README and the Gatus alert test
 
 ---
 
+
+## 2026-10-21 — pourOver joins grinder as an optional app
+
+At the owner's request (pull a prebuilt image from pourOver, bring it up). pourOver turns a
+meowGram message into Vikunja tasks with the local model; its own repo holds the code and the
+design. Nothing on a node changed in this entry.
+
+- **Stack:** `stacks/grinder/pourover/`: compose pinned to `ghcr.io/purrmonster/pourover:0.1.0`
+  (the digest goes in once pourOver's release workflow has published it, pourOver #7);
+  read-only, no capabilities, 256 MB. `secrets.conf` asks for the LLM service account, each
+  person's Vikunja token and id, optional ntfy topics, and meowGram's bot settings (blank until
+  its bot API ships). Who is who is rendered into `config/users.yaml` (gitignored), so no name
+  is in the repo. `data-dirs` (uid 10001), `backup` (a sqlite `.dump`).
+- **Why grinder:** nothing household-critical yet, and pourOver's own plan promotes it to
+  percolator only after two weeks of daily use.
+- **Optional** in `fleet.json`: `fleet.py deploy grinder` leaves it out until
+  `--include-optional pourover`, so a grinder deploy doesn't wait on its secrets.
+- **Ways in:** no Traefik route, since nobody opens it (pourOver reaches out to meowGram). Its
+  port `:8790` is open to sieve only (`firewall`), for a new Gatus check on `/healthz` (status
+  200, `db: true`). `/inbound` there also needs the inbound token.
+- **The model:** `https://ollama.${DOMAIN}` with Basic auth as a service account in
+  `ollama_api_group`, the path Authelia already has for machine clients; pourOver #7 adds the
+  Basic auth. This also settles the pattern the Open WebUI backlog line is waiting on, for
+  pourOver at least.
+
+Tests: 112 passed, 4 skipped as a non-root user; the one failure is the image pin, which waits
+for the digest. The PR stays a draft until then.
+
+**Undo:** remove the folder, its `node.conf`, `fleet.json`, `.gitignore`, Gatus, MAP and grinder
+README lines; on grinder `./compose.sh pourover down` and `sudo ufw delete` the 8000 rule.
+
+**Where we stopped / next step:** owner merges pourOver #7 and tags `v0.1.0`; the digest goes into
+this PR; owner picks the service account's name and makes it; then the bring-up in
+`stacks/grinder/pourover/README.md` and an alert test (stop pourover, see the ntfy alert,
+start it).
 
 ## 2026-10-21 — persianPerch after the GHCR switch: the leftovers
 

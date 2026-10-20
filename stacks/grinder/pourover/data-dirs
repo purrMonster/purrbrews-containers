@@ -1,0 +1,4 @@
+# <path under DATA_DIR> <uid>:<gid> [mode]. PUID:PGID is the ops user.
+# pourOver's image runs as the fixed user 10001 (pourOver's Dockerfile), so the folder is
+# made for it. Without this, Docker creates it as root and pourOver can't open its database.
+pourover 10001:10001 750

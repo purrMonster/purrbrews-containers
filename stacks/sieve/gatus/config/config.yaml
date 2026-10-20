@@ -411,3 +411,17 @@ endpoints:
   - {<<: *behind-sso, group: "apps: grinder", name: traccar, url: "https://traccar.${DOMAIN}/"}
   - {<<: *behind-sso, group: "apps: grinder", name: esphome, url: "https://esphome.${DOMAIN}/"}
   - {<<: *behind-sso, group: "apps: grinder", name: speedtest, url: "https://speedtest.${DOMAIN}/"}
+  # pourOver has no route (nobody opens it; it reaches out to meowGram), so it's checked on its
+  # port, which grinder's firewall opens to sieve only. /healthz also proves its SQLite opens.
+  - name: pourover
+    group: "apps: grinder"
+    url: "http://192.168.0.14:8790/healthz"
+    interval: 5m
+    conditions:
+      - "[CONNECTED] == true"
+      - "[STATUS] == 200"
+      - "[BODY].status == ok"
+      - "[BODY].db == true"
+    alerts:
+      - type: ntfy
+        description: "pourOver on grinder isn't answering; texts to it go unanswered"
