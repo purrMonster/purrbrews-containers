@@ -18,6 +18,7 @@ another node dies.
 | Traccar | `traccar.${DOMAIN}`, or `:8082` (phone posts to `:5055`) | Live position of the bike |
 | ESPHome | `esphome.${DOMAIN}`, or `:6052` | The ESP32 sensors |
 | Speedtest Tracker | `speedtest.${DOMAIN}`, or `:8765` | Hourly ISP speed tests |
+| [pourOver](pourover/README.md) | none; `:8790` for Gatus only (optional app) | Text in meowGram, a well-filed task in Vikunja |
 | Traefik | — | HTTPS for all of the above, behind Authelia |
 | Komodo Periphery | — | Lets Komodo on cellar manage this node's containers |
 | Scrutiny collector | — | SMART data for the hub on cellar |
@@ -76,6 +77,7 @@ n8n's, which has to belong to uid 1000 or n8n dies with `EACCES` on every start.
 | Path | Contents | Back up |
 |---|---|---|
 | `/srv/data/n8n` | workflows, credentials (encrypted with `N8N_ENCRYPTION_KEY`) | **yes**, and the key to flask |
+| `/srv/data/pourover` | pourOver's SQLite (command log, queue, confirms) | yes (a `.dump`); the tasks are in Vikunja |
 | `/srv/data/postgres-vector` | embeddings | no; derived, can be rebuilt |
 | `/srv/data/karakeep*`, `openwebui`, `fittrackee`, `postgres-fittrackee`, `traccar`, `esphome` | app data | yes (Postgres as a dump) |
 | `/srv/data/speedtest-tracker`, `traefik/acme` | history, certificates | no |

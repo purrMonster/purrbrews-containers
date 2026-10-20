@@ -1,0 +1,20 @@
+# Rendered by ../../render-configs.sh into config/users.yaml (gitignored): who may text pourOver,
+# and which Vikunja user each one is. The values come from ../secrets.env.local.
+# Format: https://github.com/purrMonster/pourOver/blob/main/config/users.example.yaml
+# Tokens are not here: users.yaml names the environment variables that hold them
+# (docker-compose.yml maps them).
+users:
+  user_a:
+    name: '${POUROVER_USER_A_NAME}'
+    meowgram_id: '${POUROVER_USER_A_MEOWGRAM}'
+    vikunja_user_id: ${POUROVER_USER_A_VIKUNJA_ID}
+    vikunja_token_env: VIKUNJA_TOKEN_USER_A
+    ntfy_topic: '${POUROVER_USER_A_NTFY_TOPIC}'
+    ntfy_token_env: NTFY_TOKEN_USER_A
+  user_b:
+    name: '${POUROVER_USER_B_NAME}'
+    meowgram_id: '${POUROVER_USER_B_MEOWGRAM}'
+    vikunja_user_id: ${POUROVER_USER_B_VIKUNJA_ID}
+    vikunja_token_env: VIKUNJA_TOKEN_USER_B
+    ntfy_topic: '${POUROVER_USER_B_NTFY_TOPIC}'
+    ntfy_token_env: NTFY_TOKEN_USER_B

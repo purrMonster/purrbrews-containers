@@ -45,6 +45,7 @@ stacks/cellar/traefik/config/dynamic.yml
 stacks/cellar/traefik/config/traefik.yml
 stacks/grinder/traefik/config/dynamic.yml
 stacks/grinder/traefik/config/traefik.yml
+stacks/grinder/pourover/config/users.yaml
 stacks/mochaPot/kiosk/bash_profile
 stacks/mochaPot/traefik/config/dynamic.yml
 stacks/mochaPot/traefik/config/traefik.yml

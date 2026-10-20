@@ -45,11 +45,14 @@
     "grinder": {
       "platform": "linux",
       "tier": "optional",
-      "optional": [],
+      "optional": [
+        "pourover"
+      ],
       "prerequisites": [
         "Application owner accounts created and initial passwords changed.",
         "Karakeep browser and Meilisearch migration rehearsed on a restored copy; see docs/image-upgrades.md.",
-        "Komodo Core public key installed."
+        "Komodo Core public key installed.",
+        "pourOver: its LLM service account and both Vikunja tokens exist (stacks/grinder/pourover/README.md)."
       ]
     },
     "roastery": {

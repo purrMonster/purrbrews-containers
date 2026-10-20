@@ -1,0 +1,5 @@
+# pourOver: its SQLite (command log, pending confirms, the queue, the meowGram cursor).
+# WAL mode, so never copied as a file; the sqlite line takes a consistent .dump.
+# The tasks themselves live in Vikunja (percolator's backup). `optional`: the database only
+# exists once pourOver has started.
+sqlite  pourover  pourover/pourover.db  optional

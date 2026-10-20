@@ -30,7 +30,7 @@ _Last updated: 2026-10-14_
 | percolator | .11 | Ingress + identity (Traefik, Authelia, LLDAP) and daily apps | [stacks/percolator](../stacks/percolator/README.md) |
 | cellar | .12 | Backups (restic), shares, Scrutiny hub, Komodo | [stacks/cellar](../stacks/cellar/README.md) |
 | mochaPot | .13 | Home Assistant, Music Assistant, secondary Pi-hole, kiosk | [stacks/mochaPot](../stacks/mochaPot/README.md) |
-| grinder | .14 | Automation + AI indexing (n8n, pgvector, embeddings, Open WebUI, Karakeep) | [stacks/grinder](../stacks/grinder/README.md) |
+| grinder | .14 | Automation + AI indexing (n8n, pgvector, embeddings, Open WebUI, Karakeep, pourOver) | [stacks/grinder](../stacks/grinder/README.md) |
 | roastery | — | Windows workstation: bootstrap server, llama-swap (local LLMs, 3080) with game mode, Immich ML | [stacks/roastery](../stacks/roastery/README.md) |
 
 ## Projects
@@ -52,6 +52,7 @@ _Last updated: 2026-10-14_
 | Kind of thing | App | Node |
 |---|---|---|
 | Links / read-later | Karakeep | grinder |
+| Tasks by text (meowGram → Vikunja) | pourOver | grinder |
 | Documents | Paperless-ngx | percolator |
 | Photos, screenshots | Immich | percolator |
 | Files | [OpenCloud](../stacks/percolator/opencloud/README.md) | percolator |

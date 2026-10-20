@@ -1,0 +1,81 @@
+# pourOver: text a task in meowGram, it lands in Vikunja, filed properly. A local model
+# (llama-swap on roastery) turns the message into a plan; pourOver checks it and files it
+# with each person's own Vikunja token. Vikunja then does the rest (reminders over CalDAV,
+# repeats, sharing). Source and docs: https://github.com/purrMonster/pourOver
+#
+# Image: pourOver's release, published by its GitHub Actions from a v* tag and pinned here by
+# tag and digest like every image of the fleet (the release's job summary prints this line).
+# To update: change the line in a reviewed commit (Dependabot proposes it), then deploy grinder
+# with --include-optional pourover.
+#
+# Optional on grinder (fleet.json): `fleet.py deploy grinder` leaves it out until it is asked for.
+#
+# Ways in: none from people. pourOver reaches out (meowGram, Vikunja, roastery, ntfy); its only
+# port is for Gatus on sieve (`./firewall`) and for a curl on this node. /inbound on that port
+# needs POUROVER_INBOUND_TOKEN as well.
+#
+# Every setting is spelled out under environment (the fleet's pattern); the values come from
+# secrets.conf (generated or asked for by ./setup-secrets.sh) and fleet.env. Who is who
+# (names, meowGram usernames, Vikunja user ids) is rendered into config/users.yaml on the node
+# from config/users.yaml.template, so no person's name is ever in this repo.
+services:
+  pourover:
+    image: ghcr.io/purrmonster/pourover:0.1.0@sha256:REPLACE_WITH_THE_RELEASE_DIGEST
+    container_name: pourover
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    ports:
+      - "8790:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=4)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    environment:
+      TZ: ${TZ}
+      POUROVER_TZ: ${TZ}
+      POUROVER_DB: /data/pourover.db
+      POUROVER_USERS_FILE: /config/users.yaml
+      POUROVER_INBOUND_TOKEN: ${POUROVER_INBOUND_TOKEN}
+      POUROVER_QUEUE_EXPIRY_HOURS: ${POUROVER_QUEUE_EXPIRY_HOURS}
+      # Vikunja on percolator, by its hostname (Pi-hole answers with percolator's address).
+      # Its route has no Authelia in front: API tokens sign in themselves.
+      VIKUNJA_URL: https://vikunja.${DOMAIN}
+      VIKUNJA_TOKEN_USER_A: ${POUROVER_USER_A_VIKUNJA_TOKEN}
+      VIKUNJA_TOKEN_USER_B: ${POUROVER_USER_B_VIKUNJA_TOKEN}
+      # llama-swap on roastery, through its Traefik and Authelia: LAN only, then Basic auth as a
+      # service account in ollama_api_group (the ollama pattern; the hostname kept its old name).
+      # roastery asleep or gaming = pourOver queues what needs the model, files timed messages
+      # to Inbox, and sends the queued results to ntfy later.
+      LLM_URL: https://ollama.${DOMAIN}
+      LLM_MODEL: ${POUROVER_LLM_MODEL}
+      LLM_USER: ${POUROVER_LLM_USER}
+      LLM_PASSWORD: ${POUROVER_LLM_PASSWORD}
+      LLM_TIMEOUT_S: ${POUROVER_LLM_TIMEOUT_S}
+      # ntfy on sieve: results of queued messages and errors, one topic per person.
+      NTFY_URL: https://ntfy.${DOMAIN}
+      NTFY_TOKEN_USER_A: ${POUROVER_USER_A_NTFY_TOKEN}
+      NTFY_TOKEN_USER_B: ${POUROVER_USER_B_NTFY_TOKEN}
+      # meowGram's bot API (its Release 2). Blank URL = the bot is off; pourOver still runs.
+      MEOWGRAM_URL: ${POUROVER_MEOWGRAM_URL}
+      MEOWGRAM_BOT_USER: ${POUROVER_MEOWGRAM_BOT_USER}
+      MEOWGRAM_BOT_PASSWORD: ${POUROVER_MEOWGRAM_BOT_PASSWORD}
+      MEOWGRAM_CHANNEL: ${POUROVER_MEOWGRAM_CHANNEL}
+      MEOWGRAM_TRIGGER: ${POUROVER_MEOWGRAM_TRIGGER}
+    volumes:
+      # The command log, pending confirms, the queue and the meowGram cursor (SQLite, WAL).
+      # Backed up with a sqlite line, never as a file (see ./backup).
+      - ${DATA_DIR:?}/pourover:/data
+      - ./config/users.yaml:/config/users.yaml:ro
+
+networks:
+  default:
+    name: grinder_net
+    external: true
