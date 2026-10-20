@@ -48,7 +48,7 @@ changes can be made later without re-deriving the reasoning.
 - [ ] Bot identity for Claude's commits and pull requests: owner picks bot account or GitHub App, then the setup in the 2026-09-28 entry below
 - [ ] Roll out the 2026-10-12 image pins node by node (`./compose.sh --all pull`, then `up -d`): Pi-hole on mochaPot before sieve; Immich on percolator and roastery together; OpenCloud, Meilisearch, Traccar and Open WebUI only after their steps in `docs/image-upgrades.md` (each waits for its key in `.env.local`); alert-path test after sieve
 - [ ] Fetch-only timer on every Linux node: `git -C /opt/purrbrews pull --ff-only` once more (the helper installs from the checkout), then `sudo bash /opt/purrbrews/init/purrbrews-init.sh --only timers`, then `journalctl -u purrbrews-pull -n 5` shows `OK: fetched origin` (2026-10-12 reviewed-deployments entry); nodes keep pulling until then
-- [ ] persianPerch: confirm it scrubs secrets from the `logTail` that `stacks/_lib/groom-record.py` puts in its records (0644, readable by kitten); if not, scrub there or make the journal text opt-in here (#23 had `GROOM_INCLUDE_LOGS`). Also give persianPerch's copy the 2026-10-12 groom-record fix
+- [x] persianPerch: confirm it scrubs secrets from the `logTail` that `stacks/_lib/groom-record.py` puts in its records (0644, readable by kitten); if not, scrub there or make the journal text opt-in here (#23 had `GROOM_INCLUDE_LOGS`). Also give persianPerch's copy the 2026-10-12 groom-record fix Done in persianPerch 0.1.0 (its runbook 2026-10-14): it scrubs every log tail before storing it, quoted values whole, JSON keys and Google tokens included, with tests from restic- and rclone-shaped output; its own copy of `groom-record.py` was removed, this repo's is the only one. The record file on the node stays 0644 (still this repo's call)
 - [ ] roastery: `init\roastery-init.ps1` on the rebuilt PC from an elevated Windows PowerShell 5.1 (owner), after the repository is back from Drive; then the follow-ups it prints for the nodes, ticked here with what was seen (2026-10-12 init entry)
 
 - [ ] Fleet mail: Purelymail user `purrBrews@${DOMAIN}`, its 2FA and an app password (owner); then roll out the mail relay (on `main` since 2026-10-12) in the order in the 2026-10-08 mail entry below: percolator before sieve's checkout moves (Gatus would alert), the relay before Vaultwarden (its `prepare.sh` refuses otherwise)
@@ -69,7 +69,7 @@ changes can be made later without re-deriving the reasoning.
 - [ ] (owner) Before publishing DAV, inspect `sudo docker exec crowdsec cscli collections list` and `sudo docker exec crowdsec cscli scenarios list`, then test repeated failed PROPFIND/GET requests from a non-whitelisted test address. The configured Traefik collection includes generic HTTP brute force, but its 401 scenario is POST-only. No stock all-method DAV scenario was found in the upstream Hub; proposal: review a scoped Radicale 401 scenario and ban/recovery test. Do not claim the stock collection protects DAV password attempts.
 - [x] (owner) GPX bot Radicale access accepted on 2026-10-13 in this session: household membership permits authentication, while `owner_only` limits access to its own collections.
 - [ ] (owner) Keep the GPX bot `pixiebob` out of admin groups, limit OpenCloud shares, and verify DAV isolation plus app-token expiry/revocation; disabling LLDAP alone does not revoke tokens.
-- [ ] (owner) persianPerch's Gatus account `ocicat` → `sphynx` (2026-10-13 entry): LLDAP UI, create `sphynx` with a new password, only in `perch_api_group`; on cellar set `PERCH_GLARE_USER=sphynx` and the new `PERCH_GLARE_PASSWORD` in `persian-perch/secrets.env.local` by hand (setup keeps existing values), `./compose.sh persian-perch up -d --force-recreate`, check that perch's glare feed still reads Gatus; then delete `ocicat` in LLDAP. Also rename it in persianPerch's own `integration/ROLLOUT.md` (its repo)
+- [ ] (owner) persianPerch's Gatus account `ocicat` → `sphynx` (2026-10-13 entry): LLDAP UI, create `sphynx` with a new password, only in `perch_api_group`; on cellar set `PERCH_GLARE_USER=sphynx` and the new `PERCH_GLARE_PASSWORD` in `persian-perch/secrets.env.local` by hand (setup keeps existing values), `./compose.sh persian-perch up -d --force-recreate`, check that perch's glare feed still reads Gatus; then delete `ocicat` in LLDAP. Also rename it in persianPerch's own `integration/ROLLOUT.md` (its repo) persianPerch's side done 2026-10-14 (its ROLLOUT.md says `sphynx`; 2026-10-21 entry)
 - [ ] (owner) Update flask with the six OpenCloud recovery credentials and Radicale reader password (`fill-vault.ps1` after deployment), plus a protected attachment of generated `opencloud/config/opencloud.yaml`; retain the matching full config/data backup.
 
 - [x] (owner) Radicale mount fix (2026-10-13 entry): after merge, percolator `git pull --ff-only`, `./compose.sh radicale up -d --wait`, then `radicale.${DOMAIN}` answers instead of 404. Done 2026-10-13: percolator deployed at 868a910 by `fleet.py` (succeeded), `radicale` healthy, `radicale.${DOMAIN}` → 302 `/.web`, unauthenticated PROPFIND → 401 (Claude, from percolator)
@@ -95,6 +95,31 @@ changes can be made later without re-deriving the reasoning.
 - [ ] sieve and cellar have no `fleet.py` deploy record (brought up by hand on 2026-10-12/13): one `fleet.py deploy` each at the current main, after the agents step, puts every node on one recorded commit
 - [x] Scrutiny host labels (2026-10-14 entry): after merge, on sieve, percolator, mochaPot and grinder `./compose.sh scrutiny-collector up -d --force-recreate`, on cellar `./compose.sh scrutiny up -d --force-recreate`; then each drive shows under its node in the dashboard (trigger a run with `sudo docker exec scrutiny-collector scrutiny-collector-metrics run` instead of waiting six hours) Done 2026-10-14: every node at `0c21d76`, collectors recreated (owner); the hub API lists all seven Linux drives with their node's `host_id`, each reported 14:19–14:21 IST (Claude)
 - [x] (owner) roastery's Scrutiny collector (2026-10-14 entry): after merge, update `C:\purrbrews-deploy` to main, then from an elevated Windows PowerShell 5.1 `powershell -ExecutionPolicy Bypass -File .\stacks\roastery\scrutiny-collector\install.ps1`; it ends with `Last result: 0`, and Scrutiny lists roastery's drives under `roastery` Done 2026-10-14: installed (owner); the hub lists roastery's Samsung MZVL21T0HCLR (NVMe) and WD WD10JMVW (2.5" HDD) under `roastery`, status 0, reported 14:21 IST (Claude, hub API)
+
+---
+
+
+## 2026-10-21 — persianPerch after the GHCR switch: the leftovers
+
+At the owner's request (check perch's bring-up on cellar now that it runs the image, remove what's no longer
+needed). The switch itself is #65 (2026-10-15 entry). Checked here from the repo only, nothing on a node.
+
+- cellar's side is complete: perch's compose has no `build:`, pins `ghcr.io/purrmonster/persian-perch:0.1.0`
+  by digest (the 0.1.0 index on GHCR), and nothing in the repo still names `PERSIAN_PERCH_REF` (`git grep`).
+  Its README's bring-up is `./setup-secrets.sh`, then `./compose.sh persian-perch up -d`; `fleet.py deploy
+  cellar --include-optional persian-perch` does the same.
+- perch's README no longer says ROLLOUT.md may still name `ocicat`: it names `sphynx` since persianPerch #9.
+- Backlog: the logTail-scrubbing line is ticked (persianPerch 0.1.0 does it, with tests); the `ocicat` →
+  `sphynx` line notes that persianPerch's side is done.
+- In persianPerch (its own pull request, the same night): the retired `integration/fleet-ghcr-image.patch`
+  and its test are removed, ROLLOUT's step B5 reads done, its tests pin this repo after #65, and its release
+  workflow stops adding a `latest` tag (that is where the `latest` noted on 2026-10-15 came from). The
+  `latest` already on GHCR stays until the owner deletes it in the package settings.
+
+Still on cellar, by hand (owner): delete the unused `PERSIAN_PERCH_REF=` line from `.env.local` when
+convenient. Fleet tests at this change: 105 passed, 11 skipped.
+
+Where we stopped / next step: unchanged from 2026-10-15, perch bring-up step 1 (credentials).
 
 ---
 
