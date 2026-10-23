@@ -38,6 +38,7 @@ changes can be made later without re-deriving the reasoning.
 - [ ] cellar: confirm Komodo still logs in after `KOMODO_DISABLE_USER_REGISTRATION` went to `true` Core has `KOMODO_DISABLE_USER_REGISTRATION=true` and `KOMODO_LOCAL_AUTH=true` (checked 2026-09-29); the login itself is for the owner (owner)
 - [x] Pin n8n (`latest`), Open WebUI (`main`) and Karakeep (`release`) Done 2026-09-29: n8n `2.39.7` and Karakeep `0.33.2`, each the same digest as what was running; Open WebUI by digest (its `main` build isn't the v0.11.3 release)
 - [ ] meowGram on percolator (2026-10-14 entries): live on percolator at ef25dbc. Done 2026-10-14: `meowgram` up, Authelia recreated with `meowgram://callback`; through percolator's Traefik `/healthz` → `"status":"ok"`, `/api/client-config` → issuer `https://authelia.${DOMAIN}`, `client_id` `meowgram` (owner's paste); Pi-hole re-rendered on mochaPot then sieve, Gatus recreated on sieve (owner). Missing: `sudo docker ps` health line and the two `dig` results (not pasted); the APK sign-in test (owner, this evening); the tunnel route, with the other apps in one Cloudflare pass (owner); README "Is it working?" rest; roastery's leftover rendered `traefik/config/dynamic/meow.yml` (gitignored, harmless once DNS moved) to delete or let the format clear
+- [ ] meowGram 2.0.0 (2026-10-23 entry): on percolator, stop `meowgram-server`, `sudo ./backup.sh dump`, copy `meowgram.pgdump` off the node, then pull and `up`; then the entry's checks. The dump is the only rollback (1.1.0 can't start on schema 6). Bots stay off; turning them on (pourOver) is its own change
 - [ ] Open WebUI → roastery's LLMs (llama-swap since 2026-10-07; grinder's `OLLAMA_BASE_URL` still points at the old `:11434`): needs machine-to-machine auth that keeps Authelia in front; options in the 2026-10-07 entry, none chosen
 - [ ] Karakeep: `NEXTAUTH_URL` is the direct-port URL while the route is `karakeep.${DOMAIN}`; check the phone share sheet signs in through the hostname
 - [x] Remote access over Tailscale: rolled out and checked from outside the house (2026-09-28; 2026-09-27 entry below)
@@ -99,6 +100,54 @@ changes can be made later without re-deriving the reasoning.
 
 ---
 
+
+## 2026-10-23 — meowGram 2.0.0 (R2): bots built in, left off
+
+**What.** `stacks/percolator/meowgram` moves from 1.1.0 to 2.0.0, server and
+web together (`ghcr.io/purrmonster/meowgram-server:2.0.0@sha256:cca1dab2…`,
+`meowgram-web:2.0.0@sha256:fef3726e…`; tag `v2.0.0` in meowGram's repo).
+2.0.0 adds bot accounts (HTTP Basic against LLDAP) and `POST /api/messages`
+for pourOver; `BOT_BASIC_AUTH_ENABLED: "false"` is now explicit in the compose
+file, so nothing about sign-in changes. No new required settings: the send
+path defaults to `/api/messages` (inside the existing `/api` router), retention
+to 168h. README's Upgrades section now has the dump-first procedure.
+
+**Why the dump is the rollback.** The server applies migrations 000005 (bot
+principals; `messages.sender_id` becomes nullable) and 000006 (idempotency) at
+start, and 1.1.0 refuses a schema-6 database. meowGram's own
+`docs/releases/release-2/rollout.md` was written for its repo's compose and
+"cellar"; its safety rules carry over, its commands don't. Here:
+`sudo docker stop meowgram-server`, `sudo ./backup.sh dump`, copy
+`DUMP_DIR/percolator/meowgram/meowgram.pgdump` off percolator, then pull and up.
+
+**Evidence (Claude, rehearsal in a scratch Docker, 2026-10-23):** `main`'s
+compose (1.1.0) with 250 seeded messages, 2 users and a push device, schema 4.
+Server stopped, `pg_dump -Fc` exactly as `backup.sh` runs it, `pg_restore
+--list` OK, restored into a throwaway `postgres:18.6` with no network: 250 =
+250. This branch's compose on the same data: all three containers healthy,
+"Database migrations up to date", schema 6 clean, 250 messages, all still with
+a human sender, push device kept, 0 bot principals. Through the fleet's
+Traefik (v3.7.14): `/healthz` 200, `/api/client-config` 200 (issuer, client
+`meowgram`), sync without a token 401, `POST /api/messages` 401 with no
+credentials and with Basic (bots off), `/ws` without a ticket 401, `/` and a
+deep link 200; message count unchanged after the POSTs. Negative: the 1.1.0
+server against the migrated database exits with "no migration found for
+version 6". `python3 -m pytest tests`: 105 passed, 1 failed, the same one
+as on `main`: pourOver's placeholder digest from #76 (`test_images_are_pinned`),
+not this change. Not tested: a real Authelia
+sign-in (none in the sandbox).
+
+**Not in this change:** turning bots on (LLDAP reader + bot group, cat-breed
+names, owner picks; reader password and LLDAP CA under `meowgram/secrets/`;
+`BOT_LDAP_*`; `BOT_TRUSTED_PROXY_CIDRS` = the `proxy` network). It's an auth
+change, so it gets its own PR when pourOver's pilot is approved; until then
+pourOver's meowGram settings stay blank.
+
+**Undo:** before the server has run 2.0.0: revert and `up`. After: restore
+the pre-upgrade dump into a fresh database and run 1.1.0 (meowGram rollout.md
+"Recovery B"); messages since the dump are lost, owner's call.
+
+---
 
 ## 2026-10-21 — pourOver joins grinder as an optional app
 

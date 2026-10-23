@@ -84,8 +84,31 @@ don't get notified while the app is closed.
 A meowGram release (`vX.Y.Z` tag in its repo) pushes both images to GHCR;
 Dependabot proposes the bump here a week later, as one PR per image. **Merge the
 server and web PRs together**: the web app expects the backend of its release.
-The server migrates the database at start, so take a dump first
-(`sudo ./backup.sh nightly`).
+The server migrates the database at start, and **an older server can't start on
+a newer schema** (1.1.0 on 2.0.0's schema 6: `no migration found for version 6`).
+So the dump is the rollback, and it's taken with the server stopped:
+
+```bash
+sudo docker stop meowgram-server                  # no writes during the dump
+sudo ./backup.sh dump                             # → DUMP_DIR/percolator/meowgram/meowgram.pgdump
+# copy that file off percolator (cellar via `sudo ./backup.sh push`, or by hand)
+./compose.sh meowgram pull && ./compose.sh meowgram up -d --wait
+```
+
+Rolling back = restore that dump into a fresh database and run the old images
+(meowGram's `docs/releases/release-2/rollout.md`, "Recovery B"): every message
+since the dump is lost, so it's the owner's call.
+
+### 2.0.0 (R2): bot accounts, off
+
+2.0.0 adds bot accounts (HTTP Basic, checked against LLDAP) and
+`POST /api/messages` for them, for pourOver. `BOT_BASIC_AUTH_ENABLED` is
+`"false"` here: people sign in exactly as before and any Basic request gets 401.
+Turning bots on is its own change: an LLDAP reader account and a bot group
+(cat-breed names, owner picks), the reader password and LLDAP's CA under
+`secrets/`, the `BOT_LDAP_*` settings and `BOT_TRUSTED_PROXY_CIDRS` (the `proxy`
+network), Traefik passing `Authorization` on `/api` (it does by default). Once a
+bot message exists, the keep-data rollback to 1.x is gone for good.
 
 ## Gotchas
 

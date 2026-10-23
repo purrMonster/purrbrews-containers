@@ -14,10 +14,10 @@
 # backend checks every request's JWT against Authelia's /jwks.json.
 # Nothing is published: Traefik is the only way in (meowGram's AGENTS.md), and
 # Postgres sits on this project's private network only.
-# Image tags checked 2026-10-14.
+# Image tags checked 2026-10-23 (2.0.0, R2).
 services:
   server:
-    image: ghcr.io/purrmonster/meowgram-server:1.1.0@sha256:ba0bc251a1ef3571d7c49f5e0c4cbb7b18d6b5fffc5d23eb004c818957df8e13
+    image: ghcr.io/purrmonster/meowgram-server:2.0.0@sha256:cca1dab2a7e54f8274cbf28d14a2632aab8cfa9aaa59ac1287b591373eae9010
     container_name: meowgram-server
     restart: unless-stopped
     depends_on:
@@ -44,6 +44,12 @@ services:
       # Push: a Firebase service account at ${DATA_DIR}/meowgram/secrets/
       # (README). Empty means push is off; chat works without it.
       GOOGLE_APPLICATION_CREDENTIALS: ${MEOWGRAM_FCM_CREDENTIALS}
+      # 2.0.0 (R2) adds bot accounts that sign in with HTTP Basic against
+      # LLDAP, and POST /api/messages for them. Off until the pourOver pilot is
+      # approved on its own: it needs an LLDAP reader and a bot group, which
+      # are auth changes (meowGram docs/releases/release-2/rollout.md). With it
+      # off, people sign in exactly as before.
+      BOT_BASIC_AUTH_ENABLED: "false"
     volumes:
       - ${DATA_DIR}/meowgram/secrets:/run/secrets:ro
     # The image's own check, spelled out. 127.0.0.1, not localhost: busybox
@@ -69,7 +75,7 @@ services:
       - traefik.docker.network=proxy
 
   web:
-    image: ghcr.io/purrmonster/meowgram-web:1.1.0@sha256:9e87e10f93bad6f62786edb92b715c237444239d3a85faa2bf3a9eba9f4c3c3d
+    image: ghcr.io/purrmonster/meowgram-web:2.0.0@sha256:fef3726e421410225266539f0242ab777ecdd4374f2f697776571bf3d1125251
     container_name: meowgram-web
     restart: unless-stopped
     depends_on:
