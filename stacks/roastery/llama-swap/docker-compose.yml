@@ -19,11 +19,13 @@
 # 2026-10-07. CUDA 12 covers the 3080 (Ampere) on the driver immich-ml already
 # needs; the cuda13 variant would want a newer one for no gain here.
 # Bump the tag and digest together, after reading llama-swap's CHANGELOG.
-x-image: &image ghcr.io/mostlygeek/llama-swap:unified-cuda-262@sha256:9cdb30739523db4b77f4a5a2151c9cb7a66d05de5db2aebd37bdf42f4c5b6401
+# Written out on both services, not as a YAML anchor: Dependabot reads an
+# anchor but can't rewrite it, and its weekly run failed on it (2026-10-19).
+# tests/ keeps the two lines on one digest.
 
 services:
   llama-swap:
-    image: *image
+    image: ghcr.io/mostlygeek/llama-swap:unified-cuda-262@sha256:9cdb30739523db4b77f4a5a2151c9cb7a66d05de5db2aebd37bdf42f4c5b6401
     container_name: llama-swap
     restart: unless-stopped
     environment:
@@ -55,7 +57,7 @@ services:
   # Downloads models.lock into the volume, verified. Not part of `up`:
   #   .\compose.ps1 llama-swap run --rm fetch-models
   fetch-models:
-    image: *image
+    image: ghcr.io/mostlygeek/llama-swap:unified-cuda-262@sha256:9cdb30739523db4b77f4a5a2151c9cb7a66d05de5db2aebd37bdf42f4c5b6401
     profiles: [tools]
     entrypoint: ["bash", "/config/fetch-models.sh", "/config/models.lock"]
     volumes:
