@@ -101,6 +101,33 @@ changes can be made later without re-deriving the reasoning.
 ---
 
 
+## 2026-10-29 — `scripts/immich-export.py`: carry the photos across the rebuild
+
+**What.** Owner asked for a script that exports every Immich media file with its
+metadata; after the rebuild he re-uploads them through the web UI. The script
+uses the API only (Immich v3.3.3 spec): metadata search over the timeline and the
+archive (not trash), each original downloaded and checked against Immich's SHA-1,
+then exiftool writes back into the copy what was edited inside Immich and the UI
+upload would otherwise lose: description, date taken with its zone, location,
+rating. Live photos keep the still's name stem on the motion file so a new Immich
+pairs them again. Resumable; state sits beside the output folder, not in it.
+
+**Not carried (UI upload can't take them):** albums, favourites, archive state,
+people, tags, stacks, the Locked folder. One run per Immich user, with that user's
+API key (`asset.read`, `asset.download`).
+
+**Evidence (Claude, mock of the v3.3.3 endpoints, real JPEG/MP4 files):** cursor
+paging; two `IMG_0001.JPG` in one month kept apart; live pair named alike; a bad
+checksum refused and nothing written; tags read back with exiftool (local time and
+`+05:30` from `Asia/Kolkata` and `UTC+5:30`, GPS N/E and S/E, UTF-8 description,
+rating); file times set; second run skipped all; bad key exits 2 cleanly. Not run
+against the real Immich.
+
+**Where we stopped / next step:** owner runs `--dry-run`, then the export, onto the
+carry drive before percolator is wiped.
+
+---
+
 ## 2026-10-28 — Freeze check before the move; #78 and #81 recorded
 
 **What.** Owner asked for a freeze check of every repo and then told Claude to
