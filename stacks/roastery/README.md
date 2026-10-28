@@ -12,7 +12,7 @@ the side, so not a fleet node: no `init/purrbrews-init.sh` (it has its own,
 | immich-ml | `./compose.ps1 immich-ml up -d` | `:3003`, percolator only (Windows Firewall) |
 | Komodo Periphery | `./compose.ps1 komodo-periphery up -d` | dials out to cellar |
 | [llama-swap](llama-swap/README.md) | `./compose.ps1 llama-swap up -d` | local LLMs on the 3080, `127.0.0.1:9292` only |
-| [Traefik → llama-swap](traefik/README.md) | `.\traefik\start.ps1`, native | `ollama.${DOMAIN}` (old name kept), admins, via Authelia |
+| [Traefik → llama-swap](traefik/README.md) | native scheduled task; see its README | `ollama.${DOMAIN}` (old name kept), Authelia admins or Basic-auth service accounts in `ollama_api_group` |
 | [Game mode](game-mode/README.md) | scheduled task, `game-mode\install.ps1` | llama-swap to its CPU-only profile while a game runs |
 | [meowGram](meowgram/README.md) | its own repo's compose, Docker Desktop | `meow.${DOMAIN}` through the same Traefik; Authelia OIDC |
 | [Backup target](#backup-target) | OpenSSH (SFTP), `backup-target\setup.ps1` | `C:\purrbrews\restic`, the fleet's restic repository |
