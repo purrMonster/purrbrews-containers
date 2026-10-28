@@ -101,6 +101,38 @@ changes can be made later without re-deriving the reasoning.
 ---
 
 
+## 2026-10-28 — Freeze check before the move; #78 and #81 recorded
+
+**What.** Owner asked for a freeze check of every repo and then told Claude to
+handle the findings. This entry records the two merges that had no entry, the
+state of `main` at the freeze, and what is left open.
+
+- **#78 (merged 2026-10-27, owner):** Immich server (percolator) and ML
+  (roastery) to v3.3.3 together; supersedes Dependabot's #74. Not yet deployed:
+  deploy both halves together, then check an upload gets thumbnails and faces.
+  Immich v3.3.2/v3.3.3 release notes were not read before the merge (owner).
+- **#81 (merged 2026-10-27, owner):** `PROJECT.md` project card for meowmery
+  (one card, #80 closed in its favour).
+
+**Why `main` was red.** `tests` has failed on `main` since #76 with one test,
+`test_images_are_pinned`: `stacks/grinder/pourover` pins
+`pourover:0.1.0@sha256:REPLACE_WITH_THE_RELEASE_DIGEST` because pourOver's
+`v0.1.0` tag was never pushed, so no image existed. Fix: tag pourOver `v0.1.0`,
+let its release workflow publish, pin the real digest here (see the commits on
+this branch).
+
+**Freeze state (Claude, 2026-10-28).** Left open on purpose, not merged:
+Dependabot #45, #46, #67–#73, #82 and Claude's #79 (llama-swap inline image).
+They are bumps, not fixes; triage them after the move, in the weekly slot.
+Branches whose commits are already on `main` were deleted (GitHub can restore
+any of them from its PR page).
+
+**Where we stopped / next step:** after the 1 Nov move, deploy #78 (Immich
+server + ML together) and triage the open Dependabot PRs. Rebuilds start from
+tag `freeze-2026-10`.
+
+---
+
 ## 2026-10-23 — meowGram 2.0.0 (R2): bots built in, left off
 
 **What.** `stacks/percolator/meowgram` moves from 1.1.0 to 2.0.0, server and
