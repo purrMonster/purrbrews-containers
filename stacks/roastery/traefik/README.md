@@ -78,14 +78,29 @@ middleware would clash with the new route's.
    returns an auth error, never the model list.
 4. Signed in as an admin, the same URL lists `assistant` and `fast`. A
    household-only account is refused.
-5. With Authelia stopped, it fails closed.
+5. With an approved `ollama_api_group` service account, Basic authentication
+   over HTTPS returns the model list. Without the required group, access is
+   refused. See the [consumer guide](../../../docs/llama-swap-consumption.md)
+   for a curl example that prompts for the password.
+6. Authelia failure must fail closed. A deliberate outage test requires the
+   owner's approval and a recovery plan; do not stop it as a routine check.
 
-## Known gap
+## API clients and deployment status
 
-ForwardAuth isn't an API key. Open WebUI's backend can't do the browser login, so
-grinder's Open WebUI can't reach llama-swap through this, and pointing it at the
-HTTPS URL doesn't change that. Machine-to-machine access needs its own design;
-the options are in the runbook (2026-10-07), and none is chosen yet. There's
-intentionally no bypass in the meantime.
+The route calls Authelia's `/api/authz/forward-auth-basic`, which accepts Basic
+authentication and browser sessions. Dedicated LLDAP service accounts in
+`ollama_api_group` match the `one_factor` rule. A bearer API key does not satisfy
+this policy. The LAN allowlist still applies, including to service accounts.
+The rule covers the whole hostname, including `/ui/` and the control API;
+membership is not a chat-only permission.
+
+grinder's Open WebUI configuration still points to the old Ollama port 11434.
+It needs an OpenAI-compatible client configuration capable of Basic auth,
+an approved account, and a deployed route. Changing the URL alone is not enough.
+
+On 2026-10-16, local llama-swap health and gaming-profile completions passed,
+but no Traefik process was seen and an unauthenticated HTTPS probe failed.
+Remote authentication remains unverified. The configured Basic-auth path
+replaces the earlier design gap; it does not establish successful deployment.
 
 Reference: <https://www.authelia.com/integration/proxies/traefik/>

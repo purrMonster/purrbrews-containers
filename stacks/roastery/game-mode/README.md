@@ -21,10 +21,18 @@ If llama-swap restarts mid-game it comes back as `normal`; the next poll puts
 
 A running program whose path contains one of `GAME_PATHS` (Steam, Epic, Xbox,
 GOG and Riot library folders by default) and none of `GAME_IGNORE` (the Epic
-launcher, Steam's redistributables and SteamVR), or whose name is in
+launcher, Riot Client, Steam's redistributables and SteamVR), or whose name is in
 `GAME_EXES`. All three are in roastery's `.env.local`, semicolon-separated, with
 `/` and `\` treated alike. Re-read every poll, so an edit applies within
 seconds.
+
+Keep `/Riot Games/Riot Client/` in `GAME_IGNORE`: the launcher's services and
+crash handler run without a game and otherwise match `/Riot Games/`. This
+excludes the launcher directory, while game directories remain eligible.
+Existing installations keep their `.env.local` values; changing the example
+does not migrate them. After an approved live edit, allow the 60-second exit
+grace and check `state.json` plus `/api/profiles`. Undo by removing only the
+added ignore fragment. An explicit `GAME_EXES` match still takes precedence.
 
 A game installed somewhere else goes in `GAME_EXES` by name (`game.exe`). That
 also covers a game running elevated, whose path isn't readable from a normal

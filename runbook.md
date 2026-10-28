@@ -243,6 +243,116 @@ Where we stopped / next step: unchanged from 2026-10-15, perch bring-up step 1 (
 
 ---
 
+## 2026-10-16 — Live Riot launcher exclusion applied
+
+Owner approved the live change. Appended /Riot Games/Riot Client/ to
+GAME_IGNORE in roastery's deploy checkout .env.local, preserving all other
+settings. The watcher reloaded it without a restart and logged gaming ->
+normal at 17:08:06 IST after the exit grace. Verified at 17:08:26 IST:
+state.json has gaming=false, game=null, profile=normal; /api/profiles reports
+normal and /health returns OK. No processes were stopped or profiles forced.
+The repo default and README fix are already in this branch. No commits or
+pushes. Next: confirm detection during the next actual game (not tested in
+this session). Undo: remove only /Riot Games/Riot Client/ from live GAME_IGNORE;
+the watcher rereads settings each poll.
+
+## 2026-10-16 — Riot launcher falsely keeps game mode active
+
+Read-only checks found the watcher running, its state naming
+RiotClientCrashHandler.exe, and the active profile gaming. Logs also name
+RiotClientServices.exe. Both processes live under C:\Riot Games\Riot Client,
+which matches GAME_PATHS but had no GAME_IGNORE exclusion. The owner reports
+no game is running. Added /Riot Games/Riot Client/ to local.env.example and
+documented migration in the game-mode README. Four path checks exclude the
+two launcher helpers and retain example VALORANT/League game paths;
+git diff --check passed. Full pytest remains unavailable (missing pytest).
+
+Live settings remain unchanged pending the owner's go-ahead under Nodes.
+Next: append that fragment to live GAME_IGNORE, wait the exit grace and verify
+normal in state.json and /api/profiles. No restart is needed; settings reload
+each poll. Undo: remove only the added fragment and the repo documentation
+change. No commits or pushes. The -Once diagnostic could not start under the
+current script execution policy; diagnosis used state, logs and process paths.
+
+## 2026-10-16 — CPU upgrade assessment
+
+Read-only Windows CIM checks report Ryzen 5 5600F (6 cores / 12 threads),
+Gigabyte B450 AORUS PRO WIFI-CF and 32 GB RAM (2 x 16 GB, configured 3200).
+The roastery README's 16 GB description is stale; correction proposed.
+The earlier CPU smoke tests used the gaming profile's four-thread limit,
+so they do not establish a need for a CPU upgrade. Recommendation: measure
+representative workload latency and gaming contention before buying hardware.
+Normal GPU inference, motherboard CPU/BIOS compatibility and upgrade pricing
+were not validated. No system changes, commits or pushes. Next: establish
+whether the owner's priority is game frame rates or LLM latency while gaming.
+Undo: remove this assessment entry.
+
+## 2026-10-16 — README alignment with llama-swap configuration
+
+Updated the llama-swap and Traefik READMEs and roastery's route summary to
+match the checked model/profile and authentication templates. Removed the
+obsolete claim that machine authentication has no design: Basic auth for
+ollama_api_group is configured. Clarified that this policy also covers the
+UI/control API, while deployment and Open WebUI migration remain unverified.
+Added the tested PowerShell request, CPU/GPU-specific checks, context limits
+and the consumer-guide link. Removed the guide's now-stale README warning.
+
+Validation on 2026-10-16: git diff --check passed; README PowerShell blocks
+parse. Reused this session's successful local smoke tests; no further node
+actions. Full pytest remains unavailable (bundled Python lacks pytest, as
+recorded below in the smoke-test entry). No commits or pushes. Next: verify
+remote authentication after the route is deployed. Undo: revert these README
+and guide edits and this entry; no runtime rollback is needed.
+
+## 2026-10-16 — llama-swap consumer smoke test
+
+Owner requested live testing. Outside the sandbox, Docker reported llama-swap
+healthy (up six hours), /health returned HTTP 200 OK, and /v1/models listed
+assistant and fast. /api/profiles reported gaming. Both aliases completed a
+local chat request using Qwen3.5 4B CPU: visible content hello, finish_reason
+stop, 8.76 s / 102 output tokens and 9.49 s / 109 output tokens respectively.
+Initial 64-token requests exhausted their budget with empty visible content;
+the successful retries allowed 512. Updated the consumer guide's examples
+and validation status accordingly. Sandbox connection failures do not prove
+the service is down: the same probes succeeded outside it.
+
+No Traefik process was seen; an unauthenticated HTTPS model-list probe failed
+with HttpRequestException. Remote Basic authentication, streaming and normal
+GPU generation remain untested. No profile, configuration or service changes
+were made; the test requests loaded the CPU model. The bundled Python launches
+but has no pytest, so the repository suite remains unrun. No commits or pushes.
+Next: verify the deployed HTTPS route and approved account before remote use;
+run the repository suite in its provisioned test environment. Undo: revert
+this entry and the guide's test-result/example edits; no deployment rollback.
+
+## 2026-10-16 — llama-swap consumer guide
+
+Added `docs/llama-swap-consumption.md` and linked it from `docs/MAP.md`.
+Checked the compose binding, model/profile configuration, Traefik route and
+Authelia policy on 2026-10-16: localhost uses port 9292, and the configured
+LAN route supports Basic auth for `ollama_api_group`. The Traefik README's
+older machine-access gap conflicts with those templates; the guide records
+that distinction without claiming the route is deployed.
+
+Validation: all eight guide links resolve, the JSON request parses, and
+`git diff --check` passed. `python -m pytest tests` could not start because
+the WindowsApps python.exe alias was inaccessible. No live generation,
+node changes, credentials, commits or pushes. Work is on
+`codex/llama-swap-consumption-doc`; the prior lookup entry is preserved.
+Next: verify service-account access and a completion on the deployed route
+before connecting a consumer. Undo: remove the guide, its map link and this
+entry (restore the map date if no later edit has changed it).
+
+## 2026-10-15 — llama-swap endpoint lookup
+
+Checked the compose port mapping and README: roastery's API base is
+`http://127.0.0.1:9292/v1`; the configured proxy uses `ollama.${DOMAIN}`.
+A local GET of /v1/models did not connect on 2026-10-15; live availability
+was not confirmed. No node changes. Next: check roastery's running service
+if access is needed. No commits. Undo: remove this documentation entry.
+
+---
+
 ## 2026-10-15 — persianPerch runs its release image; cellar no longer builds it
 
 persianPerch now publishes `ghcr.io/purrmonster/persian-perch` from a `v*` tag

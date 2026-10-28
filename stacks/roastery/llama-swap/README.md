@@ -9,6 +9,11 @@ client → roastery:443 (Traefik) → Authelia → 127.0.0.1:9292 (llama-swap) �
 with every flag in view, an OpenAI-compatible API, Prometheus metrics, and
 **profiles**, which is what game mode is built on.
 
+API base on the Windows host: `http://127.0.0.1:9292/v1`. The configured LAN
+base is `https://ollama.${DOMAIN}/v1`, through Traefik and Authelia. See the
+[consumer guide](../../../docs/llama-swap-consumption.md) for client settings,
+Basic authentication, request examples and troubleshooting.
+
 ## What clients ask for
 
 | `model` | Normally | While a game runs |
@@ -23,9 +28,12 @@ from the `normal` profile to `gaming` while a game runs. In `gaming`, the GPU
 models' own IDs are pinned to the CPU model as well, so nothing can put a model
 on the GPU mid-game.
 
-The model choices were proposed 2026-10-07, not yet confirmed (runbook): swap
-them in [`config/models.lock`](config/models.lock) and
-[`config/config.yaml`](config/config.yaml) together.
+These mappings are configured in [`config/config.yaml`](config/config.yaml).
+On 2026-10-16, both aliases successfully returned a completion in the `gaming`
+profile using Qwen3.5 4B CPU. Normal-profile GPU generation remains unverified
+in that check. Change model files in [`config/models.lock`](config/models.lock)
+and `config.yaml` together. Both aliases have an 8,192-token context while
+gaming, so budget messages, tools and output for that smaller limit.
 
 ## Why it's set up this way
 
@@ -75,19 +83,37 @@ Then Traefik (its [README](../traefik/README.md)), and
 
 1. `curl.exe http://127.0.0.1:9292/health` answers `OK`.
 2. `curl.exe http://127.0.0.1:9292/v1/models` lists `assistant` and `fast`.
-3. A chat:
+3. A chat (loads the selected model):
    ```powershell
-   curl.exe http://127.0.0.1:9292/v1/chat/completions -H "Content-Type: application/json" `
-     -d '{\"model\":\"assistant\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}'
+   $body = @{
+       model = 'assistant'
+       messages = @(@{ role = 'user'; content = 'Reply with only the word hello.' })
+       max_tokens = 512
+       stream = $false
+   } | ConvertTo-Json -Depth 6
+   $reply = Invoke-RestMethod -Method Post `
+       -Uri 'http://127.0.0.1:9292/v1/chat/completions' `
+       -ContentType 'application/json' -Body $body -TimeoutSec 360
+   $reply.choices[0].message.content
    ```
-   The first one takes a few seconds: the model loads.
-4. While it answers, `nvidia-smi` shows `llama-server` holding most of the VRAM;
-   ten minutes later it's gone.
-5. `docker logs llama-swap` shows llama-server finding the 3080 (`CUDA0`), not
-   falling back to the CPU.
+   A cold load adds latency. The 2026-10-16 CPU checks returned `hello` through
+   both aliases in about nine seconds. A 64-token limit produced empty content
+   with `finish_reason: length`; allow room for reasoning and the final answer.
+4. `curl.exe http://127.0.0.1:9292/api/profiles` reports the active profile.
+   In `normal`, check `nvidia-smi` and the model logs for GPU use. In `gaming`,
+   CPU-only inference is expected; do not switch profiles just to test the GPU.
+5. `docker logs --tail 100 llama-swap` shows model loading or errors. GPU
+   models unload after ten idle minutes; the CPU model after five.
 6. From another machine, `roastery:9292` doesn't connect.
 7. `http://127.0.0.1:9292/ui/` is llama-swap's own page: models, logs, the
-   active profile. From the LAN it's `https://ollama.${DOMAIN}/ui/`, admins only.
+   active profile. From the LAN it's `https://ollama.${DOMAIN}/ui/`, under the
+   same LAN allowlist and Authelia policy as the API (admins or authorized
+   `ollama_api_group` accounts; there is no separate UI-only restriction).
+
+The 2026-10-16 check confirmed local health, model listing and gaming-profile
+generation. No Traefik process was seen and the HTTPS probe failed; remote
+access is not yet verified. Sandbox connection failures alone do not establish
+that the service is down: these local checks succeeded outside the sandbox.
 
 ## Changing things
 
@@ -106,8 +132,10 @@ Then Traefik (its [README](../traefik/README.md)), and
   roastery had to change; it now speaks the OpenAI API (`/v1/...`), not
   Ollama's (`/api/tags` is gone).
 - **grinder's Open WebUI: not connected.** It still points at Ollama's old
-  `:11434`. The gap is the same one as before (Open WebUI's backend can't do
-  the Authelia login); it's an open decision in the runbook, with options.
+  `:11434`. The proxy templates now support Basic auth for `ollama_api_group`;
+  deployment and client migration still need verification. Use an
+  OpenAI-compatible connection that can send Basic authentication. A bearer
+  API-key field alone does not authenticate through this route.
 - **Home Assistant's voice pipeline (backlog):** needs an OpenAI-compatible
   conversation integration now, not the Ollama one.
 
