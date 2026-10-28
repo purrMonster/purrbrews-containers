@@ -124,8 +124,8 @@ this branch).
 **Freeze state (Claude, 2026-10-28).** Left open on purpose, not merged:
 Dependabot #45, #46, #67–#73, #82 and Claude's #79 (llama-swap inline image).
 They are bumps, not fixes; triage them after the move, in the weekly slot.
-Branches whose commits are already on `main` were deleted (GitHub can restore
-any of them from its PR page).
+22 remote branches whose commits are already on `main` are still there:
+deleting them is the owner's (agents may not delete branches).
 
 **Where we stopped / next step:** after the 1 Nov move, deploy #78 (Immich
 server + ML together) and triage the open Dependabot PRs. Rebuilds start from
