@@ -37,6 +37,9 @@ ingress:
   - hostname: homepage.${DOMAIN}
     service: https://${PERCOLATOR_LAN_IP}:443
     originRequest: {originServerName: homepage.${DOMAIN}}
+  - hostname: cafe.${DOMAIN}
+    service: https://${PERCOLATOR_LAN_IP}:443
+    originRequest: {originServerName: cafe.${DOMAIN}}
   - hostname: immich.${DOMAIN}
     service: https://${PERCOLATOR_LAN_IP}:443
     originRequest: {originServerName: immich.${DOMAIN}}
@@ -62,7 +65,7 @@ ingress:
     service: https://${PERCOLATOR_LAN_IP}:443
     originRequest: {originServerName: actualbudget.${DOMAIN}}
   - hostname: meow.${DOMAIN}
-    service: https://${ROASTERY_LAN_IP}:443
+    service: https://${PERCOLATOR_LAN_IP}:443
     originRequest: {originServerName: meow.${DOMAIN}}
   - hostname: freshrss.${DOMAIN}
     service: https://${PERCOLATOR_LAN_IP}:443

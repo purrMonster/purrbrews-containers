@@ -1,0 +1,4 @@
+# meowGram: the chat history in Postgres, plus the push service account if one
+# was added (secrets.env.local is backed up with every node's settings anyway).
+pg      meowgram  meowgram-postgres  meowgram  meowgram
+path    meowgram/secrets

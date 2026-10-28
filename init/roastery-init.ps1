@@ -60,8 +60,8 @@
 #
 # What it deliberately does NOT do: download traefik.exe (pick and verify the
 # release yourself, traefik\README.md), restore the repository (that's
-# RECOVERY.md part B, with secrets from the vault), bring up meowGram or
-# persianPerch's kitten (their own repos), or change anything on a node. The
+# RECOVERY.md part B, with secrets from the vault), bring up persianPerch's
+# kitten (its own repo), or change anything on a node. The
 # node-side follow-ups are printed instead.
 [CmdletBinding()]
 param(
@@ -282,7 +282,7 @@ function Step-prereqs {
 
     if (Test-Docker) { Ok 'Docker engine answers' }
     else { Warn 'Docker engine not answering yet: start Docker Desktop once (accept its terms, WSL2 backend), then run the apps step' }
-    Note "Docker Desktop -> Settings -> General: tick 'Start Docker Desktop when you sign in' (immich-ml, llama-swap and meowGram live in it)"
+    Note "Docker Desktop -> Settings -> General: tick 'Start Docker Desktop when you sign in' (immich-ml and llama-swap live in it)"
 
 }
 
@@ -485,7 +485,7 @@ function Step-apps {
     & $compose llama-swap up -d
     Ok 'llama-swap up on 127.0.0.1:9292'
     Todo 'llama-swap: curl.exe http://127.0.0.1:9292/health answers OK, and /v1/models lists assistant and fast (llama-swap\README.md, "Is it working?")'
-    Todo 'meowGram and persianPerch''s kitten come from their own repos (stacks\roastery\meowgram\README.md; persianPerch integration/roastery)'
+    Todo 'persianPerch''s kitten comes from its own repo (persianPerch integration/roastery)'
 }
 
 function Step-traefik {

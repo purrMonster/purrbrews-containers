@@ -351,8 +351,8 @@ endpoints:
   # app (or Authelia) behind it. Each node's container healthchecks say a
   # container is up; these say people can reach it. Added 2026-10-08; a test
   # (tests/test_infrastructure.py) fails when a route has no check here.
-  # Not here: gatus, ntfy and perch (checked above), roastery's ollama and
-  # meow (it sleeps between uses and alerts would be noise).
+  # Not here: gatus, ntfy and perch (checked above), roastery's ollama (it
+  # sleeps between uses and alerts would be noise).
 
   # sieve
   - {<<: *behind-sso, group: "apps: sieve", name: pihole, url: "https://pihole.${DOMAIN}/"}
@@ -371,9 +371,13 @@ endpoints:
   - {<<: *own-login, group: "apps: percolator", name: paperless, url: "https://paperless.${DOMAIN}/"}
   - {<<: *own-login, group: "apps: percolator", name: mealie, url: "https://mealie.${DOMAIN}/"}
   - {<<: *own-login, group: "apps: percolator", name: vikunja, url: "https://vikunja.${DOMAIN}/"}
+  # The backend's health, through the same route the apps use (the web app
+  # is static files; a dead backend is what people would notice).
+  - {<<: *own-login, group: "apps: percolator", name: meowgram, url: "https://meow.${DOMAIN}/healthz"}
   - {<<: *own-login, group: "apps: percolator", name: actualbudget, url: "https://actualbudget.${DOMAIN}/"}
   - {<<: *own-login, group: "apps: percolator", name: freshrss, url: "https://freshrss.${DOMAIN}/"}
   - {<<: *behind-sso, group: "apps: percolator", name: homepage, url: "https://homepage.${DOMAIN}/"}
+  - {<<: *behind-sso, group: "apps: percolator", name: purrcafe, url: "https://cafe.${DOMAIN}/"}
   - {<<: *behind-sso, group: "apps: percolator", name: traefik, url: "https://traefik.${DOMAIN}/"}
   # Not a web app: the fleet's outgoing mail (percolator/mail-relay). Checks it
   # answers and offers STARTTLS. `insecure` because its certificate is from
@@ -407,3 +411,17 @@ endpoints:
   - {<<: *behind-sso, group: "apps: grinder", name: traccar, url: "https://traccar.${DOMAIN}/"}
   - {<<: *behind-sso, group: "apps: grinder", name: esphome, url: "https://esphome.${DOMAIN}/"}
   - {<<: *behind-sso, group: "apps: grinder", name: speedtest, url: "https://speedtest.${DOMAIN}/"}
+  # pourOver has no route (nobody opens it; it reaches out to meowGram), so it's checked on its
+  # port, which grinder's firewall opens to sieve only. /healthz also proves its SQLite opens.
+  - name: pourover
+    group: "apps: grinder"
+    url: "http://192.168.0.14:8790/healthz"
+    interval: 5m
+    conditions:
+      - "[CONNECTED] == true"
+      - "[STATUS] == 200"
+      - "[BODY].status == ok"
+      - "[BODY].db == true"
+    alerts:
+      - type: ntfy
+        description: "pourOver on grinder isn't answering; texts to it go unanswered"

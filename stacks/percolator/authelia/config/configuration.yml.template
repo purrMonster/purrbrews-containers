@@ -118,6 +118,12 @@ access_control:
     - domain: 'vault.${DOMAIN}'
       resources: ['^/admin([/?#].*)?$']
       policy: deny
+    # purrCafe's kiosk account: its /wall view, on this one host. The catch-all
+    # below names only admins and household, so default_policy denies it
+    # everywhere else. one_factor: a wall screen can't answer a second factor.
+    - domain: 'cafe.${DOMAIN}'
+      subject: ['group:${CAFE_WALL_GROUP}']
+      policy: one_factor
     - domain: '*.${DOMAIN}'
       subject: ['group:${LLDAP_ADMIN_GROUP}', 'group:${LLDAP_HOUSEHOLD_GROUP}']
       policy: ${AUTH_POLICY}
@@ -397,7 +403,7 @@ identity_providers:
 
       - client_id: 'meowgram'
         client_name: 'meowGram'
-        # meowGram (own repo, runs on roastery for now; stacks/roastery/meowgram).
+        # meowGram (own repo, runs on percolator: stacks/percolator/meowgram).
         # A public client: the Flutter app runs on people's devices and in the
         # browser, so it can't keep a secret. PKCE stands in for it.
         public: true
@@ -410,6 +416,10 @@ identity_providers:
           - 'https://meow.${DOMAIN}'
           # Desktop: the RFC 8252 loopback listener the app opens on 8088.
           - 'http://127.0.0.1:8088/callback'
+          # Android and iOS: the app's own URL scheme (RFC 8252 private-use
+          # scheme). PKCE is what makes this safe: another app claiming the
+          # scheme gets a code it can't redeem without the verifier.
+          - 'meowgram://callback'
         scopes: ['openid', 'profile', 'email', 'offline_access']
         response_types: ['code']
         grant_types: ['authorization_code', 'refresh_token']

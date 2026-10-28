@@ -1,4 +1,4 @@
-# Traefik on roastery (native): llama-swap and meowGram
+# Traefik on roastery (native): llama-swap
 
 ```
 LAN client → roastery:443 (Traefik) → ForwardAuth to Authelia on percolator:9091 → 127.0.0.1:9292 (llama-swap)
@@ -14,12 +14,9 @@ service accounts in `ollama_api_group` get password-only (`one_factor`) access
 for API calls. There is deliberately no unauthenticated route. If Authelia is
 down, it fails closed.
 
-The same Traefik serves meowGram (`meow.${DOMAIN}`, [`../meowgram`](../meowgram/README.md)),
-which signs in with Authelia OIDC itself instead of ForwardAuth.
-
 Traefik runs as a plain Windows process (`traefik.exe`), not in Docker Desktop.
-It reaches llama-swap and meowGram on the ports Docker Desktop publishes on
-`127.0.0.1`.
+It reaches llama-swap on the port Docker Desktop publishes on `127.0.0.1`.
+(meowGram was served here too until 2026-10-14; it's on percolator now.)
 
 ## Setting it up
 

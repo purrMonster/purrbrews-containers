@@ -1,0 +1,4 @@
+# pourOver's port is for Gatus on sieve only (its health check, stacks/sieve/gatus).
+# A `route` rule matches the container port (8000), not the published one (8790).
+# People never open pourOver: they text meowGram, and pourOver reaches out to it.
+route tcp 8000 $SIEVE_LAN_IP   # pourover health check from Gatus on sieve

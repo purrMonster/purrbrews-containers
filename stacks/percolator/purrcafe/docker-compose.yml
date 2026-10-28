@@ -1,0 +1,87 @@
+# purrCafe — the household dashboard: home sensors (Home Assistant on
+# mochaPot), the month's budget (Actual, here), each person's own inbox
+# (IMAP), fleet reachability (Gatus on sieve) and a wall view for the kiosk.
+# Built in its own repo (purrMonster/purrCafe); here it's a published image
+# like any other. Behind Authelia ForwardAuth: the app reads who you are from
+# Remote-User / Remote-Groups and refuses any request that didn't come from
+# Traefik (AUTH_TRUSTED_PROXY_CIDRS, written by prepare.sh).
+# Image tag checked 2026-10-14.
+services:
+  purrcafe:
+    image: ghcr.io/purrmonster/purrcafe:1.1.0@sha256:da5f7428cfb136c3df2f551a14a757e79d085422aa1d8b18bc85668732c2ee1c
+    container_name: purrcafe
+    restart: unless-stopped
+    init: true
+    # Upstream's hardening, kept: nothing writes outside /app/data and /tmp.
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    # AUTH_TRUSTED_PROXY_CIDRS only: Traefik's address on `proxy`, as a /32,
+    # found by prepare.sh on every `up`. Missing file = the app refuses to start.
+    env_file:
+      - path: ./proxy.env.local
+        required: false
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 4174
+      DATA_DIR: /app/data
+      HA_ENTITIES_FILE: /app/config/home/home.json
+      SERVICES_FILE: /app/config/services.json
+      PUBLIC_HOSTNAME: cafe.${DOMAIN}
+      DOMAIN: ${DOMAIN}
+      TIMEZONE: ${TZ}
+      LOCALE: ${CAFE_LOCALE}
+      # Losing this key makes every saved mailbox unreadable (see README).
+      APP_ENCRYPTION_KEY: ${CAFE_APP_ENCRYPTION_KEY}
+      AUTH_ADMIN_GROUP: ${LLDAP_ADMIN_GROUP}
+      AUTH_HOUSEHOLD_GROUP: ${LLDAP_HOUSEHOLD_GROUP}
+      AUTH_WALL_GROUP: ${CAFE_WALL_GROUP}
+      # Home Assistant on mochaPot, straight to its port: a token, no SSO hop.
+      HA_URL: http://${MOCHAPOT_LAN_IP}:8123
+      HA_TOKEN: ${CAFE_HA_TOKEN}
+      # Actual on the shared `proxy` network. Its public name sits behind the
+      # OIDC login and fails with network-failure (purrCafe handoff, 2026-10-03).
+      ACTUAL_SERVER_URL: http://actualbudget:5006
+      ACTUAL_SYNC_ID: ${CAFE_ACTUAL_SYNC_ID}
+      ACTUAL_SESSION_TOKEN: ${CAFE_ACTUAL_SESSION_TOKEN}
+      ACTUAL_ENCRYPTION_PASSWORD: ${CAFE_ACTUAL_ENCRYPTION_PASSWORD}
+      BUDGET_CURRENCY: ${CAFE_BUDGET_CURRENCY}
+      MAIL_IMAP_HOST: ${CAFE_MAIL_IMAP_HOST}
+      MAIL_IMAP_PORT: 993
+      MAIL_PROVIDER_NAME: ${CAFE_MAIL_PROVIDER_NAME}
+      # Gatus's API route on sieve (Basic auth through Authelia, like
+      # persianPerch). Blank authorization = the fleet panel says "set up".
+      GATUS_URL: https://gatus-api.${DOMAIN}
+      GATUS_AUTHORIZATION: ${CAFE_GATUS_AUTHORIZATION}
+      FLEET_NODES: ${CAFE_FLEET_NODES}
+      # Gatus keys are <group>_<name>, lowercased (sieve/gatus/config/config.yaml, Fleet).
+      GATUS_FLEET_KEYS: '{"percolator":"fleet_percolator","cellar":"fleet_cellar","mochaPot":"fleet_mochapot","grinder":"fleet_grinder"}'
+    volumes:
+      # Saved mailboxes (encrypted) and the budget cache.
+      - ${DATA_DIR}/purrcafe/data:/app/data
+      # Home Assistant entities and allowed actions: node-only (entity IDs
+      # stay out of Git), backed up with the data.
+      - ${DATA_DIR}/purrcafe/config:/app/config/home:ro
+      # Service shortcuts: tracked, hostnames only.
+      - ./services.json:/app/config/services.json:ro
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4174/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.purrcafe.rule=Host(`cafe.${DOMAIN}`)
+      - traefik.http.routers.purrcafe.entrypoints=websecure
+      - traefik.http.routers.purrcafe.middlewares=authelia@file
+      - traefik.http.services.purrcafe.loadbalancer.server.port=4174
+
+networks:
+  proxy:
+    external: true

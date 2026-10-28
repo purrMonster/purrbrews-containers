@@ -45,6 +45,7 @@ stacks/cellar/traefik/config/dynamic.yml
 stacks/cellar/traefik/config/traefik.yml
 stacks/grinder/traefik/config/dynamic.yml
 stacks/grinder/traefik/config/traefik.yml
+stacks/grinder/pourover/config/users.yaml
 stacks/mochaPot/kiosk/bash_profile
 stacks/mochaPot/traefik/config/dynamic.yml
 stacks/mochaPot/traefik/config/traefik.yml
@@ -52,7 +53,6 @@ stacks/percolator/authelia/config/configuration.yml
 stacks/percolator/traefik/config/dynamic.yml
 stacks/percolator/traefik/config/traefik.yml
 stacks/percolator/vikunja/config/config.yml
-stacks/roastery/traefik/config/dynamic/meow.yml
 stacks/roastery/traefik/config/dynamic/llama-swap.yml
 stacks/roastery/traefik/config/traefik.yml
 stacks/sieve/cloudflared/config/config.yml

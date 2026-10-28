@@ -6,7 +6,7 @@
 # No authentication of its own, so it publishes on 127.0.0.1 only and the one
 # way in from the LAN is roastery's native Traefik with Authelia in front
 # (traefik/config/dynamic/llama-swap.yml.template), like Ollama before it.
-# 9292, not 8080: meowGram's backend already has 127.0.0.1:8080.
+# 9292, not 8080: meowGram's backend had 127.0.0.1:8080 when it ran here.
 #
 # Models live in a named volume, not next to this file: a Windows folder
 # bind-mounted into Docker Desktop's VM reads gigabytes many times slower,
