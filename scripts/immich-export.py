@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Export every Immich media file of one user, with its metadata, for re-upload.
+r"""Export every Immich media file of one user, with its metadata, for re-upload.
 
 Built for the November 2026 rebuild: the new Immich gets the photos back through
 the web UI's upload, so the files must carry everything the UI can read.
@@ -18,14 +18,25 @@ Not exported (the UI upload can't take them back): albums, favourites, archive
 state, people/faces, tags, stacks, trash, and the Locked folder (needs a PIN
 session, an API key can't open it). Run once per Immich user, with that user's key.
 
-Usage (on any machine that reaches Immich):
-  export IMMICH_API_KEY=...           # Account settings > API keys; asset.read + asset.download
+API key: Immich > Account settings > API keys, with asset.read and asset.download.
+
+Linux / macOS:
+  sudo apt install libimage-exiftool-perl
+  export IMMICH_API_KEY=...
   python3 scripts/immich-export.py --url https://immich.${DOMAIN} --out /mnt/carry/immich-penguin --dry-run
   python3 scripts/immich-export.py --url https://immich.${DOMAIN} --out /mnt/carry/immich-penguin
+
+Windows PowerShell (5.1 or 7):
+  winget install OliverBetz.ExifTool        # then open a new PowerShell window
+  py -m pip install tzdata                  # Windows Python has no time-zone database
+  $env:IMMICH_API_KEY = [Net.NetworkCredential]::new('', (Read-Host -AsSecureString 'Immich API key')).Password
+  py scripts\immich-export.py --url https://immich.example.org --out D:\immich-penguin --dry-run
+  py scripts\immich-export.py --url https://immich.example.org --out D:\immich-penguin
+  Remove-Item Env:IMMICH_API_KEY
+
 Re-running resumes: finished files are skipped (state in <out>.state.json, next
 to the output folder so the folder itself holds media only).
-Needs Python 3.9+ and exiftool (apt install libimage-exiftool-perl), unless --no-embed.
-Written against the Immich v3.3.3 API.
+Needs Python 3.9+ and exiftool, unless --no-embed. Written against the Immich v3.3.3 API.
 """
 from __future__ import annotations
 
@@ -194,9 +205,17 @@ def embed(asset, path):
     args = exiftool_args(asset, path)
     if not args:
         return None
-    result = subprocess.run(["exiftool", "-q", "-m", "-P", "-overwrite_original", "-api", "QuickTimeUTC=1",
-                             "-charset", "iptc=UTF8", "-IPTC:CodedCharacterSet=UTF8", *args, str(path)],
-                            capture_output=True, text=True)
+    # Tags and path go through a UTF-8 argument file: on Windows, exiftool reads
+    # command-line arguments in the ANSI code page and would mangle non-ASCII text.
+    argfile = path.with_name(path.name + ".args")
+    lines = ["-q", "-m", "-P", "-overwrite_original", "-api", "QuickTimeUTC=1", "-charset", "filename=UTF8",
+             "-charset", "iptc=UTF8", "-IPTC:CodedCharacterSet=UTF8", *args, str(path)]
+    argfile.write_text("\n".join(line.replace("\n", " ") for line in lines) + "\n", encoding="utf-8")
+    try:
+        result = subprocess.run(["exiftool", "-@", str(argfile)], capture_output=True,
+                                text=True, encoding="utf-8", errors="replace")
+    finally:
+        argfile.unlink(missing_ok=True)
     if result.returncode != 0:
         return (result.stderr or result.stdout).strip().splitlines()[-1:] or ["exiftool failed"]
     return None
@@ -308,6 +327,16 @@ def main():
     parser.add_argument("--edited", action="store_true", help="export Immich-edited versions where they exist (default: originals)")
     args = parser.parse_args()
 
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="replace")  # odd file names must not crash a Windows console
+        except AttributeError:
+            pass
+    if ZoneInfo is not None:
+        try:
+            ZoneInfo("Asia/Kolkata")
+        except Exception:
+            parser.error("no time-zone database: run `py -m pip install tzdata` (Windows) and try again")
     key = os.environ.get("IMMICH_API_KEY", "").strip()
     if not key:
         parser.error("set IMMICH_API_KEY in the environment (not on the command line)")
