@@ -25,10 +25,10 @@ restic, Python/Bash/PowerShell tooling, pytest in GitHub Actions. Index: [docs/M
 | Code | built: every node's stacks, init, `scripts/fleet.py` deploy runner | [stacks/](stacks/), [docs/operations.md](docs/operations.md), `main` at [9593317](https://github.com/purrMonster/purrbrews-containers/commit/9593317) |
 | Release | none: no tags or releases; deploys are reviewed `main` commits; images pinned by tag + digest | [docs/image-upgrades.md](docs/image-upgrades.md) |
 | Deployment | all five Linux nodes running fresh stacks since 2026-10-13; agents step (Komodo, Scrutiny) done 2026-10-14, nodes at `0c21d76` or later (owner). Not deployed: meowGram 2.0.0, pourOver, mail relay, persianPerch | [runbook.md](runbook.md): 2026-10-13 "Fresh fleet up", 2026-10-14 "Agents step done" |
-| Tests / CI | failing: 1 test on `main` since #76 (pourOver's placeholder digest, `test_images_are_pinned`); 112 others pass | Actions run on 9593317, 2026-10-23; runbook 2026-10-23 entry |
+| Tests / CI | green once #83 merges: pourOver `0.1.0` pinned by its real digest (failing on `main` since #76 until then) | runbook 2026-10-28 entry |
 
 ## Open points
-1. CI red on `main`: pourOver's compose has `sha256:REPLACE_WITH_THE_RELEASE_DIGEST` until pourOver #7 is merged and `v0.1.0` published (runbook 2026-10-21).
+1. Resolved by #83: pourOver `v0.1.0` published 2026-10-28 and its digest pinned (runbook 2026-10-28).
 2. Backups after the reinstall: fresh repository on roastery, sieve's restic password, first nightly per node, restore test incl. OpenCloud rehearsal (runbook 2026-10-14 "Where we stopped").
 3. meowGram 2.0.0 rollout on percolator: dump first, it is the only rollback (Backlog, 2026-10-23 entry).
 4. persianPerch bring-up on cellar: `sphynx` in LLDAP, Komodo key, ntfy user, healthchecks.io check (runbook 2026-10-15).

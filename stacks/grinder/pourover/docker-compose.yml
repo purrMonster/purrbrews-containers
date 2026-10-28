@@ -20,7 +20,7 @@
 # from config/users.yaml.template, so no person's name is ever in this repo.
 services:
   pourover:
-    image: ghcr.io/purrmonster/pourover:0.1.0@sha256:REPLACE_WITH_THE_RELEASE_DIGEST
+    image: ghcr.io/purrmonster/pourover:0.1.0@sha256:dd0fcb4912334483fc818e83f0def8ffc867d649f53836cca9edffef7eadfc87
     container_name: pourover
     restart: unless-stopped
     read_only: true

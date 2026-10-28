@@ -118,8 +118,11 @@ state of `main` at the freeze, and what is left open.
 `test_images_are_pinned`: `stacks/grinder/pourover` pins
 `pourover:0.1.0@sha256:REPLACE_WITH_THE_RELEASE_DIGEST` because pourOver's
 `v0.1.0` tag was never pushed, so no image existed. Fix: tag pourOver `v0.1.0`,
-let its release workflow publish, pin the real digest here (see the commits on
-this branch).
+let its release workflow publish, pin the real digest here. Done 2026-10-28:
+owner published the `v0.1.0` release; Claude pinned
+`sha256:dd0fcb4912334483fc818e83f0def8ffc867d649f53836cca9edffef7eadfc87`
+(`scripts/images.py` and the release job log agree). `python3 -m pytest tests`:
+105 passed, 11 skipped.
 
 **Freeze state (Claude, 2026-10-28).** Left open on purpose, not merged:
 Dependabot #45, #46, #67–#73, #82 and Claude's #79 (llama-swap inline image).
