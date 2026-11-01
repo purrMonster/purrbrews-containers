@@ -5,7 +5,7 @@
 #
 # Built here rather than pulled: there's no image for "this model, this
 # API", and I'd rather not run a stranger's for something this small.
-FROM python:3.14.7-slim@sha256:51dafde81dbdb6ebde285137a295cf18a47ca95234fe388a343719cb97305b3d
+FROM python:3.15.0-slim@sha256:f5b92f2a669a4c347044f29367f31983280b648250ca94dea66f98c53bc87e58
 
 WORKDIR /app
 # PyTorch's CPU build first, from its own index: grinder has no GPU, and
