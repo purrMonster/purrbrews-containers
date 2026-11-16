@@ -19,7 +19,7 @@ node moves when a reviewed commit is checked out and deployed there
 
 ## Images that move together
 
-- Immich server (percolator) and machine learning (roastery): same version.
+- Immich server (`stacks/apps/immich`) and machine learning (`stacks/ai/immich-ml`): same version.
 - Komodo Core (cellar) and every Periphery: same version.
 - The Scrutiny hub (cellar) and its collectors: same version.
 - Pi-hole on sieve and mochaPot: same version, but deploy the secondary

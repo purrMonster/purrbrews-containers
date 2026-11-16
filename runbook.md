@@ -1,0 +1,175 @@
+# purrBrews runbook
+
+Dated decisions for this repo, newest first, and the Backlog. Each entry says
+what, why, and how to undo it. Rules for writing here are in
+[AGENTS.md](AGENTS.md): one writer at a time; new entries go below the Backlog;
+a box is ticked only with the evidence on the same line.
+
+This runbook starts with the rebuild after the house move. Everything before
+2026-11-16 is in [`deprecated/runbook.md`](deprecated/runbook.md), unedited:
+when a comment in the code says "runbook, 2026-09-…" or "2026-10-…", it means
+that file.
+
+## Backlog / open items
+
+Order follows [docs/migration-plan.md](docs/migration-plan.md).
+
+**To decide (owner)**
+
+- [ ] Confirm or change the proposals in the 2026-11-16 entry below (P1 to P9)
+- [ ] Restore or start empty, app by app (plan, phase 0)
+- [ ] The cloud provider and model behind LiteLLM, and a spending limit on its key (phase 8)
+- [ ] Voice: engines on all three ThinkCentres, or percolator as microphone and speaker only (phase 9)
+- [ ] Review branch `claude/stack-rebuild`; merge or send it back. Not pushed (see the entry)
+
+**Phase 0: save what exists**
+
+- [ ] Copy each bootable node's data, dumps, `.env`, `.env.local`, `secrets.env.local` and `/etc/purrbrews` to an old HDD; second HDD as its copy (owner)
+- [ ] Find out whether a restic repository survives anywhere (roastery's disk, Google Drive) and where its password and the rclone crypt keys are (owner)
+
+**Phase 1: foundations**
+
+- [ ] The machine checks in `docs/hardware.md` (`lsblk`, M.2 SATA boot on a ThinkCentre, x360 memory slots, USB Ethernet) (owner)
+- [ ] The router's address, and that its DHCP turns off (owner)
+- [ ] purrbrews-bootstrap running on americano with americano's key in it (owner)
+- [ ] W1: write the payload (static address and derived MAC, checkout, `/opt/purrbrews/.env`, directories, fetch-only timer) from `deprecated/init/`
+- [ ] Rehearse one fresh machine through the one-liner, twice
+- [ ] Close the open Dependabot PRs once this branch is merged; they target the old paths (owner)
+- [ ] First CI run on this layout: the three root-only backup tests have not run since they were edited
+
+**Phases 2 to 4: sieve, cellar, percolator's identity**
+
+- [ ] sieve: DNS answering, an alert reaching the phone, then the DHCP handover from the Humax router
+- [ ] cellar: Komodo and Scrutiny up; sieve's agents registered; the merged collector shows the node and its one disk
+- [ ] percolator: Traefik, CrowdSec, LLDAP with its service accounts (`scottishfold`, `pixiebob`, `sphynx`, the `llm_api_group` accounts), Authelia
+- [ ] Purelymail app password for the mail relay (owner); the relay has never run
+
+**Phase 5: backups**
+
+- [ ] W2: the repository's SFTP account on cellar; hub scripts and README without roastery; tests extended
+- [ ] Repository restored or initialised; password and crypt keys into the recovery kit the same day
+- [ ] Every node: install, keys, doctor, one nightly by hand, enable
+- [ ] A restore test, and the Drive copy read back
+- [ ] Long SMART self-test on both old HDDs before they hold the offline copies
+- [ ] W3: the recovery kit rebuilt from americano
+
+**Phases 6 to 8: the apps**
+
+- [ ] percolator's household apps, one at a time, each with a night's backup behind it
+- [ ] mochaPot: secondary Pi-hole, Home Assistant with `trusted_proxies` for the new subnet, the merged Traefik checked with host-networked apps, kiosk
+- [ ] grinder: LiteLLM healthy and `llm.${DOMAIN}` refusing a request without credentials; Open WebUI answering; Immich ML reachable from percolator only
+- [ ] pourOver's planning tried against the cloud model before it is switched on
+- [ ] Gatus: a check for Immich ML's port
+
+**Phases 9 to 11**
+
+- [ ] W4: voice designed and one room proven
+- [ ] W5: tailnet join; the Remote Desktop grant out of `tailscale/policy.hujson`
+- [ ] Cloudflare tunnel routes in one pass; then the visitor-address check
+- [ ] Two-factor in Authelia once every account has enrolled
+- [ ] W6: node READMEs rewritten; roastery wording swept from app READMEs and comments
+- [ ] Carried from the old Backlog, still open: `barista` in the `docker` group; Samba, shares or gone; a bot identity for agents' commits; the merged branches on GitHub (owner)
+
+## 2026-11-16 — Rebuild after the move: stack layout, roastery out, cloud AI in (session handoff)
+
+**What.** The owner asked for the repo to be analysed, then for an app-by-app
+carry-over map, a hardware rearrangement, a complete migration plan, the old
+files archived under `deprecated/` (the old runbook included) and a new runbook,
+all on a new branch. Done on `claude/stack-rebuild` (branched from `main` at
+`375c274`), in commits finished on 2026-11-17 IST. **Not pushed**: a push is
+public and was not asked for.
+
+**Decided by the owner (this session and before it)**
+
+- D1. The fleet is rebuilt after the move, on the hardware at hand, organised
+  by stack (network, identity, fleet management and so on) instead of by node.
+- D2. roastery is out of commission until further notice: its 3080 died in the
+  move. The local LLMs are down with it.
+- D3. AI goes through a light web wrapper around a cloud model: a LiteLLM proxy
+  and a small UI.
+- D4. The network node is a ThinkCentre in the living room next to the router,
+  not the laptop. A tablet or an ESP32 screen can be added there later.
+- D5. Bootstrap comes from the separate purrbrews-bootstrap repository; this
+  repo's `bootstrap/` is archived.
+- D6. Reuse whatever can be reused (configs, container code); archive the rest.
+- D7. Lay the hardware out from the old runbook and the hardware the owner
+  listed. The file the owner pointed to, `infrastructure.md`, could not be
+  found: not in this repo or its history, not in purrBrews-infra, not in the
+  Project. The old runbook only cites it.
+- D8. The LAN is `192.168.1.x` behind a Humax router (Tata Play Fiber) whose
+  DHCP can be turned off.
+- D9. Each of the three ThinkCentres sits in a different room with a USB
+  speaker and a conference-room mic, and runs Whisper and Piper locally.
+
+**Proposed by Claude, built into the branch, waiting for the owner's yes**
+
+- P1. Machines: sieve, percolator and cellar stay the three ThinkCentres,
+  mochaPot the x360 laptop, grinder the x360 board. Memory 8/16/16/8/16 GB
+  (cellar gains a stick). Disks as in `docs/hardware.md`; the second 1 TB NVMe
+  goes to cellar.
+- P2. Node names, roles and last octets stay: `.10` to `.14`. Gateway assumed
+  `192.168.1.1`.
+- P3. The restic repository moves to cellar's NVMe, still over SFTP. Google
+  Drive and the two old HDDs remain the second and offline copies.
+- P4. Immich's machine learning runs on grinder's CPU.
+- P5. LiteLLM runs on grinder with no master key and no database, reachable on
+  grinder's own Docker network and, from elsewhere, through Traefik and
+  Authelia with a service account (the pattern roastery's route used). Open
+  WebUI stays as the "small UI". One model name, `default`.
+- P6. The route is `llm.${DOMAIN}` and the LLDAP group `llm_api_group`
+  (were `ollama.…` and `ollama_api_group`).
+- P7. The secondary Pi-hole stays on mochaPot, for its battery.
+- P8. Every node's Docker network is called `proxy` with a pinned
+  `PROXY_SUBNET`, so an app can move nodes without an edit. This also answers
+  the old Backlog's proposal about `fleet.py deploy` failing at the firewall
+  on a node with no pinned subnet.
+- P9. Stack groups: network, identity, mail, apps, home, automation, ai,
+  monitoring, fleet-management, backup. Node definitions under `nodes/`.
+
+**What changed, in short** (the full list is `docs/carry-over-map.md`)
+
+- Every app has one home, `stacks/<group>/<app>`; a node is `nodes/<node>/`.
+  Per-node copies of Traefik (three of them), Periphery, the Scrutiny
+  collector and the restic settings became one folder each.
+- `_lib` finds apps by name and refuses an app the node's `node.conf` doesn't list.
+- New: `stacks/ai/litellm`. Rewritten: `stacks/ai/immich-ml` (CPU image).
+  Repointed: Open WebUI, pourOver, Immich, Authelia, Gatus.
+- Archived, unedited, at their old paths under `deprecated/`: the old runbook,
+  README, project card and map; `bootstrap/`; `init/`; all of
+  `stacks/roastery`; the superseded per-node copies; the PowerShell and init tests.
+- New docs: `docs/carry-over-map.md`, `docs/hardware.md`,
+  `docs/migration-plan.md`, `docs/MAP.md`, `README.md`, `PROJECT.md`, this file.
+  `AGENTS.md`: pointers to the new layout only.
+
+**Evidence**
+
+- `python3 -m unittest discover -s tests`: 88 run, 87 pass, 3 skipped, 1 error.
+  The skipped three are the root-only backup tests (edited for the layout, not
+  run: they need root and restic). The error is `tests/test_groom_record.py`
+  failing to import on Python 3.10 (`datetime.UTC` needs 3.11); it did the same
+  on `main` on this machine.
+- `shellcheck --severity=warning` over every `.sh` in `stacks`, `nodes`,
+  `tailscale`: clean.
+- `python3 scripts/fleet.py validate`: "Validated 5 nodes and 54 apps".
+- Digests read from ghcr.io on 2026-11-16 with `scripts/images.py`:
+  `berriai/litellm:v1.83.14-stable`, `immich-machine-learning:v3.3.3`.
+
+**Not done, and not verified**
+
+- Nothing ran on a node. No `docker compose config`, no render with real
+  settings, no UFW. The merged Traefik on mochaPot (host-networked apps), the
+  one-or-two-disk collector, LiteLLM and CPU Immich ML are untested.
+- Backups do not work as they stand: `BACKUP_REPOSITORY` points at an account
+  on cellar that does not exist, and the hub's scripts and README still
+  describe waking roastery (W2).
+- The payload that finishes a node after purrbrews-bootstrap is not written (W1).
+- Voice is not designed (W4). The tailnet join step is archived with init (W5).
+- Node READMEs are the old ones with a banner. Many app READMEs and comments
+  still mention roastery (W6). `tailscale/policy.hujson` still grants Remote Desktop.
+- The hardware table is from lists, not from the machines.
+
+**How to undo.** The branch is the whole change: don't merge it, or
+`git revert` its commits. `main` and tag `freeze-2026-10` are untouched.
+
+**Next step.** The owner reads the proposals above and `docs/hardware.md`,
+then phase 0 of the plan (save what exists) before anything is reinstalled.
