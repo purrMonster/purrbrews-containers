@@ -1,45 +1,75 @@
 # stacks
 
-One folder per node, one folder per app inside it. Every node works the same way:
-the scripts are identical three-line wrappers around [`_lib`](_lib/), and everything
-that differs between nodes or apps is a small config file, not code.
+One folder per app, grouped by what the app is for; one small folder per machine
+under [`../nodes/`](../nodes/). Every node works the same way: the scripts are
+identical three-line wrappers around [`_lib`](_lib/), and everything that differs
+between nodes or apps is a small config file, not code.
+
+Until the 2026-11 rebuild this tree was organised by node (`stacks/<node>/<app>`),
+which meant five copies of Traefik and of each node agent. Now an app has one home
+whichever machine runs it, and a node is just the list of apps it runs
+([`../docs/carry-over-map.md`](../docs/carry-over-map.md) says where everything went).
 
 ```
 stacks/
 ├── fleet.env                  LAN facts every node shares (IPs, gateway, TZ, backups). Committed, not secret
 ├── _lib/                      the actual scripts (see below)
-└── <node>/
-    ├── README.md              role, apps, bring-up order, gotchas
-    ├── node.conf              APPS in bring-up order, NETWORK, RESOLVER
-    ├── local.env.example      node settings template → .env.local (gitignored)
-    ├── setup-secrets.sh       ┐
-    ├── render-configs.sh      │ the same wrapper on every node:
-    ├── compose.sh             │ exec ../_lib/<script> <this dir> "$@"
-    ├── firewall.sh            │ (backup.sh on the Linux nodes)
-    ├── backup.sh              ┘
-    ├── restic/secrets.conf    the backup password and alert URL (cellar: its whole backup hub)
-    └── <app>/
-        ├── docker-compose.yml
-        ├── README.md          first run, "is it working?" (for apps that need one)
-        ├── secrets.conf       what setup generates or asks for      (optional)
-        ├── firewall           this app's UFW rules                  (optional)
-        ├── data-dirs          directories created before `up`       (optional)
-        ├── backup             what gets dumped and backed up         (optional)
-        ├── prepare.sh         run before `up`                       (optional)
-        └── config/*.template  rendered next to themselves           (optional)
+└── <group>/<app>/             network, identity, mail, apps, home, automation, ai,
+    │                          monitoring, fleet-management, backup
+    ├── docker-compose.yml
+    ├── README.md              first run, "is it working?" (for apps that need one)
+    ├── secrets.conf           what setup generates or asks for      (optional)
+    ├── firewall               this app's UFW rules                  (optional)
+    ├── data-dirs              directories created before `up`       (optional)
+    ├── backup                 what gets dumped and backed up         (optional)
+    ├── prepare.sh             run before `up`                       (optional)
+    └── config/*.template      rendered next to themselves           (optional)
+
+nodes/<node>/
+├── README.md                  role, apps, bring-up order, gotchas
+├── node.conf                  APPS in bring-up order, TOOLS, NETWORK, RESOLVER, BACKUP_HUB
+├── local.env.example          node settings template → .env.local (gitignored)
+├── setup-secrets.sh           ┐
+├── render-configs.sh          │ the same wrapper on every node:
+├── compose.sh                 │ exec ../../stacks/_lib/<script> <this dir> "$@"
+├── firewall.sh                │
+└── backup.sh                  ┘
 ```
+
+App names are unique across the groups, so a node's `APPS=(…)` lists bare names and
+`_lib` finds each folder. `TOOLS=(…)` lists host-side folders that aren't containers
+but have settings or templates (`restic` on every node, `kiosk` on mochaPot).
+
+| Group | Apps |
+|---|---|
+| `network` | unbound, pihole, pihole-secondary, cloudflared, netalertx, crowdsec, and the three Traefiks: `traefik-edge` (sieve), `traefik-ingress` (percolator), `traefik` (every other node) |
+| `identity` | lldap, authelia |
+| `mail` | mail-relay |
+| `apps` | vaultwarden, opencloud, radicale, immich, paperless, mealie, vikunja, meowgram, actualbudget, freshrss, homepage, purrcafe, karakeep, fittrackee, traccar |
+| `home` | homeassistant, musicassistant, esphome, kiosk |
+| `automation` | n8n, postgres-vector, embedding-worker, pourover |
+| `ai` | litellm (the door to a cloud model), openwebui, immich-ml |
+| `monitoring` | gatus, ntfy, speedtest-tracker |
+| `fleet-management` | komodo, komodo-periphery, scrutiny, scrutiny-collector, persian-perch |
+| `backup` | restic, smb, nfs |
 
 | Node | Role | |
 |---|---|---|
-| `sieve` | Network: DNS, DHCP, tunnel, alerting | [sieve/](sieve/README.md) |
-| `percolator` | Ingress, identity (SSO) and the daily apps | [percolator/](percolator/README.md) |
-| `cellar` | Backups, file shares, Komodo, the Scrutiny hub | [cellar/](cellar/README.md) |
-| `mochaPot` | Home automation, music, the wall screen, secondary DNS | [mochaPot/](mochaPot/README.md) |
-| `grinder` | Automation, AI indexing, self-tracking | [grinder/](grinder/README.md) |
-| `roastery`* | Windows workstation: GPU for Immich ML and the local LLMs (llama-swap) | [roastery/](roastery/README.md) |
+| `sieve` | Network: DNS, DHCP, tunnel, alerting | [nodes/sieve](../nodes/sieve/README.md) |
+| `percolator` | Ingress, identity (SSO) and the daily apps | [nodes/percolator](../nodes/percolator/README.md) |
+| `cellar` | Backups (the repository too, since the rebuild), file shares, Komodo, the Scrutiny hub | [nodes/cellar](../nodes/cellar/README.md) |
+| `mochaPot` | Home automation, music, the wall screen, secondary DNS | [nodes/mochaPot](../nodes/mochaPot/README.md) |
+| `grinder` | Automation, AI (LiteLLM, Immich ML), self-tracking | [nodes/grinder](../nodes/grinder/README.md) |
 
-\* Not a fleet node: no init, no `/opt/purrbrews/.env`, no `DATA_DIR`. It has
-PowerShell twins of the scripts (`*.ps1`) so it doesn't need WSL.
+roastery, the Windows workstation, is out of the fleet; its stacks and PowerShell
+twins are under [`../deprecated/`](../deprecated/ABOUT.md).
+
+### Adding an app, or moving one
+
+A new app is a folder under the group it belongs to and one word in a node's
+`APPS`. Moving an app to another node is deleting the word from one `node.conf` and
+adding it to another (plus its settings in that node's `local.env.example`): the
+network is called `proxy` on every node, so the compose file doesn't change.
 
 ## The shared scripts
 
@@ -50,12 +80,12 @@ few commands that need it; root-owned secrets files break the next run).
 |---|---|
 | `./setup-secrets.sh` | First-time setup, and the thing to re-run after a pull. `.env.local` from `local.env.example` (new keys appended, [renamed keys](_lib/renamed-keys) copied across), a prompt for every `REPLACE_ME`, every app's `secrets.conf`, then render. Never changes a value that's already set |
 | `./render-configs.sh` | Every `*.template` → the file beside it. A template with an unset or `REPLACE_ME` variable fails and its last good render stays. On a node with `RESOLVER` set, regenerates the Pi-hole records first |
-| `./compose.sh <app> …` | `docker compose` with the env files. Before `up` it checks renders are current, creates `data-dirs`, runs `prepare.sh`, and refuses a resolved config with a `REPLACE_ME` left in it. `--all` goes in `node.conf` order (backwards for `down`); `--list` also shows app folders `node.conf` doesn't mention |
+| `./compose.sh <app> …` | `docker compose` with the env files. Before `up` it checks renders are current, creates `data-dirs`, runs `prepare.sh`, and refuses a resolved config with a `REPLACE_ME` left in it. `--all` goes in `node.conf` order (backwards for `down`); `--list` prints that order. An app this node's `node.conf` doesn't list is refused |
 | `sudo ./firewall.sh` | UFW rules from every app's `firewall` file; `--dry-run` prints them |
 | `sudo ./backup.sh <cmd>` | The node's backups from every app's `backup` file: `plan` (no sudo), `doctor`, `keys`, `nightly`, `restic …`. See [Backups](#backups) |
 
-**Env files, later ones win:** `stacks/fleet.env` → `/opt/purrbrews/.env` (written by
-init: `NODE`, `NODE_IP`, `PUID`/`PGID`, `DATA_DIR`, `MEDIA_DIR`) → the node's
+**Env files, later ones win:** `stacks/fleet.env` → `/opt/purrbrews/.env` (written when
+the node is set up: `NODE`, `NODE_IP`, `PUID`/`PGID`, `DATA_DIR`, `MEDIA_DIR`) → the node's
 `.env.local` → the app's `secrets.env.local`. The renderer and compose see exactly
 the same values.
 
@@ -133,42 +163,41 @@ it. Details at the top of [`_lib/backup.sh`](_lib/backup.sh).
 
 On any node, without touching a script:
 
-1. `stacks/<node>/<app>/docker-compose.yml`. Data under `${DATA_DIR}/<app>/…`, the
-   node's IP as `${NODE_IP}`, other nodes' as `${<NODE>_LAN_IP}` from `fleet.env`. Join
-   the node's network (`NETWORK` in `node.conf`) if Traefik fronts it.
+1. `stacks/<group>/<app>/docker-compose.yml`, with a name no other app has. Data under
+   `${DATA_DIR}/<app>/…`, the node's IP as `${NODE_IP}`, other nodes' as
+   `${<NODE>_LAN_IP}` from `fleet.env`. Join the `proxy` network if Traefik fronts it.
 2. Whatever it needs of `secrets.conf`, `firewall`, `data-dirs`, `backup`, `config/*.template`.
    A new template's rendered file goes in the root `.gitignore` (a test insists).
-3. Add it to `APPS` in `node.conf`, where it belongs in the bring-up order.
+3. Add it to `APPS` in the `node.conf` of the node that runs it, where it belongs in
+   the bring-up order, and its settings to that node's `local.env.example`.
 4. If it has a Traefik route: add its host to Authelia's admin list in
-   `percolator/authelia/config/configuration.yml.template` if it's admin-only, then
-   `./render-configs.sh` and `./compose.sh pihole up -d` on sieve **and** mochaPot so
-   the name resolves. Add a check to `sieve/gatus/config/config.yaml`.
+   `identity/authelia/config/configuration.yml.template` if it's admin-only, then
+   `./render-configs.sh` and recreate Pi-hole on sieve **and** mochaPot so the name
+   resolves. Add a check to `monitoring/gatus/config/config.yaml`.
 5. `./setup-secrets.sh`, `sudo ./firewall.sh`, `./compose.sh <app> up -d`, then its
    README's checklist.
 
 `python3 -m unittest discover -s tests` catches the usual slips: a variable nothing
-defines, a template that isn't gitignored, an app folder missing from `node.conf`.
+defines, a template that isn't gitignored, an app no node runs, two apps with one name.
 
 ## Adding a node
 
-1. Its name and IP in `NODE_IPS` (`init/purrbrews-init.env.example` and the real one on
-   roastery) and a `<NODE>_LAN_IP` line in `fleet.env`.
-2. `stacks/<node>/` with the wrapper scripts copied from any other node (five on
-   Linux, with `backup.sh`), `node.conf`, `local.env.example`, `README.md`, and
-   `restic/secrets.conf` copied from grinder's.
-3. Its own `traefik/` (copy mochaPot's or grinder's), and its IP in percolator's
-   `FORWARD_AUTH_CLIENTS`.
-4. `komodo-periphery/` and `scrutiny-collector/` copied as they are: they take the
-   node's name from `NODE` and the disk from `DISK_DEVICE`.
-5. Its checks in Gatus.
-6. Backups: `sudo ./backup.sh keys`, then its lines in roastery's
-   `backup-target/authorized_keys` and cellar's `restic/dump-store.keys`, and
-   `setup.ps1` on roastery again (its firewall rule reads the addresses from
-   `fleet.env`). cellar's morning check picks the node up by itself.
+1. A `<NODE>_LAN_IP` line in `fleet.env`, and the node set up with purrbrews-bootstrap
+   and its payload ([migration plan](../docs/migration-plan.md), phase 1).
+2. `nodes/<node>/` with the five wrapper scripts copied from any other node,
+   `node.conf`, `local.env.example` (with its own `PROXY_SUBNET`) and `README.md`.
+3. In its `APPS`: `traefik`, `komodo-periphery` and `scrutiny-collector` as they are.
+   They take the node's name from `NODE` and the disk from `DISK_DEVICE`. Its IP goes
+   in percolator's `FORWARD_AUTH_CLIENTS`. `TOOLS=(restic)`.
+4. An entry in `fleet.json`, and its checks in Gatus.
+5. Backups: `sudo ./backup.sh keys`, then its lines in the hub's repository
+   account and `backup/restic/dump-store.keys`. The hub's morning check picks the
+   node up by itself.
 
 ## Backups
 
-Decided 2026-09-27 (runbook). Every node, every night:
+Decided 2026-09-27 (`deprecated/runbook.md`); re-targeted in the 2026-11 rebuild
+(`runbook.md`). Every node, every night:
 
 1. **Dumps** its own databases (`pg`, `mongo`, `sqlite` lines) into
    `DUMP_DIR/<node>/<app>/`, each read back before it replaces the last good one;
@@ -176,31 +205,34 @@ Decided 2026-09-27 (runbook). Every node, every night:
    with a key that can only write that one folder;
 3. **backs up its files** (`path` lines, plus its own `.env`, `.env.local`,
    every `secrets.env.local` and `/etc/purrbrews`) straight into the restic
-   repository on roastery, over SFTP (through rclone: Windows' sftp-server refuses
-   restic's chmod), `--host <node> --tag files`.
+   repository, over SFTP, `--host <node> --tag files`.
 
-cellar backs up the dump store (`--tag dumps`), wakes roastery, prunes, copies the
-repository to Google Drive and checks each morning that everything above happened;
-[cellar/restic/README.md](cellar/restic/README.md) has that side and the order to
-switch it all on. roastery holds the repository on its NVMe
-([roastery/README.md](roastery/README.md#backup-target)).
+The repository lived on roastery; it moves to cellar, the backup hub
+(`BACKUP_HUB=true` in its `node.conf`). The hub backs up the dump store
+(`--tag dumps`), prunes, copies the repository to Google Drive and checks each
+morning that everything above happened; [backup/restic/README.md](backup/restic/README.md)
+has that side and the order to switch it all on.
 
-`BACKUP_REPOSITORY`, `DUMP_DIR` and `DUMP_STORE_HOST` are in `fleet.env`; each
-node's `restic/secrets.conf` asks for the repository password (the same
-everywhere, made on cellar) and the ntfy URL for failure alerts. One key per
-node (`/root/.ssh/purrbrews-backup`), pinned host keys in `/etc/purrbrews`.
+**Not ready yet:** the SFTP account for the repository on cellar isn't written,
+and the hub's scripts and README still speak of waking roastery
+([migration plan](../docs/migration-plan.md), phase 5). No node backs up until
+that phase is done.
+
+`BACKUP_REPOSITORY`, `DUMP_DIR` and `DUMP_STORE_HOST` are in `fleet.env`; `restic`
+is in every node's `TOOLS`, and its `secrets.hook` makes the repository password
+on the hub and asks for it everywhere else, plus the ntfy URL for failure alerts.
+One key per node (`/root/.ssh/purrbrews-backup`), pinned host keys in `/etc/purrbrews`.
 
 ## Updates
 
 Every image is pinned by tag and digest (a test fails otherwise), so nothing
 updates on its own, not even an upstream `main` or `latest`. [Dependabot](../.github/dependabot.yml) opens a pull request each Monday
-when a pinned image has a new version, one PR per image covering every node that
-runs it, after the release has been out a week. Merging changes nothing running:
+when a pinned image has a new version, one PR per image, after the release has been out a week. Merging changes nothing running:
 nodes only fetch `main`, and an app moves when a reviewed commit is checked out
 on the node and deployed ([operations](../docs/operations.md)).
 
 - Read the release notes before merging. Pairs that must match arrive as separate
-  PRs: Immich server with roastery's ML, Komodo Core with every Periphery (a test
+  PRs: Immich server with `ai/immich-ml`, Komodo Core with Periphery (a test
   fails while they differ).
 - OpenCloud, Meilisearch, Traccar and Open WebUI migrate their data one way: with
   data there, `compose.sh up` waits for the new version to be acknowledged in
@@ -209,8 +241,7 @@ on the node and deployed ([operations](../docs/operations.md)).
   as PRs: those need reviewed migration and restore plans, by hand.
 - A security fix still waits out the week's cooldown; a critical one is a
   hand-made PR.
-- **Old images clean themselves up.** After a successful `up`, `compose.sh` (and
-  roastery's `compose.ps1`) removes the images that app ran before, once nothing
+- **Old images clean themselves up.** After a successful `up`, `compose.sh` removes the images that app ran before, once nothing
   else uses them. Images shared with another app, or pulled for one not yet
   restarted, stay. Rolling back is pulling the old tag and digest again;
   `PURRBREWS_KEEP_IMAGES=1` keeps them.

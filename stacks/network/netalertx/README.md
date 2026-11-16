@@ -31,7 +31,7 @@ NetAlertX has had unauthenticated remote-code-execution CVEs (CVE-2024-46506,
 CVE-2025-32440). Both were fixed long before this tag, but it's not an app to leave
 open. Two things keep it closed, and both must hold:
 
-- UFW opens port 20211 to `sieve_edge` only (Traefik and Gatus), not the LAN;
+- UFW opens port 20211 to `proxy` only (Traefik and Gatus), not the LAN;
 - the backend API port 20212 has no rule at all.
 
 Never route it through the tunnel.
@@ -54,10 +54,10 @@ Worth doing in the UI:
   password; both apps share the host network). Pulls hostnames and DHCP leases, so devices show names rather than MACs.
 - **Notifications → ntfy** (`NTFY` publisher): host `https://ntfy.${DOMAIN}`, and a
   token for a dedicated ntfy user with write access to its topic, added as described
-  in [`../ntfy/README.md`](../ntfy/README.md#adding-someone). The internal
+  in [`../../monitoring/ntfy/README.md`](../../monitoring/ntfy/README.md#adding-someone). The internal
   `http://ntfy:8080` isn't reachable from host networking.
 - **Name the fleet nodes.** They appear with their cloned `02:…` MACs from
-  `init/purrbrews-mac.sh list`.
+  `deprecated/init/purrbrews-mac.sh list`.
 
 ## Notes
 

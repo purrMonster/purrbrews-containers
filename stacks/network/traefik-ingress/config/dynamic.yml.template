@@ -1,4 +1,4 @@
-# Rendered by ../../render-configs.sh — edit the .template.
+# Rendered by the node's ./render-configs.sh — edit the .template.
 #
 # Shared middlewares plus the routes that have no container labels to hang
 # them on. App routes live in each app's docker-compose.yml labels.

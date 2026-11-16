@@ -1,6 +1,12 @@
 # cellar
 
-**The dump store, file shares and the fleet's ops tools**: `192.168.0.12`, ThinkCentre
+> **Carried over from the pre-move fleet (2026-11-16).** This page was written for
+> the old layout and hardware. Paths and addresses were updated mechanically; the
+> bring-up notes are still the best record of how this node's apps fit together,
+> but check each step against [`docs/migration-plan.md`](../../docs/migration-plan.md)
+> and [`docs/hardware.md`](../../docs/hardware.md) before relying on it.
+
+**The dump store, file shares and the fleet's ops tools**: `192.168.1.12`, ThinkCentre
 M710q (i3-7100T, 8 GB), NVMe for the OS and the dump store, plus an old 1 TB HDD
 that no longer holds backups.
 
@@ -9,17 +15,17 @@ when it doesn't, lives here.
 
 | App | URL | What it's for |
 |---|---|---|
-| [Komodo](komodo/) | `komodo.${DOMAIN}` (admins), or `:9120` | Container management for the whole fleet (Core, Mongo, cellar's own agent) |
-| [Scrutiny](scrutiny/) | `scrutiny.${DOMAIN}` (admins), or `:8080` | SMART disk health; the hub every node's collector reports to |
-| [Traefik](traefik/) | — | HTTPS for the two above, and persianPerch |
-| [persianPerch](persian-perch/) | `perch.${DOMAIN}` (admins) | The fleet's watcher: containers, backups, disks, endpoints, files dropped, the house. Read-only; alerts to ntfy |
-| [Samba](smb/) | `\\cellar\household`, `\\cellar\archive` | File shares. Built, not in use yet (no firewall rule) |
-| [NFS](nfs/README.md) | `cellar:/srv/media/archive` | Archive export, host-native. Nothing mounts it yet |
-| [restic](restic/README.md) | — | The backup chain's hub, host-native: the dump store, waking roastery, the Drive copy, the morning check. On since 2026-09-28; roastery's repository to restore after its 2026-10-07 wipe |
+| [Komodo](../../stacks/fleet-management/komodo/) | `komodo.${DOMAIN}` (admins), or `:9120` | Container management for the whole fleet (Core, Mongo, cellar's own agent) |
+| [Scrutiny](../../stacks/fleet-management/scrutiny/) | `scrutiny.${DOMAIN}` (admins), or `:8080` | SMART disk health; the hub every node's collector reports to |
+| [Traefik](../../stacks/network/traefik/) | — | HTTPS for the two above, and persianPerch |
+| [persianPerch](../../stacks/fleet-management/persian-perch/) | `perch.${DOMAIN}` (admins) | The fleet's watcher: containers, backups, disks, endpoints, files dropped, the house. Read-only; alerts to ntfy |
+| [Samba](../../stacks/backup/smb/) | `\\cellar\household`, `\\cellar\archive` | File shares. Built, not in use yet (no firewall rule) |
+| [NFS](../../stacks/backup/nfs/README.md) | `cellar:/srv/media/archive` | Archive export, host-native. Nothing mounts it yet |
+| [restic](../../stacks/backup/restic/README.md) | — | The backup chain's hub, host-native: the dump store, waking roastery, the Drive copy, the morning check. On since 2026-09-28; roastery's repository to restore after its 2026-10-07 wipe |
 
 ## Setup
 
-As `barista` in `/opt/purrbrews/stacks/cellar`, after `init/purrbrews-init.sh cellar`:
+As `barista` in `/opt/purrbrews/nodes/cellar`, once the node is set up (`docs/migration-plan.md`, phase 1):
 
 ```bash
 ./setup-secrets.sh      # asks for DOMAIN, TRAEFIK_ACME_EMAIL, the two disks, the
@@ -31,12 +37,12 @@ Then, in order (`node.conf`), checking each before the next:
 
 | # | Command | Check |
 |---|---|---|
-| 1 | `./compose.sh komodo up -d` | `sudo docker logs komodo-core` starts clean; log in at `http://192.168.0.12:9120` as `barista` with `KOMODO_INIT_ADMIN_PASSWORD` from `komodo/secrets.env.local` |
-| 2 | `./compose.sh scrutiny up -d` | both disks listed at `http://192.168.0.12:8080` |
+| 1 | `./compose.sh komodo up -d` | `sudo docker logs komodo-core` starts clean; log in at `http://192.168.1.12:9120` as `barista` with `KOMODO_INIT_ADMIN_PASSWORD` from `komodo/secrets.env.local` |
+| 2 | `./compose.sh scrutiny up -d` | both disks listed at `http://192.168.1.12:8080` |
 | 3 | `./compose.sh traefik up -d` | certificates issued in `sudo docker logs traefik`; `https://komodo.${DOMAIN}` asks for an Authelia login |
 | 4 | `./compose.sh smb up -d` | only when the shares are wanted; add the rule in `smb/firewall` first |
-| 5 | `./compose.sh persian-perch up -d` | its [README](persian-perch/README.md) checklist; read persianPerch's `integration/ROLLOUT.md` before the first run |
-| — | `sudo ./nfs/setup-nfs.sh`, then [restic/README.md](restic/README.md) | host-native, whenever needed |
+| 5 | `./compose.sh persian-perch up -d` | its [README](../../stacks/fleet-management/persian-perch/README.md) checklist; read persianPerch's `integration/ROLLOUT.md` before the first run |
+| — | `sudo ./nfs/setup-nfs.sh`, then [restic/README.md](../../stacks/backup/restic/README.md) | host-native, whenever needed |
 
 `./compose.sh --all up -d` does 1–5 in that order once everything has been up once.
 
@@ -75,6 +81,6 @@ Then, in order (`node.conf`), checking each before the next:
 - **Backups after roastery's wipe.** The chain ran from 2026-09-28 (restore tests
   passed 2026-09-29), but roastery, which holds the repository, was wiped on
   2026-10-07. Restore it from Drive before the nodes write again;
-  [restic/README.md](restic/README.md) and roastery's `flask/RECOVERY.md` part B.
+  [restic/README.md](../../stacks/backup/restic/README.md) and roastery's `flask/RECOVERY.md` part B.
 - **Samba isn't reachable**: ufw-docker keeps 139/445 closed until `smb/firewall`
   gets its rule. Its image is pinned by digest already.

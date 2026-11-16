@@ -20,7 +20,7 @@ set -Eeuo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../../_lib/common.sh
 source "$DIR/../../_lib/common.sh"
-load_node "$DIR/.."
+load_node "$(this_node_dir)"
 [[ $EUID -eq 0 ]] || die "run with sudo: it makes an account and writes its authorized_keys."
 KEYS="$DIR/dump-store.keys"
 [[ -f "$KEYS" ]] || die "no $KEYS; copy dump-store.keys.example and add each node's line from 'backup.sh keys'."
@@ -67,7 +67,7 @@ install -m 600 -o "$USER_NAME" -g "$USER_NAME" "$tmp" "$HOME_DIR/.ssh/authorized
 # the forced command in authorized_keys.
 DROPIN=/etc/ssh/sshd_config.d/20-purrbrews-dumps.conf
 want="$(printf '%s\n' \
-  '# Written by stacks/cellar/restic/dump-store-setup.sh: the nodes push their' \
+  '# Written by stacks/backup/restic/dump-store-setup.sh: the nodes push their' \
   '# database dumps here as dumps, a key-only account locked to rrsync.' \
   "AllowUsers $USER_NAME" \
   "Match User $USER_NAME" \
@@ -90,7 +90,7 @@ if [[ "$(cat "$DROPIN" 2>/dev/null)" != "$want" ]]; then
 else
   note "sshd: $USER_NAME already allowed in ($DROPIN)"
 fi
-if ! sshd -T -C "user=$USER_NAME,host=x,addr=${DUMP_STORE_CHECK_ADDR:-192.168.0.11}" 2>/dev/null | grep -qiE "^allowusers .*\b$USER_NAME\b"; then
+if ! sshd -T -C "user=$USER_NAME,host=x,addr=${DUMP_STORE_CHECK_ADDR:-192.168.1.11}" 2>/dev/null | grep -qiE "^allowusers .*\b$USER_NAME\b"; then
   warn "sshd -T still doesn't list $USER_NAME under AllowUsers; the nodes won't get in."
 fi
 

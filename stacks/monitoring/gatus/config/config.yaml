@@ -152,7 +152,7 @@ endpoints:
   # the day it's needed. Same two questions as sieve's: recursion, local names.
   - name: secondary dns (mochaPot)
     group: network
-    url: 192.168.0.13
+    url: 192.168.1.13
     interval: 5m
     dns:
       query-name: cloudflare.com
@@ -165,7 +165,7 @@ endpoints:
 
   - name: secondary dns local override (mochaPot)
     group: network
-    url: 192.168.0.13
+    url: 192.168.1.13
     interval: 15m
     dns:
       query-name: gatus.${DOMAIN}
@@ -282,33 +282,32 @@ endpoints:
         description: no internet from sieve
 
   # ── Fleet ─────────────────────────────────────────────────────────────────
-  # Node reachability, all four enabled 2026-09-29. roastery stays out: it sleeps
-  # and wakes by Wake-on-LAN, so a ping would alert every night. Add each node's
-  # app checks here as its stacks land.
+  # Node reachability, all four enabled 2026-09-29. Add each node's app checks
+  # here as its stacks land.
   - name: percolator
     group: fleet
-    url: icmp://192.168.0.11
+    url: icmp://192.168.1.11
     interval: 2m
     conditions: ["[CONNECTED] == true"]
     alerts: [{type: ntfy}]
 
   - name: cellar
     group: fleet
-    url: icmp://192.168.0.12
+    url: icmp://192.168.1.12
     interval: 2m
     conditions: ["[CONNECTED] == true"]
     alerts: [{type: ntfy}]
 
   - name: mochaPot
     group: fleet
-    url: icmp://192.168.0.13
+    url: icmp://192.168.1.13
     interval: 2m
     conditions: ["[CONNECTED] == true"]
     alerts: [{type: ntfy}]
 
   - name: grinder
     group: fleet
-    url: icmp://192.168.0.14
+    url: icmp://192.168.1.14
     interval: 2m
     conditions: ["[CONNECTED] == true"]
     alerts: [{type: ntfy}]
@@ -351,8 +350,7 @@ endpoints:
   # app (or Authelia) behind it. Each node's container healthchecks say a
   # container is up; these say people can reach it. Added 2026-10-08; a test
   # (tests/test_infrastructure.py) fails when a route has no check here.
-  # Not here: gatus, ntfy and perch (checked above), roastery's ollama (it
-  # sleeps between uses and alerts would be noise).
+  # Not here: gatus, ntfy and perch (checked above).
 
   # sieve
   - {<<: *behind-sso, group: "apps: sieve", name: pihole, url: "https://pihole.${DOMAIN}/"}
@@ -386,7 +384,7 @@ endpoints:
   # shows as a growing queue (mail-relay/README.md).
   - name: mail relay
     group: "apps: percolator"
-    url: starttls://192.168.0.11:587
+    url: starttls://192.168.1.11:587
     interval: 5m
     client: {insecure: true}
     conditions: ["[CONNECTED] == true"]
@@ -405,6 +403,8 @@ endpoints:
 
   # grinder
   - {<<: *behind-sso, group: "apps: grinder", name: open webui, url: "https://chat.${DOMAIN}/"}
+  # LiteLLM's route answers 401 to a request with no service-account credentials.
+  - {<<: *behind-sso, group: "apps: grinder", name: llm, url: "https://llm.${DOMAIN}/health/liveliness"}
   - {<<: *behind-sso, group: "apps: grinder", name: n8n, url: "https://n8n.${DOMAIN}/"}
   - {<<: *behind-sso, group: "apps: grinder", name: karakeep, url: "https://karakeep.${DOMAIN}/"}
   - {<<: *behind-sso, group: "apps: grinder", name: fittrackee, url: "https://fittrackee.${DOMAIN}/"}
@@ -415,7 +415,7 @@ endpoints:
   # port, which grinder's firewall opens to sieve only. /healthz also proves its SQLite opens.
   - name: pourover
     group: "apps: grinder"
-    url: "http://192.168.0.14:8790/healthz"
+    url: "http://192.168.1.14:8790/healthz"
     interval: 5m
     conditions:
       - "[CONNECTED] == true"

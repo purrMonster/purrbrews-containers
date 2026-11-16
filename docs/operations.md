@@ -1,7 +1,7 @@
 # Fleet operations
 
 This is infrastructure for six hosts. Compose files define services;
-`stacks/<node>/node.conf` defines their order; `fleet.json` adds platform,
+`nodes/<node>/node.conf` defines their order; `fleet.json` adds platform,
 service tier, optional apps and prerequisites. No second list of IPs or app order.
 
 ## Release workflow
@@ -69,7 +69,7 @@ editing this repo alone does not replace an already installed helper.
   the affected app; verify its routes, DNS and alert paths.
 - Database/application migrations: restore a matched pre-upgrade data backup and
   image version. Reverting Git or an image tag alone is not a database rollback.
-- Backups: follow [cellar/restic](../stacks/cellar/restic/README.md), including its
+- Backups: follow [cellar/restic](../stacks/backup/restic/README.md), including its
   restore test and repository identity checks. Run a restore to an isolated path;
   never use a healthy production directory as the test destination.
 - Network/DNS: retain console or Tailscale access and the router fallback before

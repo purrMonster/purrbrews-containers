@@ -126,5 +126,5 @@ services:
 
 networks:
   default:
-    name: cellar_net
+    name: proxy
     external: true

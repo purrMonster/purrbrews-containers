@@ -60,6 +60,6 @@ real email in the UI (Authelia sends password-reset and 2FA links there, through
 - **Losing `LLDAP_KEY_SEED` invalidates every stored password.** It's in the node's
   secrets file; back that up with the data.
 - **Break-glass:** if Traefik or Authelia is broken, reach the UI over SSH:
-  `ssh -L 17170:127.0.0.1:17170 barista@192.168.0.11`, then `http://localhost:17170`.
+  `ssh -L 17170:127.0.0.1:17170 barista@192.168.1.11`, then `http://localhost:17170`.
 - **The web UI is not behind Authelia** on purpose: it would lock you out of fixing
   accounts when Authelia is the thing that's broken. Keep `lldap.` off the tunnel.

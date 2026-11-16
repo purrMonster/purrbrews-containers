@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Split DNS for both Pi-holes: one record per Traefik route in the repo, pointed
-at the node that serves it, plus the fleet's host names (and, on the primary,
+at the node whose node.conf runs the app that serves it, plus the fleet's host names (and, on the primary,
 its DHCP static leases). Fleet CSV (name,ip,mac) comes in on stdin."""
 import argparse
 import csv
@@ -45,11 +45,7 @@ def records(root, domain, fleet, extra_hosts='', existing_hosts=''):
         for name in fields[1:]:
             existing[name] = fields[0]
     routes = {}
-    paths = set(root.glob('stacks/*/traefik/dynamic/*.yml'))
-    paths.update(root.glob('stacks/*/traefik/config/**/*.template'))
-    paths.update(root.glob('stacks/*/*/docker-compose.yml'))
-    for path in sorted(paths):
-        node = path.relative_to(root).parts[1]
+    for node, path in sorted(route_files(root)):
         for line in path.read_text().splitlines():
             if not RULE.match(line):
                 continue
@@ -74,6 +70,33 @@ def records(root, domain, fleet, extra_hosts='', existing_hosts=''):
         lines.extend((f'address=/{name}/{address}', f'local=/{name}/'))
     hosts = [f'{ip} {name}' for name, ip in sorted(addresses.items())]
     return lines, hosts
+
+
+def node_apps(root):
+    """{node: [apps]} from every nodes/<node>/node.conf (APPS, in order)."""
+    nodes = {}
+    for conf in sorted(root.glob('nodes/*/node.conf')):
+        found = re.findall(r'^APPS=\(([^)]*)\)', conf.read_text(), re.M)
+        if len(found) != 1:
+            raise ValueError(f'{conf.relative_to(root)} needs exactly one APPS array')
+        nodes[conf.parent.name] = shlex.split(found[0], comments=True)
+    return nodes
+
+
+def route_files(root):
+    """(node, file) for every file that can hold a Traefik route of an app the
+    node runs: its compose file and, for a Traefik, its file-provider config."""
+    pairs = set()
+    for node, apps in node_apps(root).items():
+        for app in apps:
+            for directory in root.glob(f'stacks/*/{app}'):
+                if directory.parent.name == '_lib' or not directory.is_dir():
+                    continue
+                files = [directory / 'docker-compose.yml']
+                files += directory.glob('dynamic/*.yml')
+                files += directory.glob('config/**/*.template')
+                pairs.update((node, f) for f in files if f.is_file())
+    return pairs
 
 
 def read_env(path):

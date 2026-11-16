@@ -62,7 +62,7 @@ services:
     volumes:
       - ./dynamic:/etc/traefik/dynamic:ro
       - ${DATA_DIR:?}/traefik/letsencrypt:/letsencrypt
-    networks: [sieve_edge]
+    networks: [proxy]
     healthcheck:
       test: ["CMD", "traefik", "healthcheck", "--ping"]
       interval: 30s
@@ -75,5 +75,5 @@ services:
     restart: unless-stopped
 
 networks:
-  sieve_edge:
+  proxy:
     external: true

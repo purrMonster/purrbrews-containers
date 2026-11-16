@@ -1,6 +1,6 @@
 # Home Assistant
 
-`https://homeassistant.${DOMAIN}`, or `http://192.168.0.13:8123` directly.
+`https://homeassistant.${DOMAIN}`, or `http://192.168.1.13:8123` directly.
 
 Host networking (discovery needs it), with its own Postgres for the recorder on
 `127.0.0.1:5432`. The onboarding wizard runs on the first visit; there's no
@@ -12,7 +12,7 @@ Three things can't be set from compose and live in
 `/srv/data/homeassistant/configuration.yaml`. Restart after changing it.
 
 **Trust Traefik.** Without this every proxied request is rejected as coming from
-an untrusted proxy. Trust the whole `mochapot_net` subnet (`PROXY_SUBNET` in
+an untrusted proxy. Trust the whole `proxy` subnet (`PROXY_SUBNET` in
 `.env.local`), not Traefik's container IP: that changes whenever it's recreated,
 and I spent an evening on 400s learning so.
 
@@ -21,11 +21,11 @@ http:
   use_x_forwarded_for: true
   trusted_proxies:
     - 172.30.13.0/24    # PROXY_SUBNET: this node's Traefik
-    - 192.168.0.10/32   # sieve: cloudflared (tunnel) in front of Traefik
+    - 192.168.1.10/32   # sieve: cloudflared (tunnel) in front of Traefik
 ```
 
 HA reads `X-Forwarded-For` right to left and stops at the first untrusted
-address. Through the tunnel it gets `<visitor>, 192.168.0.10` (Traefik trusts
+address. Through the tunnel it gets `<visitor>, 192.168.1.10` (Traefik trusts
 sieve's header and appends it), so without sieve's `/32` every tunnel visitor is
 logged and IP-banned as sieve. Never trust Cloudflare's ranges (they never
 connect here), Tailscale's `100.64.0.0/10` or the whole LAN: any host in a
@@ -50,7 +50,7 @@ stays on SQLite, which works fine, just slower.
 
 1. Install HACS, then *OpenID Connect for Home Assistant* from it.
 2. The client secret is generated on percolator, where Authelia is:
-   `grep '^HOMEASSISTANT_OIDC_CLIENT_SECRET=' /opt/purrbrews/stacks/percolator/authelia/secrets.env.local`
+   `grep '^HOMEASSISTANT_OIDC_CLIENT_SECRET=' /opt/purrbrews/stacks/identity/authelia/secrets.env.local`
 3. Put it in `/srv/data/homeassistant/secrets.yaml` as `oidc_client_secret`, and add:
    ```yaml
    auth_oidc:

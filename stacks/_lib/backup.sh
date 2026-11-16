@@ -23,7 +23,7 @@
 # straight from each node into the restic repository on roastery. cellar
 # backs the dump store up into the same repository (`store`), wakes roastery
 # first, and copies the repository to Google Drive afterwards
-# (stacks/cellar/restic).
+# (stacks/backup/restic).
 #
 # <app>/backup, one directive per line, # for comments:
 #
@@ -128,7 +128,7 @@ parse_backup_files() {
   local -a words
   DIRECTIVES=()
   for app in "${APPS[@]}"; do
-    spec="$NODE_DIR/$app/backup"
+    spec="$(app_dir "$app")/backup"
     [[ -f "$spec" ]] || continue
     while IFS= read -r line || [[ -n "$line" ]]; do
       line="${line%%#*}"
@@ -176,10 +176,13 @@ split_directive() {  # sets D_APP D_KIND D_OPTIONAL D_FIELDS[]
 }
 
 settings_paths() {  # the node's own settings, always backed up
-  local f
-  for f in "$ROOT/.env" "$ENV_LOCAL" "$NODE_DIR"/*/secrets.env.local "$BACKUP_ETC"; do
+  local f d
+  for f in "$ROOT/.env" "$ENV_LOCAL" "$BACKUP_ETC"; do
     [[ -e "$f" ]] && printf '%s\n' "$f"
   done
+  while IFS= read -r d; do
+    [[ -e "$d/secrets.env.local" ]] && printf '%s\n' "$d/secrets.env.local"
+  done < <(node_app_dirs)
   return 0
 }
 
@@ -505,7 +508,7 @@ pin_host() {  # pin_host <label> <host>: add its ed25519 key to BACKUP_KNOWN_HOS
 }
 
 cmd_keys() {
-  local pub status=0
+  local pub status=0 repo_host
   load_settings
   install -d -m 700 /root/.ssh
   install -d -m 755 "$BACKUP_ETC"
@@ -519,7 +522,8 @@ cmd_keys() {
 
   log "Host keys"
   # Not fatal: whatever doesn't answer yet is pinned on the first connection.
-  pin_host roastery "$(env_value ROASTERY_LAN_IP)" || true
+  repo_host="$(repository_host)"
+  [[ -z "$repo_host" || "$repo_host" == "$NODE_IP" ]] || pin_host "the repository" "$repo_host" || true
   [[ $IS_STORE -eq 1 ]] || pin_host "dump store" "$DUMP_STORE_HOST" || true
 
   [[ -n "$NODE_IP" ]] || { warn "NODE_IP isn't set (/opt/purrbrews/.env); can't write the authorize lines."; return 1; }
@@ -532,13 +536,13 @@ cmd_keys() {
   chmod 644 "$BACKUP_ETC/backup-authorize.txt"
 
   log "Authorize this node"
-  echo "On roastery, one line in stacks/roastery/backup-target/authorized_keys, then"
+  echo "On roastery, one line in deprecated/stacks/roastery/backup-target/authorized_keys, then"
   echo "run setup.ps1 again (it copies the file to where sshd reads it):"
   echo
   echo "from=\"$NODE_IP\",restrict $pub"
   echo
   if [[ $IS_STORE -eq 0 ]]; then
-    echo "On cellar, one line in stacks/cellar/restic/dump-store.keys, then"
+    echo "On cellar, one line in stacks/backup/restic/dump-store.keys, then"
     echo "sudo ./restic/dump-store-setup.sh there:"
     echo
     echo "$NODE_NAME from=\"$NODE_IP\" $pub"
@@ -548,13 +552,22 @@ cmd_keys() {
   return $status
 }
 
+repository_host() {  # the host in BACKUP_REPOSITORY (sftp:user@host:/path); nothing for a local path
+  local repo; repo="$(env_value BACKUP_REPOSITORY)"
+  [[ "$repo" =~ ^sftp:([^@:]+@)?([^:/]+): ]] && printf '%s' "${BASH_REMATCH[2]}"
+  return 0
+}
+
 # ── install / enable / disable ───────────────────────────────────────────────
 
-# This node's own timers besides the nightly one: whatever *.timer sits in
-# its restic/ folder (cellar's hub jobs; nobody else has any).
+# The backup hub's own timers besides the nightly one: whatever *.timer sits
+# in stacks/backup/restic. Only the node whose node.conf says BACKUP_HUB=true
+# (the dump store, Drive sync, prune and checks) gets them.
 node_units() {
-  local f
-  for f in "$NODE_DIR"/restic/*.service "$NODE_DIR"/restic/*.timer; do
+  local f dir
+  [[ "$BACKUP_HUB" == true ]] || return 0
+  dir="$(app_dir restic)"
+  for f in "$dir"/*.service "$dir"/*.timer; do
     [[ -f "$f" ]] && printf '%s\n' "$f"
   done
   return 0
@@ -640,10 +653,10 @@ cmd_doctor() {
   log "Settings"
   if (restic_env) 2>/dev/null; then ok "repository and password set"; else fail "$( (restic_env) 2>&1 | tail -n1)"; fi
   [[ -f "$BACKUP_KEY" ]] && ok "SSH key $BACKUP_KEY" || fail "no SSH key; run 'keys'"
-  if [[ -f "$BACKUP_KNOWN_HOSTS" ]] && ssh-keygen -F "$(env_value ROASTERY_LAN_IP)" -f "$BACKUP_KNOWN_HOSTS" >/dev/null; then
-    ok "roastery's host key pinned"
+  if [[ -f "$BACKUP_KNOWN_HOSTS" ]] && ssh-keygen -F "$(repository_host)" -f "$BACKUP_KNOWN_HOSTS" >/dev/null; then
+    ok "the repository's host key pinned"
   else
-    ok "roastery's host key: pinned on the first connection"
+    ok "the repository's host key: pinned on the first connection"
   fi
 
   log "What the apps ask for"

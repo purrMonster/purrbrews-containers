@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/opt/purrbrews/stacks/cellar/restic/check-freshness.sh
+ExecStart=/opt/purrbrews/stacks/backup/restic/check-freshness.sh
 Nice=10
 IOSchedulingClass=idle
 TimeoutStartSec=1h

@@ -19,7 +19,7 @@ set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 [[ -f "${DIR}/bash_profile" ]] || {
-  echo "bash_profile not found -- run ../render-configs.sh first (needs KIOSK_URL from .env.local)." >&2
+  echo "bash_profile not found -- run the node's ./render-configs.sh first (needs KIOSK_URL from .env.local)." >&2
   exit 1
 }
 

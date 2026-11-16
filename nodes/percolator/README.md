@@ -1,6 +1,12 @@
 # percolator
 
-**Ingress, identity and the household's daily apps** — `192.168.0.11`, ThinkCentre
+> **Carried over from the pre-move fleet (2026-11-16).** This page was written for
+> the old layout and hardware. Paths and addresses were updated mechanically; the
+> bring-up notes are still the best record of how this node's apps fit together,
+> but check each step against [`docs/migration-plan.md`](../../docs/migration-plan.md)
+> and [`docs/hardware.md`](../../docs/hardware.md) before relying on it.
+
+**Ingress, identity and the household's daily apps** — `192.168.1.11`, ThinkCentre
 M710q (i3-7100T, 16 GB). OS and Docker on the SATA SSD, `/srv/data` on the NVMe.
 
 Everything a person opens in a browser or phone app lives here, behind one Traefik
@@ -8,23 +14,23 @@ and shared household accounts. Radicale authenticates DAV directly against LLDAP
 
 | App | URL | What it's for |
 |---|---|---|
-| [Traefik](traefik/) | `traefik.${DOMAIN}` (admins) | HTTPS for everything, one wildcard certificate |
-| [CrowdSec](crowdsec/) | — | Blocks abusive clients at Traefik |
-| [Mail relay](mail-relay/) | — (port 587) | The fleet's outgoing mail, via Purelymail as `purrBrews@${DOMAIN}` |
-| [LLDAP](lldap/) | `lldap.${DOMAIN}` | Household accounts and groups |
-| [Authelia](authelia/) | `authelia.${DOMAIN}` | Single sign-on for every app |
-| [Vaultwarden](vaultwarden/) | `vault.${DOMAIN}` | Passwords |
-| [OpenCloud](opencloud/) | `opencloud.${DOMAIN}` | Files through Authelia OIDC |
-| [Radicale](radicale/) | `radicale.${DOMAIN}` | Calendars and contacts through LLDAP Basic auth |
-| [Immich](immich/) | `immich.${DOMAIN}` | Photos and videos |
-| [Paperless-ngx](paperless/) | `paperless.${DOMAIN}` | Scanned documents |
-| [Mealie](mealie/) | `mealie.${DOMAIN}` | Recipes and meal plans |
-| [Vikunja](vikunja/) | `vikunja.${DOMAIN}` | To-do lists |
-| [meowGram](meowgram/) | `meow.${DOMAIN}` | The household chat (own repo; Authelia OIDC in the app) |
-| [Actual Budget](actualbudget/) | `actualbudget.${DOMAIN}` | Budgeting |
-| [FreshRSS](freshrss/) | `freshrss.${DOMAIN}` | News feeds |
-| [Homepage](homepage/) | `homepage.${DOMAIN}` | Start page: a tile for every app |
-| [purrCafe](purrcafe/) | `cafe.${DOMAIN}` | Household dashboard: home, budget, inbox, fleet; `/wall` for the kiosk |
+| [Traefik](../../stacks/network/traefik-ingress/) | `traefik.${DOMAIN}` (admins) | HTTPS for everything, one wildcard certificate |
+| [CrowdSec](../../stacks/network/crowdsec/) | — | Blocks abusive clients at Traefik |
+| [Mail relay](../../stacks/mail/mail-relay/) | — (port 587) | The fleet's outgoing mail, via Purelymail as `purrBrews@${DOMAIN}` |
+| [LLDAP](../../stacks/identity/lldap/) | `lldap.${DOMAIN}` | Household accounts and groups |
+| [Authelia](../../stacks/identity/authelia/) | `authelia.${DOMAIN}` | Single sign-on for every app |
+| [Vaultwarden](../../stacks/apps/vaultwarden/) | `vault.${DOMAIN}` | Passwords |
+| [OpenCloud](../../stacks/apps/opencloud/) | `opencloud.${DOMAIN}` | Files through Authelia OIDC |
+| [Radicale](../../stacks/apps/radicale/) | `radicale.${DOMAIN}` | Calendars and contacts through LLDAP Basic auth |
+| [Immich](../../stacks/apps/immich/) | `immich.${DOMAIN}` | Photos and videos |
+| [Paperless-ngx](../../stacks/apps/paperless/) | `paperless.${DOMAIN}` | Scanned documents |
+| [Mealie](../../stacks/apps/mealie/) | `mealie.${DOMAIN}` | Recipes and meal plans |
+| [Vikunja](../../stacks/apps/vikunja/) | `vikunja.${DOMAIN}` | To-do lists |
+| [meowGram](../../stacks/apps/meowgram/) | `meow.${DOMAIN}` | The household chat (own repo; Authelia OIDC in the app) |
+| [Actual Budget](../../stacks/apps/actualbudget/) | `actualbudget.${DOMAIN}` | Budgeting |
+| [FreshRSS](../../stacks/apps/freshrss/) | `freshrss.${DOMAIN}` | News feeds |
+| [Homepage](../../stacks/apps/homepage/) | `homepage.${DOMAIN}` | Start page: a tile for every app |
+| [purrCafe](../../stacks/apps/purrcafe/) | `cafe.${DOMAIN}` | Household dashboard: home, budget, inbox, fleet; `/wall` for the kiosk |
 | Komodo Periphery | — | Lets Komodo on cellar manage this node's containers |
 | Scrutiny collector | — | SMART data for both disks, sent to the hub on cellar |
 
@@ -74,21 +80,21 @@ flowchart LR
 
 ## Before you start
 
-1. **The node is provisioned** with `init/purrbrews-init.sh percolator` (static IP,
+1. **The node is provisioned** by purrbrews-bootstrap and its payload (`docs/migration-plan.md`, phase 1; it used to be `init/purrbrews-init.sh`) (static IP,
    Docker, `/opt/purrbrews/.env`, UFW + ufw-docker).
 2. **A Cloudflare API token** for the domain's zone: *My Profile → API Tokens →
    Create Token → Edit zone DNS*, restricted to that one zone.
 3. **LAN DNS for the app names.** Every name in the table above must resolve to
-   `192.168.0.11` for LAN clients. Until sieve's Pi-hole serves them, add them to
+   `192.168.1.11` for LAN clients. Until sieve's Pi-hole serves them, add them to
    the router's local DNS or to a laptop's hosts file for testing. The apps
    themselves don't need this (see the alias above).
 4. **For Immich's machine learning** (optional at first): roastery's address, and
    `immich-machine-learning` running there at the same version as `immich-server`,
-   with its Windows Firewall rule for port 3003 scoped to `192.168.0.11`.
+   with its Windows Firewall rule for port 3003 scoped to `192.168.1.11`.
 
 ## Bring-up
 
-All commands run on percolator as `barista` in `/opt/purrbrews/stacks/percolator`.
+All commands run on percolator as `barista` in `/opt/purrbrews/nodes/percolator`.
 `compose.sh` uses `sudo docker` itself; don't prefix it with sudo.
 
 ```bash
@@ -104,9 +110,9 @@ signal (in its README) before the next. "Container started" is not a success sig
 |---|---|---|
 | 1 | `./compose.sh traefik up -d` | no ACME errors in `sudo docker logs traefik`; any `https://<anything>.${DOMAIN}` shows a valid wildcard padlock (a 404 page is fine at this point) |
 | 2 | `./compose.sh crowdsec up -d` | `sudo docker exec crowdsec cscli bouncers list` shows `traefik` with a recent last pull |
-| 2b | `./compose.sh mail-relay up -d` (after the Purelymail app password: [its README](mail-relay/README.md)) | `mail-relay` is `healthy`; `/srv/data/mail-relay/tls-public/ca.crt` exists |
+| 2b | `./compose.sh mail-relay up -d` (after the Purelymail app password: [its README](../../stacks/mail/mail-relay/README.md)) | `mail-relay` is `healthy`; `/srv/data/mail-relay/tls-public/ca.crt` exists |
 | 3 | `./compose.sh lldap up -d` then `./lldap-bootstrap.sh` in an interactive terminal | groups exist, `barista` created — **save the one-time password shown on the terminal** |
-| 4 | `./compose.sh authelia up -d` | log in at `https://authelia.${DOMAIN}` as `barista`; the Traefik dashboard opens; from sieve, `curl -s -o /dev/null -w '%{http_code}' http://192.168.0.11:9091/api/health` gives `200` |
+| 4 | `./compose.sh authelia up -d` | log in at `https://authelia.${DOMAIN}` as `barista`; the Traefik dashboard opens; from sieve, `curl -s -o /dev/null -w '%{http_code}' http://192.168.1.11:9091/api/health` gives `200` |
 | 5+ | `./compose.sh <app> up -d` for radicale, opencloud, vaultwarden, immich, paperless, mealie, vikunja, meowgram, actualbudget, freshrss, homepage, purrcafe | the app's README checklist |
 | last | `./compose.sh komodo-periphery up -d`, `./compose.sh scrutiny-collector up -d` | percolator shows up in Komodo and Scrutiny on cellar (copy `komodo-periphery/keys/core.pub` from cellar first) |
 
@@ -120,7 +126,7 @@ keep its generated config with its storage. Follow both app READMEs before use.
 ## Scripts
 
 The four node scripts are the same wrappers on every node; the logic is in
-[`../_lib`](../README.md#the-shared-scripts), and what's specific to percolator is
+[`../_lib`](../../stacks/README.md#the-shared-scripts), and what's specific to percolator is
 in `node.conf` and the files in each app folder.
 
 | Script | Does |

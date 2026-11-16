@@ -6,8 +6,8 @@
 #   sudo ./firewall.sh             apply
 #   ./firewall.sh --dry-run        print the ufw commands instead
 #
-# init/purrbrews-init.sh already set deny-incoming, SSH from the LAN and
-# installed ufw-docker; this re-applies ufw-docker with --docker-subnets (see
+# The node's setup (purrbrews-bootstrap's firewall step) already set
+# deny-incoming, SSH from the LAN and installed ufw-docker; this re-applies ufw-docker with --docker-subnets (see
 # below). UFW skips a rule it already has, so re-running only adds what's
 # new. Nothing here deletes a rule; if an app goes away, remove its rules with
 # `sudo ufw status numbered` and `sudo ufw delete <n>`.
@@ -36,7 +36,7 @@ DRY=0
 [[ "${1:-}" == --dry-run ]] && DRY=1
 [[ $DRY -eq 1 || $EUID -eq 0 ]] || die "run with sudo (or --dry-run)."
 [[ -f "$ENV_LOCAL" ]] || die ".env.local is missing; run ./setup-secrets.sh first."
-[[ $DRY -eq 1 ]] || command -v ufw >/dev/null || die "ufw isn't installed; init's firewall step does that."
+[[ $DRY -eq 1 ]] || command -v ufw >/dev/null || die "ufw isn't installed; purrbrews-bootstrap's firewall step does that."
 
 network_subnet() {
   # NETWORK_SUBNET in the environment wins, so --dry-run works on a machine
@@ -91,7 +91,7 @@ fi
 
 total=0
 for app in "${APPS[@]}"; do
-  spec="$NODE_DIR/$app/firewall"
+  spec="$(app_dir "$app")/firewall"
   [[ -f "$spec" ]] || continue
   while IFS= read -r line; do
     label="${line#*#}"; label="${label# }"

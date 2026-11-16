@@ -38,7 +38,7 @@ services:
       NTFY_UPSTREAM_BASE_URL: https://ntfy.sh
     volumes:
       - ${DATA_DIR:?}/ntfy:/var/lib/ntfy
-    networks: [sieve_edge]
+    networks: [proxy]
     healthcheck:
       test: ["CMD-SHELL", "wget -q --tries=1 http://localhost:8080/v1/health -O - | grep -q '\"healthy\":true'"]
       interval: 60s
@@ -51,5 +51,5 @@ services:
     restart: unless-stopped
 
 networks:
-  sieve_edge:
+  proxy:
     external: true

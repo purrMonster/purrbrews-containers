@@ -27,12 +27,12 @@ services:
     volumes:
       - ./config:/config:ro
       - ${DATA_DIR:?}/gatus:/data
-    networks: [sieve_edge]
+    networks: [proxy]
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     restart: unless-stopped
 
 networks:
-  sieve_edge:
+  proxy:
     external: true

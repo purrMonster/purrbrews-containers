@@ -95,7 +95,7 @@ real proof.
   through Traefik + Authelia.
 - **Alerts go straight to the ntfy container**, not through Traefik, so a broken
   proxy can still report itself.
-- **Checks against host-network apps** (Pi-hole, NetAlertX) come from `sieve_edge`,
+- **Checks against host-network apps** (Pi-hole, NetAlertX) come from `proxy`,
   which is why `firewall.sh` allows that subnet to ports 53, 8080 and 20211.
 - **ICMP** uses unprivileged pings (Gatus ≥ 5.31), so no extra capability is needed.
 - **Data:** `/srv/data/gatus/gatus.db` (SQLite, uptime history).

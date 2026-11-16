@@ -19,7 +19,7 @@ dead node then takes down only that node's pages, never the whole fleet's.
 | `ntfy.${DOMAIN}` | `ntfy:8080` | ntfy's own accounts |
 
 - Pi-hole and NetAlertX use host networking, so Traefik reaches them through the
-  host gateway. The firewall opens their ports to `sieve_edge` only.
+  host gateway. The firewall opens their ports to `proxy` only.
 - `ntfy.${DOMAIN}` is served here on the LAN, and by the Cloudflare tunnel outside.
   Phones at home therefore don't need the internet to get an alert.
 - The dashboard name carries the node (`traefik-<node>`), because every node has one.
@@ -39,7 +39,7 @@ record is generated for it.
 
 The `authelia` middleware calls `AUTHELIA_URL/api/authz/forward-auth`, which the
 compose file builds from `PERCOLATOR_LAN_IP` in `stacks/fleet.env` as
-`http://192.168.0.11:9091`: Authelia's own published port on percolator. Two
+`http://192.168.1.11:9091`: Authelia's own published port on percolator. Two
 alternatives look tidier and don't work:
 
 - **Through percolator's Traefik** (`https://auth.${DOMAIN}/…`). ForwardAuth

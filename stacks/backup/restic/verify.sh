@@ -15,7 +15,7 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$DIR/../../_lib/common.sh"
 # shellcheck source=../../_lib/restic-env.sh
 source "$LIB/restic-env.sh"
-load_node "$DIR/.."
+load_node "$(this_node_dir)"
 [[ $EUID -eq 0 ]] || die "run with sudo: the repository is reached with root's backup key."
 SUBSET="${1:-5%}"
 [[ "$SUBSET" =~ ^[0-9]+(\.[0-9]+)?%$ ]] || die "usage: verify.sh [percent, e.g. 5%]"

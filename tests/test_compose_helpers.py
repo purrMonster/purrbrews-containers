@@ -18,13 +18,15 @@ class ComposeHelpers(unittest.TestCase):
         self.root = Path(self.tmp.name)
         self.lib = self.root / 'stacks/_lib'
         shutil.copytree(ROOT / 'stacks/_lib', self.lib)
-        self.node = self.root / 'stacks/example'
-        self.node.mkdir()
+        self.node = self.root / 'nodes/example'
+        self.node.mkdir(parents=True)
         (self.node / 'node.conf').write_text('APPS=(demo extra)\nNEEDS_INIT=false\nNETWORK=example\n')
         (self.node / '.env.local').write_text('NODE=example\n')
-        for app in ('demo', 'extra'):
-            directory = self.node / app
-            directory.mkdir()
+        # Apps live under stacks/<group>/<app>; `other` exists but isn't in this node's APPS.
+        self.apps = self.root / 'stacks/group'
+        for app in ('demo', 'extra', 'other'):
+            directory = self.apps / app
+            directory.mkdir(parents=True)
             (directory / 'docker-compose.yml').write_text('services: {}\n')
             (directory / 'prepare.sh').write_text('touch "$PREPARED"\n')
         self.trace = self.root / 'docker.log'
@@ -70,8 +72,8 @@ class ComposeHelpers(unittest.TestCase):
     def test_teardown_order_depends_on_command_not_option_value(self):
         log = self.run_compose('--all', '--project-name', 'up', 'down')
         calls = [line for line in log.splitlines() if line.startswith('compose ')]
-        self.assertIn(str(self.node / 'extra'), calls[0])
-        self.assertIn(str(self.node / 'demo'), calls[1])
+        self.assertIn(str(self.apps / 'extra'), calls[0])
+        self.assertIn(str(self.apps / 'demo'), calls[1])
 
     def test_invalid_target_never_calls_docker(self):
         result = subprocess.run([BASH, str(self.lib / 'compose.sh'), str(self.node), 'missing', 'up'],
@@ -79,13 +81,21 @@ class ComposeHelpers(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse(self.trace.exists())
 
+    def test_another_nodes_app_is_refused(self):
+        # The folder exists, but node.conf doesn't list it: it belongs to another node.
+        result = subprocess.run([BASH, str(self.lib / 'compose.sh'), str(self.node), 'other', 'up'],
+                                env=self.env, text=True, capture_output=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("isn't one of example's apps", result.stderr)
+        self.assertFalse(self.trace.exists())
+
     def test_failed_up_stops_all_apps_before_cleanup(self):
         result = subprocess.run([BASH, str(self.lib / 'compose.sh'), str(self.node), '--all', 'up'],
                                 env=dict(self.env, FAIL_UP='1'), text=True, capture_output=True)
         self.assertNotEqual(result.returncode, 0)
         calls = self.trace.read_text()
-        self.assertIn(str(self.node / 'demo'), calls)
-        self.assertNotIn(str(self.node / 'extra'), calls)
+        self.assertIn(str(self.apps / 'demo'), calls)
+        self.assertNotIn(str(self.apps / 'extra'), calls)
         self.assertNotIn('image rm', calls)
 
 

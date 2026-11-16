@@ -18,7 +18,7 @@
 	// node asks, so re-running init never waits on a click in the console.
 	"autoApprovers": {
 		"routes": {
-			"192.168.0.0/23": ["tag:purrbrews-node"],
+			"192.168.1.0/23": ["tag:purrbrews-node"],
 		},
 	},
 
@@ -40,20 +40,20 @@
 			"ip":  ["tcp:3389", "udp:3389"],
 		},
 		// Every app, admin pages included, at its usual LAN address through a
-		// subnet router: each node's Traefik (and roastery's, for Ollama) on 443.
+		// subnet router: each node's Traefik on 443.
 		// Only these six addresses, only 443, though the route is a /23. Who
 		// may open what is still Authelia's call, exactly as on the LAN.
 		{
 			"src": ["autogroup:member"],
-			"dst": ["192.168.0.10/32", "192.168.0.11/32", "192.168.0.12/32",
-			        "192.168.0.13/32", "192.168.0.14/32", "192.168.0.15/32"],
+			"dst": ["192.168.1.10/32", "192.168.1.11/32", "192.168.1.12/32",
+			        "192.168.1.13/32", "192.168.1.14/32"],
 			"ip":  ["tcp:443"],
 		},
 		// The two Pi-holes, for split DNS: the app names resolve the same way
 		// away from home as at home.
 		{
 			"src": ["autogroup:member"],
-			"dst": ["192.168.0.10/32", "192.168.0.13/32"],
+			"dst": ["192.168.1.10/32", "192.168.1.13/32"],
 			"ip":  ["udp:53", "tcp:53"],
 		},
 	],

@@ -12,7 +12,7 @@ Authelia ForwardAuth would break DAV clients. This is independent of OpenCloud.
 2. Confirm each intended user, including admins, belongs to
    `${LLDAP_HOUSEHOLD_GROUP}`. `lldap-bootstrap.sh` adds the users it processes to
    both configured groups; it does not prove every existing admin is a member.
-3. From `stacks/percolator`: `./setup-secrets.sh` (paste the reader password),
+3. From `nodes/percolator`: `./setup-secrets.sh` (paste the reader password),
    `./render-configs.sh`, then `./compose.sh radicale up -d`.
 4. Follow the runbook's Cloudflare and Pi-hole owner steps, then sign in at the
    URL and create a calendar and an address book.

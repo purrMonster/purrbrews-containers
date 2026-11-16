@@ -9,11 +9,11 @@ services:
   cloudflared:
     image: cloudflare/cloudflared:2026.10.0@sha256:9b49eed8f62806d5d45ddf59ecefb5710429598ea6d3fcccd2af938f621b2b07
     container_name: cloudflared
-    # --metrics exposes /ready on the sieve_edge network for Gatus (not published).
+    # --metrics exposes /ready on the proxy network for Gatus (not published).
     command: tunnel --no-autoupdate --metrics 0.0.0.0:2000 run
     environment:
       TUNNEL_TOKEN: ${TUNNEL_TOKEN:?run ./setup-secrets.sh}
-    networks: [sieve_edge]
+    networks: [proxy]
     # The same /ready Gatus watches, asked by cloudflared itself (the image has
     # no shell, curl or wget): healthy only with a live connection to Cloudflare.
     healthcheck:
@@ -28,5 +28,5 @@ services:
     restart: unless-stopped
 
 networks:
-  sieve_edge:
+  proxy:
     external: true

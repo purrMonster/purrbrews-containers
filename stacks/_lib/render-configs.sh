@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# render-configs.sh: turn every *.template under a node into the file next to
-# it (config.yml.template -> config.yml). Every node's ./render-configs.sh
+# render-configs.sh: turn every *.template of a node's apps and tools (node.conf
+# APPS and TOOLS) into the file next to it (config.yml.template -> config.yml). Every node's ./render-configs.sh
 # calls this with its own directory.
 #
 # Each app renders in its own subshell with the same env files compose.sh
@@ -30,8 +30,8 @@ fi
 failed=0; count=0
 while IFS= read -r tpl; do
   count=$((count + 1))
-  relative="${tpl#"$NODE_DIR"/}"
-  app_dir="$NODE_DIR/${relative%%/*}"
+  relative="${tpl#"$STACKS"/}"
+  app_dir="$STACKS/$(cut -d/ -f1,2 <<< "$relative")"
   if (
     set -e
     set -a
@@ -49,7 +49,7 @@ while IFS= read -r tpl; do
     echo "FAILED: $relative" >&2
     failed=$((failed + 1))
   fi
-done < <(find "$NODE_DIR" -name '*.template' -type f | sort)
+done < <(node_app_dirs | while IFS= read -r d; do find "$d" -name '*.template' -type f; done | sort)
 
 echo "render-configs.sh: $count template(s), $failed failure(s)."
 [[ $failed -eq 0 ]]

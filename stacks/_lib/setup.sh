@@ -93,11 +93,12 @@ log "Summary"
 pending=()
 while IFS= read -r key; do pending+=(".env.local: $key"); done \
   < <(grep -oE '^[A-Za-z_][A-Za-z0-9_]*=.*REPLACE_ME' "$ENV_LOCAL" | cut -d= -f1)
-for f in "$NODE_DIR"/*/secrets.env.local; do
+while IFS= read -r d; do
+  f="$d/secrets.env.local"
   [[ -f "$f" ]] || continue
-  while IFS= read -r key; do pending+=("${f#"$NODE_DIR"/}: $key"); done \
+  while IFS= read -r key; do pending+=("${f#"$STACKS"/}: $key"); done \
     < <(grep -oE '^[A-Za-z_][A-Za-z0-9_]*=.*REPLACE_ME' "$f" | cut -d= -f1)
-done
+done < <(node_app_dirs)
 
 for n in "${SECRETS_NOTES[@]}"; do note "$n"; done
 if [[ ${#pending[@]} -gt 0 ]]; then

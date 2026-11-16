@@ -1,0 +1,16 @@
+# Rendered by the node's ./render-configs.sh into config/config.yaml (gitignored).
+#
+# One model name for every app: "default". Apps ask for that, and this file
+# decides which cloud model answers, so changing provider or model is one
+# setting (LLM_UPSTREAM_MODEL) and a recreate, with no app touched.
+# The API key is read from the container's environment, not written here.
+model_list:
+  - model_name: default
+    litellm_params:
+      model: ${LLM_UPSTREAM_MODEL}
+      api_key: os.environ/LLM_UPSTREAM_API_KEY
+
+litellm_settings:
+  # Apps written against a local model send options a cloud provider may not
+  # know; drop those instead of failing the request.
+  drop_params: true

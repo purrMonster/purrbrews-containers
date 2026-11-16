@@ -1,5 +1,5 @@
-# pourOver: text a task in meowGram, it lands in Vikunja, filed properly. A local model
-# (llama-swap on roastery) turns the message into a plan; pourOver checks it and files it
+# pourOver: text a task in meowGram, it lands in Vikunja, filed properly. A model (through
+# LiteLLM on this node, stacks/ai/litellm) turns the message into a plan; pourOver checks it and files it
 # with each person's own Vikunja token. Vikunja then does the rest (reminders over CalDAV,
 # repeats, sharing). Source and docs: https://github.com/purrMonster/pourOver
 #
@@ -10,7 +10,7 @@
 #
 # Optional on grinder (fleet.json): `fleet.py deploy grinder` leaves it out until it is asked for.
 #
-# Ways in: none from people. pourOver reaches out (meowGram, Vikunja, roastery, ntfy); its only
+# Ways in: none from people. pourOver reaches out (meowGram, Vikunja, LiteLLM, ntfy); its only
 # port is for Gatus on sieve (`./firewall`) and for a curl on this node. /inbound on that port
 # needs POUROVER_INBOUND_TOKEN as well.
 #
@@ -50,11 +50,11 @@ services:
       VIKUNJA_URL: https://vikunja.${DOMAIN}
       VIKUNJA_TOKEN_USER_A: ${POUROVER_USER_A_VIKUNJA_TOKEN}
       VIKUNJA_TOKEN_USER_B: ${POUROVER_USER_B_VIKUNJA_TOKEN}
-      # llama-swap on roastery, through its Traefik and Authelia: LAN only, then Basic auth as a
-      # service account in ollama_api_group (the ollama pattern; the hostname kept its old name).
-      # roastery asleep or gaming = pourOver queues what needs the model, files timed messages
-      # to Inbox, and sends the queued results to ntfy later.
-      LLM_URL: https://ollama.${DOMAIN}
+      # LiteLLM on this node, through this node's Traefik and Authelia: LAN only, then Basic
+      # auth as a service account in llm_api_group (the same shape as the old roastery route,
+      # so pourOver itself is unchanged). LiteLLM or the provider down = pourOver queues what
+      # needs the model, files timed messages to Inbox, and sends the queued results to ntfy later.
+      LLM_URL: https://llm.${DOMAIN}
       LLM_MODEL: ${POUROVER_LLM_MODEL}
       LLM_USER: ${POUROVER_LLM_USER}
       LLM_PASSWORD: ${POUROVER_LLM_PASSWORD}
@@ -77,5 +77,5 @@ services:
 
 networks:
   default:
-    name: grinder_net
+    name: proxy
     external: true

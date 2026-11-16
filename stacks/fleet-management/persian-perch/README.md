@@ -11,7 +11,7 @@ anything on the fleet. Source, design and decisions:
 |---|---|
 | Image | `ghcr.io/purrmonster/persian-perch`, persianPerch's release image, pinned by tag and digest |
 | URL | `https://perch.${DOMAIN}` (admins, behind Authelia). Two paths skip Authelia, see below |
-| Ports | none published: Traefik reaches it over `cellar_net` |
+| Ports | none published: Traefik reaches it over `proxy` |
 | Data | `/srv/data/persian-perch` (scentTrail, SQLite in WAL mode); 300 MB memory limit |
 | Reads | Komodo (`komodo-core:9120`) and Scrutiny (`scrutiny:8080`) by name; Gatus, ntfy, Home Assistant and speedtest-tracker over the LAN; `/opt/purrbrews` (read-only) and `/var/lib/purrbrews` (read-only) on this node |
 | Secrets | the prompts and the generated values in [`secrets.conf`](secrets.conf); each is explained in persianPerch's `secrets.env` |

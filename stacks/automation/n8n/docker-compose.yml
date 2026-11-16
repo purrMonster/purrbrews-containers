@@ -46,5 +46,5 @@ services:
 
 networks:
   default:
-    name: grinder_net
+    name: proxy
     external: true

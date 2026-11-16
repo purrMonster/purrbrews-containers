@@ -1,6 +1,6 @@
 # The nightly backup on one node: dump its databases, push the dumps to
 # cellar, back its files up to roastery (stacks/_lib/backup.sh). The instance
-# name is the node's folder in stacks/, so every node installs the same file:
+# name is the node's folder in nodes/, so every node installs the same file:
 #
 #   sudo cp /opt/purrbrews/stacks/_lib/systemd/purrbrews-backup@.* /etc/systemd/system/
 #   sudo systemctl daemon-reload
@@ -12,7 +12,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/opt/purrbrews/stacks/%i/backup.sh nightly
+ExecStart=/opt/purrbrews/nodes/%i/backup.sh nightly
 # It reads every app's data, so it runs as root, but gently: a node that's
 # also serving shouldn't notice its backup.
 Nice=10

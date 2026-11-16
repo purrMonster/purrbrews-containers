@@ -1,6 +1,12 @@
 # grinder
 
-**Automation, AI indexing and the self-tracking apps**: `192.168.0.14`, a bare HP
+> **Carried over from the pre-move fleet (2026-11-16).** This page was written for
+> the old layout and hardware. Paths and addresses were updated mechanically; the
+> bring-up notes are still the best record of how this node's apps fit together,
+> but check each step against [`docs/migration-plan.md`](../../docs/migration-plan.md)
+> and [`docs/hardware.md`](../../docs/hardware.md) before relying on it.
+
+**Automation, AI indexing and the self-tracking apps**: `192.168.1.14`, a bare HP
 Pavilion board (i5 7th gen, 16 GB, 512 GB NVMe).
 
 Nothing on grinder is household-critical, on purpose. If it's down for an evening
@@ -18,7 +24,7 @@ another node dies.
 | Traccar | `traccar.${DOMAIN}`, or `:8082` (phone posts to `:5055`) | Live position of the bike |
 | ESPHome | `esphome.${DOMAIN}`, or `:6052` | The ESP32 sensors |
 | Speedtest Tracker | `speedtest.${DOMAIN}`, or `:8765` | Hourly ISP speed tests |
-| [pourOver](pourover/README.md) | none; `:8790` for Gatus only (optional app) | Text in meowGram, a well-filed task in Vikunja |
+| [pourOver](../../stacks/automation/pourover/README.md) | none; `:8790` for Gatus only (optional app) | Text in meowGram, a well-filed task in Vikunja |
 | Traefik | — | HTTPS for all of the above, behind Authelia |
 | Komodo Periphery | — | Lets Komodo on cellar manage this node's containers |
 | Scrutiny collector | — | SMART data for the hub on cellar |
@@ -27,11 +33,11 @@ Every app with a UI is behind Authelia on its hostname and keeps its own port op
 to the LAN. Unlike on cellar or mochaPot, every one of those ports has a real login
 of its own, so the way in when Authelia is down is never an open door.
 postgres-vector and the embedding worker aren't published at all; they're only on
-`grinder_net`.
+`proxy`.
 
 ## Setup
 
-As `barista` in `/opt/purrbrews/stacks/grinder`, after `init/purrbrews-init.sh grinder`:
+As `barista` in `/opt/purrbrews/nodes/grinder`, once the node is set up (`docs/migration-plan.md`, phase 1):
 
 ```bash
 ./setup-secrets.sh      # asks for DOMAIN, TRAEFIK_ACME_EMAIL, roastery's IP, the disk and

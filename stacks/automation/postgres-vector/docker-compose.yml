@@ -1,5 +1,5 @@
 # Postgres with pgvector: the vector store n8n and the embedding worker use.
-# Not published; reached as postgres-vector:5432 on grinder_net.
+# Not published; reached as postgres-vector:5432 on proxy.
 #
 # Image: pgvector/pgvector, the official extension on the official
 # image. pg16 like the other Postgres instances on the small nodes.
@@ -25,5 +25,5 @@ services:
 
 networks:
   default:
-    name: grinder_net
+    name: proxy
     external: true

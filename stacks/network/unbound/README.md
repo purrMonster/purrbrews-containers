@@ -12,11 +12,11 @@ A recursive, DNSSEC-validating resolver. Pi-hole is its only client. Image
   trust anchors, prefetching and serve-expired. `config/access-control.conf` is merged
   in and only restricts who may query.
 - **Access list.** Unbound applies the *most specific* matching rule, whatever the
-  order. The image allows `192.168.0.0/16`, `172.16.0.0/12` and `10.0.0.0/8`, so the
+  order. The image allows `192.168.1.0/16`, `172.16.0.0/12` and `10.0.0.0/8`, so the
   overrides are more specific:
   - refuse `172.31.53.0/28` (the `sieve_dns` subnet);
   - allow `172.31.53.1/32` (the host, i.e. Pi-hole);
-  - refuse `192.168.0.0/24` (the LAN).
+  - refuse `192.168.1.0/24` (the LAN).
 
   A broad `0.0.0.0/0 refuse` would do nothing here: it's less specific than the
   image's `/16` allow.

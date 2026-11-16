@@ -5,7 +5,8 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/opt/purrbrews/stacks/cellar/backup.sh store
+# The hub's own node folder, whichever node that is (node.conf BACKUP_HUB=true).
+ExecStart=/bin/bash -c 'source /opt/purrbrews/stacks/_lib/common.sh && exec bash "$(this_node_dir)/backup.sh" store'
 Nice=10
 IOSchedulingClass=idle
 TimeoutStartSec=4h

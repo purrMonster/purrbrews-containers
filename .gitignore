@@ -1,6 +1,6 @@
 # This repo is public. Anything a node generates or renders stays on that node.
 # One .gitignore for the whole repo; the nodes used to have one each and they
-# drifted apart.
+# drifted apart. Paths follow the 2026-11 layout: stacks/<group>/<app>, nodes/<node>.
 
 # --- Settings and secrets ---------------------------------------------------
 # Real values only ever exist on the node that made them. What's committed is
@@ -17,22 +17,22 @@ id_rsa*
 id_ed25519*
 ssh_authorized_keys.txt
 remote_url.txt
-init/purrbrews-init.env
-init/authorized_keys
-bootstrap/.env
-bootstrap/data/
+deprecated/init/purrbrews-init.env
+deprecated/init/authorized_keys
+deprecated/bootstrap/.env
+deprecated/bootstrap/data/
 
-# Written by init/purrbrews-init.sh on each node.
+# Written on each node when it is set up (NODE, NODE_IP, PUID/PGID, DATA_DIR).
 /.env
 # scripts/fleet.py's per-node deployment records (no command output in them).
 /.fleet/
 
 # Backup keys: which node may write where. Public keys, but per-host state,
 # and the pinning (from=) is the part that matters.
-stacks/cellar/restic/dump-store.keys
-stacks/roastery/backup-target/authorized_keys
-# cellar's old rendered rclone config; rclone's own now lives in /etc/purrbrews.
-stacks/cellar/restic/rclone.conf
+stacks/backup/restic/dump-store.keys
+deprecated/stacks/roastery/backup-target/authorized_keys
+# The hub's old rendered rclone config; rclone's own now lives in /etc/purrbrews.
+stacks/backup/restic/rclone.conf
 
 # Komodo Core's public key, copied by hand from cellar to every node. Not
 # secret, but it's per-host state, not config.
@@ -41,22 +41,20 @@ stacks/*/komodo-periphery/keys/
 # --- Rendered from *.template by render-configs ------------------------------
 # One line per template. tests/test_infrastructure.py fails if a template's
 # output isn't listed here, so a new template can't leak its secrets.
-stacks/cellar/traefik/config/dynamic.yml
-stacks/cellar/traefik/config/traefik.yml
-stacks/grinder/traefik/config/dynamic.yml
-stacks/grinder/traefik/config/traefik.yml
-stacks/grinder/pourover/config/users.yaml
-stacks/mochaPot/kiosk/bash_profile
-stacks/mochaPot/traefik/config/dynamic.yml
-stacks/mochaPot/traefik/config/traefik.yml
-stacks/percolator/authelia/config/configuration.yml
-stacks/percolator/traefik/config/dynamic.yml
-stacks/percolator/traefik/config/traefik.yml
-stacks/percolator/vikunja/config/config.yml
-stacks/roastery/traefik/config/dynamic/llama-swap.yml
-stacks/roastery/traefik/config/traefik.yml
-stacks/sieve/cloudflared/config/config.yml
-
+stacks/ai/litellm/config/config.yaml
+stacks/apps/opencloud/config/csp.yaml
+stacks/apps/opencloud/config/proxy.yaml
+stacks/apps/radicale/config/config
+stacks/apps/radicale/config/ldap-password
+stacks/apps/vikunja/config/config.yml
+stacks/automation/pourover/config/users.yaml
+stacks/home/kiosk/bash_profile
+stacks/identity/authelia/config/configuration.yml
+stacks/network/cloudflared/config/config.yml
+stacks/network/traefik-ingress/config/dynamic.yml
+stacks/network/traefik-ingress/config/traefik.yml
+stacks/network/traefik/config/dynamic.yml
+stacks/network/traefik/config/traefik.yml
 # --- Runtime data -----------------------------------------------------------
 # App data lives under DATA_DIR (/srv/data) on the node, never in the repo.
 data/
@@ -68,11 +66,10 @@ volumes/
 backups/
 *.tar
 *.tar.gz
-stacks/cellar/restic/cache/
-stacks/mochaPot/kiosk/profile/
-stacks/roastery/immich-ml/model-cache/
-stacks/roastery/traefik/traefik.exe
-stacks/roastery/game-mode/state.json
+stacks/backup/restic/cache/
+stacks/home/kiosk/profile/
+deprecated/stacks/roastery/traefik/traefik.exe
+deprecated/stacks/roastery/game-mode/state.json
 
 # --- Claude collaboration workspace -----------------------------------------
 claude/
@@ -92,7 +89,7 @@ __pycache__/
 
 Claude outputs/
 
-stacks/percolator/radicale/config/config
-stacks/percolator/radicale/config/ldap-password
-stacks/percolator/opencloud/config/proxy.yaml
-stacks/percolator/opencloud/config/csp.yaml
+stacks/apps/radicale/config/config
+stacks/apps/radicale/config/ldap-password
+stacks/apps/opencloud/config/proxy.yaml
+stacks/apps/opencloud/config/csp.yaml

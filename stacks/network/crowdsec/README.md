@@ -63,4 +63,4 @@ sudo docker exec crowdsec cscli hub update && sudo docker exec crowdsec cscli hu
   container restarts until it can. Traefik is unaffected.
 - **Check real addresses once the tunnel is live:** the `ClientHost` field in
   `/srv/data/traefik/logs/access.log` for a tunnel request must be the visitor's
-  address, not `192.168.0.10`. If it's sieve's, nothing from the tunnel can be banned.
+  address, not `192.168.1.10`. If it's sieve's, nothing from the tunnel can be banned.

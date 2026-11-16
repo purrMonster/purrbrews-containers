@@ -56,7 +56,7 @@ services:
       # ── Web UI ────────────────────────────────────────────────────────────
       # Port 8080 on the host; reached as pihole.${DOMAIN} through sieve's Traefik,
       # behind Authelia SSO. Its own password is off, so the firewall
-      # (../firewall.sh) must keep 8080 closed to everything but sieve_edge.
+      # (the node's ./firewall.sh) must keep 8080 closed to everything but proxy.
       # IPv4-only web listener. This does not disable DNS listeners, router
       # advertisements, or the DNS servers learned by clients over IPv6.
       FTLCONF_webserver_port: 8080o

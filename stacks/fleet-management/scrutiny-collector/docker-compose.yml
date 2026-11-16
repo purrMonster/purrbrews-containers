@@ -1,9 +1,17 @@
 # Scrutiny collector: runs smartctl on this node's disks every six hours and
 # posts the results to the Scrutiny hub on cellar. No UI, nothing to route.
+# The same file on every node since the 2026-11 rebuild (it used to be one
+# copy per node).
 #
-# percolator has two disks: DISK_DEVICE (NVMe, /srv/data) and DISK_DEVICE_2
-# (SATA SSD, the OS), both in .env.local. Check them with `lsblk -d -o NAME,SIZE,MODEL`;
-# for NVMe use the controller (/dev/nvme0), not the namespace (/dev/nvme0n1).
+# DISK_DEVICE, and DISK_DEVICE_2 on a node with a second disk, come from the
+# node's .env.local. Check them with `lsblk -d -o NAME,SIZE,MODEL`; for NVMe
+# use the controller (/dev/nvme0), not the namespace (/dev/nvme0n1). A node
+# with one disk leaves DISK_DEVICE_2 unset: the second entry then maps
+# /dev/null, which every container has anyway.
+#
+# A disk that needs different smartctl arguments gets its own collector.yaml:
+# point SCRUTINY_COLLECTOR_CONFIG at it in .env.local (mochaPot does; the
+# default beside this file changes nothing).
 #
 # Image: ghcr.io/analogj/scrutiny (collector), the same version as the
 # hub on cellar (keep them together). Not `latest-collector`: upstream's own
@@ -22,7 +30,8 @@ services:
       COLLECTOR_CRON_SCHEDULE: "0 */6 * * *"
     volumes:
       - /run/udev:/run/udev:ro
+      - ${SCRUTINY_COLLECTOR_CONFIG:-./collector.yaml}:/opt/scrutiny/config/collector.yaml:ro
     devices:
       - ${DISK_DEVICE:?set DISK_DEVICE in .env.local}
-      - ${DISK_DEVICE_2:?set DISK_DEVICE_2 in .env.local}
+      - ${DISK_DEVICE_2:-/dev/null}
     restart: unless-stopped

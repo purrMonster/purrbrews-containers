@@ -1,4 +1,4 @@
-# Rendered by ../../render-configs.sh — edit the .template.
+# Rendered by the node's ./render-configs.sh — edit the .template.
 
 global:
   checkNewVersion: false
@@ -72,7 +72,7 @@ ping: {}
 log:
   level: INFO
 
-# JSON access log for CrowdSec (../../crowdsec/acquis.d/traefik.yaml).
+# JSON access log for CrowdSec (../crowdsec/acquis.d/traefik.yaml).
 accessLog:
   filePath: /var/log/traefik/access.log
   format: json

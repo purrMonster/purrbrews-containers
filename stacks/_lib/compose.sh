@@ -7,8 +7,10 @@
 #   ./compose.sh <app> <compose args...>    e.g. ./compose.sh pihole up -d
 #   ./compose.sh --all <compose args...>    every app in node.conf order,
 #                                           backwards for down/stop/rm
-#   ./compose.sh --list                     bring-up order, plus any app folder
-#                                           node.conf doesn't mention yet
+#   ./compose.sh --list                     this node's apps, in bring-up order
+#
+# An app is found by name under stacks/<group>/<app>, and only runs here if
+# this node's node.conf lists it in APPS.
 #
 # Env files, later ones win: stacks/fleet.env, /opt/purrbrews/.env (from init),
 # the node's .env.local, then the app's own secrets.env.local.
@@ -39,7 +41,7 @@ load_node "${1:?usage: compose.sh <node dir> ...}"
 shift
 
 usage() {
-  sed -n '6,12p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '6,11p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
   exit "${1:-1}"
 }
 
@@ -77,7 +79,7 @@ make_data_dirs() {
     [[ -z "$path" || "$path" == \#* ]] && continue
     base="$(env_value DATA_DIR)"
     if [[ "$path" == MEDIA_DIR/* ]]; then base="$(env_value MEDIA_DIR)"; path="${path#MEDIA_DIR/}"; fi
-    [[ -n "$base" ]] || die "DATA_DIR/MEDIA_DIR aren't set; has init/purrbrews-init.sh run on this node?"
+    [[ -n "$base" ]] || die "DATA_DIR/MEDIA_DIR aren't set; has the node been set up (docs/migration-plan.md, phase 1)?"
     owner="${owner//PUID/$puid}"; owner="${owner//PGID/$pgid}"
     [[ "$owner" =~ ^[0-9]+:[0-9]+$ ]] || die "bad owner in ${app_dir##*/}/data-dirs: $path $owner"
     [[ "$path" != *..* && "$path" != /* ]] || die "bad path in ${app_dir##*/}/data-dirs: $path"
@@ -89,7 +91,8 @@ make_data_dirs() {
 }
 
 compose_args() {  # compose_args <app>: fills ARGS for `docker compose`
-  local app_dir="$NODE_DIR/$1" f
+  local app_dir f
+  app_dir="$(app_dir "$1")"
   ARGS=(--project-directory "$app_dir" -f "$app_dir/docker-compose.yml")
   for f in "${ENV_FILES[@]}" "$app_dir/secrets.env.local"; do
     [[ -f "$f" ]] && ARGS+=(--env-file "$f")
@@ -119,9 +122,10 @@ parse_compose_args() {
 }
 
 preflight() {
-  local app="$1" app_dir="$NODE_DIR/$1" tpl out f
+  local app="$1" app_dir tpl out f
+  app_dir="$(app_dir "$1")"
   if [[ "$NEEDS_INIT" == true && ! -f "$ROOT/.env" ]]; then
-    die "$ROOT/.env is missing; run init/purrbrews-init.sh on this node first."
+    die "$ROOT/.env is missing; set the node up first (docs/migration-plan.md, phase 1)."
   fi
   [[ -f "$ENV_LOCAL" ]] || die ".env.local is missing; run ./setup-secrets.sh first."
 
@@ -130,10 +134,10 @@ preflight() {
   # effect of `up`.
   while IFS= read -r tpl; do
     out="${tpl%.template}"
-    [[ -f "$out" ]] || die "${out#"$NODE_DIR"/} hasn't been rendered; run ./render-configs.sh."
+    [[ -f "$out" ]] || die "${out#"$ROOT"/} hasn't been rendered; run ./render-configs.sh."
     for f in "$tpl" "${ENV_FILES[@]}" "$app_dir/secrets.env.local"; do
       if [[ -f "$f" && "$f" -nt "$out" ]]; then
-        die "${out#"$NODE_DIR"/} is older than ${f#"$ROOT"/}; run ./render-configs.sh."
+        die "${out#"$ROOT"/} is older than ${f#"$ROOT"/}; run ./render-configs.sh."
       fi
     done
   done < <(find "$app_dir" -name '*.template' -type f)
@@ -152,7 +156,7 @@ preflight() {
 
 run_app() {
   local app="$1"; shift
-  [[ -f "$NODE_DIR/$app/docker-compose.yml" ]] || die "no such app: $app (apps: ${APPS[*]})"
+  known_app "$app"
   case "$verb" in
     up|create|start|restart) if [[ "$preview" == false ]]; then preflight "$app"; fi ;;
   esac
@@ -193,14 +197,18 @@ drop_replaced_images() {  # drop_replaced_images <app> <image IDs before up>
   return 0
 }
 
+known_app() {  # known_app <app>: dies unless this node runs it and its folder is there
+  [[ " ${APPS[*]} " == *" $1 "* ]] \
+    || die "$1 isn't one of $NODE_NAME's apps (node.conf APPS: ${APPS[*]})"
+  [[ -f "$(app_dir "$1")/docker-compose.yml" ]] \
+    || die "$1 is in $NODE_NAME's node.conf but has no stacks/<group>/$1/docker-compose.yml"
+}
+
 [[ $# -ge 1 ]] || usage
 case "$1" in
   -h|--help) usage 0 ;;
   --list)
     printf '%s\n' "${APPS[@]}"
-    for app in $(app_dirs); do
-      [[ " ${APPS[*]} " == *" $app "* ]] || echo "($app has a docker-compose.yml but isn't in node.conf's APPS)"
-    done
     exit 0
     ;;
 esac
@@ -209,7 +217,7 @@ target="$1"; shift
 [[ $# -ge 1 ]] || usage
 # Reject bad targets before Docker access or local preparation.
 if [[ "$target" != --all && "$target" != all ]]; then
-  [[ -f "$NODE_DIR/$target/docker-compose.yml" ]] || die "no such app: $target (apps: ${APPS[*]})"
+  known_app "$target"
 fi
 use_docker
 # Inspection, pull and teardown do not need environment migration or network

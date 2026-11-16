@@ -1,6 +1,6 @@
 # The embedding worker: a small FastAPI wrapper around sentence-transformers,
 # built here (see Dockerfile). n8n calls http://embedding-worker:8000/embed on
-# grinder_net; nothing is published.
+# proxy; nothing is published.
 #
 # Built locally, so nothing watches its dependencies for updates. Rebuild it
 # now and then: ./compose.sh embedding-worker build --no-cache
@@ -26,5 +26,5 @@ services:
 
 networks:
   default:
-    name: grinder_net
+    name: proxy
     external: true

@@ -72,7 +72,7 @@ sudo docker logs -f authelia
       with `"issuer": "https://authelia.${DOMAIN}"`.
 - [ ] Sign in at `https://authelia.${DOMAIN}` as `barista`.
 - [ ] `https://traefik.${DOMAIN}` opens the dashboard after signing in.
-- [ ] From sieve: `curl -s -o /dev/null -w '%{http_code}\n' http://192.168.0.11:9091/api/health`
+- [ ] From sieve: `curl -s -o /dev/null -w '%{http_code}\n' http://192.168.1.11:9091/api/health`
       gives `200`, and from a LAN laptop the same command times out.
 - [ ] From a LAN laptop, `https://pihole.${DOMAIN}` redirects to Authelia and opens
       after signing in as an admin.
@@ -108,7 +108,7 @@ curl -s https://authelia.${DOMAIN}/api/oidc/token -u "mealie:$S" \
 ## Other nodes: the published port
 
 Every node runs its own Traefik. Their ForwardAuth middleware calls
-`http://192.168.0.11:9091/api/authz/forward-auth` directly:
+`http://192.168.1.11:9091/api/authz/forward-auth` directly:
 
 - **Why not through percolator's Traefik:** it treats the call as an ordinary request
   and rewrites `X-Forwarded-Method/Host/Uri`, so Authelia answers `400`.

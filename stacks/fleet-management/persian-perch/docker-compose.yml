@@ -4,7 +4,7 @@
 # Source and docs: https://github.com/purrMonster/persianPerch
 #
 # Runs on cellar, next to Komodo and Scrutiny, because cellar is always on and already reads
-# both. It joins cellar_net, so Komodo is http://komodo-core:9120 and Scrutiny is
+# both. It joins proxy, so Komodo is http://komodo-core:9120 and Scrutiny is
 # http://scrutiny:8080 by container name.
 #
 # Image: persianPerch's release, published by its GitHub Actions from a v* tag and pinned here by
@@ -58,7 +58,7 @@ services:
       - "traefik.http.routers.perch-nodes.tls.certresolver=cloudflare"
       - "traefik.http.routers.perch-nodes.middlewares=perch-nodes"
       - "traefik.http.routers.perch-nodes.service=perch"
-      - "traefik.http.middlewares.perch-nodes.ipallowlist.sourcerange=${SIEVE_LAN_IP},${PERCOLATOR_LAN_IP},${CELLAR_LAN_IP},${MOCHAPOT_LAN_IP},${GRINDER_LAN_IP},${ROASTERY_LAN_IP}"
+      - "traefik.http.middlewares.perch-nodes.ipallowlist.sourcerange=${SIEVE_LAN_IP},${PERCOLATOR_LAN_IP},${CELLAR_LAN_IP},${MOCHAPOT_LAN_IP},${GRINDER_LAN_IP}"
 
       # 3. The acknowledge button on a push: one path prefix, no Authelia (a phone's ntfy action can't
       # log in). The link is signed, single-use and can only stop one alert repeating; perch checks it,
@@ -75,7 +75,7 @@ services:
     environment:
       TZ: ${TZ}
       PERCH_TZ: ${TZ}
-      # Only Traefik can reach this container (cellar_net, nothing published), so it may set the
+      # Only Traefik can reach this container (proxy, nothing published), so it may set the
       # forwarded headers perch believes (https and the host, for the same-origin check on the Acknowledge form).
       PERCH_TRUSTED_PROXIES: "*"
       PERCH_REPO_DIR: ${PERCH_REPO_DIR}
@@ -138,5 +138,5 @@ services:
 
 networks:
   default:
-    name: cellar_net
+    name: proxy
     external: true

@@ -1,6 +1,12 @@
 # sieve — network node
 
-`sieve` (192.168.0.10) keeps the house online and says when something breaks. It
+> **Carried over from the pre-move fleet (2026-11-16).** This page was written for
+> the old layout and hardware. Paths and addresses were updated mechanically; the
+> bring-up notes are still the best record of how this node's apps fit together,
+> but check each step against [`docs/migration-plan.md`](../../docs/migration-plan.md)
+> and [`docs/hardware.md`](../../docs/hardware.md) before relying on it.
+
+`sieve` (192.168.1.10) keeps the house online and says when something breaks. It
 answers every DNS query and hands out every DHCP lease, carries the only way in from
 the internet, and watches the rest of the fleet.
 
@@ -9,13 +15,13 @@ for app reasons, and when it's down the whole house notices.
 
 | App | Does | Reached at |
 |---|---|---|
-| [Pi-hole](pihole/README.md) | DNS with ad-blocking, DHCP, local names | `pihole.${DOMAIN}` (SSO) |
-| [Unbound](unbound/README.md) | Recursive, validating resolver behind Pi-hole | sieve only |
-| [cloudflared](cloudflared/README.md) | Outbound-only Cloudflare Tunnel | — |
-| [Traefik](traefik/README.md) | HTTPS for sieve's own UIs | `traefik-sieve.${DOMAIN}` (SSO) |
-| [ntfy](ntfy/README.md) | Push notifications to phones | `ntfy.${DOMAIN}` (own accounts; LAN + tunnel) |
-| [Gatus](gatus/README.md) | Health checks and alerting | `gatus.${DOMAIN}` (SSO) |
-| [NetAlertX](netalertx/README.md) | Device discovery, new-device alerts | `netalertx.${DOMAIN}` (SSO) |
+| [Pi-hole](../../stacks/network/pihole/README.md) | DNS with ad-blocking, DHCP, local names | `pihole.${DOMAIN}` (SSO) |
+| [Unbound](../../stacks/network/unbound/README.md) | Recursive, validating resolver behind Pi-hole | sieve only |
+| [cloudflared](../../stacks/network/cloudflared/README.md) | Outbound-only Cloudflare Tunnel | — |
+| [Traefik](../../stacks/network/traefik-edge/README.md) | HTTPS for sieve's own UIs | `traefik-sieve.${DOMAIN}` (SSO) |
+| [ntfy](../../stacks/monitoring/ntfy/README.md) | Push notifications to phones | `ntfy.${DOMAIN}` (own accounts; LAN + tunnel) |
+| [Gatus](../../stacks/monitoring/gatus/README.md) | Health checks and alerting | `gatus.${DOMAIN}` (SSO) |
+| [NetAlertX](../../stacks/network/netalertx/README.md) | Device discovery, new-device alerts | `netalertx.${DOMAIN}` (SSO) |
 | Komodo Periphery | Lets Komodo on cellar manage sieve's containers | — |
 | Scrutiny collector | SMART data for the hub on cellar | — |
 
@@ -28,7 +34,7 @@ flowchart LR
     LAN["LAN clients"] -- "DNS :53 · DHCP :67" --> PH["Pi-hole<br/>(host network)"]
     PH -- "sieve_dns bridge" --> UB["Unbound"] --> ROOT[("root servers")]
     LAN -- "https :443" --> TR
-    subgraph edge["sieve_edge bridge"]
+    subgraph edge["proxy bridge"]
         TR["Traefik"]
         CF["cloudflared"]
         NT["ntfy"]
@@ -53,7 +59,7 @@ flowchart LR
   broken proxy or a dead node takes down only that node's pages.
 - **Login is still one SSO.** Traefik asks Authelia on percolator about every
   protected request, on Authelia's own port (the only hop that works; see
-  [traefik/README.md](traefik/README.md#why-a-direct-hop-to-authelia)). If percolator
+  [traefik/README.md](../../stacks/network/traefik-edge/README.md#why-a-direct-hop-to-authelia)). If percolator
   is down, sieve's UIs fail closed. DNS, DHCP, the tunnel, ntfy and alerting keep
   working, and the [SSH fallback](#break-glass-access-without-sso) still opens every UI.
 - **Alerting doesn't depend on the thing that failed.** Routine alerts go to ntfy on
@@ -64,9 +70,9 @@ flowchart LR
 ## Layout
 
 ```
-stacks/sieve/
+nodes/sieve/        (the apps themselves are under stacks/<group>/<app>)
 ├── README.md               this file
-├── node.conf               app order, the sieve_edge network, RESOLVER=primary
+├── node.conf               app order, the proxy network, RESOLVER=primary
 ├── local.env.example       node settings → .env.local
 ├── setup-secrets.sh        .env.local, every app's secrets, render (run first)
 ├── render-configs.sh       DNS records + leases, then *.template → rendered files
@@ -83,28 +89,28 @@ stacks/sieve/
 ```
 
 The four scripts are the same three-line wrappers on every node; the logic is
-in [`../_lib`](../README.md#the-shared-scripts).
+in [`../_lib`](../../stacks/README.md#the-shared-scripts).
 
 `.env.local` and every `secrets.env.local` are gitignored and mode 600.
 
 ## First-time setup
 
-Prerequisite: sieve was provisioned with `init/purrbrews-init.sh`, so it has its
+Prerequisite: sieve was set up by purrbrews-bootstrap and its payload (`docs/migration-plan.md`, phase 1; it used to be `init/purrbrews-init.sh`), so it has its
 static IP, Docker, UFW and the repo at `/opt/purrbrews`.
 
 Have these ready:
 
 - **The domain** — the zone you manage in Cloudflare.
-- **A Cloudflare API token** for certificates — see [traefik/README.md](traefik/README.md#certificates).
-- **A tunnel token** — see [cloudflared/README.md](cloudflared/README.md#create-the-tunnel).
-- **A healthchecks.io ping URL** — see [gatus/README.md](gatus/README.md#heartbeat).
+- **A Cloudflare API token** for certificates — see [traefik/README.md](../../stacks/network/traefik-edge/README.md#certificates).
+- **A tunnel token** — see [cloudflared/README.md](../../stacks/network/cloudflared/README.md#create-the-tunnel).
+- **A healthchecks.io ping URL** — see [gatus/README.md](../../stacks/monitoring/gatus/README.md#heartbeat).
 
 Any of the tokens can be skipped and added later; the app that needs it won't start
 until then.
 
 ```bash
-ssh barista@192.168.0.10
-cd /opt/purrbrews/stacks/sieve
+ssh barista@192.168.1.10
+cd /opt/purrbrews/nodes/sieve
 
 # Nothing may already own port 53 (Debian netinst normally has no local resolver)
 sudo ss -tulpn | grep -E ':(53|67|80|443|8080|20211)\b' || echo "ports free"
@@ -121,13 +127,13 @@ hasn't proven anything yet.
 | # | Command | Check |
 |---|---|---|
 | 1 | `./compose.sh unbound up -d` | `docker logs unbound` ends in `start of service` |
-| 2 | `./compose.sh pihole up -d` | `dig @192.168.0.10 cloudflare.com` answers; `dig @192.168.0.10 dnssec-failed.org` gives `SERVFAIL`; `dig @192.168.0.10 gatus.${DOMAIN} +short` gives `192.168.0.10` |
+| 2 | `./compose.sh pihole up -d` | `dig @192.168.1.10 cloudflare.com` answers; `dig @192.168.1.10 dnssec-failed.org` gives `SERVFAIL`; `dig @192.168.1.10 gatus.${DOMAIN} +short` gives `192.168.1.10` |
 | 3 | `./compose.sh ntfy up -d` | `docker ps` shows `ntfy … (healthy)` |
 | 4 | `./compose.sh cloudflared up -d` | Tunnel shows **Healthy** in Cloudflare; `curl https://ntfy.${DOMAIN}/v1/health` from a phone on mobile data |
 | 5 | `./compose.sh traefik up -d` | Logs show certificates obtained for each host (no `unable to obtain`); `https://ntfy.${DOMAIN}` on home Wi-Fi shows a valid padlock |
-| 6 | `./compose.sh gatus up -d` | Phones get a test alert (see [gatus/README.md](gatus/README.md)); healthchecks.io shows pings |
+| 6 | `./compose.sh gatus up -d` | Phones get a test alert (see [gatus/README.md](../../stacks/monitoring/gatus/README.md)); healthchecks.io shows pings |
 | 7 | `./compose.sh netalertx up -d` | After ~5 min, the device list shows real devices, not just the gateway |
-| 8 | Point clients at sieve | Router DNS → 192.168.0.10, then [hand over DHCP](pihole/README.md#handing-over-dhcp) |
+| 8 | Point clients at sieve | Router DNS → 192.168.1.10, then [hand over DHCP](../../stacks/network/pihole/README.md#handing-over-dhcp) |
 | 9 | Once Authelia runs on percolator | `https://gatus.${DOMAIN}` sends you to the login page, and lands on Gatus after it |
 | 10 | `./compose.sh komodo-periphery up -d`, `./compose.sh scrutiny-collector up -d` | sieve shows up as a Server in Komodo and as a device in Scrutiny, both on cellar. Needs `komodo-periphery/keys/core.pub` copied from cellar first |
 
@@ -140,14 +146,14 @@ the whole node in order.
 Only Authelia, and percolator's stack already provides it:
 
 - **Port `9091` published**, with UFW allowing only `FORWARD_AUTH_CLIENTS`
-  (`192.168.0.10`). Check from sieve:
-  `curl -s -o /dev/null -w '%{http_code}\n' http://192.168.0.11:9091/api/health` → `200`.
+  (`192.168.1.10`). Check from sieve:
+  `curl -s -o /dev/null -w '%{http_code}\n' http://192.168.1.11:9091/api/health` → `200`.
 - **Admin-only rules** for `pihole`, `gatus`, `netalertx` and `traefik-sieve`, above
   the household catch-all.
 - **Session cookie domain `${DOMAIN}`**, so one login covers both nodes.
 
 When you add a protected route on sieve, add its host to that admin list in
-`stacks/percolator/authelia/config/configuration.yml.template`. Otherwise the
+`stacks/identity/authelia/config/configuration.yml.template`. Otherwise the
 catch-all lets household members in.
 
 Until Authelia is up, sieve's protected UIs answer `500` (fail closed); use the SSH
@@ -159,7 +165,7 @@ Pi-hole and NetAlertX also listen on sieve's loopback, which neither the
 firewall nor Authelia touches:
 
 ```bash
-ssh -L 8080:localhost:8080 -L 20211:localhost:20211 barista@192.168.0.10
+ssh -L 8080:localhost:8080 -L 20211:localhost:20211 barista@192.168.1.10
 # http://localhost:8080/admin/ (Pi-hole) · http://localhost:20211 (NetAlertX)
 # Gatus: sudo docker inspect gatus -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'
 #        then add  -L 8081:<that IP>:8080  and open http://localhost:8081
@@ -173,12 +179,12 @@ published ports share one port space.
 | Port | Proto | Owner | Open to |
 |---|---|---|---|
 | 22 | tcp | sshd | LAN (init) |
-| 53 | tcp+udp | Pi-hole (host) | LAN, sieve_edge |
+| 53 | tcp+udp | Pi-hole (host) | LAN, proxy |
 | 67 | udp | Pi-hole DHCP (host) | any (clients have no IP yet) |
 | 80 | tcp | Traefik (published) | LAN — redirects to 443 |
 | 443 | tcp | Traefik (published) | LAN |
-| 8080 | tcp | Pi-hole web (host) | sieve_edge only (Traefik, Gatus) |
-| 20211 | tcp | NetAlertX web (host) | sieve_edge only (Traefik, Gatus) |
+| 8080 | tcp | Pi-hole web (host) | proxy only (Traefik, Gatus) |
+| 20211 | tcp | NetAlertX web (host) | proxy only (Traefik, Gatus) |
 | 20212 | tcp | NetAlertX API (host) | nobody |
 
 Internal only, never on the host: Unbound `172.31.53.2:53`, ntfy `ntfy:8080`, Gatus
@@ -189,7 +195,7 @@ Internal only, never on the host: Unbound `172.31.53.2:53`, ntfy `ntfy:8080`, Ga
 | Network | Subnet | Members | Created by |
 |---|---|---|---|
 | `sieve_dns` | `172.31.53.0/28` | unbound (`.2`) | `unbound/docker-compose.yml` |
-| `sieve_edge` | `172.31.10.0/24` | traefik, cloudflared, ntfy, gatus | `compose.sh` (shared, external) |
+| `proxy` | `172.31.10.0/24` | traefik, cloudflared, ntfy, gatus | `compose.sh` (shared, external) |
 
 The subnets are fixed so that the firewall rules and Unbound's access list stay
 valid across rebuilds. Change them in `.env.local`, and then in

@@ -10,7 +10,7 @@ remains the photo backup. Office, Tika and email are not configured here.
 1. Follow the runbook's retirement, LLDAP and route owner steps. Human accounts
    need `${LLDAP_ADMIN_GROUP}` or `${LLDAP_HOUSEHOLD_GROUP}`. Check their LLDAP
    username, name and email before first sign-in; these provision the account.
-2. From `stacks/percolator`: `./setup-secrets.sh`, `./render-configs.sh`, then
+2. From `nodes/percolator`: `./setup-secrets.sh`, `./render-configs.sh`, then
    `./compose.sh authelia up -d --force-recreate` and
    `./compose.sh opencloud up -d`. Check `./compose.sh opencloud logs --tail 100`.
 3. The startup script runs `opencloud init --insecure=false --quiet` only for

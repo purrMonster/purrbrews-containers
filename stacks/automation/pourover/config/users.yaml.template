@@ -1,4 +1,4 @@
-# Rendered by ../../render-configs.sh into config/users.yaml (gitignored): who may text pourOver,
+# Rendered by the node's ./render-configs.sh into config/users.yaml (gitignored): who may text pourOver,
 # and which Vikunja user each one is. The values come from ../secrets.env.local.
 # Format: https://github.com/purrMonster/pourOver/blob/main/config/users.example.yaml
 # Tokens are not here: users.yaml names the environment variables that hold them

@@ -1,6 +1,12 @@
 # mochaPot
 
-**Home automation, music and the wall screen**: `192.168.0.13`, HP Pavilion x360
+> **Carried over from the pre-move fleet (2026-11-16).** This page was written for
+> the old layout and hardware. Paths and addresses were updated mechanically; the
+> bring-up notes are still the best record of how this node's apps fit together,
+> but check each step against [`docs/migration-plan.md`](../../docs/migration-plan.md)
+> and [`docs/hardware.md`](../../docs/hardware.md) before relying on it.
+
+**Home automation, music and the wall screen**: `192.168.1.13`, HP Pavilion x360
 (i5-7200U, 8 GB, 128 GB M.2 SATA), Debian 13 with a kiosk session on its own
 touchscreen.
 
@@ -10,23 +16,23 @@ still renders when percolator is down, and the laptop battery rides out a power 
 
 | App | URL | What it's for |
 |---|---|---|
-| [Home Assistant](homeassistant/README.md) | `homeassistant.${DOMAIN}`, or `:8123` | Home automation; signs in with Authelia itself (OIDC) |
+| [Home Assistant](../../stacks/home/homeassistant/README.md) | `homeassistant.${DOMAIN}`, or `:8123` | Home automation; signs in with Authelia itself (OIDC) |
 | Music Assistant | `music.${DOMAIN}` (Authelia), or `:8095` | Whole-house audio |
-| [Pi-hole](pihole/README.md) | `pihole-mochapot.${DOMAIN}` (admins), or `:8081` | Secondary DNS. **Never DHCP** |
+| [Pi-hole](../../stacks/network/pihole-secondary/README.md) | `pihole-mochapot.${DOMAIN}` (admins), or `:8081` | Secondary DNS. **Never DHCP** |
 | Traefik | — | HTTPS for the three above |
-| [kiosk](kiosk/README.md) | the wall screen | cage + Chromium on tty1, host-native |
+| [kiosk](../../stacks/home/kiosk/README.md) | the wall screen | cage + Chromium on tty1, host-native |
 | Komodo Periphery | — | Lets Komodo on cellar manage this node's containers |
 | Scrutiny collector | — | SMART data for the hub on cellar |
 
 Home Assistant, Music Assistant and Pi-hole are all host-networked (discovery and
 DNS need it), so Traefik reaches them by URL and they see its requests coming from
-`mochapot_net` (`PROXY_SUBNET`). Their own ports stay open to the LAN: that's the
+`proxy` (`PROXY_SUBNET`). Their own ports stay open to the LAN: that's the
 way in when Authelia or Traefik is down. Home Assistant and Pi-hole have their own
 logins there; Music Assistant has none.
 
 ## Setup
 
-As `barista` in `/opt/purrbrews/stacks/mochaPot`, after `init/purrbrews-init.sh mochaPot`:
+As `barista` in `/opt/purrbrews/nodes/mochaPot`, once the node is set up (`docs/migration-plan.md`, phase 1):
 
 ```bash
 ./setup-secrets.sh      # asks for DOMAIN, TRAEFIK_ACME_EMAIL, the disk and the Cloudflare
@@ -38,8 +44,8 @@ Then, in order (`node.conf`):
 
 | # | Command | Check |
 |---|---|---|
-| 1 | `./compose.sh pihole up -d` | `dig @192.168.0.13 gatus.${DOMAIN} +short` gives `192.168.0.10` |
-| 2 | `./compose.sh homeassistant up -d` | onboarding at `http://192.168.0.13:8123`; then the [configuration.yaml steps](homeassistant/README.md#configurationyaml) |
+| 1 | `./compose.sh pihole up -d` | `dig @192.168.1.13 gatus.${DOMAIN} +short` gives `192.168.1.10` |
+| 2 | `./compose.sh homeassistant up -d` | onboarding at `http://192.168.1.13:8123`; then the [configuration.yaml steps](../../stacks/home/homeassistant/README.md#configurationyaml) |
 | 3 | `./compose.sh musicassistant up -d` | players on the LAN show up |
 | 4 | `./compose.sh traefik up -d` | certificates issued; the three hostnames load (Home Assistant only once it trusts `PROXY_SUBNET`) |
 | 5 | `./compose.sh komodo-periphery up -d`, `./compose.sh scrutiny-collector up -d` | mochaPot in Komodo and Scrutiny on cellar (copy `komodo-periphery/keys/core.pub` from cellar first) |
@@ -73,7 +79,7 @@ so Traefik can have 80.
 ## Known gaps
 
 - **The kiosk's crash recovery is untested**: nothing restarts cage if Chromium
-  exits, short of a reboot ([kiosk/README.md](kiosk/README.md)).
+  exits, short of a reboot ([kiosk/README.md](../../stacks/home/kiosk/README.md)).
 - **Home Assistant is pinned** (2026.10.0 since 2026-10-08), not on `:stable`:
   an upgrade is a tag bump after reading the release notes, never a side effect
   of a routine pull.

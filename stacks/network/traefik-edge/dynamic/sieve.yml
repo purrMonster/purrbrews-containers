@@ -20,7 +20,7 @@ http:
 
     # Gatus's API for persianPerch (glare), which has no browser session: Basic auth from an LLDAP
     # service account in perch_api_group, through Authelia's forward-auth-basic (the same shape as
-    # roastery's ollama route). Only the API path is routed; the dashboard above stays cookie-only.
+    # grinder's llm route). Only the API path is routed; the dashboard above stays cookie-only.
     gatus-api:
       rule: Host(`gatus-api.{{ env "DOMAIN" }}`) && PathPrefix(`/api/v1/`)
       entryPoints: [websecure]

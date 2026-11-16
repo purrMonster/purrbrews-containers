@@ -3,13 +3,19 @@
 # Run as barista; sudo is scoped to inventory and Docker operations.
 set -euo pipefail
 [[ ${1:-} == --routers-dhcp-disabled ]] || {
-  echo 'Usage: bash enable-dhcp.sh --routers-dhcp-disabled' >&2
+  echo 'Usage: bash stacks/network/pihole/enable-dhcp.sh --routers-dhcp-disabled' >&2
   echo 'Only use after disabling DHCP on every router/other server on this LAN.' >&2
   exit 1
 }
 [[ $EUID -ne 0 ]] || { echo 'Run as the ops user, not sudo.' >&2; exit 1; }
-[[ $(hostname -s) == sieve ]] || { echo 'This script must run on sieve.' >&2; exit 1; }
-DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../../_lib/common.sh
+source "$HERE/../../_lib/common.sh"
+# The node this runs on must be the primary resolver (node.conf RESOLVER),
+# the only one that may ever hand out leases.
+load_node "$(this_node_dir)"
+[[ "$RESOLVER" == primary ]] || die "$NODE_NAME isn't the primary resolver (node.conf RESOLVER='$RESOLVER'); DHCP is only ever enabled there."
+DIR="$NODE_DIR"
 [[ -f "$DIR/.env.local" ]] || { echo 'Run setup-secrets.sh first.' >&2; exit 1; }
 
 # Preserve all original settings in a private, gitignored backup.
@@ -19,14 +25,14 @@ cat "$DIR/.env.local" > "$backup"
 echo "Settings backup: $backup"
 
 # Regenerate app DNS and the DHCP options (DNS_PRIMARY/SECONDARY from fleet.env).
-bash "$DIR/../_lib/refresh-dns.sh" "$DIR"
-python3 - "$DIR" <<'PY'
+bash "$LIB/refresh-dns.sh" "$DIR"
+python3 - "$DIR" "$LIB" <<'PY'
 from pathlib import Path
 import ipaddress
 import runpy
 import sys
 node = Path(sys.argv[1])
-helper = runpy.run_path(str(node.parent / '_lib/dns-records.py'))
+helper = runpy.run_path(str(Path(sys.argv[2]) / 'dns-records.py'))
 path = node / '.env.local'
 values = helper['read_env'](path)
 network = ipaddress.IPv4Network(values['LAN_CIDR'])

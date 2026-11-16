@@ -13,7 +13,7 @@ set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../../_lib/common.sh
 source "$DIR/../../_lib/common.sh"
-load_node "$DIR/.."
+load_node "$(this_node_dir)"
 [[ $EUID -eq 0 ]] || die "run it with sudo."
 
 command -v exportfs >/dev/null || { apt-get update && apt-get install -y nfs-kernel-server; }

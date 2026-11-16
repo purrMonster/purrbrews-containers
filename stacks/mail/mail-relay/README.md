@@ -8,7 +8,7 @@ Immich, Vikunja and Mealie. LLDAP has none on purpose (below).
 | | |
 |---|---|
 | Image | `boky/postfix:5.1.0-alpine` |
-| Listens | `mail-relay:587` on the `proxy` network; `192.168.0.11:587` for `MAIL_RELAY_CLIENTS` |
+| Listens | `mail-relay:587` on the `proxy` network; `192.168.1.11:587` for `MAIL_RELAY_CLIENTS` |
 | Upstream | `smtp.purelymail.com:587`, STARTTLS, certificate verified (`secure`) |
 | Data | `/srv/data/mail-relay/spool` (the queue), `tls/` (root only), `tls-public/` (the CA clients trust) |
 | Secrets | `MAIL_RELAY_PASSWORD`: a Purelymail **app password** of `purrBrews@${DOMAIN}` |
@@ -44,7 +44,7 @@ why the list is short and the port is not published beyond it.
 ### TLS between the apps and the relay
 
 `prepare.sh` makes a private CA and a ten-year certificate for `mail-relay` and
-`192.168.0.11` on the first `up`. Clients check it:
+`192.168.1.11` on the first `up`. Clients check it:
 
 | Client | Verifies the relay? | How |
 |---|---|---|
@@ -68,7 +68,7 @@ CA: its TLS library has the public roots compiled in and ignores
    two-factor, then create an **app password** for it. With 2FA on, the account
    password no longer works for SMTP; the app password is what goes here, and
    it can be revoked alone.
-2. On percolator, from `/opt/purrbrews/stacks/percolator`:
+2. On percolator, from `/opt/purrbrews/nodes/percolator`:
    ```bash
    ./setup-secrets.sh                 # asks for MAIL_RELAY_PASSWORD: paste it
    ./compose.sh mail-relay up -d      # makes the certificates, starts the relay
@@ -110,7 +110,7 @@ before sieve's checkout moves to that commit, or expect one alert.
       *Is it working?*
 - [ ] The relay's log shows `status=sent` for both:
       `docker logs mail-relay 2>&1 | grep status=`
-- [ ] From a LAN laptop, `nc -vz 192.168.0.11 587` times out; from a node in
+- [ ] From a LAN laptop, `nc -vz 192.168.1.11 587` times out; from a node in
       `MAIL_RELAY_CLIENTS` it connects.
 - [ ] Gatus on sieve shows *mail relay* green.
 

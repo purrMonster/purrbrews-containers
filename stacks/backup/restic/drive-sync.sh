@@ -17,7 +17,7 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$DIR/../../_lib/common.sh"
 # shellcheck source=../../_lib/restic-env.sh
 source "$LIB/restic-env.sh"
-load_node "$DIR/.."
+load_node "$(this_node_dir)"
 [[ $EUID -eq 0 ]] || die "run with sudo: the rclone config and the backup key are root's."
 command -v rclone >/dev/null || die "rclone isn't installed (apt install rclone)."
 RCLONE_CONF="$BACKUP_ETC/rclone.conf"

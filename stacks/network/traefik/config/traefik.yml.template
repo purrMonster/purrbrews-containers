@@ -1,4 +1,4 @@
-# Rendered by ../../render-configs.sh into config/traefik.yml (gitignored).
+# Rendered by the node's ./render-configs.sh into config/traefik.yml (gitignored).
 log:
   level: INFO
 
@@ -37,6 +37,8 @@ providers:
   docker:
     endpoint: "unix:///var/run/docker.sock"
     exposedByDefault: false
-    network: grinder_net
+    # The node's bridge network. Host-networked apps never join it; their
+    # labels carry a server URL, so no address is looked up for them.
+    network: proxy
   file:
     filename: /etc/traefik/dynamic.yml

@@ -3,7 +3,7 @@
 # 384 dimensions, and good enough to start with. Not benchmarked; revisit if
 # retrieval quality turns out to matter.
 #
-# No auth: nothing is published, only grinder_net can reach it.
+# No auth: nothing is published, only proxy can reach it.
 import os
 
 from fastapi import FastAPI

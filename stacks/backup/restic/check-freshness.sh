@@ -23,7 +23,7 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$DIR/../../_lib/common.sh"
 # shellcheck source=../../_lib/restic-env.sh
 source "$LIB/restic-env.sh"
-load_node "$DIR/.."
+load_node "$(this_node_dir)"
 [[ $EUID -eq 0 ]] || die "run with sudo: the repository is reached with root's backup key."
 MAX_AGE_HOURS="${MAX_AGE_HOURS:-26}"
 QUIET=0
@@ -35,11 +35,19 @@ say() { [[ $QUIET -eq 1 ]] || echo "$@"; }
 
 # Which nodes back up files, and which also dump databases.
 file_nodes=(); dump_nodes=()
-for conf in "$STACKS"/*/node.conf; do
+for conf in "$NODES"/*/node.conf; do
   node="$(basename "$(dirname "$conf")")"
-  compgen -G "$STACKS/$node/*/backup" >/dev/null || continue
+  # That node's apps, read in a subshell so its node.conf can't change ours.
+  specs=()
+  # shellcheck source=/dev/null
+  mapfile -t their_apps < <(APPS=(); source "$conf"; printf '%s\n' "${APPS[@]}")
+  for app in "${their_apps[@]}"; do
+    spec="$(app_dir "$app")/backup"
+    [[ -f "$spec" ]] && specs+=("$spec")
+  done
+  [[ ${#specs[@]} -gt 0 ]] || continue
   file_nodes+=("$node")
-  if grep -qsE '^[[:space:]]*(pg|mongo|sqlite)[[:space:]]' "$STACKS/$node"/*/backup; then
+  if grep -qsE '^[[:space:]]*(pg|mongo|sqlite)[[:space:]]' "${specs[@]}"; then
     dump_nodes+=("$node")
   fi
 done

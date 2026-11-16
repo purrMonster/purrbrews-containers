@@ -1,5 +1,5 @@
 # render-mode: 0644
-# Rendered by ../../render-configs.sh — edit the .template. Nothing secret in
+# Rendered by the node's ./render-configs.sh — edit the .template. Nothing secret in
 # here, and cloudflared runs as a non-root user, so the rendered file is 0644.
 #
 # The tunnel's public routes, in Git instead of the Cloudflare dashboard

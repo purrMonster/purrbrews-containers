@@ -1,0 +1,4 @@
+# Scrutiny collector settings: the default, which overrides nothing.
+# A node whose disk needs its own smartctl arguments keeps a copy under
+# nodes/<node>/ and points SCRUTINY_COLLECTOR_CONFIG at it (see mochaPot).
+version: 1

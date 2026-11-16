@@ -35,7 +35,7 @@ SUDO=()
 LOGROTATE_CONF=/etc/logrotate.d/purrbrews-traefik
 want_logrotate() {
   cat <<EOF
-# Installed by stacks/percolator/traefik/prepare.sh on every \`up\`; edit it there.
+# Installed by stacks/network/traefik-ingress/prepare.sh on every \`up\`; edit it there.
 # Traefik's access log, read by CrowdSec. USR1 makes Traefik reopen the file.
 ${DATA_DIR}/traefik/logs/access.log {
     daily

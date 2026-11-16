@@ -1,10 +1,10 @@
-# Open WebUI: chat with the models on roastery's GPU.
+# Open WebUI: the chat page, in front of LiteLLM on this node
+# (stacks/ai/litellm), which passes requests to a cloud model. Until the
+# 2026-11 rebuild it talked to the local models on roastery's GPU.
 #
-# Ollama on roastery has no auth of its own. Once it's bound to localhost
-# behind roastery's Traefik and Authelia (stacks/roastery/traefik), this
-# plain-HTTP URL stops answering, and pointing it at ollama.${DOMAIN} doesn't
-# help: Open WebUI can't do the Authelia login. That needs machine-to-machine
-# auth that keeps Authelia in front; see the README's known gaps.
+# It reaches LiteLLM directly on the proxy network, so there is no login
+# between them; LiteLLM takes no key there, and OPENAI_API_KEY only has to be
+# non-empty.
 #
 # Image: a release, by tag and digest. On 2026-10-10 it replaced the
 # `main` build pinned on 2026-09-29 (which reported 0.11.3 but wasn't that
@@ -15,7 +15,9 @@ services:
     image: ghcr.io/open-webui/open-webui:v0.12.0@sha256:1565038903151ced924b5a3226f73f40f16963df4b910441f6391f10144afdaa
     container_name: openwebui
     environment:
-      OLLAMA_BASE_URL: http://${ROASTERY_LAN_IP}:11434
+      OPENAI_API_BASE_URL: http://litellm:4000/v1
+      OPENAI_API_KEY: not-needed-on-the-proxy-network
+      ENABLE_OLLAMA_API: "false"
       WEBUI_AUTH: "true"
       TZ: ${TZ}
     volumes:
@@ -36,5 +38,5 @@ services:
 
 networks:
   default:
-    name: grinder_net
+    name: proxy
     external: true

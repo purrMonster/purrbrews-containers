@@ -33,13 +33,15 @@ declare -A SECRETS_DONE=()
 SECRETS_NOTES=()
 SECRETS_FAILED=0
 
-secret_file() { printf '%s/%s/secrets.env.local' "$NODE_DIR" "$1"; }
+secret_file() { printf '%s/secrets.env.local' "$(app_dir "$1")"; }
 secret_get()  { env_get "$(secret_file "$1")" "$2"; }
 secret_set()  { local v; v="$(secret_get "$1" "$2")"; ! is_placeholder "$v"; }
 
 image_of() {  # image_of <image prefix>: the tag this node's compose files pin
-  grep -rhoE "image: *${1}:[^ \"#]+" "$NODE_DIR"/*/docker-compose.yml 2>/dev/null \
-    | head -n1 | sed -E 's/image: *//'
+  local d
+  node_app_dirs | while IFS= read -r d; do
+    grep -hoE "image: *${1}:[^ \"#]+" "$d/docker-compose.yml" 2>/dev/null || true
+  done | head -n1 | sed -E 's/image: *//'
 }
 
 make_hash() {  # make_hash <pbkdf2|argon2|bcrypt> <plaintext>: prints the digest, or nothing
@@ -142,51 +144,51 @@ apply_secret() {  # apply_secret <app> <KEY> <kind> [args...]
   esac
 }
 
+apply_spec_file() {  # apply_spec_file <app> <file>: every line of a secrets.conf-format file
+  # Also for a secrets.hook that picks between spec files (restic's does).
+  local app="$1" spec="$2" key kind rest line
+  local -a lines args
+  # Read the whole spec first: prompts need stdin to still be the terminal.
+  mapfile -t lines < "$spec"
+  for line in "${lines[@]}"; do
+    read -r key kind rest <<< "$line"
+    [[ -z "$key" || "$key" == \#* ]] && continue
+    if [[ "$key" == NOTE ]]; then
+      SECRETS_NOTES+=("$app: $kind${rest:+ $rest}")
+      continue
+    fi
+    # read -a splits on spaces without glob-expanding a stray * in prompt text.
+    read -r -a args <<< "$rest"
+    apply_secret "$app" "$key" "$kind" "${args[@]}"
+  done
+}
+
 ensure_app_secrets() {  # ensure_app_secrets <app>: once per run, dependencies first
-  local app="$1" spec key kind rest
+  local app="$1" spec dir
   [[ -n "${SECRETS_DONE[$app]:-}" ]] && return 0
   SECRETS_DONE[$app]=1
-  spec="$NODE_DIR/$app/secrets.conf"
-  [[ -f "$spec" || -f "$NODE_DIR/$app/secrets.hook" ]] || return 0
+  dir="$(app_dir "$app")"
+  [[ -n "$dir" ]] || return 0
+  spec="$dir/secrets.conf"
+  [[ -f "$spec" || -f "$dir/secrets.hook" ]] || return 0
 
   local file; file="$(secret_file "$app")"
   (umask 077 && touch "$file")
   chmod 600 "$file"
 
-  if [[ -f "$spec" ]]; then
-    # Read the whole spec first: prompts need stdin to still be the terminal.
-    local -a lines args
-    local line
-    mapfile -t lines < "$spec"
-    for line in "${lines[@]}"; do
-      read -r key kind rest <<< "$line"
-      [[ -z "$key" || "$key" == \#* ]] && continue
-      if [[ "$key" == NOTE ]]; then
-        SECRETS_NOTES+=("$app: $kind${rest:+ $rest}")
-        continue
-      fi
-      # read -a splits on spaces without glob-expanding a stray * in prompt text.
-      read -r -a args <<< "$rest"
-      apply_secret "$app" "$key" "$kind" "${args[@]}"
-    done
-  fi
+  [[ ! -f "$spec" ]] || apply_spec_file "$app" "$spec"
 
-  if [[ -f "$NODE_DIR/$app/secrets.hook" ]]; then
+  if [[ -f "$dir/secrets.hook" ]]; then
     # shellcheck disable=SC2034  # FILE is for the hook
     FILE="$file"
     # shellcheck source=/dev/null
-    source "$NODE_DIR/$app/secrets.hook"
+    source "$dir/secrets.hook"
   fi
 }
 
 generate_secrets() {
   local app
-  local dir
-  for app in "${APPS[@]}"; do ensure_app_secrets "$app"; done
-  # Then any other folder with a secrets.conf: host-side tools like cellar's
-  # restic, and an app that hasn't made it into node.conf yet.
-  for dir in "$NODE_DIR"/*/; do
-    [[ -f "${dir}secrets.conf" || -f "${dir}secrets.hook" ]] && ensure_app_secrets "$(basename "$dir")"
-  done
+  # The apps, then the host-side tools (node.conf TOOLS: restic, the kiosk).
+  for app in "${APPS[@]}" "${TOOLS[@]}"; do ensure_app_secrets "$app"; done
   return 0
 }

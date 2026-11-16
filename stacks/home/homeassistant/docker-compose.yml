@@ -23,8 +23,8 @@ services:
     # time. This container was born on bootstrap DNS and kept asking 1.1.1.1
     # for authelia.${DOMAIN} long after the host had moved to Pi-hole.
     dns:
-      - ${DNS_PRIMARY:-192.168.0.10}
-      - ${DNS_SECONDARY:-192.168.0.13}
+      - ${DNS_PRIMARY:-192.168.1.10}
+      - ${DNS_SECONDARY:-192.168.1.13}
     volumes:
       - ${DATA_DIR:?}/homeassistant:/config
       - /etc/localtime:/etc/localtime:ro

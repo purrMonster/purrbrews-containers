@@ -43,7 +43,7 @@ Test from sieve:
 
 ```bash
 source <(grep -E '^(GATUS_NTFY_TOKEN|NTFY_ALERT_TOPIC)=' gatus/secrets.env.local)
-sudo docker run --rm --network sieve_edge curlimages/curl -s \
+sudo docker run --rm --network proxy curlimages/curl -s \
   -H "Authorization: Bearer ${GATUS_NTFY_TOKEN}" -H "Title: test" \
   -d "hello from sieve" "http://ntfy:8080/${NTFY_ALERT_TOPIC}"
 ```

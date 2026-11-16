@@ -1,7 +1,7 @@
-# Rendered by ../../render-configs.sh — edit the .template.
+# Rendered by the node's ./render-configs.sh — edit the .template.
 #
 # Policy: ${AUTH_POLICY} for human access and OIDC (.env.local AUTH_POLICY).
-# Ollama, OpenCloud and persianPerch (Gatus's API) service accounts use explicit one_factor rules.
+# The LLM, OpenCloud and persianPerch (Gatus's API) service accounts use explicit one_factor rules.
 # OpenCloud bot accounts are denied access to other ForwardAuth/OIDC apps.
 # Move human access to two-factor after everyone has enrolled.
 #
@@ -29,8 +29,8 @@ server:
         implementation: 'ForwardAuth'
         authn_strategies:
           - name: 'CookieSession'
-      # For API clients with no browser session: the ollama_api_group service
-      # accounts sign in with Basic auth. Only roastery's ollama route uses it.
+      # For API clients with no browser session: the llm_api_group service
+      # accounts sign in with Basic auth. grinder's llm route and sieve's gatus-api route use it.
       forward-auth-basic:
         implementation: 'ForwardAuth'
         authn_strategies:
@@ -63,7 +63,7 @@ access_control:
   default_policy: deny
   rules:
     # OpenCloud bots: allow this host, then deny all other protected hosts.
-    # Keep these before Ollama/admin/household rules, even for overlapping groups.
+    # Keep these before the LLM/admin/household rules, even for overlapping groups.
     - domain: 'opencloud.${DOMAIN}'
       subject: ['group:opencloud_bot_accounts']
       policy: one_factor
@@ -71,14 +71,15 @@ access_control:
       subject: ['group:opencloud_bot_accounts']
       policy: deny
 
-    # Dedicated LLDAP service accounts: password authentication for Ollama only.
-    - domain: 'ollama.${DOMAIN}'
+    # Dedicated LLDAP service accounts: password authentication for the LLM
+    # route only (LiteLLM on grinder).
+    - domain: 'llm.${DOMAIN}'
       subject:
-        - 'group:ollama_api_group'
+        - 'group:llm_api_group'
       policy: one_factor
 
     # persianPerch's service account: password authentication for Gatus's API only (sieve's
-    # gatus-api route, the same shape as Ollama above).
+    # gatus-api route, the same shape as the LLM route above).
     - domain: 'gatus-api.${DOMAIN}'
       subject:
         - 'group:perch_api_group'
@@ -88,7 +89,7 @@ access_control:
     # skipped, not final. So admin-only hosts need two rules: allow admins,
     # then deny everyone else, or the household catch-all below lets them in.
     # The list includes the UIs other nodes protect through the published
-    # port 9091 (stacks/<node>/traefik/dynamic/*.yml). Add a node's admin hosts here.
+    # port 9091 (each node's Traefik). Add a node's admin hosts here.
     - domain: &admin_hosts
         - 'traefik.${DOMAIN}'
         - 'traefik-sieve.${DOMAIN}'
@@ -99,8 +100,8 @@ access_control:
         # cellar's admin apps.
         - 'komodo.${DOMAIN}'
         - 'scrutiny.${DOMAIN}'
-        # Other Ollama clients require an admin login.
-        - 'ollama.${DOMAIN}'
+        # Other LLM clients require an admin login.
+        - 'llm.${DOMAIN}'
         # persianPerch (cellar), and Gatus's API for its service account: admins otherwise.
         - 'perch.${DOMAIN}'
         - 'gatus-api.${DOMAIN}'
@@ -403,7 +404,7 @@ identity_providers:
 
       - client_id: 'meowgram'
         client_name: 'meowGram'
-        # meowGram (own repo, runs on percolator: stacks/percolator/meowgram).
+        # meowGram (own repo, runs on percolator: stacks/apps/meowgram).
         # A public client: the Flutter app runs on people's devices and in the
         # browser, so it can't keep a secret. PKCE stands in for it.
         public: true

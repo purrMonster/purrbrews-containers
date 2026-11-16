@@ -22,7 +22,7 @@ sieve holds only a token.
 
 Add these under the tunnel's **Published application routes** (called *Public
 Hostnames* in older dashboards). cloudflared resolves container names on
-`sieve_edge`.
+`proxy`.
 
 | Hostname | Service | Notes |
 |---|---|---|
@@ -93,7 +93,7 @@ delete the old dashboard tunnel. That compose change is the one step not written
 
 ```bash
 ./compose.sh cloudflared logs --tail 20      # "Registered tunnel connection" ×4
-sudo docker run --rm --network sieve_edge curlimages/curl -s http://cloudflared:2000/ready
+sudo docker run --rm --network proxy curlimages/curl -s http://cloudflared:2000/ready
 ```
 
 Gatus checks `/ready` every minute and alerts through ntfy.sh if the tunnel drops.
@@ -103,6 +103,6 @@ home.
 ## Notes
 
 - `--no-autoupdate`: the image tag is the version, and upgrades are a tag bump.
-- `--metrics 0.0.0.0:2000` is reachable only on `sieve_edge`; the port is not published.
+- `--metrics 0.0.0.0:2000` is reachable only on `proxy`; the port is not published.
 - Rotating the token: dashboard → tunnel → *Refresh token*. Then delete `TUNNEL_TOKEN`
   from `secrets.env.local`, re-run `./setup-secrets.sh` and recreate the container.

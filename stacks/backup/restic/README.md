@@ -54,12 +54,12 @@ sign-in, flask). In this order:
 2. **Secrets**: `./setup-secrets.sh` on cellar makes `RESTIC_PASSWORD` and the crypt
    password/salt and asks for the Drive client; **copy RESTIC_PASSWORD,
    RCLONE_CRYPT_PASSWORD and RCLONE_CRYPT_SALT to flask now**
-   ([docs/flask.md](../../../docs/flask.md)). Every other node's
+   ([deprecated/docs/flask.md](../../../deprecated/docs/flask.md)). Every other node's
    `restic/secrets.env.local` needs the same `RESTIC_PASSWORD` (its
    `./setup-secrets.sh` asks). cellar's `.env.local` needs `ROASTERY_WOL_MAC`.
 3. **roastery**: every node's `roastery` line into
-   `stacks/roastery/backup-target/authorized_keys`, then `.\setup.ps1` there,
-   elevated ([roastery/README.md](../../roastery/README.md#backup-target)).
+   `deprecated/stacks/roastery/backup-target/authorized_keys`, then `.\setup.ps1` there,
+   elevated ([roastery/README.md](../../../deprecated/stacks/roastery/README.md#backup-target)).
 4. **Dump store**: every other node's `store` line (without the word `store`)
    into `restic/dump-store.keys` here, then `sudo ./restic/dump-store-setup.sh`.
 5. **Repository**: `sudo ./restic/restic-init.sh` here.

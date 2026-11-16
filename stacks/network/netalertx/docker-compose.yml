@@ -21,12 +21,12 @@ services:
     # network-namespace sysctls to the host namespace. See README.md if wanted.
     environment:
       LISTEN_ADDR: 0.0.0.0
-      PORT: "20211"          # web UI — sieve's Traefik only (../firewall.sh)
+      PORT: "20211"          # web UI — sieve's Traefik only (the node's ./firewall.sh)
       GRAPHQL_PORT: "20212"  # backend API — the UI reaches it internally; no firewall rule
       # Settings applied on every start. SCAN_SUBNETS is a string that looks like a
       # Python list; keep the quoting exactly as is.
       #  - SETPWD_enable_password=false: no own login. sieve's Traefik + Authelia SSO is
-      #    the gate, and the firewall keeps 20211 closed to all but sieve_edge. This app
+      #    the gate, and the firewall keeps 20211 closed to all but proxy. This app
       #    has had unauthenticated-RCE CVEs (fixed long before this tag): both must hold.
       #  - BACKEND_API_URL=/server: the UI talks to the API through its own nginx,
       #    which is what makes proxying just 20211 work.

@@ -12,14 +12,14 @@ Optional on grinder: `fleet.py deploy grinder` leaves it out unless asked
 |---|---|
 | Image | `ghcr.io/purrmonster/pourover`, pinned by tag and digest, published by pourOver's release workflow |
 | Port | `:8790` → 8000, for Gatus on sieve only (`./firewall`) |
-| Talks to | Vikunja (percolator), llama-swap via `ollama.${DOMAIN}` (roastery), ntfy (sieve), meowGram's bot API once it exists |
+| Talks to | Vikunja (percolator), llama-swap via `llm.${DOMAIN}` (roastery), ntfy (sieve), meowGram's bot API once it exists |
 | Data | `/srv/data/pourover/pourover.db` (SQLite, WAL): command log, pending confirms, queue, meowGram cursor |
 
 ## Before the first up
 
 1. **LLM service account.** LLDAP UI → create a service account (a cat-breed name of the
    owner's choosing; its job is "pourOver's model login") with a long password, member of
-   `ollama_api_group` only. Authelia already lets that group through to `ollama.${DOMAIN}`
+   `llm_api_group` only. Authelia already lets that group through to `llm.${DOMAIN}`
    with Basic auth.
 2. **Vikunja token per person.** Each person signs in to Vikunja → Settings → API tokens →
    new token with tasks, projects and labels (read and write). Note their user id too.
@@ -30,7 +30,7 @@ Optional on grinder: `fleet.py deploy grinder` leaves it out unless asked
 
 ## Bring-up
 
-As `barista` in `/opt/purrbrews/stacks/grinder`, on a reviewed commit:
+As `barista` in `/opt/purrbrews/nodes/grinder`, on a reviewed commit:
 
 ```bash
 ./setup-secrets.sh                 # asks the pourOver questions, renders config/users.yaml
@@ -66,5 +66,5 @@ The reply names the project, the due time and the reminder; the task is in Vikun
 - **roastery asleep or gaming:** messages that need the model wait in the queue (6 h), a
   message with a time goes straight to Inbox, and queued results arrive on ntfy.
 - **401 from the model** means the service account or its password is wrong, or it isn't in
-  `ollama_api_group`. pourOver says so in its reply instead of queueing.
+  `llm_api_group`. pourOver says so in its reply instead of queueing.
 - **Deletes** only ever touch the sender's own tasks, and only after a "yes".

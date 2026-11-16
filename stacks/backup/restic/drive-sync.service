@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/opt/purrbrews/stacks/cellar/restic/drive-sync.sh
+ExecStart=/opt/purrbrews/stacks/backup/restic/drive-sync.sh
 Nice=10
 IOSchedulingClass=idle
 TimeoutStartSec=12h
