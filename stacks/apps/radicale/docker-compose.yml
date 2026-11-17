@@ -3,7 +3,7 @@
 # Run as the ops uid so the mode-0600 rendered reader secret stays private.
 services:
   radicale:
-    image: tomsquest/docker-radicale:3.9.1.1@sha256:3869c5c013da5d76132cdeaba1fa0804324119d0ef6f3eaaf18f310f64c6bdc9
+    image: tomsquest/docker-radicale:386.3.0.6.3@sha256:97f7ae15ea15feca8bd430ebd4594c450f38ec1ea5a7582f756826c21f0f0459
     container_name: radicale
     user: ${PUID}:${PGID}
     restart: unless-stopped
