@@ -14,9 +14,10 @@ not_root
 [[ "$RESOLVER" == primary || "$RESOLVER" == secondary ]] \
   || die "$NODE_NAME isn't a resolver (RESOLVER in node.conf is '${RESOLVER}')."
 
-# The installed fleet list, not the example IPs. pipefail means a failed
-# inventory never turns into an empty set of records.
-fleet="$(sudo bash "$ROOT/init/purrbrews-mac.sh" list --format csv)"
+# The fleet list from this checkout: addresses from stacks/fleet.env, MACs
+# as the bootstrap payload sets them (scripts/fleet-macs.sh). A failed list
+# stops here and never turns into an empty set of records.
+fleet="$(bash "$ROOT/scripts/fleet-macs.sh" --format csv)"
 printf '%s\n' "$fleet" \
   | DNS_SERVERS="$(env_value DNS_PRIMARY),$(env_value DNS_SECONDARY)" \
     python3 "$LIB/dns-records.py" --node-dir "$NODE_DIR" --role "$RESOLVER"

@@ -15,6 +15,7 @@ _Last updated: 2026-11-16 (the rebuild after the move)_
 | [`runbook.md`](../runbook.md) | Decisions since 2026-11-16 and the Backlog, ticked only on evidence |
 | [`docs/migration-plan.md`](migration-plan.md) | The rebuild, phase by phase, and what still has to be written |
 | [`docs/hardware.md`](hardware.md) | Which machine is which node, memory and disks, where roastery's jobs went |
+| [`payload/README.md`](../payload/README.md) | The bootstrap payload: what makes a fresh machine a node, and how americano serves it |
 | [`docs/carry-over-map.md`](carry-over-map.md) | Where every app and file of the old layout went |
 | [`stacks/README.md`](../stacks/README.md) | How the stacks and the shared scripts work; adding an app or a node; backups; updates |
 | [`docs/operations.md`](operations.md) | Deploying a reviewed commit (`scripts/fleet.py`), recovery targets |
