@@ -6,7 +6,8 @@ hardware in [hardware.md](hardware.md), with the layout in
 `claude/stack-rebuild`.
 
 **Where things stand.** The repo is restructured and its offline tests pass.
-Nothing from this branch has run on a machine. roastery is out, so there are
+Nothing from this branch has run on a machine. The owner's decisions of
+2026-11-17 are in: the layout is confirmed and every app starts empty. roastery is out, so there are
 no local LLMs, no backup repository and no bootstrap host until the phases
 below replace them. Each phase says what it needs, what "done" means and how
 to get back.
@@ -29,32 +30,13 @@ Code this plan depends on that does not exist yet. Everything else is in the rep
 | W5 | Joining a node to the tailnet (it was a step of the old init) | `deprecated/init/purrbrews-init.sh`, `step_tailscale` | Phase 10 |
 | W6 | Node READMEs rewritten; roastery wording swept out of app READMEs and comments | the old READMEs, in place | As each node comes up |
 
-## Phase 0: save what exists
+## Phase 0: save what exists (done)
 
-Before any disk is wiped. Whatever data the old fleet still has is on the
-nodes' own disks. roastery, which held the backup repository, was wiped on
-2026-10-07, and the old project card (2026-10-27) still listed "backups after
-the reinstall" as open, so assume there is no usable backup until step 3 says
-otherwise.
-
-1. (owner) Decide, app by app, restore or start empty. Suggested: restore what
-   the household made (Vaultwarden, Immich, Paperless, OpenCloud, Radicale,
-   Actual Budget, Mealie, Vikunja, meowGram, Home Assistant); start the rest empty.
-2. For every node that still boots: copy `/srv/data`, `/srv/dumps`,
-   `/opt/purrbrews/.env`, every `.env.local` and `secrets.env.local`, and
-   `/etc/purrbrews` to one of the old 1 TB HDDs in the USB dock. Restored data
-   only opens with the secrets it was made with (database passwords,
-   OpenCloud's and Vaultwarden's keys).
-3. Check whether roastery's `C:\purrbrews\restic` or the Google Drive copy still
-   holds a repository, and keep the restic password and the rclone crypt
-   password and salt wherever they are (cellar's old `restic/secrets.env.local`,
-   the flask vault).
-4. Database apps: a dump beats a copied data directory. If a node is up, run
-   its old `sudo ./backup.sh dump` first and copy the dumps too.
-
-**Done when** the HDD holds a copy per node and a note of what was taken, and
-the second HDD holds a copy of the first. **Way back:** nothing is changed in
-this phase.
+The owner decided that **every app starts empty** and has already backed up
+what is needed from the old nodes (owner, 2026-11-17). Nothing in this plan restores from
+the old fleet: no old data directory, secrets file or restic repository is
+carried over. Phase 5 makes a new repository and phase 6 brings each app up
+empty.
 
 ## Phase 1: foundations
 
@@ -127,9 +109,8 @@ disks. **Way back:** `./compose.sh --all down` on cellar; nothing depends on it 
 
 No household data yet: that waits for backups (phase 5).
 
-1. Set percolator up. If its data disk still holds the old `/srv/data`, do not
-   let the installer touch that disk; mount it read-only somewhere else until
-   phase 6.
+1. Set percolator up. Every app starts empty, so its data disk is wiped like
+   the system disk; check first that the owner's backup of it is done.
 2. `traefik-ingress`, `crowdsec`.
 3. `mail-relay`, if the Purelymail app password exists (owner). Without it
    Paperless, Vikunja and Vaultwarden will not start in phase 6.
@@ -159,10 +140,11 @@ node holds data that exists nowhere else.
    wake-on-LAN, rename what is named after roastery, let the hub read its own
    repository by path, and rewrite the README. Extend the tests; the three
    root-only ones must pass in CI.
-3. The repository: restore it from Drive if phase 0 found one worth keeping
-   (the drive-sync guard refuses to overwrite Drive from an empty repository,
-   by design), otherwise `restic init` and a new password. Either way the
-   password and the crypt keys go to the recovery kit the same day.
+3. A new repository: `restic init` with a new password (every app starts
+   empty, so nothing is restored). If the old Drive copy is still there, move
+   it aside first: the drive-sync guard refuses to overwrite a different
+   repository on Drive, by design. The password and the crypt keys go to the
+   recovery kit the same day.
 4. Per node: `sudo ./backup.sh install`, `keys`, authorise the lines on cellar,
    `doctor`, then `nightly` by hand once, then `enable`.
 5. A restore test of one node's snapshot into a scratch directory, and the
@@ -180,15 +162,13 @@ check is quiet, a restore test passed, and Drive holds the same repository.
 One app at a time, in `node.conf` order: radicale, opencloud, vaultwarden,
 immich, paperless, mealie, vikunja, meowgram, actualbudget, freshrss, purrcafe.
 
-For each: restore its data and its `secrets.env.local` first if it is one of
-the restored apps (phase 0), bring it up, run its README's checklist, add or
-confirm its Gatus check, and let one night's backup pass before the next app
-with data.
+Every app starts empty (owner, 2026-11-17). For each: bring it up, run its
+README's checklist, add or confirm its Gatus check, and let one night's backup
+pass before the household puts anything into the next one.
 
-- OpenCloud: the migration rehearsal the old Backlog asked for still applies to
-  restored data.
-- meowGram: restored 1.1.0 data and the pinned 2.0.0 means a dump first; it is
-  the only way back.
+- OpenCloud and the other apps with upgrade gates record their version on a
+  fresh install; nothing needs acknowledging.
+- meowGram: an empty install of 2.0.0 needs no dump first.
 - Immich: faces and search wait for phase 8.
 
 **Done when** each app's checklist is ticked in the runbook with what was seen.
@@ -199,7 +179,7 @@ the night before.
 
 1. Set mochaPot up through its USB Ethernet adapter. `pihole-secondary` first;
    check it answers and that sieve's DHCP hands out both resolvers.
-2. `homeassistant` (restore its config if kept), set `trusted_proxies` in its
+2. `homeassistant`, onboarded fresh, set `trusted_proxies` in its
    UI to the `proxy` subnet and sieve's address; `musicassistant`; `traefik`.
    **Check** the merged Traefik with host-networked apps: all three pages open
    through it.
@@ -212,8 +192,9 @@ a reboot, and stopping sieve's Pi-hole for a minute leaves name resolution worki
 
 ## Phase 8: grinder, automation and AI
 
-1. (owner) Choose the cloud provider and model; make an API key for the fleet
-   with a spending limit.
+1. (owner) Choose the provider and model; make an API key for the fleet with
+   a spending limit. Still open (2026-11-17): LiteLLM takes any endpoint that
+   speaks the OpenAI API, so the choice is three settings when it's made.
 2. Set grinder up. `postgres-vector`, `embedding-worker`, `n8n`.
 3. `litellm` ([its README](../stacks/ai/litellm/README.md)): healthy, and
    `llm.${DOMAIN}` answers 401 to a request without credentials. Then
@@ -231,13 +212,14 @@ costs nothing; the apps that call it queue or show an error.
 
 ## Phase 9: voice (W4)
 
-Not designed yet. The owner's outline: each ThinkCentre has a USB speaker and
-a conference-room mic and runs speech-to-text and text-to-speech locally, with
-Home Assistant on mochaPot deciding what to do.
+Not designed yet. Decided: each ThinkCentre (sieve, percolator, cellar) has a
+USB speaker and a conference-room mic and runs both engines itself, Whisper
+for speech-to-text and Piper for text-to-speech, with Home Assistant on
+mochaPot deciding what to do (owner, 2026-11-17).
 
-To decide first: which Whisper model the i3s can run in real time; whether all
-three machines run the engines or percolator only listens and speaks; the wake
-word; and how audio devices are passed to a container on Debian. Then a
+To decide first: which Whisper model the i3s can run in real time, with
+percolator's load in mind, since it runs the engines alongside the household
+apps; the wake word; and how audio devices are passed to a container on Debian. Then a
 `stacks/voice/` group, each image pinned by tag and digest, and one room
 proven end to end before the other two.
 

@@ -12,9 +12,11 @@ LLMs that ran on roastery until the 2026-11 rebuild (`runbook.md`, 2026-11-16).
 
 ## Before the first up
 
-1. Pick the provider and model, and make an API key for this fleet only.
-2. `./setup-secrets.sh` on grinder asks for both (`LLM_UPSTREAM_MODEL` is
-   LiteLLM's `provider/model` form).
+1. Pick the provider and model, and make an API key for this fleet only, with
+   a spending limit. Not chosen yet (runbook, 2026-11-17): any endpoint that
+   speaks the OpenAI API works, OpenAI's own included.
+2. `./setup-secrets.sh` on grinder asks for the endpoint's base URL (ending in
+   `/v1`), the model id as that endpoint knows it, and the key.
 3. In LLDAP, the service accounts that call it from other machines go in
    `llm_api_group` and nowhere else (pourOver's account is one).
 4. `./compose.sh litellm up -d --wait`.
@@ -42,6 +44,10 @@ Written 2026-11-16 and not yet run on a node. Check on first bring-up:
 
 ## Changing provider or model
 
-Delete the `LLM_UPSTREAM_MODEL` (and, for a new provider, `LLM_UPSTREAM_API_KEY`)
-line from `secrets.env.local`, run `./setup-secrets.sh`, then
-`./compose.sh litellm up -d --force-recreate`. No other app changes.
+Delete the lines that change from `secrets.env.local` (`LLM_UPSTREAM_MODEL`;
+for a new provider also `LLM_UPSTREAM_API_BASE` and `LLM_UPSTREAM_API_KEY`), run
+`./setup-secrets.sh`, then `./compose.sh litellm up -d --force-recreate`. No
+other app changes.
+
+A provider without an OpenAI-compatible API needs LiteLLM's own prefix for it
+in `config/config.yaml.template` instead of `openai/`, and usually no `api_base`.

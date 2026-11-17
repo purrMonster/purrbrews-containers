@@ -1,13 +1,19 @@
 # Rendered by the node's ./render-configs.sh into config/config.yaml (gitignored).
 #
 # One model name for every app: "default". Apps ask for that, and this file
-# decides which cloud model answers, so changing provider or model is one
-# setting (LLM_UPSTREAM_MODEL) and a recreate, with no app touched.
-# The API key is read from the container's environment, not written here.
+# decides which model answers, so changing provider or model is a setting and
+# a recreate, with no app touched.
+#
+# The provider isn't chosen yet (runbook, 2026-11-17), so this speaks the
+# OpenAI API to whatever endpoint LLM_UPSTREAM_API_BASE names: OpenAI itself or
+# any provider or server that offers an OpenAI-compatible API. LiteLLM's
+# "openai/" prefix means exactly that. The API key is read from the
+# container's environment, not written here.
 model_list:
   - model_name: default
     litellm_params:
-      model: ${LLM_UPSTREAM_MODEL}
+      model: openai/${LLM_UPSTREAM_MODEL}
+      api_base: ${LLM_UPSTREAM_API_BASE}
       api_key: os.environ/LLM_UPSTREAM_API_KEY
 
 litellm_settings:

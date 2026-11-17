@@ -2,8 +2,8 @@
 
 Which machine does what after the house move. Written 2026-11-16 from the
 hardware the owner listed and from what the old runbook and node READMEs
-recorded about each machine. Lines marked **proposed** are Claude's and wait
-for the owner's yes ([runbook](../runbook.md), 2026-11-16 entry); nothing here
+recorded about each machine. The layout below was proposed by Claude and
+confirmed by the owner on 2026-11-17 ([runbook](../runbook.md), 2026-11-16 entry); nothing here
 has been checked against the machines themselves.
 
 ## What there is
@@ -21,7 +21,7 @@ Memory: eight 8 GB DDR4 SO-DIMMs (six 2666 MHz, two 3200 MHz), 64 GB in all.
 Storage: two 128 GB M.2 SATA SSDs, one 256 GB SATA SSD, one 512 GB Intel NVMe,
 two 1 TB NVMe, two old 1 TB 2.5" SATA HDDs.
 
-## Who gets what (proposed)
+## Who gets what (confirmed 2026-11-17)
 
 The five node names and roles stay; the machines behind them are the ones the
 old fleet already used, so nothing is re-cased. What changes is where roastery's
@@ -61,7 +61,7 @@ Why this way:
 
 | Job | Was | Now | State |
 |---|---|---|---|
-| Local LLMs (llama-swap, game mode) | roastery's GPU | A cloud model through LiteLLM on grinder, `llm.${DOMAIN}` | Stack written, not yet run |
+| Local LLMs (llama-swap, game mode) | roastery's GPU | A cloud model through LiteLLM on grinder, `llm.${DOMAIN}` | Stack written, not yet run. Provider not chosen; any OpenAI-compatible endpoint |
 | Immich machine learning | roastery's GPU | grinder's CPU (`stacks/ai/immich-ml`) | Stack written, not yet run. Slow first pass |
 | restic repository | roastery's NVMe, SFTP | cellar's 1 TB NVMe, SFTP | **Not built**: [migration plan](migration-plan.md), phase 5 |
 | Bootstrap server | A container on roastery | [purrbrews-bootstrap](https://github.com/purrMonster/purrbrews-bootstrap) on americano | Server exists; the fleet's payload is not written (phase 1) |
@@ -77,10 +77,10 @@ no app changes; `deprecated/stacks/roastery/llama-swap` is the starting point.
 Each ThinkCentre gets a USB speaker and a conference-room mic and runs
 speech-to-text and text-to-speech locally (Whisper and Piper), with Home
 Assistant on mochaPot as the brain. That makes sieve, percolator and cellar the
-three voice machines. No stack exists yet: [migration plan](migration-plan.md),
-phase 9. One thing to weigh there: percolator is the busiest machine, so it may
-be better as a microphone and speaker that sends audio to sieve's or cellar's
-Whisper than as a third copy of the engines.
+three voice machines, and all three run both engines, percolator included
+(owner, 2026-11-17). No stack exists yet: [migration plan](migration-plan.md),
+phase 9. percolator is the busiest machine, so its Whisper model is the one to
+size with care.
 
 The living-room screen: the owner would rather have a tablet on a dock (or an
 ESP32 screen) there than the laptop. Until one exists, the kiosk stays on

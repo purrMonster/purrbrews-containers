@@ -53,7 +53,7 @@ Nothing in this table has run on a node since the move. "Not run" in the
 | Paperless-ngx | `stacks/percolator/paperless` | `stacks/apps/paperless` | percolator | Carried | Needs the relay bundle |
 | Mealie | `stacks/percolator/mealie` | `stacks/apps/mealie` | percolator | Carried | |
 | Vikunja | `stacks/percolator/vikunja` | `stacks/apps/vikunja` | percolator | Carried | Needs the relay bundle |
-| meowGram | `stacks/percolator/meowgram` | `stacks/apps/meowgram` | percolator | Carried | 2.0.0 is pinned and was never rolled out. On an empty install there is nothing to dump first; with restored 1.1.0 data the old rule holds (dump before the first start, it is the only way back) |
+| meowGram | `stacks/percolator/meowgram` | `stacks/apps/meowgram` | percolator | Carried | 2.0.0 is pinned and was never rolled out. Starts empty (owner, 2026-11-17), so there is nothing to dump first |
 | Actual Budget | `stacks/percolator/actualbudget` | `stacks/apps/actualbudget` | percolator | Carried | |
 | FreshRSS | `stacks/percolator/freshrss` | `stacks/apps/freshrss` | percolator | Carried | |
 | Homepage | `stacks/percolator/homepage` | `stacks/apps/homepage` | percolator | Carried | Tiles not reviewed for the new hosts (`llm`) |
@@ -80,7 +80,7 @@ Nothing in this table has run on a node since the move. "Not run" in the
 | pgvector | `stacks/grinder/postgres-vector` | `stacks/automation/postgres-vector` | grinder | Carried | |
 | Embedding worker | `stacks/grinder/embedding-worker` | `stacks/automation/embedding-worker` | grinder | Carried | Its own small model on the CPU; never depended on roastery |
 | pourOver | `stacks/grinder/pourover` | `stacks/automation/pourover` | grinder | Changed | Talks to `llm.${DOMAIN}` and asks for the model `default`. **Check**: it was written against llama-swap; try its planning prompt against the cloud model before relying on it. Optional in `fleet.json` |
-| LiteLLM | | `stacks/ai/litellm` | grinder | New | The one door to a cloud model. Needs the provider, model and an API key. No master key, no database: reachable only on grinder's `proxy` network and through Authelia |
+| LiteLLM | | `stacks/ai/litellm` | grinder | New | The one door to a cloud model. Set up for any OpenAI-compatible endpoint until the provider is chosen: base URL, model id and API key. No master key, no database: reachable only on grinder's `proxy` network and through Authelia |
 | Open WebUI | `stacks/grinder/openwebui` | `stacks/ai/openwebui` | grinder | Changed | Points at LiteLLM instead of Ollama on roastery. Kept as the chat page; replace it if something lighter is wanted |
 | Immich ML | `stacks/roastery/immich-ml` | `stacks/ai/immich-ml` | grinder | Changed | CPU image instead of CUDA, model cache under `DATA_DIR`, port 3003 open to percolator only. Must stay on Immich's version |
 | llama-swap, game mode | `stacks/roastery/llama-swap`, `game-mode` | | | Source | Come back behind LiteLLM when there is a GPU again |

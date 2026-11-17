@@ -16,16 +16,16 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 
 **To decide (owner)**
 
-- [ ] Confirm or change the proposals in the 2026-11-16 entry below (P1 to P9)
-- [ ] Restore or start empty, app by app (plan, phase 0)
-- [ ] The cloud provider and model behind LiteLLM, and a spending limit on its key (phase 8)
-- [ ] Voice: engines on all three ThinkCentres, or percolator as microphone and speaker only (phase 9)
-- [ ] Review branch `claude/stack-rebuild`; merge or send it back. Not pushed (see the entry)
+- [x] Confirm or change the proposals in the 2026-11-16 entry below (P1 to P9): all confirmed (owner, 2026-11-17)
+- [x] Restore or start empty, app by app (plan, phase 0): every app starts empty (owner, 2026-11-17)
+- [ ] The cloud provider and model behind LiteLLM, and a spending limit on its key (phase 8). Still open; LiteLLM now takes any OpenAI-compatible endpoint until then (owner, 2026-11-17)
+- [x] Voice: engines on all three ThinkCentres (phase 9) (owner, 2026-11-17)
+- [x] Review branch `claude/stack-rebuild`: approved (owner, 2026-11-17). Push and merge still to be done
 
 **Phase 0: save what exists**
 
-- [ ] Copy each bootable node's data, dumps, `.env`, `.env.local`, `secrets.env.local` and `/etc/purrbrews` to an old HDD; second HDD as its copy (owner)
-- [ ] Find out whether a restic repository survives anywhere (roastery's disk, Google Drive) and where its password and the rclone crypt keys are (owner)
+- [x] Back up what is needed from the old nodes: done, by the owner's own means (owner, 2026-11-17). Not seen by Claude; nothing is restored from it in this plan
+- [x] An old restic repository: not needed, every app starts empty; phase 5 makes a new one (owner, 2026-11-17)
 
 **Phase 1: foundations**
 
@@ -47,7 +47,7 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 **Phase 5: backups**
 
 - [ ] W2: the repository's SFTP account on cellar; hub scripts and README without roastery; tests extended
-- [ ] Repository restored or initialised; password and crypt keys into the recovery kit the same day
+- [ ] A new repository (`restic init`); password and crypt keys into the recovery kit the same day
 - [ ] Every node: install, keys, doctor, one nightly by hand, enable
 - [ ] A restore test, and the Drive copy read back
 - [ ] Long SMART self-test on both old HDDs before they hold the offline copies
@@ -55,7 +55,7 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 
 **Phases 6 to 8: the apps**
 
-- [ ] percolator's household apps, one at a time, each with a night's backup behind it
+- [ ] percolator's household apps, one at a time, empty, each with a night's backup behind it
 - [ ] mochaPot: secondary Pi-hole, Home Assistant with `trusted_proxies` for the new subnet, the merged Traefik checked with host-networked apps, kiosk
 - [ ] grinder: LiteLLM healthy and `llm.${DOMAIN}` refusing a request without credentials; Open WebUI answering; Immich ML reachable from percolator only
 - [ ] pourOver's planning tried against the cloud model before it is switched on
@@ -63,12 +63,41 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 
 **Phases 9 to 11**
 
-- [ ] W4: voice designed and one room proven
+- [ ] W4: voice designed (Whisper and Piper on all three ThinkCentres) and one room proven
 - [ ] W5: tailnet join; the Remote Desktop grant out of `tailscale/policy.hujson`
 - [ ] Cloudflare tunnel routes in one pass; then the visitor-address check
 - [ ] Two-factor in Authelia once every account has enrolled
 - [ ] W6: node READMEs rewritten; roastery wording swept from app READMEs and comments
 - [ ] Carried from the old Backlog, still open: `barista` in the `docker` group; Samba, shares or gone; a bot identity for agents' commits; the merged branches on GitHub (owner)
+
+## 2026-11-17 — The owner's answers to the 2026-11-16 entry
+
+**What.** The owner answered the open decisions in the Backlog (in chat,
+2026-11-17 21:28 IST). Recorded here and applied on `claude/stack-rebuild`.
+
+- **P1 to P9 confirmed** as written below: machines, addresses, the repository
+  on cellar, Immich ML on grinder, LiteLLM's shape and route, the secondary
+  Pi-hole on mochaPot, the `proxy` network, the stack groups.
+- **Every app starts empty.** Nothing is restored from the old fleet. The
+  owner has already backed up what is needed (not seen by Claude). So phase 0
+  of the plan is done, phase 5 starts a new restic repository, and phase 6
+  brings each app up empty. meowGram 2.0.0 needs no dump first on an empty install.
+- **The LLM provider is still to be chosen.** Until then LiteLLM is set up for
+  any OpenAI-compatible endpoint: `LLM_UPSTREAM_API_BASE` (new),
+  `LLM_UPSTREAM_MODEL` (now the bare model id) and `LLM_UPSTREAM_API_KEY`, all
+  asked for by `./setup-secrets.sh`. LiteLLM's `openai/` prefix is in the template.
+- **Voice runs the engines (Whisper and Piper) on all three ThinkCentres**,
+  percolator included.
+- **The branch is approved.** Pushing is public, so it waits for the owner to
+  say how: push the branch and open a PR, or merge to `main` and push.
+
+**Evidence.** Offline tests as in the 2026-11-16 entry, run again after these
+edits (result in the commit message).
+
+**How to undo.** Revert this entry's commit. The decisions themselves are the owner's.
+
+**Next step.** Push (as the owner chooses); then phase 1: the machine checks,
+the router's facts, and W1, the bootstrap payload.
 
 ## 2026-11-16 — Rebuild after the move: stack layout, roastery out, cloud AI in (session handoff)
 
