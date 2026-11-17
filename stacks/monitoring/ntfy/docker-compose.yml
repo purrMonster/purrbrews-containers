@@ -11,7 +11,7 @@
 # Image: binwiederhier/ntfy.
 services:
   ntfy:
-    image: binwiederhier/ntfy:v2.29.0@sha256:4c599cf0818965782f93f652bd843e92714992e84d6b88ad17713dc0951cda1f
+    image: binwiederhier/ntfy:v2.38.1@sha256:038da2be5e668fee6d36a62884eea48975e1b71c29a56964e5298c1b9165a573
     container_name: ntfy
     command: serve
     user: ${PUID:?}:${PGID:?}

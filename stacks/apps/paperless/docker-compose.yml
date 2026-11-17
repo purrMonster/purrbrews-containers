@@ -3,7 +3,7 @@
 # Image tags checked 2026-10-10, pinned by tag and digest.
 services:
   paperless:
-    image: ghcr.io/paperless-ngx/paperless-ngx:3.3.0@sha256:6b94799bc769a063b3340cc5847402e626d4d91d29a295a8e747f8e9bead4207
+    image: ghcr.io/paperless-ngx/paperless-ngx:3.5.0@sha256:8c1e2c4e0abb50576c7a09f062ed581e2d955e298a302e1e196a35338639005e
     container_name: paperless
     restart: unless-stopped
     depends_on:
@@ -66,7 +66,7 @@ services:
       - traefik.http.services.paperless.loadbalancer.server.port=8000
 
   postgres:
-    image: postgres:18.6@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336
+    image: postgres:18.7@sha256:2ea8630df176ad090ec92136dee850397c5af8781e4bcf2e4162593691c61bbc
     container_name: paperless-postgres
     restart: unless-stopped
     environment:
@@ -85,7 +85,7 @@ services:
       retries: 10
 
   valkey:
-    image: valkey/valkey:9.1.2-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11
+    image: valkey/valkey:9.1.3-alpine@sha256:bf09d58e96d6b4524a15396b65b242bbe18beebbcc15a04d8ee75ddac62fae0b
     container_name: paperless-valkey
     restart: unless-stopped
     # The broker's queue survives restarts.

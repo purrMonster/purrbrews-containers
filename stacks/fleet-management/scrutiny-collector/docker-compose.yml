@@ -18,7 +18,7 @@
 # README calls the floating tags dangerous. Checked 2026-09-16.
 services:
   scrutiny-collector:
-    image: ghcr.io/analogj/scrutiny:v0.9.5-collector@sha256:e55394663d4430af7dec36b1979785a2a2481b317047077eac84acb8305d583d
+    image: ghcr.io/analogj/scrutiny:v0.10.0-collector@sha256:372493d3edf473571b806efb5922e8868537af644b3817536695cae05abd4f2c
     container_name: scrutiny-collector
     cap_add:
       - SYS_RAWIO   # smartctl on SATA

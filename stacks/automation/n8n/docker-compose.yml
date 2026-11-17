@@ -5,7 +5,7 @@
 # `latest` that was running).
 services:
   n8n:
-    image: n8nio/n8n:2.42.6@sha256:526daa38b68e923cc00c5280d18b4da5d489f115a73bdbf3b8e452b184197a9a
+    image: n8nio/n8n:2.49.0@sha256:684eb4c4f695cc6ca2a29c28ff880e17248189b4b56ed5b473153a5e6b19e4c8
     container_name: n8n
     environment:
       TZ: ${TZ}

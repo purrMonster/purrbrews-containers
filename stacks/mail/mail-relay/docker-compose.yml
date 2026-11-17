@@ -19,7 +19,7 @@
 # Dependabot proposes bumps.
 services:
   mail-relay:
-    image: boky/postfix:5.1.0-alpine@sha256:6e761312e833947f77af755072c0e77b67d298d127595470a79e9454008dd594
+    image: boky/postfix:5.2.1-alpine@sha256:f88cc3667ca4f48e0f96edc63fb1689b8f47430724b383938908449d17aa060b
     container_name: mail-relay
     restart: unless-stopped
     environment:

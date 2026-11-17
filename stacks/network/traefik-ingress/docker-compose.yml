@@ -2,7 +2,7 @@
 # Image tag checked 2026-09-15.
 services:
   traefik:
-    image: traefik:v3.7.14@sha256:575fa15b135078fe5e50aa847987d96dbddd7b093c172429618404df73f3fa7c
+    image: traefik:v3.7.19@sha256:aa942a00bce033c909bf1f7e861d93761be4b31a035f10d2410d33e38a8f41cf
     container_name: traefik
     restart: unless-stopped
     security_opt: [no-new-privileges:true]

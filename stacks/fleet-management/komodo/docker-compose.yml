@@ -17,7 +17,7 @@
 # every Periphery move together.
 services:
   mongo:
-    image: mongo:7.0.43@sha256:1f995ad6fdb93244a1addab1b58f934a0bc2f5643c38e02f5e9d7f0c7d227a7b
+    image: mongo:7.0.48@sha256:884c055bff8b7144ca44830d01826facd3083b33c4dea44b94a1476c62de3c32
     container_name: komodo-mongo
     labels:
       komodo.skip:   # keeps Komodo's "stop all containers" away from its own database
@@ -41,7 +41,7 @@ services:
     restart: unless-stopped
 
   komodo-core:
-    image: ghcr.io/moghtech/komodo-core:2.3.3@sha256:bca73d0eee143066228fb9b80c38a5a2726e573ad2758f7aa92b5c91a8aef1c7
+    image: ghcr.io/moghtech/komodo-core:2.3.4@sha256:91b2afd7b3bb2abea0ebd3046d65ec457eb1f3d505868d1d60cb0f8562490ef9
     container_name: komodo-core
     init: true
     depends_on:
@@ -102,7 +102,7 @@ services:
     restart: unless-stopped
 
   komodo-periphery:
-    image: ghcr.io/moghtech/komodo-periphery:2.3.3@sha256:fa3f1a641a265216066676950d5eecdf506955a7bafe2f01996135ae93115cd5
+    image: ghcr.io/moghtech/komodo-periphery:2.3.4@sha256:fb4b52961fcce7a31e3776930e422967b6640f653de876f59f26dea243e29beb
     container_name: komodo-periphery
     init: true
     depends_on:

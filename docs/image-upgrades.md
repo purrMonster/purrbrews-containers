@@ -42,7 +42,7 @@ start a version that hasn't been acknowledged in the node's `.env.local`.
 | App (node) | Key in `.env.local` | Acknowledge |
 |---|---|---|
 | OpenCloud (percolator) | `OPENCLOUD_UPGRADE_READY` | the pinned major, e.g. `7` |
-| Meilisearch for Karakeep (grinder) | `KARAKEEP_SEARCH_UPGRADE_READY` | the version, e.g. `1.41.0` |
+| Meilisearch for Karakeep (grinder) | `KARAKEEP_SEARCH_UPGRADE_READY` | the version, e.g. `1.55.0` |
 | Traccar (grinder) | `TRACCAR_UPGRADE_READY` | the version, e.g. `6.16` |
 | Open WebUI (grinder) | `OPENWEBUI_UPGRADE_READY` | the version, e.g. `0.11.4` |
 
@@ -91,10 +91,15 @@ our standalone 3.8.3 storage configuration in the
 and [v3 documentation](https://radicale.org/v3.html). Review future release
 notes; optional sharing formats are not enabled here.
 
-### Meilisearch 1.10 → 1.41.0 (Karakeep)
+### Meilisearch for Karakeep
 
-v1.41.0 is the version Karakeep's own compose pins for the release we run
-(0.33.2), not the newest Meilisearch: Karakeep is only tested against that one.
+> **2026-11-17:** every app starts empty in the rebuild, so this move needs no
+> steps now: Karakeep 0.35.0 and Meilisearch v1.55.0 start fresh and record
+> their version themselves. The steps below are for the next bump, on a running
+> install; they were written for 1.10 → 1.41.0 and still apply.
+
+The pin is the version Karakeep's own compose pins for the release we run
+(v1.55.0 for Karakeep 0.35.0), not the newest Meilisearch: Karakeep is only tested against that one.
 Move it when Karakeep's compose moves, and raise the `getmeili/meilisearch`
 ignore rule in `.github/dependabot.yml` with it.
 
@@ -103,15 +108,15 @@ own (bookmarks are in Karakeep's SQLite), so the simple way is to rebuild it:
 
 1. `./compose.sh karakeep down`
 2. Move `${DATA_DIR}/karakeep-meilisearch` aside (keep it for going back).
-3. Set `KARAKEEP_SEARCH_UPGRADE_READY=1.41.0`, then `./compose.sh karakeep up -d`.
+3. Set `KARAKEEP_SEARCH_UPGRADE_READY=<the new version>`, then `./compose.sh karakeep up -d`.
 4. In Karakeep's admin settings, reindex all bookmarks; check a search.
 
-The alternative, keeping the index, is a dump from 1.10 and an import into
-1.41.0 ([Meilisearch's guide](https://www.meilisearch.com/docs/resources/migration/updating)).
+The alternative, keeping the index, is a dump from the old version and an
+import into the new one ([Meilisearch's guide](https://www.meilisearch.com/docs/resources/migration/updating)).
 Going back: restore the moved directory and the old image.
 
 Karakeep's browser moved to upstream's own `karakeep-chrome` image, configured
-as in [Karakeep's compose](https://github.com/karakeep-app/karakeep/blob/v0.33.2/docker/docker-compose.yml).
+as in [Karakeep's compose](https://github.com/karakeep-app/karakeep/blob/v0.35.0/docker/docker-compose.yml).
 Check a new bookmark gets its screenshot.
 
 ### Traccar 6.2 → 6.16

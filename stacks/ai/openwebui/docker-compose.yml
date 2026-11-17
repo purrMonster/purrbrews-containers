@@ -12,7 +12,7 @@
 # install until OPENWEBUI_UPGRADE_READY is set (docs/image-upgrades.md).
 services:
   openwebui:
-    image: ghcr.io/open-webui/open-webui:v0.12.0@sha256:1565038903151ced924b5a3226f73f40f16963df4b910441f6391f10144afdaa
+    image: ghcr.io/open-webui/open-webui:v0.13.4@sha256:d5168bfbc28609eff5bea1b438dd864cf64d185cf6582c02244865e18385b901
     container_name: openwebui
     environment:
       OPENAI_API_BASE_URL: http://litellm:4000/v1

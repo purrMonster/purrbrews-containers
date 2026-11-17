@@ -11,7 +11,7 @@
 # or SMB and NFS will fight over ownership.
 services:
   smb:
-    image: ghcr.io/servercontainers/samba:latest@sha256:ac7c406702a3bf4137fcd04ce031d87adbda1b819f698fe89a89b5ee46618dfb
+    image: ghcr.io/servercontainers/samba:latest@sha256:40235b97bf0e85f0c1a02abf294c168f375425320af112bb204f8170a6f6801e
     container_name: smb
     environment:
       TZ: ${TZ}

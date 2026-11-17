@@ -10,7 +10,7 @@
 # is set (docs/image-upgrades.md).
 services:
   karakeep:
-    image: ghcr.io/karakeep-app/karakeep:0.33.2@sha256:b069e4307dec06ea06d16989c6861c30a1ff208568be44ed5fb5d422cd3e950c
+    image: ghcr.io/karakeep-app/karakeep:0.35.0@sha256:6f7d32ef296ddf1fc7c67ff56b8a201b7006a6a47b92b202afee1338841b353d
     container_name: karakeep
     environment:
       TZ: ${TZ}
@@ -46,7 +46,7 @@ services:
 
   chrome:
     # Upstream's maintained browser replaces the retired Chrome 124 image.
-    image: ghcr.io/karakeep-app/karakeep-chrome:release@sha256:c51a8c8e6c3c1040a50fa0ecfd0b2fc298401b4229262636552458151f6f18fa
+    image: ghcr.io/karakeep-app/karakeep-chrome:release@sha256:00fb4fa9c37aa74c58e74d0bdd16c4e3b81dddb5f264917c879f9579c3b3ad95
     container_name: karakeep-chrome
     init: true
     command:
@@ -69,7 +69,7 @@ services:
     restart: unless-stopped
 
   meilisearch:
-    image: getmeili/meilisearch:v1.41.0@sha256:860fa4baed04ae1c235de870edab0c8006227546dea1bbb6411fbfc5e27cf1db
+    image: getmeili/meilisearch:v1.55.0@sha256:ff546679970126f8822e15d1b6a06bfbff1f2ce2e43f810cfb5258012f92de5c
     container_name: karakeep-meilisearch
     environment:
       MEILI_NO_ANALYTICS: "true"

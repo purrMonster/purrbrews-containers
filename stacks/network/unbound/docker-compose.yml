@@ -11,7 +11,7 @@
 # sieve by construction, rather than by firewall rule or port remap.
 services:
   unbound:
-    image: klutchell/unbound:main@sha256:1700bf0de3e9d114f3b28c771239a04e3ce879a4c49f5b1e74ca4c480da4e694
+    image: klutchell/unbound:main@sha256:5af26c41f24021dc58a19dd641b09f008a66b90229723117c085293429c684f5
     container_name: unbound
     networks:
       dns:

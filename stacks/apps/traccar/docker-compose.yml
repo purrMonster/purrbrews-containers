@@ -13,7 +13,7 @@
 # TRACCAR_UPGRADE_READY is set (docs/image-upgrades.md).
 services:
   traccar:
-    image: traccar/traccar:6.16-alpine@sha256:03ebb7ed2b219d4f25c326873bd022f5062f80bcae622a9d9422846b51951eda
+    image: traccar/traccar:6.17-alpine@sha256:b32d9346adf46df7c33c58577e17ad60f6feadd1f3cd87c876041f6c79317ef1
     container_name: traccar
     ports:
       - "8082:8082"   # web UI

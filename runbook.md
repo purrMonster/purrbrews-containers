@@ -35,7 +35,8 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - [ ] W1: write the payload (static address and derived MAC, checkout, `/opt/purrbrews/.env`, directories, fetch-only timer) from `deprecated/init/`
 - [ ] Rehearse one fresh machine through the one-liner, twice
 - [ ] Close the open Dependabot PRs once this branch is merged; they target the old paths (owner)
-- [ ] First CI run on this layout: the three root-only backup tests have not run since they were edited
+- [ ] First CI run on this layout (PR #92). The three root-only backup tests passed locally as root on 2026-11-17 (see that entry); CI is the record
+- [ ] n8n 3.x and OpenCloud 9.x: majors held back in the 2026-11-17 image update; read their upgrade notes and decide before phases 6 and 8 (owner)
 
 **Phases 2 to 4: sieve, cellar, percolator's identity**
 
@@ -91,13 +92,48 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - **The branch is approved.** Pushing is public, so it waits for the owner to
   say how: push the branch and open a PR, or merge to `main` and push.
 
-**Evidence.** Offline tests as in the 2026-11-16 entry, run again after these
-edits (result in the commit message).
+**Pushed** as PR #92 (owner chose "push and open a PR").
 
-**How to undo.** Revert this entry's commit. The decisions themselves are the owner's.
+**Images updated** (owner: "update the containers along the way"). Every app
+starts empty, so no data has to survive these upgrades. Every pinned image is
+on its newest release as of 2026-11-17, read from each registry's tag list,
+with a few limits:
 
-**Next step.** Push (as the owner chooses); then phase 1: the machine checks,
-the router's facts, and W1, the bootstrap payload.
+- **Databases stay on their major version** (Postgres 16 and 18, PostGIS on
+  16, Mongo 7, pgvector on pg16): the apps that use them pin those majors.
+- **Apps with a newer major were held to their current one:** n8n stays on
+  2.x (3.3.0 exists) and OpenCloud on 7.x (9.x exists; Dependabot ignores its
+  majors by policy). Both are open in the Backlog.
+- **Pairs moved together:** Immich server and ML to v3.4.1 (Immich's own
+  compose keeps the same Postgres image); Komodo Core and Periphery to 2.3.4;
+  the Scrutiny hub and collector to v0.10.0; both Pi-holes to 2026.11.0;
+  Meilisearch to v1.55.0, the version Karakeep 0.35.0's compose pins (the
+  Dependabot ignore rule moved with it).
+- **Floating tags re-resolved to today's digest:** karakeep-chrome `release`,
+  unbound `main`, samba `latest`.
+- **The embedding worker's base** moved to `python:3.14.10-slim`, still 3.14,
+  because torch's wheels decide when 3.15 is safe.
+
+Digests come from `scripts/images.py`, one image at a time; each has a
+linux/amd64 build. Release notes were not read for each image; nothing has
+run on a node.
+
+**Evidence.** In a cloud workspace with Python 3.13, restic, rclone and
+sqlite3, on the commit with the image updates:
+
+- `python3 -m unittest discover -s tests`, as a normal user: 90 run, OK, 3
+  skipped (the root-only tests).
+- The same as root: 90 run, OK, 8 skipped (the tests that refuse root). The
+  three root-only backup tests passed: dump-and-files into a local repository,
+  drive-sync refusing an empty or different repository, and glob dumps named
+  by path. That is the first run of those three since the layout changed.
+- `test_groom_record` loads and passes on 3.13.
+- `shellcheck --severity=warning` is clean.
+
+**How to undo.** Revert this entry's commits. The decisions themselves are the owner's.
+
+**Next step.** The owner reviews and merges PR #92 once CI is green; then
+phase 1: the machine checks, the router's facts, and W1, the bootstrap payload.
 
 ## 2026-11-16 — Rebuild after the move: stack layout, roastery out, cloud AI in (session handoff)
 

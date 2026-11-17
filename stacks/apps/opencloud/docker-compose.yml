@@ -3,7 +3,7 @@
 # Existing installs wait for major acknowledgement via prepare.sh (image-upgrades.md).
 services:
   opencloud:
-    image: opencloudeu/opencloud:7.2.4@sha256:6d992ccc5f1cbc7b2a9b272ba25f879b1b159c2d7ed7f5527e09059f16295697
+    image: opencloudeu/opencloud:7.2.6@sha256:196f4137f69fd81ad241c4a17eae13902da6aa70b2567ea7c51ef9ac235f4d96
     container_name: opencloud
     user: ${PUID}:${PGID}
     restart: unless-stopped

@@ -13,7 +13,7 @@
 # compiles the devices' firmware; bump it deliberately, with Home Assistant's.
 services:
   esphome:
-    image: ghcr.io/esphome/esphome:2026.9.1@sha256:776a845d508909bf426d2ee7bdd81796361ebe6a7f091807ce1d6d0b48985413
+    image: ghcr.io/esphome/esphome:2026.10.2@sha256:4a918585150e95e7675be84a347384ff308fde1bd32d0e4472666e1252cc0e8f
     container_name: esphome
     network_mode: host
     environment:
