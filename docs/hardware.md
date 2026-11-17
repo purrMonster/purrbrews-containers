@@ -25,20 +25,34 @@ two 1 TB NVMe, two old 1 TB 2.5" SATA HDDs.
 
 The five node names and roles stay; the machines behind them are the ones the
 old fleet already used, so nothing is re-cased. What changes is where roastery's
-jobs go, one more RAM stick for cellar, and cellar's disk.
+jobs go, one more RAM stick for cellar, and the disks: the ThinkCentres don't
+boot from the 128 GB M.2 SATA drives (owner, 2026-11-18), so those stay with
+the x360s.
 
 | Node | Machine | Where | RAM | Disks | Role |
 |---|---|---|---|---|---|
-| `sieve` | ThinkCentre | Living room, wired to the Humax router | 8 GB | 128 GB M.2 SATA | Network: DNS, DHCP, tunnel, alerting. Voice |
-| `percolator` | ThinkCentre | Second room | 16 GB | 256 GB SATA SSD (OS) + 1 TB NVMe (`/srv/data`) | Ingress, identity, the household apps. Voice |
+| `sieve` | ThinkCentre | Living room, wired to the Humax router | 8 GB | 256 GB SATA SSD (2.5" bay) | Network: DNS, DHCP, tunnel, alerting. Voice |
+| `percolator` | ThinkCentre | Second room | 16 GB | 1 TB NVMe (OS and `/srv/data`) | Ingress, identity, the household apps. Voice |
 | `cellar` | ThinkCentre | Third room | 16 GB (was 8) | 1 TB NVMe (OS, dump store, **the restic repository**) | Backup hub, Komodo, Scrutiny. Voice |
 | `mochaPot` | x360 laptop | Wherever its screen is wanted | 8 GB | 128 GB M.2 SATA | Home Assistant, music, secondary DNS, kiosk |
-| `grinder` | x360 board | Next to a switch | 16 GB | 512 GB NVMe | Automation, LiteLLM, Immich ML, self-tracking |
+| `grinder` | x360 board | Next to a switch | 16 GB | 512 GB Intel NVMe (M.2) | Automation, LiteLLM, Immich ML, self-tracking |
 
-That uses all eight sticks (8 + 16 + 16 + 8 + 16) and every SSD. The two old
+That uses all eight sticks (8 + 16 + 16 + 8 + 16). The second 128 GB M.2 SATA
+drive is the spare. The two old
 HDDs stay out of the machines: they are the offline backup copies, written
 through the USB dock and kept unplugged (the old fleet had already retired
-them from live duty for their age).
+them from live duty for their age, and Scrutiny flagged one of them).
+
+Disks, as revised on 2026-11-18:
+
+- **The ThinkCentres don't boot from the 128 GB M.2 SATA drives** (owner,
+  2026-11-18). mochaPot keeps one; the other is the spare, which matters
+  because mochaPot's SanDisk has a history of command timeouts.
+- **grinder gets the 512 GB NVMe** in its M.2 slot (owner, 2026-11-18), as in
+  the old fleet. Its 2.5" SATA bay stays free for later.
+- **sieve runs on the 256 GB SATA SSD** in its 2.5" bay (owner, 2026-11-18). It
+  needs the least disk of the five.
+- **percolator runs on its 1 TB NVMe alone.** OS and household data share it.
 
 Why this way:
 
@@ -102,13 +116,15 @@ mochaPot's own touchscreen.
 1. `lsblk -d -o NAME,SIZE,MODEL` on each: the old files disagree with the list
    above in two places (sieve "a 240 GB 2.5" SATA SSD", cellar "a 256 GB NVMe").
    The table follows the owner's list.
-2. That a ThinkCentre boots from an M.2 **SATA** stick (sieve's proposed disk).
-   If not, sieve needs one of the 2.5" drives and the plan shifts by one disk.
-3. That each x360 has two memory slots (grinder's 16 GB needs both).
+2. ~~That a ThinkCentre boots from an M.2 SATA stick.~~ It doesn't (owner,
+   2026-11-18); the disks above follow from that.
+3. That each x360 has two memory slots (grinder's 16 GB needs both). grinder's
+   board has a 2.5" SATA bay as its second drive slot (owner, 2026-11-18).
 4. mochaPot's 128 GB SanDisk has a history of command timeouts (Scrutiny, old
-   runbook 2026-09-26 and 2026-09-30). The other 128 GB stick goes to sieve;
-   if either misbehaves there is no spare SSD.
-5. Both USB Ethernet adapters: that Debian 13 brings them up at boot and that
+   runbook 2026-09-26 and 2026-09-30). The other 128 GB drive is its spare.
+5. That a ThinkCentre boots from a 2.5" SATA SSD (sieve's disk). The old sieve
+   did, from "a 240 GB 2.5" SATA SSD".
+6. Both USB Ethernet adapters: that Debian 13 brings them up at boot and that
    the node's derived MAC sticks to them (the x360s have no port of their own).
-6. Memory speeds: 7th-gen boards run all of these sticks below their rated
+7. Memory speeds: 7th-gen boards run all of these sticks below their rated
    speed, so mixing 2666 and 3200 costs nothing. Keep the 3200 pair together.
