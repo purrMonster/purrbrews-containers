@@ -33,10 +33,11 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - [ ] The other machine checks in `docs/hardware.md` (`lsblk`, x360 memory slots, USB Ethernet) (owner)
 - [ ] The router's address, and that its DHCP turns off (owner)
 - [ ] purrbrews-bootstrap running on americano with americano's key in it (owner)
-- [ ] W1: write the payload (static address and derived MAC, checkout, `/opt/purrbrews/.env`, directories, fetch-only timer) from `deprecated/init/`
+- [x] W1: the payload is written (`payload/`, 2026-11-18). Tests run four of its steps as root; none of it has run on a machine yet
+- [ ] Serve the payload from americano (`payload/README.md`, "Serving it") (owner)
 - [ ] Rehearse one fresh machine through the one-liner, twice
 - [ ] Close the open Dependabot PRs once this branch is merged; they target the old paths (owner)
-- [ ] First CI run on this layout (PR #92). The three root-only backup tests passed locally as root on 2026-11-17 (see that entry); CI is the record
+- [x] First CI run on this layout: `tests` passed on PR #92's head c024bd3, including the root-only run (checked 2026-11-17 16:25 UTC)
 - [x] OpenCloud to 9.1.1, the production line (owner asked, 2026-11-17; notes read, `docs/image-updates-2026-11.md`)
 - [ ] n8n 3.x: only betas so far (2.48.4 is the newest stable); move once a stable 3.x is out, planned for early December. Check its SSRF list against tailnet addresses (`docs/image-updates-2026-11.md`)
 - [ ] OpenCloud 9.1: check the custom CSP lets Excalidraw, Apollon and previews load (phase 6)
@@ -73,6 +74,53 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - [ ] Two-factor in Authelia once every account has enrolled
 - [ ] W6: node READMEs rewritten; roastery wording swept from app READMEs and comments
 - [ ] Carried from the old Backlog, still open: `barista` in the `docker` group; Samba, shares or gone; a bot identity for agents' commits; the merged branches on GitHub (owner)
+
+## 2026-11-18 — W1: the bootstrap payload; Pi-hole's fleet list fixed
+
+**What.** The owner asked to start the payload. `payload/` is what
+purrbrews-bootstrap runs after its own steps to make a machine a node
+(`payload/README.md`). `purrbrews-node.sh`, the entry script, does these
+steps, each safe to run again:
+
+1. `packages`: installs NetworkManager.
+2. `repo`: clones the repo as the ops user; a re-run only fetches.
+3. `node`: checks the node exists in `nodes/`.
+4. `folders`: makes `/srv/data`, `/srv/media` and `/etc/purrbrews`, and writes `/opt/purrbrews/.env`.
+5. `hosts`: lists the other nodes in `/etc/hosts`.
+6. `timers`: installs the daily fetch, which never moves the checkout.
+7. `network`: last, sets the static address and fixed MAC, detached, with a rollback.
+
+Built from the old `init/`. Node addresses, gateway, LAN and timezone are
+read from `stacks/fleet.env` in the new checkout: one source. Root runs only
+the payload's own verified files, never files from the checkout, which the
+ops user can write to.
+
+**Found on the way.** `stacks/_lib/refresh-dns.sh` still called
+`init/purrbrews-mac.sh`, which moved to `deprecated/` on 2026-11-16, so
+rendering Pi-hole's records on sieve and mochaPot would have failed. The
+tests stub that call, so they didn't catch it. It now reads
+`scripts/fleet-macs.sh`, which shares the payload's fleet list
+(`payload/lib/fleet.sh`). A test now fails if live code calls the archive.
+
+**Evidence.**
+- **MACs unchanged:** `bash scripts/fleet-macs.sh` gives each node the MAC
+  the old fleet had (sieve `02:33:68:72:0b:17`, as in `deprecated/README.md`).
+- **Tests:** `tests/test_payload.py` (new) runs the `repo`, `node`,
+  `folders` and `hosts` steps twice as root against a throwaway checkout and
+  an unprivileged ops user. It also checks the MACs, overrides and broken
+  lists, the Pi-hole records, and that network is the last step and asks first.
+- **Full suite:** passes as root (90+9 run, 8 skipped) and as a normal user.
+  shellcheck is clean, and CI now also lints `payload/` and `scripts/`.
+
+**Not done.** The `packages`, `timers` and `network` steps haven't run on a
+machine. The payload isn't served from americano yet. Tailscale is still phase 10.
+
+**How to undo.** Revert this entry's commit. Nodes made with it keep their
+`.env`, timer and network profile; `nmcli connection delete purrbrews-<iface>`
+undoes the address.
+
+**Next step.** The owner serves the payload from americano; then one fresh
+machine through the one-liner, twice (phase 1), before sieve.
 
 ## 2026-11-18 — Disks re-planned: the ThinkCentres don't boot from M.2 SATA
 

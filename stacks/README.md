@@ -183,7 +183,7 @@ defines, a template that isn't gitignored, an app no node runs, two apps with on
 ## Adding a node
 
 1. A `<NODE>_LAN_IP` line in `fleet.env`, and the node set up with purrbrews-bootstrap
-   and its payload ([migration plan](../docs/migration-plan.md), phase 1).
+   and this repo's [payload](../payload/README.md). Its MAC is derived from its name.
 2. `nodes/<node>/` with the five wrapper scripts copied from any other node,
    `node.conf`, `local.env.example` (with its own `PROXY_SUBNET`) and `README.md`.
 3. In its `APPS`: `traefik`, `komodo-periphery` and `scrutiny-collector` as they are.

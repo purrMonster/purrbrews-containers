@@ -59,7 +59,9 @@ Every node also runs its own Traefik, a Komodo agent and a Scrutiny collector.
 stacks/                     the apps, by group: network, identity, mail, apps, home,
                             automation, ai, monitoring, fleet-management, backup
 nodes/                      node.conf, local.env.example and the wrapper scripts, per machine
-scripts/                    fleet.py (plan and deploy a reviewed commit), images.py (digests)
+scripts/                    fleet.py (plan and deploy a reviewed commit), images.py (digests),
+                            fleet-macs.sh (each node's address and MAC)
+payload/                    what purrbrews-bootstrap runs to make a fresh machine a node
 fleet.json                  each node's tier, optional apps and prerequisites
 tailscale/                  remote access: the tailnet policy
 runbook.md                  dated decisions and the backlog: the why, not just the what
@@ -73,7 +75,9 @@ have, how to add an app or a node, how backups and updates work.
 
 A fresh machine becomes a node with
 [purrbrews-bootstrap](https://github.com/purrMonster/purrbrews-bootstrap), a
-separate small server that hands out SSH keys and sets up a new Debian install.
+separate small server that hands out SSH keys and sets up a new Debian install,
+and then runs this repo's [`payload/`](payload/README.md): the checkout, the
+node's settings, its static address and fixed MAC.
 
 ## Design principles
 

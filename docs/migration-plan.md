@@ -23,7 +23,7 @@ Code this plan depends on that does not exist yet. Everything else is in the rep
 
 | # | What | Built from | Needed by |
 |---|---|---|---|
-| W1 | The fleet's payload for purrbrews-bootstrap: static address and derived MAC, the checkout in `/opt/purrbrews`, `/opt/purrbrews/.env`, data directories, the fetch-only timer | `deprecated/init/` | Phase 1 |
+| W1 | The fleet's payload for purrbrews-bootstrap: static address and derived MAC, the checkout in `/opt/purrbrews`, `/opt/purrbrews/.env`, data directories, the fetch-only timer. **Written 2026-11-18** (`payload/`), not yet run on a machine | `deprecated/init/` | Phase 1 |
 | W2 | The repository account on cellar (SFTP-only user, one folder, per-node keys), and the hub scripts without wake-on-LAN or the `roastery` remote | `deprecated/stacks/roastery/backup-target`, `stacks/backup/restic` | Phase 5 |
 | W3 | The recovery kit, built from americano | `deprecated/stacks/roastery/flask`, `deprecated/docs/flask.md` | Phase 5 |
 | W4 | Voice: Whisper, Piper, a satellite per ThinkCentre | nothing yet | Phase 9 |
@@ -49,20 +49,12 @@ empty.
 3. Review this branch and merge it; close the open Dependabot PRs (they target
    the old paths). CI runs the root-only backup tests, which could not run
    where this was written.
-4. Bring up purrbrews-bootstrap on americano from its release image; put
-   americano's public key in it; note the TLS pin.
-5. **W1, the payload.** What purrbrews-bootstrap already does and what is left:
-
-   | Old init step | Now |
-   |---|---|
-   | hostname, timezone, apt, ops user, SSH keys, SSH hardening, power, journald, Docker, firewall | purrbrews-bootstrap's own steps |
-   | repo (clone to `/opt/purrbrews`), directories (`/srv/data`, `/srv/media`, `/srv/dumps`) | payload |
-   | `/opt/purrbrews/.env` (`NODE`, `NODE_IP`, `PUID`, `PGID`, `DATA_DIR`, `MEDIA_DIR`) | payload. `_lib` reads `NODE` from it to know which node it is on |
-   | network (static address, MAC derived from the node name, rollback if the gateway stops answering) | payload, from `net-apply.sh` and `node-mac.sh` |
-   | timers (daily fetch, never a pull) | payload, from `purrbrews-pull.sh` |
-   | tailscale | phase 10 |
-
-   The payload is public (anyone on the LAN can download it), so it carries no
+4. Bring up purrbrews-bootstrap on americano from its release5. **W1, the payload:** written 2026-11-18, in [`payload/`](../payload/README.md).
+   purrbrews-bootstrap does the general steps; `payload/purrbrews-node.sh` does
+   the rest: the checkout, `/opt/purrbrews/.env`, the data folders, `/etc/hosts`,
+   the daily fetch and, last, the static address with the node's fixed MAC.
+   Addresses come from `stacks/fleet.env`. Serve it from americano as its README says.
+so it carries no
    secret and not the domain, like this repo.
 6. Rehearse on one machine that holds nothing yet: Debian 13 netinst with the SSH
    server, the bootstrap one-liner with the payload, then `ssh barista@<address>`.

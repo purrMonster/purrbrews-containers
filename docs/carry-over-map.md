@@ -122,9 +122,9 @@ Nothing in this table has run on a node since the move. "Not run" in the
 | Fleet policy | `fleet.json` | same | Changed | Five nodes |
 | Deploy runner | `scripts/fleet.py`, `scripts/images.py` | same | Changed | Paths only |
 | Bootstrap container | `bootstrap/` | | Archived | Replaced by [purrbrews-bootstrap](https://github.com/purrMonster/purrbrews-bootstrap) (owner's decision) |
-| Node init | `init/purrbrews-init.sh` | | Source | purrbrews-bootstrap covers hostname, timezone, packages, user, keys, SSH, power, journald, Docker and the firewall. The rest becomes its payload: migration plan, phase 1 |
-| Network apply, derived MACs | `init/lib/net-apply.sh`, `node-mac.sh`, `init/purrbrews-mac.sh` | | Source | For the payload: static address with rollback, MAC from the node name |
-| Fetch-only timer | `init/lib/purrbrews-pull.sh` | | Source | For the payload. Its test left `tests/` with it |
+| Node init | `init/purrbrews-init.sh` | `payload/purrbrews-node.sh` | Changed | purrbrews-bootstrap covers hostname, timezone, packages, user, keys, SSH, power, journald, Docker and the firewall. The payload (2026-11-18) does the checkout, `.env`, folders, `/etc/hosts`, the fetch timer and the network; Tailscale is phase 10 |
+| Network apply, derived MACs | `init/lib/net-apply.sh`, `node-mac.sh`, `init/purrbrews-mac.sh` | `payload/lib/`, `scripts/fleet-macs.sh` | Carried | Same MACs as before. `stacks/_lib/refresh-dns.sh` now reads `scripts/fleet-macs.sh`: it still called the archived `init/purrbrews-mac.sh` until 2026-11-18 |
+| Fetch-only timer | `init/lib/purrbrews-pull.sh` | `payload/lib/purrbrews-pull.sh` | Carried | Installed by the payload's timers step |
 | SSH key sync | `init/lib/sync-ssh-keys.sh` | | Archived | purrbrews-bootstrap's own sync replaces it |
 | LAN DNS for a client | `init/use-lan-dns.py` | | Source | Still useful on a node after DHCP moves to Pi-hole |
 | roastery init | `init/roastery-init.ps1`, `init/lib/windows-runtime.ps1` | | Archived | |
