@@ -1,0 +1,66 @@
+# purrBrews map
+
+One page to find everything. Update it whenever a project, doc or node is added.
+Decisions and their reasons live in [`runbook.md`](../runbook.md); this page only
+points.
+
+_Last updated: 2026-10-16_
+
+## Start here
+
+| Doc | What it's for |
+|---|---|
+| [`README.md`](../README.md) | What the fleet is, how a node is built, design principles |
+| [`AGENTS.md`](../AGENTS.md) | Rules for every AI agent working here: scope, git, evidence, nodes, handoff |
+| [`runbook.md`](../runbook.md) | Dated decisions (newest first) and the backlog, ticked only on evidence |
+| [`docs/network-audit.md`](network-audit.md) | September 2026 fleet audit: DNS/IPv6 findings and rollout |
+| [`stacks/README.md`](../stacks/README.md) | How every node's stacks work, and how to add an app or a node |
+| [`tailscale/README.md`](../tailscale/README.md) | Remote access: SSH to the nodes and RDP to roastery over the tailnet |
+| [`docs/flask.md`](flask.md) | flask, the offline recovery kit: what's on it, which secrets, how it's kept |
+| [`stacks/README.md#updates`](../stacks/README.md#updates) | How image updates arrive (Dependabot PRs, weekly) and old images are cleaned up |
+| [`docs/operations.md`](operations.md) | Deploying a reviewed commit (`scripts/fleet.py`), recovery, proposed recovery targets |
+| [`docs/llama-swap-consumption.md`](llama-swap-consumption.md) | Client URLs, Basic authentication, models, request examples and troubleshooting for roastery's LLM API |
+| [`docs/image-upgrades.md`](image-upgrades.md) | Tag-and-digest pins, paired images, and the upgrades held until acknowledged (OpenCloud, Meilisearch, Traccar, Open WebUI) |
+| [`.github/`](../.github) | Dependabot's update PRs, and the tests run on every PR and push to `main` |
+
+## Nodes
+
+| Node | IP | Role | README |
+|---|---|---|---|
+| sieve | .10 | Network: Pi-hole, Unbound, cloudflared, ntfy, Gatus, NetAlertX | [stacks/sieve](../stacks/sieve/README.md) |
+| percolator | .11 | Ingress + identity (Traefik, Authelia, LLDAP) and daily apps | [stacks/percolator](../stacks/percolator/README.md) |
+| cellar | .12 | Backups (restic), shares, Scrutiny hub, Komodo | [stacks/cellar](../stacks/cellar/README.md) |
+| mochaPot | .13 | Home Assistant, Music Assistant, secondary Pi-hole, kiosk | [stacks/mochaPot](../stacks/mochaPot/README.md) |
+| grinder | .14 | Automation + AI indexing (n8n, pgvector, embeddings, Open WebUI, Karakeep, pourOver) | [stacks/grinder](../stacks/grinder/README.md) |
+| roastery | — | Windows workstation: bootstrap server, llama-swap (local LLMs, 3080) with game mode, Immich ML | [stacks/roastery](../stacks/roastery/README.md) |
+
+## Projects
+
+| Project | Status | Plan | Runbook entry |
+|---|---|---|---|
+| Fleet rebuild (purrbrews-containers) | Linux stacks running; roastery being rebuilt after its 2026-10-07 wipe (`init/roastery-init.ps1`) | [README](../README.md) | 2026-09-15 → 2026-09-16 entries |
+| One toolkit for every node (`stacks/_lib`, `node.conf`) | Done; rolling out node by node | [stacks/README.md](../stacks/README.md) | 2026-09-26 — One toolkit for every node |
+| Backups (restic sources, DB dumps, restore test) | Nightly since 2026-09-28; restore tests from roastery and Drive passed 2026-09-29. roastery's repository to restore from Drive after the wipe | [cellar/restic](../stacks/cellar/restic/README.md) | Backlog |
+| Remote access (Tailscale on every machine, SSH + RDP) | Done; checked from outside the house 2026-09-28 | [tailscale](../tailscale/README.md) | 2026-09-27 — Remote access over Tailscale |
+| flask (offline recovery kit: two bootable USB sticks + paper) | Stick A built and verified 2026-09-29; vault, B and paper next | [docs/flask.md](flask.md) | 2026-09-28 — flask, the recovery kit |
+| Local LLMs on roastery (llama-swap replaces Ollama; game mode) | On `main` (#7); to bring up on the rebuilt roastery (`roastery-init.ps1`, `apps` step) | [llama-swap](../stacks/roastery/llama-swap/README.md), [game mode](../stacks/roastery/game-mode/README.md) | 2026-10-07 — roastery wiped; llama-swap replaces Ollama |
+| Fleet mail (relay to Purelymail as `purrBrews@`; reading the mailbox with n8n + local AI next) | On `main` (#37), not yet running; needs the Purelymail app password | [mail-relay](../stacks/percolator/mail-relay/README.md) | 2026-10-08 — Fleet mail through Purelymail |
+| purrCafe (household dashboard, own repo; wall view for the kiosk) | Stack on percolator (this PR), not yet running; panels filled in one at a time | [purrcafe](../stacks/percolator/purrcafe/README.md) | 2026-10-14 — purrCafe joins percolator |
+| Smart desk / smart mirror | Idea | — | — |
+
+## Where data lives (quick reference)
+
+| Kind of thing | App | Node |
+|---|---|---|
+| Links / read-later | Karakeep | grinder |
+| Tasks by text (meowGram → Vikunja) | pourOver | grinder |
+| Documents | Paperless-ngx | percolator |
+| Photos, screenshots | Immich | percolator |
+| Files | [OpenCloud](../stacks/percolator/opencloud/README.md) | percolator |
+| Calendars, contacts | [Radicale](../stacks/percolator/radicale/README.md) | percolator |
+| Tasks | Vikunja | percolator |
+| Passwords | Vaultwarden | percolator |
+| Recipes | Mealie | percolator |
+| Budget | Actual Budget | percolator |
+| Household dashboard (saved mailboxes, home.json) | purrCafe (own repo) | percolator |
+| Chat | [meowGram](../stacks/percolator/meowgram/README.md) (own repo) | percolator |

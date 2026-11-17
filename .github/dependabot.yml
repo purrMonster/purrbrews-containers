@@ -9,8 +9,8 @@
 #
 # Reading a PR: the release notes come first. Some images must move in pairs
 # and arrive as separate PRs; merge them together:
-#   - immich-app/immich-server (percolator) and
-#     immich-app/immich-machine-learning (roastery): same version, always.
+#   - immich-app/immich-server (stacks/apps/immich) and
+#     immich-app/immich-machine-learning (stacks/ai/immich-ml): same version, always.
 #   - moghtech/komodo-core and moghtech/komodo-periphery: same version.
 #   - getmeili/meilisearch: only to the version Karakeep's own compose pins
 #     for the Karakeep release we run (an ignore rule below holds it there).
@@ -38,8 +38,8 @@ updates:
       default-days: 7
     open-pull-requests-limit: 10
     groups:
-      # One PR per image, covering every node that runs it: all five
-      # Traefiks, every Periphery, the Scrutiny hub and its collectors.
+      # One PR per image, covering every folder that pins it: the three
+      # Traefiks, the Scrutiny hub and its collector.
       per-image:
         group-by: dependency-name
         patterns: ["*"]
@@ -60,17 +60,17 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "opencloudeu/opencloud"
         update-types: ["version-update:semver-major"]
-      # Only the version Karakeep's own compose pins (v1.41.0 for 0.33.2): it
+      # Only the version Karakeep's own compose pins (v1.55.0 for 0.35.0): it
       # isn't tested against newer. Raise this with Karakeep, by hand.
       - dependency-name: "getmeili/meilisearch"
-        versions: [">1.41.0"]
+        versions: [">1.55.0"]
     commit-message:
       prefix: "deps"
     labels: ["dependencies", "images"]
 
-  # grinder's embedding worker: its Python packages and its base image.
+  # The embedding worker: its Python packages and its base image.
   - package-ecosystem: pip
-    directory: "/stacks/grinder/embedding-worker"
+    directory: "/stacks/automation/embedding-worker"
     schedule:
       interval: weekly
       day: monday
@@ -82,20 +82,16 @@ updates:
       prefix: "deps"
     labels: ["dependencies", "python"]
 
-  # Dockerfile base images: the embedding worker's and purrbrews-bootstrap's.
+  # Dockerfile base images: the embedding worker's. (purrbrews-bootstrap has
+  # its own repository and its own Dependabot since the 2026-11 rebuild.)
   - package-ecosystem: docker
     directories:
-      - "/stacks/grinder/embedding-worker"
-      - "/bootstrap"
+      - "/stacks/automation/embedding-worker"
     schedule:
       interval: monthly
       timezone: Asia/Kolkata
     cooldown:
       default-days: 7
-    ignore:
-      # nginx's odd minors are its mainline; bootstrap stays on stable (even).
-      - dependency-name: "nginx"
-        versions: ["1.31.x", "1.33.x", "1.35.x", "1.37.x", "1.39.x"]
     commit-message:
       prefix: "deps"
     labels: ["dependencies", "images"]

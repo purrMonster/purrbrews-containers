@@ -1,0 +1,11 @@
+[Unit]
+Description=restic retention for the whole repository (forget --prune)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/purrbrews/stacks/backup/restic/restic-prune.sh
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=6h

@@ -17,6 +17,11 @@ here, not even as examples or drafts:
 
 If a task starts pulling that work in here, stop and ask where it belongs.
 
+Layout since the 2026-11 rebuild: an app lives once, under `stacks/<group>/<app>`;
+a machine is `nodes/<node>/`. `deprecated/` is the fleet as it was before, kept
+unedited: don't change anything there, and don't treat what it says as current.
+The runbook before 2026-11-16 is `deprecated/runbook.md`.
+
 ## Before you change anything
 
 1. Read this file, the runbook's Backlog, its newest entries, and

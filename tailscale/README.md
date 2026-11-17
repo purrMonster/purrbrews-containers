@@ -20,7 +20,7 @@ The app names work the same away from home as at home, with the same valid
 certificates and the same Authelia login:
 
 - **cellar and grinder are subnet routers** (`TAILSCALE_SUBNET_ROUTERS`). They
-  advertise `192.168.0.0/23`, and forward only web (443) and DNS (53) onto the LAN,
+  advertise `192.168.1.0/23`, and forward only web (443) and DNS (53) onto the LAN,
   NATed, so every node sees them as an ordinary LAN client and its existing
   firewall rules apply unchanged. Two of them, so either can be down.
 - **Why a /23 when the house is a /24:** a device picks the most specific route.
@@ -34,7 +34,7 @@ certificates and the same Authelia login:
 
 Two things to know:
 
-- Away from home on a network that is itself `192.168.0.x` or `192.168.1.x` (common
+- Away from home on a network that is itself `192.168.1.x` or `192.168.1.x` (common
   in homes and cafés), that network's own route wins and the app names won't load.
   `ssh barista@<node>` still works (it uses tailnet addresses).
 - Linux clients need `tailscale up --accept-routes`; macOS, Windows, iOS and Android
@@ -66,8 +66,8 @@ security fixes.
   This replaces Tailscale's default allow-all. **Do this before any node joins**,
   or init's `--advertise-tags` is refused.
 - *DNS* → MagicDNS on, so `sieve` resolves to its tailnet address on your laptop.
-- *DNS* → *Add nameserver* → *Custom* → `192.168.0.10`, tick *Restrict to domain*,
-  enter your domain. Again with `192.168.0.13`. That's the split DNS; it can't be
+- *DNS* → *Add nameserver* → *Custom* → `192.168.1.10`, tick *Restrict to domain*,
+  enter your domain. Again with `192.168.1.13`. That's the split DNS; it can't be
   set from the policy file.
 
 **2. Your laptop and phone:** install Tailscale, sign in with the same account.
@@ -78,7 +78,7 @@ roastery like any other key; the nodes pick it up within the hour.
 
 ```bash
 cd /opt/purrbrews && git fetch && git checkout <reviewed commit>   # docs/operations.md
-sudo bash init/purrbrews-init.sh --only tailscale
+sudo bash deprecated/init/purrbrews-init.sh --only tailscale
 ```
 
 It installs Tailscale from its apt repo, adds the two UFW rules, then prints a
@@ -96,7 +96,7 @@ served openly, and init and the bootstrap container both refuse one.
 
 Then in the admin console, *Machines → roastery → Disable key expiry* (it's
 joined as you, not tagged, so its key would lapse after 180 days). Details in
-[`stacks/roastery/README.md`](../stacks/roastery/README.md#remote-access).
+[`deprecated/stacks/roastery/README.md`](../deprecated/stacks/roastery/README.md#remote-access).
 
 ## Is it working?
 
@@ -112,8 +112,8 @@ you actually saw:
   both time out.
 - Away from home: `https://immich.<domain>` and an admin page such as
   `https://pihole.<domain>` load after the Authelia login, and
-  `nc -zv -w3 192.168.0.13 8123` (a backdoor port) times out.
-- Admin console → *Machines*: cellar and grinder show *Subnets* `192.168.0.0/23`,
+  `nc -zv -w3 192.168.1.13 8123` (a backdoor port) times out.
+- Admin console → *Machines*: cellar and grinder show *Subnets* `192.168.1.0/23`,
   approved. On each, `systemctl is-active purrbrews-tailscale-nat` says `active`.
 - `mstsc /v:roastery` opens a session, after waking it through cellar if it was
   asleep.
@@ -127,15 +127,15 @@ you actually saw:
 - **Revoke a device:** admin console → *Machines* → the device → *Remove*. For a
   lost laptop, also delete its SSH key from `bootstrap/data/authorized_keys`.
 - **Re-run the step** after changing `TAILSCALE_TAGS` or if a node was removed:
-  `sudo bash init/purrbrews-init.sh --only tailscale`. It restates the whole
+  `sudo bash deprecated/init/purrbrews-init.sh --only tailscale`. It restates the whole
   configuration each time (`--reset`).
 - **roastery asleep:** `ssh barista@cellar`, then
-  `/opt/purrbrews/stacks/cellar/restic/wake-roastery.sh`.
+  `/opt/purrbrews/stacks/backup/restic/wake-roastery.sh`.
 
 ## Not done here (on purpose, for now)
 
 - **The internet at large.** Apps for people without Tailscale go through
-  Cloudflare Tunnel instead (`stacks/sieve/cloudflared/`), admin pages never.
+  Cloudflare Tunnel instead (`stacks/network/cloudflared/`), admin pages never.
 - **Cloud VMs.** Join them with their own tag (say `tag:cloud`) and give that tag
   its own narrow grants in the policy; nothing about the nodes changes.
 - **Headscale.** If the Tailscale-run control server ever bothers you, the

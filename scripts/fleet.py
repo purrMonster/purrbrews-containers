@@ -28,15 +28,15 @@ def inventory(root=ROOT):
     nodes = policy["nodes"]
     if not isinstance(nodes, dict) or not nodes:
         raise ValueError("fleet.json must contain a nonempty nodes object")
-    discovered = {path.parent.name for path in (root / "stacks").glob("*/node.conf")}
+    discovered = {path.parent.name for path in (root / "nodes").glob("*/node.conf")}
     if set(nodes) != discovered:
-        raise ValueError("fleet.json nodes must match stacks/*/node.conf")
+        raise ValueError("fleet.json nodes must match nodes/*/node.conf")
     for name, node in nodes.items():
         if not isinstance(node, dict):
             raise ValueError(f"{name}: policy must be an object")
         if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]*", name):
             raise ValueError("Invalid node identifier")
-        directory = root / "stacks" / name
+        directory = root / "nodes" / name
         text = (directory / "node.conf").read_text(encoding="utf-8")
         matches = re.findall(r"^APPS=\(([^)]*)\)", text, re.M)
         if len(matches) != 1:
@@ -46,9 +46,12 @@ def inventory(root=ROOT):
             raise ValueError(f"{name}: empty or duplicate app list")
         if any(not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_-]*", app) for app in apps):
             raise ValueError(f"{name}: invalid app identifier")
-        present = {path.parent.name for path in directory.glob("*/docker-compose.yml")}
-        if set(apps) != present:
-            raise ValueError(f"{name}: APPS must match Compose directories")
+        for app in apps:
+            # One home per app, whichever node runs it: stacks/<group>/<app>.
+            homes = [path for path in (root / "stacks").glob(f"*/{app}/docker-compose.yml")
+                     if path.parent.parent.name != "_lib"]
+            if len(homes) != 1:
+                raise ValueError(f"{name}: {app} needs exactly one stacks/<group>/{app}/docker-compose.yml")
         if node.get("platform") not in ("linux", "windows"):
             raise ValueError(f"{name}: unsupported platform")
         optional = node.get("optional", [])
@@ -74,7 +77,7 @@ def selected_apps(node, included):
 
 
 def command_plan(root, name, node, included, timeout):
-    directory = root / "stacks" / name
+    directory = root / "nodes" / name
     apps = selected_apps(node, included)
     if node["platform"] == "linux":
         phases = [("configure", ["bash", str(directory / "setup-secrets.sh")]),
@@ -181,7 +184,7 @@ def deploy(root, name, node, args):
                 record["phase"] = phase
                 save_state(state_path, record)
                 print(f"[{name}] {phase}", flush=True)
-                subprocess.run(command, cwd=root / "stacks" / name, check=True,
+                subprocess.run(command, cwd=root / "nodes" / name, check=True,
                                env=dict(os.environ, PURRBREWS_KEEP_IMAGES="1"))
                 record["completed_phases"].append(phase)
             record["status"] = "succeeded"

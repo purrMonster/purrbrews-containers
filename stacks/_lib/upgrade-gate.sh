@@ -29,7 +29,7 @@ image="${5:?image repository required}"
 part="${6:-full}"
 
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
-load_node "$app_dir/.."
+load_node "$(this_node_dir)"
 
 tag="$(sed -nE "s|^[[:space:]]*image:[[:space:]]*${image//./\\.}:([^@[:space:]]+).*|\1|p" \
   "$app_dir/docker-compose.yml" | head -n1)"

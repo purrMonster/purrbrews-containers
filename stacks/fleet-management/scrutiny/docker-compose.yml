@@ -1,0 +1,59 @@
+# Scrutiny: SMART disk health for the fleet. This is the hub (web UI,
+# collector and InfluxDB in one container). It watches cellar's own two disks
+# directly, and every other node's scrutiny-collector posts here.
+#
+# No login of its own at all. Through Traefik it sits behind Authelia; the
+# published port is only as private as the LAN. I've accepted that for a
+# page of disk temperatures.
+#
+# Image: ghcr.io/analogj/scrutiny (omnibus) (GHCR only; the Docker Hub
+# copies are third-party mirrors). Not `latest-omnibus`, which upstream calls
+# dangerous. Keep the collectors on the same version. Checked 2026-09-16.
+services:
+  scrutiny:
+    image: ghcr.io/analogj/scrutiny:v0.10.0-omnibus@sha256:90062edac57a2bd891d641344184f5f730f19394b1124f6fc53904a3d8cb21c2
+    container_name: scrutiny
+    cap_add:
+      - SYS_RAWIO   # smartctl on SATA (the HDD)
+      - SYS_ADMIN   # smartctl on NVMe
+    # The collectors on other nodes post here directly, and it's the way in
+    # when Traefik is down. firewall limits it to the LAN.
+    ports:
+      - "8080:8080"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.scrutiny.rule=Host(`scrutiny.${DOMAIN}`)"
+      - "traefik.http.routers.scrutiny.entrypoints=websecure"
+      - "traefik.http.routers.scrutiny.tls.certresolver=cloudflare"
+      - "traefik.http.routers.scrutiny.middlewares=authelia-forwardauth@file"
+      - "traefik.http.services.scrutiny.loadbalancer.server.port=8080"
+    volumes:
+      - ${DATA_DIR:?}/scrutiny/config:/opt/scrutiny/config
+      - ${DATA_DIR:?}/scrutiny/influxdb:/opt/scrutiny/influxdb
+      - /run/udev:/run/udev:ro
+    devices:
+      # NVMe (the OS and restic's cache) and the HDD (the restic repository).
+      - ${DISK_DEVICE:?set DISK_DEVICE in .env.local}
+      # A second internal disk, if the hub has one; /dev/null otherwise.
+      - ${DISK_DEVICE_2:-/dev/null}
+    environment:
+      # Same schedule as the collectors on the other nodes (every 6 hours, UTC).
+      # Without it the hub collects once a day, so cellar's disks lagged.
+      COLLECTOR_CRON_SCHEDULE: "0 */6 * * *"
+      # Groups cellar's own disks under its name, like the other nodes' collectors.
+      COLLECTOR_HOST_ID: ${NODE:?NODE comes from /opt/purrbrews/.env}
+    # Liveness of the web app and its API. It answered {"success":true} with
+    # InfluxDB stopped too (tested 2026-10-08), so it says nothing about the
+    # database; Scrutiny's own UI shows that.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-m", "5", "http://localhost:8080/api/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+networks:
+  default:
+    name: proxy
+    external: true

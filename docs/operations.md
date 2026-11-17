@@ -1,7 +1,7 @@
 # Fleet operations
 
-This is infrastructure for six hosts. Compose files define services;
-`stacks/<node>/node.conf` defines their order; `fleet.json` adds platform,
+This is infrastructure for five hosts. Compose files define services;
+`nodes/<node>/node.conf` defines their order; `fleet.json` adds platform,
 service tier, optional apps and prerequisites. No second list of IPs or app order.
 
 ## Release workflow
@@ -50,9 +50,8 @@ phase before retrying; there is no automatic data rollback.
 
 Cellar excludes SMB and the separately maintained watcher by default. Select
 `--include-optional smb` or `--include-optional persian-perch` only after their own
-READMEs' prerequisites are complete. Windows uses `python scripts/fleet.py ...`
-and its existing PowerShell helpers; native firewall, Traefik, game mode and GPU
-drivers remain explicit steps in roastery's README.
+READMEs' prerequisites are complete. (The Windows path in `fleet.py` is unused
+since roastery left the fleet in the 2026-11 rebuild.)
 
 ## Provisioning versus deployment
 
@@ -69,7 +68,7 @@ editing this repo alone does not replace an already installed helper.
   the affected app; verify its routes, DNS and alert paths.
 - Database/application migrations: restore a matched pre-upgrade data backup and
   image version. Reverting Git or an image tag alone is not a database rollback.
-- Backups: follow [cellar/restic](../stacks/cellar/restic/README.md), including its
+- Backups: follow [cellar/restic](../stacks/backup/restic/README.md), including its
   restore test and repository identity checks. Run a restore to an isolated path;
   never use a healthy production directory as the test destination.
 - Network/DNS: retain console or Tailscale access and the router fallback before
@@ -88,11 +87,12 @@ they are not claims about current availability or capacity.
 | Household | home automation and music | restore within 4 hours | local controls work without ingress/identity |
 | Optional/compute | automation, indexing, GPU | next maintenance window | app-specific smoke checks |
 
-The backup target still depends on roastery. Moving it to independent storage,
-adding an offline/immutable copy, completing the recovery kit and measuring
-power-loss recovery require hardware/live work. Preserve these as open runbook
-items until verified. Linux source tests cannot prove Windows GPU support,
-household DNS failover, real data migration or external alert delivery.
+The backup repository is moving from roastery to cellar and is not usable until
+that is built ([migration plan](migration-plan.md), phase 5). Adding an
+offline/immutable copy, rebuilding the recovery kit and measuring power-loss
+recovery require hardware/live work. Preserve these as open runbook items until
+verified. Source tests cannot prove household DNS failover, real data
+migration or external alert delivery.
 
 ## Secrets
 

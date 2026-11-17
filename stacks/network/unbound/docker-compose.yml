@@ -1,0 +1,46 @@
+# Unbound — recursive, DNSSEC-validating resolver. Pi-hole's only upstream.
+#
+# Image: klutchell/unbound:main, pinned by digest (2026-10-10). The project
+# publishes no version tags (CI builds tagged by branch/commit), so `main` is the
+# only tag there is; the digest keeps the resolver between the house and the
+# internet from changing under a pull. Dependabot proposes each new build.
+#
+# Networking: its own bridge network with a fixed address and NO published ports.
+# Pi-hole runs with host networking, so it reaches ${UNBOUND_IP} directly over the
+# bridge; nothing on the LAN can. That makes the resolver unreachable from outside
+# sieve by construction, rather than by firewall rule or port remap.
+services:
+  unbound:
+    image: klutchell/unbound:main@sha256:5af26c41f24021dc58a19dd641b09f008a66b90229723117c085293429c684f5
+    container_name: unbound
+    networks:
+      dns:
+        ipv4_address: ${UNBOUND_IP:?set UNBOUND_IP in .env.local}
+    volumes:
+      # Additive: merged into the image's default config (root hints, DNSSEC,
+      # caching, serve-expired). This file only narrows who may query.
+      - ./config:/etc/unbound/custom.conf.d:ro
+    # drill-hc is the image's shell-less wrapper around drill (upstream's own
+    # example). It exits 0 whenever Unbound answers, SERVFAIL included, so this
+    # is liveness only: a hung or dead resolver goes unhealthy. Recursion and
+    # DNSSEC are Gatus's checks. Exec form: the image has no shell.
+    healthcheck:
+      test: ["CMD", "drill-hc", "@127.0.0.1", "dnssec.works"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    # Not read_only: Unbound rewrites its DNSSEC trust anchor (root.key) as the root
+    # key rolls over (RFC 5011).
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE, SETUID, SETGID]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+
+networks:
+  dns:
+    name: sieve_dns
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${DNS_SUBNET:?set DNS_SUBNET in .env.local}

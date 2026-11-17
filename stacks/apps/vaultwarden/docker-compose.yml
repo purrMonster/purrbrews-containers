@@ -1,0 +1,61 @@
+# Vaultwarden — Bitwarden-compatible password manager.
+# Image tag checked 2026-09-15.
+services:
+  vaultwarden:
+    image: vaultwarden/server:1.37.5@sha256:4fe17f415f90087377d37c755e0ea3cf189dcc6794e49cdd2a9adbb4937d9e1f
+    container_name: vaultwarden
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+      DOMAIN: https://vault.${DOMAIN}
+      # Admin page at /admin. The password to type is
+      # VAULTWARDEN_ADMIN_PASSWORD; this is its Argon2id hash.
+      ADMIN_TOKEN: ${VAULTWARDEN_ADMIN_TOKEN}
+      SIGNUPS_ALLOWED: ${VAULTWARDEN_SIGNUPS_ALLOWED}
+      INVITATIONS_ALLOWED: "true"
+      SHOW_PASSWORD_HINT: "false"
+      IP_HEADER: X-Forwarded-For
+      # Sign in with Authelia, and only with Authelia (SSO_ONLY). The master
+      # password prompt still comes after: it's the key that decrypts the
+      # vault on the client, the server never sees it, so no SSO can replace
+      # it (Vaultwarden has no Key Connector; discussion #6678).
+      SSO_ENABLED: "true"
+      SSO_ONLY: "true"
+      SSO_SIGNUPS_MATCH_EMAIL: "true"
+      SSO_AUTHORITY: https://authelia.${DOMAIN}
+      SSO_CLIENT_ID: vaultwarden
+      SSO_CLIENT_SECRET: ${VAULTWARDEN_OIDC_CLIENT_SECRET}
+      SSO_SCOPES: "email profile offline_access"
+      SSO_PKCE: "true"
+      # Mail (invites, new-device warnings, emergency access) through the
+      # fleet's relay, STARTTLS verified: SSL_CERT_FILE is the host's public
+      # roots plus the relay's CA (mail-relay/prepare.sh), so OIDC and
+      # everything else Vaultwarden calls still verify against public roots.
+      SMTP_HOST: mail-relay
+      SMTP_PORT: "587"
+      SMTP_SECURITY: starttls
+      SMTP_FROM: purrBrews@${DOMAIN}
+      SMTP_FROM_NAME: Vaultwarden
+      SSL_CERT_FILE: /etc/purrbrews/bundle.crt
+    volumes:
+      - ${DATA_DIR}/vaultwarden:/data
+      - ${DATA_DIR}/mail-relay/tls-public:/etc/purrbrews:ro
+    networks:
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.vaultwarden.rule=Host(`vault.${DOMAIN}`)
+      - traefik.http.routers.vaultwarden.entrypoints=websecure
+      - traefik.http.services.vaultwarden.loadbalancer.server.port=80
+      # The admin page through Authelia as well, admins only (the vault.
+      # resources rules in authelia's config). vault.${DOMAIN} is published
+      # through the tunnel, so its own token was all that stood between /admin
+      # and the internet. The longer rule wins over the router above.
+      - traefik.http.routers.vaultwarden-admin.rule=Host(`vault.${DOMAIN}`) && PathPrefix(`/admin`)
+      - traefik.http.routers.vaultwarden-admin.entrypoints=websecure
+      - traefik.http.routers.vaultwarden-admin.middlewares=authelia@file
+      - traefik.http.routers.vaultwarden-admin.service=vaultwarden
+
+networks:
+  proxy:
+    external: true

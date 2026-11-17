@@ -1,0 +1,44 @@
+# Traccar: live position of the bike, from Traccar Client on the phone. Home
+# Assistant's Traccar integration turns it into a device_tracker.
+#
+# On its bundled H2 database, not Postgres like FitTrackee: constant GPS pings
+# are high-write, low-value rows, not worth a database and a backup of their
+# own. Revisit if that changes.
+#
+# The default login is admin/admin and can't be set from here. Change it on
+# the first visit.
+#
+# Image: traccar/traccar, by tag and digest. It
+# migrates the H2 database on start: prepare.sh holds existing data until
+# TRACCAR_UPGRADE_READY is set (docs/image-upgrades.md).
+services:
+  traccar:
+    image: traccar/traccar:6.17-alpine@sha256:b32d9346adf46df7c33c58577e17ad60f6feadd1f3cd87c876041f6c79317ef1
+    container_name: traccar
+    ports:
+      - "8082:8082"   # web UI
+      - "5055:5055"   # OsmAnd protocol, what the phone posts to; not HTTP, so no Traefik
+    volumes:
+      - ${DATA_DIR:?}/traccar/data:/opt/traccar/data
+      - ${DATA_DIR:?}/traccar/logs:/opt/traccar/logs
+    # /api/server answers without a login once the web server is up; wget is
+    # in the alpine image.
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8082/api/server"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traccar.rule=Host(`traccar.${DOMAIN}`)"
+      - "traefik.http.routers.traccar.entrypoints=websecure"
+      - "traefik.http.routers.traccar.tls.certresolver=cloudflare"
+      - "traefik.http.routers.traccar.middlewares=authelia-forwardauth@file"
+      - "traefik.http.services.traccar.loadbalancer.server.port=8082"
+
+networks:
+  default:
+    name: proxy
+    external: true

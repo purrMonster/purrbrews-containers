@@ -1,0 +1,50 @@
+# n8n: workflow automation, and the thing that ties grinder's other apps
+# together. Its own state is SQLite; pipeline data goes to postgres-vector.
+#
+# Image: n8nio/n8n, by tag and digest (first pinned 2026-09-29, to the
+# `latest` that was running).
+services:
+  n8n:
+    image: n8nio/n8n:2.48.4@sha256:63bdcfdea7e0d21152a7ad8f62e6622658c5eae3835e7515dbd9b610cdb76111
+    container_name: n8n
+    environment:
+      TZ: ${TZ}
+      N8N_HOST: ${NODE_IP:?}
+      # Default "::": where a container has no IPv6, n8n refuses to start
+      # ("address '::' is not available", seen 2026-10-08). The fleet is IPv4.
+      N8N_LISTEN_ADDRESS: 0.0.0.0
+      N8N_PROTOCOL: http
+      WEBHOOK_URL: http://${NODE_IP:?}:5678/
+      # Pinned in secrets.env.local, so a fresh container can still read the
+      # credentials it stored last time.
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      # Execution pruning is on by default. For chatty workflows, set "save
+      # successful runs: metadata only" per workflow in the UI rather than here.
+    volumes:
+      - ${DATA_DIR:?}/n8n:/home/node/.n8n
+    # The way in when Traefik or Authelia is down; n8n has its own owner login.
+    ports:
+      - "5678:5678"
+    # /healthz is n8n's liveness endpoint ({"status":"ok"}); /healthz/readiness
+    # answered 503 on a working instance, so not that one. wget is in the image.
+    # 127.0.0.1, not localhost: inside the container localhost is ::1 first, and
+    # n8n listens on IPv4 only (above), so the check was refused (2026-10-13).
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:5678/healthz"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n.rule=Host(`n8n.${DOMAIN}`)"
+      - "traefik.http.routers.n8n.entrypoints=websecure"
+      - "traefik.http.routers.n8n.tls.certresolver=cloudflare"
+      - "traefik.http.routers.n8n.middlewares=authelia-forwardauth@file"
+      - "traefik.http.services.n8n.loadbalancer.server.port=5678"
+
+networks:
+  default:
+    name: proxy
+    external: true

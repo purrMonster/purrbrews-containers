@@ -1,0 +1,12 @@
+[Unit]
+Description=Back up the dump store (every node's database dumps)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# The hub's own node folder, whichever node that is (node.conf BACKUP_HUB=true).
+ExecStart=/bin/bash -c 'source /opt/purrbrews/stacks/_lib/common.sh && exec bash "$(this_node_dir)/backup.sh" store'
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=4h

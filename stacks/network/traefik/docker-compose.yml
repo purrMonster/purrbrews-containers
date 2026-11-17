@@ -1,0 +1,43 @@
+# Traefik for a node's own apps: HTTPS for whatever on this node carries
+# Traefik labels, behind Authelia on percolator (config/dynamic.yml.template).
+# One copy for every node that isn't the ingress (percolator: traefik-ingress)
+# or the network node (sieve: traefik-edge); before the 2026-11 rebuild cellar,
+# mochaPot and grinder each had their own near-identical folder.
+#
+# Every node runs its own, so a broken proxy only takes that node's pages
+# down. The apps keep their own ports published too: that's the way in when
+# Authelia or Traefik is down.
+#
+# Image: traefik. v3.2's Docker client was too old for the upgraded
+# engine ("client version 1.24 is too old") and the docker provider looped.
+services:
+  traefik:
+    image: traefik:v3.7.19@sha256:aa942a00bce033c909bf1f7e861d93761be4b31a035f10d2410d33e38a8f41cf
+    container_name: traefik
+    command:
+      - --configFile=/etc/traefik/traefik.yml
+    environment:
+      CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN}
+    volumes:
+      - ./config/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./config/dynamic.yml:/etc/traefik/dynamic.yml:ro
+      - ${DATA_DIR:?}/traefik/acme:/acme
+      # Read-only, for the labels. Host-networked containers (ESPHome, Home
+      # Assistant) have no address to discover, so their labels set a server URL.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    # Same as traefik-ingress and traefik-edge.
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+
+networks:
+  default:
+    name: proxy
+    external: true

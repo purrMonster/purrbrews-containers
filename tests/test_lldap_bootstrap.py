@@ -14,11 +14,11 @@ class LldapBootstrap(unittest.TestCase):
         for missing_user in ("0", "1"):
             with self.subTest(missing_user=missing_user), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
-                script = root / "stacks/percolator/lldap-bootstrap.sh"
+                script = root / "stacks/identity/lldap/lldap-bootstrap.sh"
                 script.parent.mkdir(parents=True)
-                shutil.copy(ROOT / "stacks/percolator/lldap-bootstrap.sh", script)
+                shutil.copy(ROOT / "stacks/identity/lldap/lldap-bootstrap.sh", script)
                 library = root / "stacks/_lib"
-                library.mkdir()
+                library.mkdir(parents=True, exist_ok=True)
                 (library / "common.sh").write_text('''
 env_get() {
   case "$2" in
@@ -30,6 +30,8 @@ env_get() {
 }
 die() { echo "$*" >&2; exit 1; }
 log() { echo "$*"; }
+this_node_dir() { echo "$PWD"; }
+load_node() { ENV_LOCAL="$1/.env.local"; }
 ''')
                 binary = root / "bin"
                 binary.mkdir()
@@ -67,7 +69,7 @@ else:
                     self.assertIn("requires an interactive terminal", result.stderr)
 
     def test_lldap_password_tool_receives_credentials_only_inside_container(self):
-        source = (ROOT / "stacks/percolator/lldap-bootstrap.sh").read_text()
+        source = (ROOT / "stacks/identity/lldap/lldap-bootstrap.sh").read_text()
         self.assertNotIn('--admin-password "$ADMIN_PASSWORD"', source)
         self.assertNotIn('--password "$password"', source)
         self.assertIn('sudo docker exec -i lldap sh -c', source)

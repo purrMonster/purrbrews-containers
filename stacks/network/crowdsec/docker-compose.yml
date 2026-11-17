@@ -1,0 +1,37 @@
+# CrowdSec — reads Traefik's access log and serves ban decisions to the
+# Traefik bouncer plugin (traefik/config/dynamic.yml.template, `crowdsec`).
+# No published ports: the plugin reaches the API as crowdsec:8080 on `proxy`.
+# Image tag checked 2026-09-15.
+services:
+  crowdsec:
+    image: crowdsecurity/crowdsec:v1.8.2@sha256:65b74942f7e7ed5c60fde4ac15fc4ba715904c398c8b16dd451f4907d90347d4
+    container_name: crowdsec
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    environment:
+      TZ: ${TZ}
+      # linux brings crowdsecurity/whitelists (private ranges never banned).
+      COLLECTIONS: "crowdsecurity/linux crowdsecurity/traefik"
+      # Registers the Traefik plugin as a bouncer with a key made on this node.
+      BOUNCER_KEY_traefik: ${CROWDSEC_BOUNCER_KEY}
+    volumes:
+      - ${DATA_DIR}/crowdsec/data:/var/lib/crowdsec/data
+      - ${DATA_DIR}/crowdsec/config:/etc/crowdsec
+      # The file, not the folder: on a fresh config directory the entrypoint
+      # copies its defaults with rsync, fails to set times on a read-only
+      # acquis.d mount point, and exits under set -e (tested 2026-10-08).
+      # A new file here needs its own line.
+      - ./acquis.d/traefik.yaml:/etc/crowdsec/acquis.d/traefik.yaml:ro
+      - ${DATA_DIR}/traefik/logs:/var/log/traefik:ro
+    networks:
+      - proxy
+    healthcheck:
+      test: ["CMD", "cscli", "lapi", "status"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  proxy:
+    external: true

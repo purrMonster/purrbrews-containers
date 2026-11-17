@@ -1,0 +1,78 @@
+# Home Assistant, with its own Postgres for the recorder.
+#
+# Host networking because Cast, mDNS and UPnP discovery don't cross a Docker
+# bridge (HA's own Cast docs say so). The catch: it can't join a network or
+# resolve container names, so it reaches its database on 127.0.0.1.
+#
+# Sign-in is hass-oidc-auth against Authelia (no ForwardAuth in front, same as
+# OpenCloud and Paperless), with the local account kept as the break-glass.
+# The recorder, trusted proxies and OIDC all live in configuration.yaml, not
+# here; README.md has the snippets.
+#
+# Image: ghcr.io/home-assistant/home-assistant, a release by tag and digest
+# (first pinned 2026-10-08 to what `stable` was). Pinned, so a routine `--all pull` can't upgrade
+# it mid-month: HA's database migrations only go forward, and a release that
+# breaks an integration should be a choice. To upgrade: read the release
+# notes, bump the tag (Dependabot does), pull, up. Postgres stays on 16.
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:2026.11.2@sha256:493a07e8f6530fc640223f4a0a5248f20a61ca2f718bb1d31efbf08a2c5ea28f
+    container_name: homeassistant
+    network_mode: host
+    # Explicit, because Docker copies the host's resolv.conf once, at create
+    # time. This container was born on bootstrap DNS and kept asking 1.1.1.1
+    # for authelia.${DOMAIN} long after the host had moved to Pi-hole.
+    dns:
+      - ${DNS_PRIMARY:-192.168.1.10}
+      - ${DNS_SECONDARY:-192.168.1.13}
+    volumes:
+      - ${DATA_DIR:?}/homeassistant:/config
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro   # Bluetooth integrations
+    # Bluetooth: raw HCI access for active scanning and connections; without
+    # these HA reports the adapter in "degraded mode" (HA docs: Bluetooth
+    # permissions for Docker).
+    cap_add: [NET_ADMIN, NET_RAW]
+    environment:
+      TZ: ${TZ}
+    depends_on:
+      postgres-homeassistant:
+        condition: service_healthy
+    # HA has no health endpoint; /manifest.json is served by its own web
+    # server without a login (the API answers 401). A long start period: a
+    # big setup takes minutes to load its integrations.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-m", "5", "http://localhost:8123/manifest.json"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 5m
+    restart: unless-stopped
+    # Host-networked, so Traefik can't discover an address: give it the URL.
+    # Labels unquoted, like everywhere else; dns-records.py skipped quoted
+    # ones once, and homeassistant.${DOMAIN} silently got no DNS record.
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.homeassistant.rule=Host(`homeassistant.${DOMAIN}`)
+      - traefik.http.routers.homeassistant.entrypoints=websecure
+      - traefik.http.routers.homeassistant.tls.certresolver=cloudflare
+      - traefik.http.services.homeassistant.loadbalancer.server.url=http://${NODE_IP:?}:8123
+
+  postgres-homeassistant:
+    image: postgres:16.16@sha256:dd2bf3ce2dc83a81674cf7f217fcfd8a5009a4b325dda5b843bfee82a06cff6f
+    container_name: postgres-homeassistant
+    environment:
+      POSTGRES_USER: ${HA_DB_USERNAME}
+      POSTGRES_PASSWORD: ${HA_DB_PASSWORD}
+      POSTGRES_DB: ${HA_DB_DATABASE_NAME}
+    volumes:
+      - ${DATA_DIR:?}/postgres-homeassistant:/var/lib/postgresql/data
+    # Loopback only; Home Assistant is on the host network and connects here.
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${HA_DB_USERNAME} -d ${HA_DB_DATABASE_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped

@@ -4,14 +4,20 @@
 # common.sh: sourced by the other scripts in _lib, never run on its own.
 #
 # The rule I keep coming back to: nothing in _lib knows which node it is on.
-# Everything that differs between nodes lives in stacks/<node>/node.conf, and
+# Everything that differs between nodes lives in nodes/<node>/node.conf, and
 # everything that differs between apps lives in files inside the app's folder
 # (data-dirs, secrets.conf, firewall, *.template, prepare.sh). If I ever catch
 # myself writing `if node == sieve` in here, that belongs in node.conf instead.
+#
+# Since the 2026-11 rebuild an app has one home, stacks/<group>/<app>, whichever
+# node runs it; a node is only nodes/<node>/ (node.conf, local.env.example, the
+# wrappers and its .env.local). app_dir finds an app by name, so app names are
+# unique across the groups.
 
 LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STACKS="$(cd "$LIB/.." && pwd)"
 ROOT="$(cd "$STACKS/.." && pwd)"
+NODES="$ROOT/nodes"
 SCRIPT="${SCRIPT:-$(basename "$0")}"
 
 log()  { printf '\n\033[1;36m==>\033[0m %s\n' "$*"; }
@@ -34,6 +40,8 @@ load_node() {
 
   # Defaults, so a short node.conf is still a valid one.
   APPS=()
+  TOOLS=()
+  BACKUP_HUB=false
   NETWORK=''
   NETWORK_SUBNET_KEY=''
   RESOLVER=''
@@ -46,15 +54,57 @@ load_node() {
   # machine, then this node's own settings. An app's secrets.env.local goes
   # on the end wherever an app is involved.
   ENV_FILES=("$STACKS/fleet.env" "$ROOT/.env" "$ENV_LOCAL")
+  # For an app's own scripts (prepare.sh and the like), which can no longer
+  # tell the node from where they sit.
+  export PURRBREWS_NODE_DIR="$NODE_DIR"
 }
 
-app_dirs() {
-  # Every folder with a docker-compose.yml, so --list can point
-  # out an app that exists on disk but was never added to node.conf.
-  local d
-  for d in "$NODE_DIR"/*/; do
+# this_node_dir: the node this checkout runs as, for scripts that live in an
+# app's folder and are started by hand or by systemd. The wrappers export
+# PURRBREWS_NODE_DIR; otherwise it is NODE in /opt/purrbrews/.env (written when
+# the node was set up), then the host name. Names match whatever their case.
+this_node_dir() {
+  local name d base
+  if [[ -n "${PURRBREWS_NODE_DIR:-}" ]]; then
+    printf '%s' "$PURRBREWS_NODE_DIR"
+    return 0
+  fi
+  name="$(env_get "$ROOT/.env" NODE)"
+  [[ -n "$name" ]] || name="$(hostname -s 2>/dev/null || hostname)"
+  for d in "$NODES"/*/; do
     d="${d%/}"
-    [[ -f "$d/docker-compose.yml" ]] && basename "$d"
+    base="${d##*/}"
+    if [[ -f "$d/node.conf" && "${base,,}" == "${name,,}" ]]; then
+      printf '%s' "$d"
+      return 0
+    fi
+  done
+  die "can't tell which node this is ('$name' has no folder under nodes/); set PURRBREWS_NODE_DIR."
+}
+
+# app_dir <app>: the app's folder, stacks/<group>/<app>. Prints nothing when
+# there is no such app.
+app_dir() {
+  local d found=''
+  for d in "$STACKS"/*/"${1:?app name required}"; do
+    [[ -d "$d" && "$d" != "$LIB"/* ]] || continue
+    [[ -z "$found" ]] || die "two folders are called $1: ${found#"$ROOT"/} and ${d#"$ROOT"/}."
+    found="$d"
+  done
+  printf '%s' "$found"
+}
+
+runs_here() {  # runs_here <app>: is it in this node's APPS or TOOLS?
+  local a
+  for a in "${APPS[@]}" "${TOOLS[@]}"; do [[ "$a" == "$1" ]] && return 0; done
+  return 1
+}
+
+node_app_dirs() {  # the folder of every app and tool this node runs, one per line
+  local a d
+  for a in "${APPS[@]}" "${TOOLS[@]}"; do
+    d="$(app_dir "$a")"
+    [[ -n "$d" ]] && printf '%s\n' "$d"
   done
   return 0
 }
@@ -78,7 +128,7 @@ env_has() { [[ -f "$1" ]] && grep -qE "^$2=" "$1"; }
 
 env_value() {  # env_value <KEY> [app]: effective value across ENV_FILES
   local file value=''
-  for file in "${ENV_FILES[@]}" ${2:+"$NODE_DIR/$2/secrets.env.local"}; do
+  for file in "${ENV_FILES[@]}" ${2:+"$(app_dir "$2")/secrets.env.local"}; do
     env_has "$file" "$1" && value="$(env_get "$file" "$1")"
   done
   printf '%s' "$value"
@@ -160,7 +210,7 @@ use_docker() {
 export_env() {  # export_env [app]: every env file into this shell, for host-side scripts
   local f
   set -a
-  for f in "${ENV_FILES[@]}" ${1:+"$NODE_DIR/$1/secrets.env.local"}; do
+  for f in "${ENV_FILES[@]}" ${1:+"$(app_dir "$1")/secrets.env.local"}; do
     if [[ -f "$f" ]]; then
       # shellcheck source=/dev/null
       source "$f"

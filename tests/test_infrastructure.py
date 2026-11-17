@@ -1,5 +1,9 @@
 """Offline checks for the repo: python3 -m unittest discover -s tests -v
 
+Layout since the 2026-11 rebuild: an app lives once under stacks/<group>/<app>,
+a node is nodes/<node>/ (node.conf, local.env.example, wrappers). app() finds
+an app's folder by name, the way stacks/_lib/common.sh's app_dir does.
+
 Nothing here needs Docker or a real node. Where a script wants docker or sudo,
 a fake one on PATH answers instead. A few tests are skipped under root,
 because the scripts refuse to run as root on purpose.
@@ -23,8 +27,9 @@ except ImportError:
 
 ROOT = Path(__file__).resolve().parents[1]
 STACKS = ROOT / 'stacks'
-NODES = ['sieve', 'percolator', 'cellar', 'mochaPot', 'grinder', 'roastery']
-LINUX_NODES = NODES[:-1]
+NODE_DIRS = ROOT / 'nodes'
+NODES = ['sieve', 'percolator', 'cellar', 'mochaPot', 'grinder']
+LINUX_NODES = NODES
 AS_ROOT = os.geteuid() == 0
 
 
@@ -37,15 +42,24 @@ def load(name, filename):
 
 dns = load('dns', 'dns-records.py')
 renderer = load('renderer', 'render-template.py')
-FLEET = 'name,ip,mac\nsieve,192.168.0.10,02:00:00:00:00:10\npercolator,192.168.0.11,x\ncellar,192.168.0.12,x\nmochaPot,192.168.0.13,x\ngrinder,192.168.0.14,x\n'
+FLEET = 'name,ip,mac\nsieve,192.168.1.10,02:00:00:00:00:10\npercolator,192.168.1.11,x\ncellar,192.168.1.12,x\nmochaPot,192.168.1.13,x\ngrinder,192.168.1.14,x\n'
+
+
+def app(name, root=ROOT):
+    """An app's folder, stacks/<group>/<name>: exactly one, or the test fails."""
+    found = [d for d in (root / 'stacks').glob(f'*/{name}') if d.is_dir() and d.parent.name != '_lib']
+    assert len(found) == 1, f'{name}: expected one stacks/<group>/{name}, found {found}'
+    return found[0]
 
 
 def node_conf(node):
     """APPS, NETWORK etc. from a node.conf, read the way bash would."""
-    out = subprocess.run(['bash', '-c', f'source "{STACKS / node / "node.conf"}"; '
-                          'echo "${APPS[*]}"; echo "$NETWORK"; echo "$NETWORK_SUBNET_KEY"; echo "$RESOLVER"'],
+    out = subprocess.run(['bash', '-c', f'TOOLS=(); BACKUP_HUB=false; source "{NODE_DIRS / node / "node.conf"}"; '
+                          'echo "${APPS[*]}"; echo "$NETWORK"; echo "$NETWORK_SUBNET_KEY"; echo "$RESOLVER"; '
+                          'echo "${TOOLS[*]}"; echo "$BACKUP_HUB"'],
                          capture_output=True, text=True, check=True).stdout.split('\n')
-    return {'APPS': out[0].split(), 'NETWORK': out[1], 'NETWORK_SUBNET_KEY': out[2], 'RESOLVER': out[3]}
+    return {'APPS': out[0].split(), 'NETWORK': out[1], 'NETWORK_SUBNET_KEY': out[2], 'RESOLVER': out[3],
+            'TOOLS': out[4].split(), 'BACKUP_HUB': out[5]}
 
 
 def fake_bin(directory):
@@ -71,56 +85,58 @@ def copy_repo(tmp):
     ignore = shutil.ignore_patterns('.env.local', '*.env.local', '__pycache__', 'model-cache',
                                     'traefik.exe', 'keys', 'data')
     shutil.copytree(STACKS, root / 'stacks', ignore=ignore)
-    shutil.copytree(ROOT / 'init', root / 'init', ignore=ignore)
+    shutil.copytree(NODE_DIRS, root / 'nodes', ignore=ignore)
     return root
 
 
 class DNS(unittest.TestCase):
     def test_fixed_dhcp_roles_ignore_legacy_env_switch(self):
-        primary = (STACKS / 'sieve/pihole/docker-compose.yml').read_text()
-        secondary = (STACKS / 'mochaPot/pihole/docker-compose.yml').read_text()
+        primary = (app('pihole') / 'docker-compose.yml').read_text()
+        secondary = (app('pihole-secondary') / 'docker-compose.yml').read_text()
         self.assertIn('FTLCONF_dhcp_active: "true"', primary)
         self.assertIn('FTLCONF_dhcp_active: "false"', secondary)
         self.assertNotIn('${PIHOLE_DHCP_ACTIVE', primary)
         self.assertNotIn('${PIHOLE_DHCP_ACTIVE', secondary)
 
     def test_actual_routes(self):
-        lines, hosts = dns.records(ROOT, 'example.test', io.StringIO(FLEET), '192.168.0.20 roastery')
-        for host, ip in [('authelia', 11), ('opencloud', 11), ('radicale', 11), ('komodo', 12), ('homeassistant', 13), ('n8n', 14), ('pihole', 10), ('ollama', 20)]:
-            self.assertIn(f'address=/{host}.example.test/192.168.0.{ip}', lines)
+        # Which node answers for a name comes from node.conf: the node whose APPS runs the app.
+        lines, hosts = dns.records(ROOT, 'example.test', io.StringIO(FLEET), '192.168.1.20 americano')
+        for host, ip in [('authelia', 11), ('opencloud', 11), ('radicale', 11), ('komodo', 12), ('homeassistant', 13),
+                         ('n8n', 14), ('llm', 14), ('pihole', 10), ('pihole-mochapot', 13)]:
+            self.assertIn(f'address=/{host}.example.test/192.168.1.{ip}', lines)
             self.assertIn(f'local=/{host}.example.test/', lines)
         self.assertIn('filter-AAAA', lines)
         self.assertNotIn('local=/example.test/', lines)  # public ACME remains resolvable
         self.assertEqual(len(hosts), 6)
+        self.assertIn('192.168.1.20 americano', hosts)   # an extra host gets a name, not a route
 
-    def test_roastery_can_come_from_fleet(self):
-        lines, _ = dns.records(ROOT, 'example.test', io.StringIO(FLEET + 'roastery,192.168.0.21,x\n'))
-        self.assertIn('address=/ollama.example.test/192.168.0.21', lines)
-
-    def test_missing_roastery_is_error(self):
-        with self.assertRaisesRegex(ValueError, 'Router node roastery'):
-            dns.records(ROOT, 'example.test', io.StringIO(FLEET))
-
-    def test_existing_native_host_survives_repeated_generation(self):
-        existing = '192.168.0.20 roastery;192.168.0.99 sieve'
+    def test_node_missing_from_the_fleet_list_keeps_its_existing_record(self):
+        # A node that serves routes but isn't in the fleet list keeps the address
+        # Pi-hole already has for it, run after run; a stale record for a node
+        # that is in the list loses to the list.
+        fleet = FLEET.replace('grinder,192.168.1.14,x\n', '')
+        existing = '192.168.1.14 grinder;192.168.1.99 sieve'
         for _ in range(2):
-            lines, hosts = dns.records(ROOT, 'example.test', io.StringIO(FLEET), existing_hosts=existing)
-            self.assertIn('address=/ollama.example.test/192.168.0.20', lines)
-            self.assertIn('address=/pihole.example.test/192.168.0.10', lines)
-            self.assertIn('192.168.0.20 roastery', hosts)
+            lines, hosts = dns.records(ROOT, 'example.test', io.StringIO(fleet), existing_hosts=existing)
+            self.assertIn('address=/llm.example.test/192.168.1.14', lines)
+            self.assertIn('address=/pihole.example.test/192.168.1.10', lines)
+            self.assertIn('192.168.1.14 grinder', hosts)
             existing = ';'.join(hosts)
 
     def test_missing_node_is_error(self):
         with self.assertRaisesRegex(ValueError, 'missing from NODE_IPS'):
-            dns.records(ROOT, 'example.test', io.StringIO(FLEET.replace('percolator,192.168.0.11,x\n', '')))
+            dns.records(ROOT, 'example.test', io.StringIO(FLEET.replace('percolator,192.168.1.11,x\n', '')))
 
     def test_conflicting_route_is_error(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            for node in ['sieve', 'cellar']:
-                file = root / f'stacks/{node}/app/docker-compose.yml'
-                file.parent.mkdir(parents=True)
-                file.write_text(' - "traefik.http.routers.x.rule=Host(`same.${DOMAIN}`)"\n')
+            file = root / 'stacks/group/app/docker-compose.yml'
+            file.parent.mkdir(parents=True)
+            file.write_text(' - "traefik.http.routers.x.rule=Host(`same.${DOMAIN}`)"\n')
+            for node in ['sieve', 'cellar']:   # the same app, and so the same name, on two nodes
+                conf = root / f'nodes/{node}/node.conf'
+                conf.parent.mkdir(parents=True)
+                conf.write_text('APPS=(app)\n')
             with self.assertRaisesRegex(ValueError, 'Conflicting'):
                 dns.records(root, 'example.test', io.StringIO(FLEET))
 
@@ -129,31 +145,31 @@ class DNS(unittest.TestCase):
             root = copy_repo(tmp)
             outputs = {}
             for node, role in [('sieve', 'primary'), ('mochaPot', 'secondary')]:
-                directory = root / 'stacks' / node
+                directory = root / 'nodes' / node
                 path = directory / '.env.local'
-                path.write_text('DOMAIN=example.test\nPIHOLE_DNS_HOSTS="192.168.0.20 roastery"\n'
-                                'PIHOLE_DNS_EXTRA_HOSTS="192.168.0.30 workstation"\n'
-                                'PIHOLE_DHCP_EXTRA_HOSTS=aa:bb:cc:dd:ee:ff,192.168.0.30,workstation\n')
+                path.write_text('DOMAIN=example.test\nPIHOLE_DNS_HOSTS="192.168.1.20 roastery"\n'
+                                'PIHOLE_DNS_EXTRA_HOSTS="192.168.1.30 workstation"\n'
+                                'PIHOLE_DHCP_EXTRA_HOSTS=aa:bb:cc:dd:ee:ff,192.168.1.30,workstation\n')
                 result = subprocess.run(['python3', str(STACKS / '_lib/dns-records.py'), '--node-dir', str(directory), '--role', role],
                                         input=FLEET, text=True, capture_output=True,
-                                        env=dict(os.environ, DNS_SERVERS='192.168.0.10,192.168.0.13'))
+                                        env=dict(os.environ, DNS_SERVERS='192.168.1.10,192.168.1.13'))
                 self.assertEqual(result.returncode, 0, result.stderr)
                 outputs[node] = dns.read_env(path)
                 self.assertEqual(path.stat().st_mode & 0o777, 0o600)
             primary = outputs['sieve']['PIHOLE_DNSMASQ_LINES'].split(';')
             secondary = outputs['mochaPot']['PIHOLE_DNSMASQ_LINES'].split(';')
             self.assertEqual(primary[:-1], secondary)
-            self.assertEqual(primary[-1], 'dhcp-option=option:dns-server,192.168.0.10,192.168.0.13')
+            self.assertEqual(primary[-1], 'dhcp-option=option:dns-server,192.168.1.10,192.168.1.13')
             self.assertEqual(outputs['sieve']['PIHOLE_DNS_HOSTS'], outputs['mochaPot']['PIHOLE_DNS_HOSTS'])
             leases = outputs['sieve']['PIHOLE_DHCP_HOSTS'].split(';')
-            self.assertIn('02:00:00:00:00:10,192.168.0.10,sieve', leases)
-            self.assertIn('aa:bb:cc:dd:ee:ff,192.168.0.30,workstation', leases)
+            self.assertIn('02:00:00:00:00:10,192.168.1.10,sieve', leases)
+            self.assertIn('aa:bb:cc:dd:ee:ff,192.168.1.30,workstation', leases)
             self.assertNotIn('PIHOLE_DHCP_HOSTS', outputs['mochaPot'])
 
 
 class Render(unittest.TestCase):
     def node(self, root, name, conf='APPS=()\n'):
-        node = root / 'stacks' / name
+        node = root / 'nodes' / name
         node.mkdir(parents=True, exist_ok=True)
         (node / 'node.conf').write_text(conf)
         return node
@@ -165,19 +181,19 @@ class Render(unittest.TestCase):
                 root = Path(tmp)
                 lib = root / 'stacks/_lib'
                 shutil.copytree(STACKS / '_lib', lib)
-                node = self.node(root, name, f'RESOLVER={role}\n')
-                app = node / 'pihole'
-                app.mkdir()
-                template = app / 'config.template'
+                node = self.node(root, name, f'RESOLVER={role}\nAPPS=(pihole)\n')
+                folder = root / 'stacks/network/pihole'
+                folder.mkdir(parents=True)
+                template = folder / 'config.template'
                 template.write_text('dns=${PIHOLE_DNSMASQ_LINES}\n')
                 refresh = lib / 'refresh-dns.sh'
                 refresh.write_text('#!/usr/bin/env bash\nset -eu\n'
-                                   'printf "PIHOLE_DNSMASQ_LINES=\'address=/ollama.example.test/192.168.0.20\'\\n" > "$1/.env.local"\n')
+                                   'printf "PIHOLE_DNSMASQ_LINES=\'address=/ollama.example.test/192.168.1.20\'\\n" > "$1/.env.local"\n')
                 command = ['bash', str(lib / 'render-configs.sh'), str(node)]
                 result = subprocess.run(command, text=True, capture_output=True)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 output = template.with_suffix('')
-                self.assertEqual(output.read_text(), 'dns=address=/ollama.example.test/192.168.0.20\n')
+                self.assertEqual(output.read_text(), 'dns=address=/ollama.example.test/192.168.1.20\n')
                 output.write_text('last-good')
                 refresh.write_text('exit 1\n')
                 result = subprocess.run(command, text=True, capture_output=True)
@@ -213,21 +229,24 @@ class Render(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             shutil.copytree(STACKS / '_lib', root / 'stacks/_lib')
-            node = self.node(root, 'test')
-            for app in ['a', 'b', 'c']:
-                directory = node / app / 'config'
+            node = self.node(root, 'test', 'APPS=(a b c)\n')
+            apps = root / 'stacks/group'
+            for name in ['a', 'b', 'c', 'elsewhere']:   # `elsewhere` isn't in APPS: another node's app
+                directory = apps / name / 'config'
                 directory.mkdir(parents=True)
                 (directory / 'config.template').write_text('value: ${APP_SECRET}\n')
                 (directory / 'config').write_text('old')
-            (node / 'a/secrets.env.local').write_text('APP_SECRET=alpha\n')
-            (node / 'c/secrets.env.local').write_text('return 1\n')
+            (apps / 'a/secrets.env.local').write_text('APP_SECRET=alpha\n')
+            (apps / 'c/secrets.env.local').write_text('return 1\n')
+            (apps / 'elsewhere/secrets.env.local').write_text('APP_SECRET=not-ours\n')
             env = os.environ.copy()
             env.pop('APP_SECRET', None)
             result = subprocess.run(['bash', str(root / 'stacks/_lib/render-configs.sh'), str(node)], env=env, capture_output=True, text=True)
             self.assertNotEqual(result.returncode, 0)
-            self.assertEqual((node / 'a/config/config').read_text(), 'value: alpha\n')
-            self.assertEqual((node / 'b/config/config').read_text(), 'old')
-            self.assertEqual((node / 'c/config/config').read_text(), 'old')
+            self.assertEqual((apps / 'a/config/config').read_text(), 'value: alpha\n')
+            self.assertEqual((apps / 'b/config/config').read_text(), 'old')
+            self.assertEqual((apps / 'c/config/config').read_text(), 'old')
+            self.assertEqual((apps / 'elsewhere/config/config').read_text(), 'old', "only this node's apps render")
             self.assertIn('Cannot load', result.stderr)
 
     @unittest.skipIf(AS_ROOT, 'the scripts refuse to run as root')
@@ -236,10 +255,10 @@ class Render(unittest.TestCase):
             root = Path(tmp)
             shutil.copytree(STACKS / '_lib', root / 'stacks/_lib')
             (root / 'stacks/fleet.env').write_text('A=fleet\nB=fleet\nC=fleet\n')
-            node = self.node(root, 'test')
+            node = self.node(root, 'test', 'TOOLS=(restic)\n')
             (node / '.env.local').write_text('B=node\nC=node\n')
-            app = node / 'restic'
-            app.mkdir()
+            app = root / 'stacks/backup/restic'
+            app.mkdir(parents=True)
             (app / 'secrets.env.local').write_text('C=app\n')
             (app / 'x.conf.template').write_text('${A} ${B} ${C}\n')
             result = subprocess.run(['bash', str(root / 'stacks/_lib/render-configs.sh'), str(node)], capture_output=True, text=True)
@@ -255,31 +274,6 @@ class Render(unittest.TestCase):
                 fixture.write_text(text)
                 renderer.render(fixture, values)
                 self.assertTrue(fixture.with_suffix('').is_file())
-
-    @unittest.skipUnless(shutil.which('pwsh') and not AS_ROOT, 'needs PowerShell, and not root')
-    def test_powershell_renders_like_bash(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            shutil.copytree(STACKS / '_lib', root / 'stacks/_lib')
-            (root / 'stacks/fleet.env').write_text('A=fleet\nB=fleet\n')
-            outputs = {}
-            for side in ['bash', 'pwsh']:
-                node = self.node(root, side)
-                (node / '.env.local').write_text("B='node $literal'\n")
-                app = node / 'traefik' / 'config' / 'dynamic'
-                app.mkdir(parents=True)
-                (node / 'traefik/secrets.env.local').write_text('C=app\n')
-                (app / 'x.yml.template').write_text('# $IGNORED in a comment\na: ${A}\nb: ${B}\nc: $C\n')
-                if side == 'bash':
-                    cmd = ['bash', str(root / 'stacks/_lib/render-configs.sh'), str(node)]
-                else:
-                    cmd = ['pwsh', '-NoProfile', '-c', f". '{root / 'stacks/_lib/purrbrews.ps1'}'; if (-not (Invoke-Render (Get-Node '{node}'))) {{ exit 1 }}"]
-                result = subprocess.run(cmd, capture_output=True, text=True)
-                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-                outputs[side] = (app / 'x.yml').read_text()
-            self.assertEqual(outputs['bash'], outputs['pwsh'])
-            self.assertIn('b: node $literal', outputs['bash'])
-
 
 class ComposeConfig(unittest.TestCase):
     def check(self, content):
@@ -310,26 +304,61 @@ class Layout(unittest.TestCase):
 
     def test_node_scripts_are_identical_wrappers(self):
         for script in ['compose.sh', 'setup-secrets.sh', 'render-configs.sh', 'firewall.sh', 'backup.sh']:
-            copies = {(STACKS / node / script).read_text() for node in NODES if (STACKS / node / script).exists()}
+            copies = {(NODE_DIRS / node / script).read_text() for node in NODES}
             self.assertEqual(len(copies), 1, f'{script} differs between nodes')
-            self.assertIn('../_lib/', copies.pop())
+            self.assertIn('/../../stacks/_lib/', copies.pop())
 
-    def test_node_conf_matches_the_app_folders(self):
+    def test_the_nodes_are_the_folders_under_nodes(self):
+        self.assertEqual(sorted(NODES), sorted(d.name for d in NODE_DIRS.iterdir() if (d / 'node.conf').is_file()))
+        # Nothing node-shaped is left under stacks/: only _lib and the stack groups.
+        self.assertEqual(list(STACKS.glob('*/node.conf')), [])
+
+    def test_every_app_has_one_home_and_a_node_that_runs_it(self):
+        homes = {}
+        for compose in STACKS.glob('*/*/docker-compose.yml'):
+            self.assertNotIn(compose.parent.name, homes, f'two folders are called {compose.parent.name}')
+            homes[compose.parent.name] = compose.parent
+        run = set()
         for node in NODES:
             conf = node_conf(node)
-            on_disk = {p.parent.name for p in (STACKS / node).glob('*/docker-compose.yml')}
-            self.assertEqual(set(conf['APPS']), on_disk, f'{node}: node.conf APPS vs folders')
             self.assertEqual(len(conf['APPS']), len(set(conf['APPS'])), f'{node}: an app is listed twice')
+            for name in conf['APPS']:
+                self.assertIn(name, homes, f'{node}: node.conf lists {name}, which has no stacks/<group>/{name}/docker-compose.yml')
+            for name in conf['TOOLS']:
+                self.assertTrue(app(name).is_dir(), f'{node}: TOOLS lists {name}')
+                self.assertNotIn(name, homes, f'{node}: {name} has a compose file, so it belongs in APPS')
+            run |= set(conf['APPS'])
+        self.assertEqual(sorted(set(homes) - run), [], 'apps no node.conf runs: add them to a node or move them to deprecated/')
 
-    def test_fleet_env_matches_init_node_ips(self):
-        init = (ROOT / 'init/purrbrews-init.env.example').read_text()
-        pairs = dict(p.split('=') for p in re.search(r'^NODE_IPS=(.*)$', init, re.M).group(1).split())
+    def test_every_node_uses_the_same_network_name_with_a_fixed_subnet(self):
+        # One name everywhere, so an app can move between nodes without an edit,
+        # and a pinned subnet, so firewall.sh works before any container has run.
+        for node in NODES:
+            conf = node_conf(node)
+            self.assertEqual((conf['NETWORK'], conf['NETWORK_SUBNET_KEY']), ('proxy', 'PROXY_SUBNET'), node)
+            example = (NODE_DIRS / node / 'local.env.example').read_text()
+            self.assertRegex(example, r'(?m)^PROXY_SUBNET=172\.\d+\.\d+\.0/24$', node)
+        for compose in STACKS.glob('*/*/docker-compose.yml'):
+            self.assertNotRegex(compose.read_text(), r'\b(sieve_edge|cellar_net|grinder_net|mochapot_net)\b', str(compose))
+
+    def test_fleet_env_addresses_are_consistent(self):
+        import ipaddress
         fleet = dict(line.split('=', 1) for line in (STACKS / 'fleet.env').read_text().splitlines()
                      if re.match(r'^[A-Z_]+=', line))
-        for name, ip in pairs.items():
-            self.assertEqual(fleet[f'{name.upper()}_LAN_IP'], ip, name)
-        self.assertEqual(fleet['LAN_CIDR'], re.search(r'^LAN_CIDR=(.*)$', init, re.M).group(1))
-        self.assertEqual(fleet['GATEWAY'], re.search(r'^GATEWAY=(.*)$', init, re.M).group(1))
+        lan = ipaddress.ip_network(fleet['LAN_CIDR'])
+        ips = {k[:-len('_LAN_IP')]: ipaddress.ip_address(v) for k, v in fleet.items() if k.endswith('_LAN_IP')}
+        self.assertEqual(sorted(ips), sorted(n.upper() for n in NODES), 'one <NODE>_LAN_IP per folder under nodes/')
+        self.assertEqual(len(set(ips.values())), len(ips), 'two nodes share an address')
+        for name, ip in ips.items():
+            self.assertIn(ip, lan, name)
+        self.assertIn(ipaddress.ip_address(fleet['GATEWAY']), lan)
+        self.assertNotIn(ipaddress.ip_address(fleet['GATEWAY']), ips.values())
+        resolvers = {node_conf(n)['RESOLVER']: n for n in NODES if node_conf(n)['RESOLVER']}
+        self.assertEqual(fleet['DNS_PRIMARY'], str(ips[resolvers['primary'].upper()]))
+        self.assertEqual(fleet['DNS_SECONDARY'], str(ips[resolvers['secondary'].upper()]))
+        hub = [n for n in NODES if node_conf(n)['BACKUP_HUB'] == 'true']
+        self.assertEqual(len(hub), 1, 'exactly one backup hub')
+        self.assertEqual(fleet['DUMP_STORE_HOST'], str(ips[hub[0].upper()]), 'the hub is the dump store')
 
     def test_every_rendered_file_is_gitignored(self):
         for template in STACKS.glob('*/**/*.template'):
@@ -338,18 +367,18 @@ class Layout(unittest.TestCase):
             self.assertEqual(ignored.returncode, 0, f'{output} must be in .gitignore: it can hold secrets')
 
     def test_node_local_files_are_gitignored(self):
-        for path in ['stacks/sieve/.env.local', 'stacks/sieve/ntfy/secrets.env.local',
-                     'stacks/roastery/traefik/secrets.env.local', 'stacks/grinder/komodo-periphery/keys/core.pub',
-                     'stacks/roastery/komodo-periphery/keys/periphery.key', 'stacks/cellar/restic/cache/x',
-                     'stacks/roastery/immich-ml/model-cache/x', 'stacks/roastery/traefik/traefik.exe',
-                     'stacks/cellar/restic/dump-store.keys', 'stacks/roastery/backup-target/authorized_keys',
-                     'stacks/grinder/restic/secrets.env.local']:
+        for path in ['nodes/sieve/.env.local', 'stacks/monitoring/ntfy/secrets.env.local',
+                     'stacks/fleet-management/komodo-periphery/keys/core.pub', 'stacks/backup/restic/cache/x',
+                     'stacks/backup/restic/dump-store.keys', 'stacks/backup/restic/secrets.env.local',
+                     'stacks/ai/litellm/secrets.env.local', '.env', '.fleet/sieve.json',
+                     'deprecated/stacks/roastery/traefik/secrets.env.local',
+                     'deprecated/stacks/roastery/backup-target/authorized_keys']:
             ignored = subprocess.run(['git', '-C', str(ROOT), 'check-ignore', '-q', '--no-index', path])
             self.assertEqual(ignored.returncode, 0, path)
 
     def test_secrets_conf_kinds(self):
         kinds = {'hex', 'base64', 'value', 'prompt', 'copy', 'mirror', 'hash', 'rsa'}
-        for spec in STACKS.glob('*/*/secrets.conf'):
+        for spec in STACKS.glob('*/*/secrets*.conf'):
             for line in spec.read_text().splitlines():
                 fields = line.split()
                 if not fields or fields[0].startswith('#') or fields[0] == 'NOTE':
@@ -357,16 +386,15 @@ class Layout(unittest.TestCase):
                 self.assertRegex(fields[0], r'^[A-Z_][A-Z0-9_]*$', f'{spec}: {line}')
                 self.assertIn(fields[1], kinds, f'{spec}: {line}')
                 if fields[1] in ('copy', 'mirror'):
-                    self.assertTrue((spec.parent.parent / fields[2]).is_dir(), f'{spec}: {line}')
+                    self.assertTrue(app(fields[2]).is_dir(), f'{spec}: {line}')
 
     # Every registry image by tag and digest: the tag says what it is, the digest
     # makes a routine pull change nothing (a `main` or `latest` included), and
     # Dependabot moves both together. Only images built here (:local) are exempt.
     IMAGE_SOURCES = [
         *STACKS.glob('*/*/docker-compose.yml'),
-        ROOT / 'bootstrap/Dockerfile',
-        ROOT / 'stacks/grinder/embedding-worker/Dockerfile',
-        ROOT / 'stacks/cellar/restic/restore-test.sh',
+        ROOT / 'stacks/automation/embedding-worker/Dockerfile',
+        ROOT / 'stacks/backup/restic/restore-test.sh',
     ]
 
     def images(self):
@@ -392,25 +420,27 @@ class Layout(unittest.TestCase):
             with self.subTest(image=tag, file=str(source.relative_to(ROOT))):
                 self.assertEqual(seen.setdefault(tag, digest), digest, 'the same tag pinned to two digests')
 
-    @unittest.skipUnless(yaml, 'needs PyYAML (apt install python3-yaml)')
-    def test_node_agents_are_the_same_everywhere(self):
-        # Periphery and the Scrutiny collector are copied per node, not shared
-        # with `extends`, so Dependabot and plain `docker compose` see each one
-        # whole. The copies may differ only in the node's own disks.
-        periphery = {n: (STACKS / n / 'komodo-periphery/docker-compose.yml').read_text()
-                     for n in LINUX_NODES if (STACKS / n / 'komodo-periphery').is_dir()}
-        self.assertGreaterEqual(len(periphery), 4)
-        self.assertEqual(len(set(periphery.values())), 1, f'Periphery differs between {sorted(periphery)}')
-        collectors = {}
-        for node in LINUX_NODES:
-            file = STACKS / node / 'scrutiny-collector/docker-compose.yml'
-            if file.is_file():
-                service = yaml.safe_load(file.read_text())['services']['scrutiny-collector']
-                service.pop('devices')
-                service['volumes'] = [v for v in service['volumes'] if not v.startswith('./')]
-                collectors[node] = json.dumps(service, sort_keys=True)
-        self.assertGreaterEqual(len(collectors), 4)
-        self.assertEqual(len(set(collectors.values())), 1, 'collectors differ beyond their disks')
+    def test_node_agents_are_one_folder_and_on_every_node(self):
+        # Periphery and the Scrutiny collector used to be copied per node; now
+        # each is one folder, and every node but the hub (which runs Komodo
+        # Core and the Scrutiny hub itself) lists both.
+        hub = [n for n in NODES if 'scrutiny' in node_conf(n)['APPS']]
+        self.assertEqual(len(hub), 1)
+        for node in NODES:
+            apps = node_conf(node)['APPS']
+            if node in hub:
+                self.assertIn('komodo', apps)
+                continue
+            self.assertIn('komodo-periphery', apps, node)
+            self.assertIn('scrutiny-collector', apps, node)
+        collector = (app('scrutiny-collector') / 'docker-compose.yml').read_text()
+        self.assertIn('${DISK_DEVICE_2:-/dev/null}', collector, 'a one-disk node must not need DISK_DEVICE_2')
+        self.assertIn('${SCRUTINY_COLLECTOR_CONFIG:-./collector.yaml}', collector)
+        # A node that overrides the collector's settings keeps the file in its own folder.
+        for node in NODES:
+            m = re.search(r'(?m)^SCRUTINY_COLLECTOR_CONFIG=/opt/purrbrews/(\S+)$', (NODE_DIRS / node / 'local.env.example').read_text())
+            if m:
+                self.assertTrue((ROOT / m.group(1)).is_file(), m.group(1))
 
     def test_paired_images_move_together(self):
         def versions(pattern):
@@ -424,21 +454,6 @@ class Layout(unittest.TestCase):
         for name, pattern in pairs.items():
             with self.subTest(name):
                 self.assertEqual(len(versions(pattern)), 1, f'{name}: {sorted(versions(pattern))}')
-
-    def test_roastery_scrutiny_collector_matches_the_hub(self):
-        # Dependabot bumps the images, not the .exe pinned in this script: a
-        # Scrutiny bump fails here until the script's version and hash follow.
-        script = (STACKS / 'roastery' / 'scrutiny-collector' / 'install.ps1').read_text()
-        pinned = re.search(r"\$CollectorVersion = '(v[\d.]+)'", script).group(1)
-        hub = {m.group(1) for _, image in self.images() if (m := re.search(r'analogj/scrutiny:(v[\d.]+)-', image))}
-        self.assertEqual(hub, {pinned})
-        self.assertRegex(script, r"\$CollectorSha256 = '[0-9a-f]{64}'")
-        self.assertRegex(script, r"\$SmartmontoolsVersion = '\d+\.\d+'")
-        # SYSTEM runs only what's in the protected runtime, hashed there.
-        self.assertIn("GetFolderPath('ProgramFiles')) 'purrbrews-scrutiny'", script)
-        self.assertLess(script.index('Copy-AdminOnlyFile $source $staged'), script.index('Get-FileHash -LiteralPath $staged'))
-        self.assertIn("-UserId 'SYSTEM'", script)
-        self.assertIn('Assert-AdminOnlyPath $Smartctl -Ancestor', script)
 
     @unittest.skipUnless(yaml, 'needs PyYAML (apt install python3-yaml)')
     def test_dependabot_sees_every_compose_file_and_its_ignores_match(self):
@@ -459,9 +474,9 @@ class Layout(unittest.TestCase):
         for rule in compose.get('ignore', []):
             self.assertIn(rule['dependency-name'], names, 'an ignore rule that matches no image guards nothing')
 
-    # Routes Gatus deliberately doesn't check end to end (the reasons are in
-    # sieve/gatus/config/config.yaml). Everything else must have a check.
-    NOT_WATCHED = {'ollama'}
+    # Routes Gatus deliberately doesn't check end to end (the reasons would be in
+    # stacks/monitoring/gatus/config/config.yaml). Everything else must have a check.
+    NOT_WATCHED = set()
 
     @unittest.skipUnless(yaml, 'needs PyYAML (apt install python3-yaml)')
     def test_every_route_has_an_end_to_end_check(self):
@@ -470,7 +485,7 @@ class Layout(unittest.TestCase):
             if file.is_file() and file.suffix in ('.yml', '.yaml', '.template') and '.git' not in file.parts:
                 active = '\n'.join(l for l in file.read_text().splitlines() if not l.lstrip().startswith('#'))
                 routed |= set(re.findall(r'Host\(`([a-z0-9-]+)\.(?:\$\{DOMAIN\}|\{\{ env "DOMAIN" \}\})`\)', active))
-        config = yaml.safe_load((STACKS / 'sieve/gatus/config/config.yaml').read_text())
+        config = yaml.safe_load((app('gatus') / 'config/config.yaml').read_text())
         checks = {}
         for endpoint in config['endpoints']:
             m = re.match(r'https://([a-z0-9-]+)\.\$\{DOMAIN\}(/\S*)?$', endpoint['url'])
@@ -478,7 +493,7 @@ class Layout(unittest.TestCase):
                 checks.setdefault(m.group(1), []).append(endpoint)
         self.assertEqual(sorted(routed - set(checks) - self.NOT_WATCHED), [],
                          'routes with no Gatus check: add one under "Every app, end to end"')
-        authelia = (STACKS / 'percolator/authelia/config/configuration.yml.template').read_text()
+        authelia = (app('authelia') / 'config/configuration.yml.template').read_text()
         admin = set(re.findall(r"'([a-z0-9-]+)\.\$\{DOMAIN\}'",
                                re.search(r'domain: &admin_hosts\n(.*?)\n\s+subject:', authelia, re.S).group(1)))
         for host in sorted((admin & set(checks)) - self.NOT_WATCHED):
@@ -494,6 +509,8 @@ class Layout(unittest.TestCase):
         for file in ROOT.rglob('*'):
             if not file.is_file() or '.git' in file.parts or file.suffix in ('.pyc', '.exe') or file.name == 'test_infrastructure.py':
                 continue
+            if 'deprecated' in file.relative_to(ROOT).parts:
+                continue  # the archive is kept as it was
             if file.name == 'runbook.md':
                 continue  # dated history is allowed to mention what was true then
             text = file.read_text(errors='ignore')
@@ -505,35 +522,35 @@ class Firewall(unittest.TestCase):
     def dry_run(self, node, env_local, network_subnet=None):
         with tempfile.TemporaryDirectory() as tmp:
             root = copy_repo(tmp)
-            (root / 'stacks' / node / '.env.local').write_text(env_local)
+            (root / 'nodes' / node / '.env.local').write_text(env_local)
             env = dict(os.environ)
             if network_subnet:
                 env['NETWORK_SUBNET'] = network_subnet
-            result = subprocess.run(['bash', str(root / 'stacks' / node / 'firewall.sh'), '--dry-run'],
+            result = subprocess.run(['bash', str(root / 'nodes' / node / 'firewall.sh'), '--dry-run'],
                                     env=env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             return result.stdout
 
     def test_sieve(self):
-        out = self.dry_run('sieve', 'EDGE_SUBNET=172.31.10.0/24\n')
-        self.assertIn('ufw allow proto udp from 192.168.0.0/24 to any port 53', out)
+        out = self.dry_run('sieve', 'PROXY_SUBNET=172.31.10.0/24\n')
+        self.assertIn('ufw allow proto udp from 192.168.1.0/24 to any port 53', out)
         self.assertIn('ufw allow proto udp from any to any port 67', out)
         self.assertIn('ufw allow proto tcp from 172.31.10.0/24 to any port 8080', out)
-        self.assertIn('ufw route allow proto tcp from 192.168.0.0/24 to 172.31.10.0/24 port 443', out)
+        self.assertIn('ufw route allow proto tcp from 192.168.1.0/24 to 172.31.10.0/24 port 443', out)
         self.assertIn('purrbrews\\ sieve:\\ dns\\ from\\ LAN', out)
         # only Docker's own subnets may skip the rules, not the whole LAN
         self.assertIn('ufw-docker install --docker-subnets', out)
 
     def test_percolator_forward_auth_clients(self):
-        out = self.dry_run('percolator', 'FORWARD_AUTH_CLIENTS=192.168.0.10 192.168.0.12\nPROXY_SUBNET=172.30.0.0/24\n'
-                                         "MAIL_RELAY_CLIENTS='192.168.0.13 192.168.0.14'\n")
-        self.assertIn('ufw route allow proto tcp from 192.168.0.0/24 to any port 443', out)
+        out = self.dry_run('percolator', 'FORWARD_AUTH_CLIENTS=192.168.1.10 192.168.1.12\nPROXY_SUBNET=172.30.0.0/24\n'
+                                         "MAIL_RELAY_CLIENTS='192.168.1.13 192.168.1.14'\n")
+        self.assertIn('ufw route allow proto tcp from 192.168.1.0/24 to any port 443', out)
         # The mail relay: the listed nodes, and not the whole LAN.
-        self.assertIn('ufw route allow proto tcp from 192.168.0.14 to any port 587', out)
-        self.assertNotIn('from 192.168.0.0/24 to any port 587', out)
-        self.assertIn('ufw route allow proto tcp from 192.168.0.10 to any port 9091', out)
-        self.assertIn('ufw route allow proto tcp from 192.168.0.12 to any port 9091', out)
-        self.assertIn('forward-auth\\ from\\ 192.168.0.12', out)
+        self.assertIn('ufw route allow proto tcp from 192.168.1.14 to any port 587', out)
+        self.assertNotIn('from 192.168.1.0/24 to any port 587', out)
+        self.assertIn('ufw route allow proto tcp from 192.168.1.10 to any port 9091', out)
+        self.assertIn('ufw route allow proto tcp from 192.168.1.12 to any port 9091', out)
+        self.assertIn('forward-auth\\ from\\ 192.168.1.12', out)
 
     def test_host_networked_apps_allow_the_proxy_network(self):
         out = self.dry_run('mochaPot', 'PROXY_SUBNET=172.30.13.0/24\n')
@@ -543,18 +560,18 @@ class Firewall(unittest.TestCase):
         out = self.dry_run('grinder', '', network_subnet='172.18.0.0/16')
         self.assertIn('allow proto tcp from 172.18.0.0/16 to any port 6052', out)
         # published ports are matched after DNAT, on the container's port
-        self.assertIn('route allow proto tcp from 192.168.0.0/24 to any port 5000', out)
+        self.assertIn('route allow proto tcp from 192.168.1.0/24 to any port 5000', out)
         self.assertNotIn('port 5001', out)
 
     def test_cellar_and_bad_tokens(self):
         out = self.dry_run('cellar', '')
         for port in [80, 443, 9120, 8080]:
-            self.assertIn(f'route allow proto tcp from 192.168.0.0/24 to any port {port}', out)
+            self.assertIn(f'route allow proto tcp from 192.168.1.0/24 to any port {port}', out)
         self.assertNotIn('port 445', out)  # smb stays closed until its rule is uncommented
         with tempfile.TemporaryDirectory() as tmp:
             root = copy_repo(tmp)
-            (root / 'stacks/percolator/.env.local').write_text('FORWARD_AUTH_CLIENTS=REPLACE_ME\n')
-            result = subprocess.run(['bash', str(root / 'stacks/percolator/firewall.sh'), '--dry-run'], capture_output=True, text=True)
+            (root / 'nodes/percolator/.env.local').write_text('FORWARD_AUTH_CLIENTS=REPLACE_ME\n')
+            result = subprocess.run(['bash', str(root / 'nodes/percolator/firewall.sh'), '--dry-run'], capture_output=True, text=True)
             self.assertNotEqual(result.returncode, 0)
 
 
@@ -569,9 +586,9 @@ class Secrets(unittest.TestCase):
         tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp)
         root = copy_repo(tmp)
-        (root / '.env').write_text(f'NODE={node}\nNODE_IP=192.168.0.99\nTZ=Asia/Kolkata\nPUID=1000\nPGID=1000\n'
+        (root / '.env').write_text(f'NODE={node}\nNODE_IP=192.168.1.99\nTZ=Asia/Kolkata\nPUID=1000\nPGID=1000\n'
                                    'PROJECT_DIR=/opt/purrbrews\nDATA_DIR=/srv/data\nMEDIA_DIR=/srv/media\n')
-        directory = root / 'stacks' / node
+        directory = root / 'nodes' / node
         shutil.copy(directory / 'local.env.example', directory / '.env.local')
         path = str(fake_bin(Path(tmp) / 'bin')) + os.pathsep + os.environ['PATH']
         script = (f'source "{root}/stacks/_lib/common.sh"; source "{root}/stacks/_lib/secrets.sh"; '
@@ -590,11 +607,16 @@ class Secrets(unittest.TestCase):
         return keys
 
     def test_every_variable_is_defined_somewhere(self):
-        for node in LINUX_NODES + ['roastery']:
+        for node in NODES:
             with self.subTest(node=node):
                 root, directory = self.generate(node)
-                for source in list(directory.glob('*/docker-compose.yml')) + list(directory.glob('*/**/*.template')):
-                    app_dir = directory / source.relative_to(directory).parts[0]
+                conf = node_conf(node)
+                sources = []
+                for name in conf['APPS'] + conf['TOOLS']:
+                    folder = app(name, root)
+                    sources += [(folder, f) for f in [folder / 'docker-compose.yml', *folder.rglob('*.template')] if f.is_file()]
+                self.assertTrue(sources)
+                for app_dir, source in sources:
                     have = self.defined(root, directory, app_dir)
                     for line in source.read_text().splitlines():
                         if line.lstrip().startswith('#'):
@@ -609,39 +631,53 @@ class Secrets(unittest.TestCase):
 
     def test_generated_values_and_idempotence(self):
         root, directory = self.generate('percolator')
-        authelia = (directory / 'authelia/secrets.env.local').read_text()
+        authelia = (app('authelia', root) / 'secrets.env.local').read_text()
         self.assertRegex(authelia, r'(?m)^AUTHELIA_SESSION_SECRET=[0-9a-f]{64}$')
         self.assertRegex(authelia, r"(?m)^VAULTWARDEN_OIDC_CLIENT_SECRET_HASH='\$pbkdf2")
         self.assertRegex(authelia, r"(?m)^AUTHELIA_OIDC_JWK_PRIVATE_KEY='-----BEGIN PRIVATE KEY-----\\n")
-        lldap = (directory / 'lldap/secrets.env.local').read_text()
+        lldap = (app('lldap', root) / 'secrets.env.local').read_text()
         password = re.search(r'^LLDAP_ADMIN_PASSWORD=(.*)$', lldap, re.M).group(1)
         self.assertIn(f'AUTHELIA_LDAP_PASSWORD={password}', authelia)
-        traefik = (directory / 'traefik/secrets.env.local').read_text()
+        traefik = (app('traefik-ingress', root) / 'secrets.env.local').read_text()
         self.assertIn('CF_DNS_API_TOKEN=REPLACE_ME', traefik)
-        self.assertEqual((directory / 'vaultwarden/secrets.env.local').stat().st_mode & 0o777, 0o600)
-        before = {f: f.read_text() for f in directory.glob('*/secrets.env.local')}
+        self.assertEqual((app('vaultwarden', root) / 'secrets.env.local').stat().st_mode & 0o777, 0o600)
+        # Only percolator's apps got a secrets file: another node's are untouched.
+        self.assertFalse((app('pihole', root) / 'secrets.env.local').exists())
+        before = {f: f.read_text() for f in (root / 'stacks').glob('*/*/secrets.env.local')}
+        self.assertGreater(len(before), 10)
         path = str(Path(root).parent / 'bin') + os.pathsep + os.environ['PATH']
         script = (f'source "{root}/stacks/_lib/common.sh"; source "{root}/stacks/_lib/secrets.sh"; '
                   f'load_node "{directory}"; use_docker; generate_secrets')
         subprocess.run(['bash', '-c', script], env=dict(os.environ, PATH=path), stdin=subprocess.DEVNULL, check=True)
-        self.assertEqual(before, {f: f.read_text() for f in directory.glob('*/secrets.env.local')})
+        self.assertEqual(before, {f: f.read_text() for f in (root / 'stacks').glob('*/*/secrets.env.local')})
 
     def test_sieve_ntfy_lists_and_mirror(self):
-        _, directory = self.generate('sieve')
-        ntfy = (directory / 'ntfy/secrets.env.local').read_text()
+        root, directory = self.generate('sieve')
+        ntfy = (app('ntfy', root) / 'secrets.env.local').read_text()
         self.assertRegex(ntfy, r"(?m)^NTFY_AUTH_USERS='barista:\$2a\$10\$a{53}:admin,gatus:\$2a\$10\$a{53}:user'$")
         token = re.search(r'^GATUS_NTFY_TOKEN=(tk_[0-9a-f]{29})$', ntfy, re.M).group(1)
         self.assertIn(f'NTFY_AUTH_TOKENS=gatus:{token}:gatus', ntfy)
-        gatus = (directory / 'gatus/secrets.env.local').read_text()
+        gatus = (app('gatus', root) / 'secrets.env.local').read_text()
         self.assertIn(f'GATUS_NTFY_TOKEN={token}', gatus)
         self.assertRegex(gatus, r'(?m)^NTFY_CRITICAL_TOPIC=purrbrews-[0-9a-f]{24}$')
-        self.assertIn('PERIPHERY_ONBOARDING_KEY=\n', (directory / 'komodo-periphery/secrets.env.local').read_text())
+        self.assertIn('PERIPHERY_ONBOARDING_KEY=\n', (app('komodo-periphery', root) / 'secrets.env.local').read_text())
+
+    def test_the_hub_makes_the_backup_password_and_the_others_are_asked_for_it(self):
+        # restic's secrets.hook picks the spec from node.conf's BACKUP_HUB.
+        root, _ = self.generate('cellar')
+        hub = (app('restic', root) / 'secrets.env.local').read_text()
+        self.assertRegex(hub, r'(?m)^RESTIC_PASSWORD=[0-9a-f]{64}$')
+        self.assertRegex(hub, r'(?m)^RCLONE_CRYPT_PASSWORD=[0-9a-f]{64}$')
+        root, _ = self.generate('sieve')
+        client = (app('restic', root) / 'secrets.env.local').read_text()
+        self.assertIn('RESTIC_PASSWORD=REPLACE_ME\n', client)
+        self.assertNotIn('RCLONE_', client)
 
     def test_renamed_keys_are_carried_over(self):
         tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp)
         root = copy_repo(tmp)
-        directory = root / 'stacks/percolator'
+        directory = root / 'nodes/percolator'
         (directory / '.env.local').write_text("ACME_EMAIL=me@example.test\nPERCOLATOR_DISK_DEVICE_NVME=/dev/nvme0\n")
         subprocess.run(['bash', '-c', f'source "{root}/stacks/_lib/common.sh"; load_node "{directory}"; migrate_renamed_keys'],
                        check=True, capture_output=True)
@@ -688,7 +724,7 @@ class Backup(unittest.TestCase):
 
     def plan(self, node, root=None):
         base = root or ROOT
-        return subprocess.run(['bash', str(base / 'stacks' / node / 'backup.sh'), 'plan'],
+        return subprocess.run(['bash', str(base / 'nodes' / node / 'backup.sh'), 'plan'],
                               capture_output=True, text=True)
 
     def test_every_node_plans(self):
@@ -699,23 +735,39 @@ class Backup(unittest.TestCase):
                 self.assertIn('Files (restic --host', result.stdout)
 
     def test_backup_files_only_name_known_apps(self):
+        run = {name for node in NODES for name in node_conf(node)['APPS']}
         for spec in STACKS.glob('*/*/backup'):
-            node, app = spec.parent.parent.name, spec.parent.name
-            if app == 'restic':
-                continue
-            self.assertIn(app, node_conf(node)['APPS'], f'{spec}: {app} is not in {node}/node.conf, so it would never run')
+            name = spec.parent.name
+            self.assertIn(name, run, f'{spec}: no node.conf runs {name}, so it would never be backed up')
 
     def test_every_node_has_the_backup_secrets(self):
-        for node in LINUX_NODES:
-            spec = (STACKS / node / 'restic/secrets.conf').read_text()
-            self.assertRegex(spec, r'(?m)^RESTIC_PASSWORD\s', node)
-            self.assertRegex(spec, r'(?m)^NTFY_URL\s+prompt optional', node)
+        restic = app('restic')
+        self.assertRegex((restic / 'secrets.conf').read_text(), r'(?m)^NTFY_URL\s+prompt optional')
+        self.assertRegex((restic / 'secrets.hub.conf').read_text(), r'(?m)^RESTIC_PASSWORD\s+hex 64$')
+        self.assertRegex((restic / 'secrets.client.conf').read_text(), r'(?m)^RESTIC_PASSWORD\s+prompt ')
+        for node in NODES:
+            self.assertIn('restic', node_conf(node)['TOOLS'], node)
+
+    def test_only_the_hub_installs_the_hub_timers(self):
+        script = ('source "$1/stacks/_lib/common.sh"; load_node "$1/nodes/$2"; '
+                  'eval "$(sed -n \'/^node_units()/,/^}/p\' "$1/stacks/_lib/backup.sh")"; node_units')
+        units = {}
+        for node in NODES:
+            out = subprocess.run(['bash', '-c', script, '_', str(ROOT), node], capture_output=True, text=True, check=True).stdout
+            units[node] = sorted(Path(line).name for line in out.split())
+        self.assertIn('drive-sync.timer', units['cellar'])
+        self.assertNotIn('purrbrews-wake-roastery.timer', units['cellar'])
+        for node in NODES:
+            if node != 'cellar':
+                self.assertEqual(units[node], [], node)
+        for unit in app('restic').glob('*.service'):
+            self.assertNotIn('stacks/cellar', unit.read_text(), unit.name)
 
     def test_bad_lines_are_rejected(self):
         tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp)
         root = copy_repo(tmp)
-        spec = root / 'stacks/grinder/n8n/backup'
+        spec = root / 'stacks/automation/n8n/backup'
         for bad in ['tar n8n', 'path /etc', 'path ../../etc', 'sqlite n8n', 'pg a b c', 'exclude cache/../../x']:
             with self.subTest(line=bad):
                 spec.write_text(bad + '\n')
@@ -743,11 +795,11 @@ class Backup(unittest.TestCase):
                        check=True, capture_output=True)
         (data / 'vaultwarden/rsa_key.pem').write_text('key')
         (data / 'vaultwarden/icon_cache/a.png').write_text('png')
-        (root / '.env').write_text(f'NODE_IP=192.168.0.11\nDATA_DIR={data}\n')
-        node = root / 'stacks/percolator'
+        (root / '.env').write_text(f'NODE_IP=192.168.1.11\nDATA_DIR={data}\n')
+        node = root / 'nodes/percolator'
         node.joinpath('node.conf').write_text('APPS=(vaultwarden)\n')
-        (node / '.env.local').write_text(f'BACKUP_REPOSITORY={repo}\nDUMP_DIR={dumps}\nDUMP_STORE_HOST=192.168.0.11\n')
-        (node / 'restic/secrets.env.local').write_text('RESTIC_PASSWORD=test\n')
+        (node / '.env.local').write_text(f'BACKUP_REPOSITORY={repo}\nDUMP_DIR={dumps}\nDUMP_STORE_HOST=192.168.1.11\n')
+        (app('restic', root) / 'secrets.env.local').write_text('RESTIC_PASSWORD=test\n')
         env = dict(os.environ, BACKUP_KEY=str(tmp / 'key'), BACKUP_ETC=str(tmp / 'etc'),
                    BACKUP_CACHE=str(tmp / 'cache'), BACKUP_LOCK=str(tmp / 'lock'), RESTIC_PASSWORD='test',
                    PATH=f"{fake_bin(tmp / 'bin')}:{os.environ['PATH']}")
@@ -779,11 +831,12 @@ class Backup(unittest.TestCase):
         etc.mkdir()
         (etc / 'rclone.conf').write_text('[roastery]\ntype = alias\nremote = /\n\n'
                                          f'[drive-crypt]\ntype = alias\nremote = {drive}\n')
-        (root / '.env').write_text(f'NODE_IP=192.168.0.12\nDATA_DIR={tmp / "data"}\n')
-        node = root / 'stacks/cellar'
+        # NODE: drive-sync.sh lives with restic now and finds its node from here.
+        (root / '.env').write_text(f'NODE=cellar\nNODE_IP=192.168.1.12\nDATA_DIR={tmp / "data"}\n')
+        node = root / 'nodes/cellar'
         (node / '.env.local').write_text(f'BACKUP_REPOSITORY={roastery}\nDUMP_DIR={tmp / "dumps"}\n'
-                                         'DUMP_STORE_HOST=192.168.0.12\n')
-        (node / 'restic/secrets.env.local').write_text('RESTIC_PASSWORD=test\n')
+                                         'DUMP_STORE_HOST=192.168.1.12\n')
+        (app('restic', root) / 'secrets.env.local').write_text('RESTIC_PASSWORD=test\n')
         env = dict(os.environ, BACKUP_ETC=str(etc), BACKUP_LOCK=str(tmp / 'lock'), BACKUP_CACHE=str(tmp / 'cache'),
                    RESTIC_PASSWORD='test', PATH=f"{fake_bin(tmp / 'bin')}:{os.environ['PATH']}")
 
@@ -791,7 +844,7 @@ class Backup(unittest.TestCase):
             subprocess.run(['restic', '-q', '-r', str(roastery), 'init'], env=env, check=True, capture_output=True)
 
         def sync():
-            return subprocess.run(['bash', str(node / 'restic/drive-sync.sh')], env=env, capture_output=True, text=True)
+            return subprocess.run(['bash', str(app('restic', root) / 'drive-sync.sh')], env=env, capture_output=True, text=True)
 
         init()
         first = sync()
@@ -836,11 +889,11 @@ class Backup(unittest.TestCase):
             subprocess.run(['sqlite3', str(data / rel), sql.format(n)], check=True, capture_output=True)
         (data / 'actualbudget/user-files/file-abc.blob').write_text('budget')
         (data / 'freshrss/extensions').mkdir(parents=True)
-        (root / '.env').write_text(f'NODE_IP=192.168.0.11\nDATA_DIR={data}\n')
-        node = root / 'stacks/percolator'
+        (root / '.env').write_text(f'NODE_IP=192.168.1.11\nDATA_DIR={data}\n')
+        node = root / 'nodes/percolator'
         node.joinpath('node.conf').write_text('APPS=(actualbudget freshrss)\n')
-        (node / '.env.local').write_text(f'BACKUP_REPOSITORY={repo}\nDUMP_DIR={dumps}\nDUMP_STORE_HOST=192.168.0.11\n')
-        (node / 'restic/secrets.env.local').write_text('RESTIC_PASSWORD=test\n')
+        (node / '.env.local').write_text(f'BACKUP_REPOSITORY={repo}\nDUMP_DIR={dumps}\nDUMP_STORE_HOST=192.168.1.11\n')
+        (app('restic', root) / 'secrets.env.local').write_text('RESTIC_PASSWORD=test\n')
         env = dict(os.environ, BACKUP_KEY=str(tmp / 'key'), BACKUP_ETC=str(tmp / 'etc'),
                    BACKUP_CACHE=str(tmp / 'cache'), BACKUP_LOCK=str(tmp / 'lock'), RESTIC_PASSWORD='test',
                    PATH=f"{fake_bin(tmp / 'bin')}:{os.environ['PATH']}")
@@ -864,9 +917,10 @@ class Backup(unittest.TestCase):
 
 
 class RemoteAccess(unittest.TestCase):
-    """Tailscale: the init step, the tailnet policy and the auth-key guards (tailscale/README.md)."""
+    """Tailscale: the tailnet policy (tailscale/README.md). The step that joined a
+    node to the tailnet was part of init/, now under deprecated/; its checks come
+    back with whatever replaces it (docs/migration-plan.md, phase 1)."""
 
-    INIT = ROOT / 'init' / 'purrbrews-init.sh'
     # Built at runtime so this file never contains something that looks like a key.
     FAKE_KEY = 'tskey-' + 'auth-' + 'kExample1CNTRL-abc'
 
@@ -875,27 +929,6 @@ class RemoteAccess(unittest.TestCase):
         text = re.sub(r'(^|\s)//[^\n]*', r'\1', text)        # HuJSON comments
         text = re.sub(r',(\s*[}\]])', r'\1', text)           # and trailing commas
         return json.loads(text)
-
-    def test_step_runs_after_the_firewall_and_before_the_network(self):
-        steps = re.search(r'^ALL_STEPS=\((.*?)\)', self.INIT.read_text(), re.M | re.S).group(1).split()
-        self.assertLess(steps.index('firewall'), steps.index('tailscale'))
-        self.assertLess(steps.index('tailscale'), steps.index('network'))
-        self.assertIn('step_tailscale() {', self.INIT.read_text())
-
-    def test_ufw_stays_the_only_gate(self):
-        # Tailscale's default netfilter mode accepts everything on tailscale0 ahead of UFW.
-        step = re.search(r'^step_tailscale\(\) \{.*?^\}', self.INIT.read_text(), re.M | re.S).group(0)
-        self.assertIn('--netfilter-mode=off', step)
-        self.assertIn('--accept-dns=false', step)
-        self.assertIn("ufw allow in on tailscale0 to any port 22 proto tcp", step)
-        self.assertNotRegex(step, r'--ssh(?!=false)')
-
-    def test_settings_tag_is_owned_in_the_policy(self):
-        example = (ROOT / 'init' / 'purrbrews-init.env.example').read_text()
-        self.assertRegex(example, r'(?m)^ENABLE_TAILSCALE=true$')
-        tag = re.search(r'(?m)^TAILSCALE_TAGS=(.*)$', example).group(1)
-        self.assertIn(f'cfg TAILSCALE_TAGS {tag})', self.INIT.read_text())   # init's default agrees
-        self.assertIn(tag, self.policy()['tagOwners'])
 
     def test_policy_gives_the_nodes_ssh_only_and_nothing_outbound(self):
         policy = self.policy()
@@ -909,18 +942,6 @@ class RemoteAccess(unittest.TestCase):
         self.assertNotRegex((ROOT / 'tailscale' / 'policy.hujson').read_text(), r'[\w.+-]+@[\w-]+\.[\w.]+',
                             'no email addresses in a public repo')
 
-    def test_every_guard_refuses_an_auth_key(self):
-        guards = {self.INIT: None, ROOT / 'bootstrap' / 'bootstrap.sh': None, ROOT / 'bootstrap' / 'entrypoint.sh': None}
-        for path in guards:
-            found = re.search(r"grep -Eq '(tskey-[^']*)'", path.read_text())
-            self.assertIsNotNone(found, f'{path.name} has no auth-key guard')
-            guards[path] = found.group(1)
-        self.assertEqual(len(set(guards.values())), 1, 'the three guards use different patterns')
-        pattern = re.compile(next(iter(guards.values())))
-        self.assertRegex(f'TS_AUTHKEY={self.FAKE_KEY}', pattern)
-        # ...and the shipped settings, docs included, never trip it.
-        self.assertNotRegex((ROOT / 'init' / 'purrbrews-init.env.example').read_text(), pattern)
-
     def test_no_auth_key_anywhere_in_the_repo(self):
         pattern = re.compile(r'tskey-[a-z]+-[A-Za-z0-9]')
         for file in ROOT.rglob('*'):
@@ -931,47 +952,14 @@ class RemoteAccess(unittest.TestCase):
         return dict(line.split('=', 1) for line in (STACKS / 'fleet.env').read_text().splitlines()
                     if re.match(r'^[A-Z_]+=', line))
 
-    def test_subnet_routes_reach_the_apps_but_not_the_home_lan(self):
-        import ipaddress
-        example = (ROOT / 'init' / 'purrbrews-init.env.example').read_text()
-        routers = re.search(r'(?m)^TAILSCALE_SUBNET_ROUTERS=(.*)$', example).group(1).split()
-        nodes = re.search(r'(?m)^NODE_IPS=(.*)$', example).group(1)
-        self.assertGreaterEqual(len(routers), 2, 'one router is a single point of failure')
-        for r in routers:
-            self.assertIn(f'{r}=', nodes)
-        route = re.search(r'(?m)^TAILSCALE_ROUTES=(.*)$', example).group(1)
-        self.assertIn(f'cfg TAILSCALE_ROUTES {route})', self.INIT.read_text())
-        self.assertEqual(list(self.policy()['autoApprovers']['routes']), [route])
-        fleet = self.fleet()
-        net, lan = ipaddress.ip_network(route), ipaddress.ip_network(fleet['LAN_CIDR'])
-        # Less specific than the house LAN, so a laptop at home keeps its direct LAN route.
-        self.assertLess(net.prefixlen, lan.prefixlen)
-        self.assertTrue(lan.subnet_of(net))
-
     def test_web_and_dns_grants_name_exactly_the_traefik_hosts_and_pi_holes(self):
         fleet = self.fleet()
-        web = {f'{v}/32' for k, v in fleet.items() if k.endswith('_LAN_IP')}   # five nodes + roastery
+        web = {f'{v}/32' for k, v in fleet.items() if k.endswith('_LAN_IP')}   # the five nodes
         dns = {f"{fleet['DNS_PRIMARY']}/32", f"{fleet['DNS_SECONDARY']}/32"}
         lan_grants = [g for g in self.policy()['grants'] if any('/' in d for d in g['dst'])]
         self.assertEqual({frozenset(g['dst']): sorted(g['ip']) for g in lan_grants},
                          {frozenset(web): ['tcp:443'], frozenset(dns): ['tcp:53', 'udp:53']})
 
-    def test_subnet_router_forwards_web_and_dns_only(self):
-        body = re.search(r'^tailscale_subnet_router\(\) \{.*?^\}', self.INIT.read_text(), re.M | re.S).group(0)
-        rules = re.findall(r'^\s*ufw route allow (.*?) comment', body, re.M)
-        self.assertTrue(rules)
-        for rule in rules:
-            self.assertIn('in on tailscale0', rule)
-            self.assertIn(re.search(r'port (\d+)', rule).group(1), {'443', '53'}, rule)
-        self.assertIn('-s 100.64.0.0/10 -o ${lan_if} -j MASQUERADE', body)
-
-    def test_roastery_installer_is_pinned_and_rdp_is_scoped(self):
-        script = (STACKS / 'roastery' / 'remote-access' / 'setup.ps1').read_text()
-        self.assertRegex(script, r"\$MsiSha256 = '[0-9a-f]{64}'")
-        self.assertRegex(script, r"\$TailscaleVersion = '\d+\.\d+\.\d+'")
-        self.assertIn("$Tailnet = '100.64.0.0/10'", script)
-        self.assertIn('-LocalPort 3389 -RemoteAddress $from', script)
-        self.assertIn('UserAuthentication -Value 1', script)   # Network Level Authentication
 
 
 class FileAndDAVReplacement(unittest.TestCase):
@@ -986,14 +974,14 @@ class FileAndDAVReplacement(unittest.TestCase):
             ['git', '-C', str(ROOT), 'ls-files', '-co', '--exclude-standard', '-z'])
         for name in set(names.decode().split('\0')):
             path = ROOT / name
-            if not name or name == 'runbook.md' or not path.is_file():
+            if not name or name == 'runbook.md' or name.startswith('deprecated/') or not path.is_file():
                 continue
             self.assertNotIn(needle, name.lower().encode(), name)
             self.assertNotIn(needle, path.read_bytes().lower(), name)
 
     @unittest.skipUnless(yaml, 'needs PyYAML')
     def test_public_clients_keep_pkce_and_bot_deny_precedence(self):
-        config = yaml.safe_load((STACKS / 'percolator/authelia/config/configuration.yml.template').read_text())
+        config = yaml.safe_load((app('authelia') / 'config/configuration.yml.template').read_text())
         oidc = config['identity_providers']['oidc']
         clients = [c for c in oidc['clients'] if c['client_id'].startswith('opencloud')]
         self.assertEqual({c['client_id'] for c in clients},
@@ -1011,7 +999,7 @@ class FileAndDAVReplacement(unittest.TestCase):
         self.assertEqual(deny, {'policy': 'deny', 'subject': ['group:opencloud_bot_accounts']})
         self.assertEqual(policies['opencloud']['default_policy'], 'deny')
         self.assertEqual(policies['opencloud']['rules'][1]['policy'], '${AUTH_POLICY}')
-        mapping = yaml.safe_load((STACKS / 'percolator/opencloud/config/proxy.yaml.template').read_text())
+        mapping = yaml.safe_load((app('opencloud') / 'config/proxy.yaml.template').read_text())
         self.assertEqual(mapping['role_assignment']['oidc_role_mapper']['role_mapping'], [
             {'role_name': 'admin', 'claim_value': '${LLDAP_ADMIN_GROUP}'},
             {'role_name': 'user', 'claim_value': '${LLDAP_HOUSEHOLD_GROUP}'}])
@@ -1042,15 +1030,15 @@ class FileAndDAVReplacement(unittest.TestCase):
     def test_tunnel_nodes_trust_only_sieves_forwarded_headers(self):
         # cloudflared on sieve fronts these Traefiks; without this every
         # tunnel visitor reaches the apps (and CrowdSec) as sieve.
-        for node in ('percolator', 'mochaPot', 'grinder'):
-            cfg = yaml.safe_load((STACKS / node / 'traefik/config/traefik.yml.template').read_text())
+        for name in ('traefik-ingress', 'traefik'):
+            cfg = yaml.safe_load((app(name) / 'config/traefik.yml.template').read_text())
             trusted = cfg['entryPoints']['websecure']['forwardedHeaders']['trustedIPs']
-            self.assertEqual(trusted, ['${SIEVE_LAN_IP}/32'], node)
+            self.assertEqual(trusted, ['${SIEVE_LAN_IP}/32'], name)
 
     def test_dav_reader_is_separate_and_household_scoped(self):
         import configparser
         cfg = configparser.ConfigParser(interpolation=None)
-        cfg.read(STACKS / 'percolator/radicale/config/config.template')
+        cfg.read(app('radicale') / 'config/config.template')
         auth = cfg['auth']
         self.assertEqual(auth['type'], 'ldap')
         self.assertTrue(auth['ldap_reader_dn'].startswith('uid=scottishfold,'))
@@ -1064,7 +1052,7 @@ class FileAndDAVReplacement(unittest.TestCase):
 
     def test_homeassistant_has_bluetooth_access(self):
         # Without raw HCI access HA runs its Bluetooth adapter in degraded mode.
-        compose = yaml.safe_load((STACKS / 'mochaPot/homeassistant/docker-compose.yml').read_text())
+        compose = yaml.safe_load((app('homeassistant') / 'docker-compose.yml').read_text())
         ha = compose['services']['homeassistant']
         self.assertEqual(ha['network_mode'], 'host')
         self.assertTrue({'NET_ADMIN', 'NET_RAW'} <= set(ha['cap_add']))
@@ -1073,13 +1061,13 @@ class FileAndDAVReplacement(unittest.TestCase):
     def test_radicale_storage_parent_is_mounted(self):
         # The image's /data is radicale(2999) mode 770; running as PUID, a mount
         # of only /data/collections sits under a directory it can't traverse.
-        compose = yaml.safe_load((STACKS / 'percolator/radicale/docker-compose.yml').read_text())
+        compose = yaml.safe_load((app('radicale') / 'docker-compose.yml').read_text())
         volumes = compose['services']['radicale']['volumes']
         self.assertIn('${DATA_DIR}/radicale:/data', volumes)
         self.assertFalse([v for v in volumes if v.split(':')[1].startswith('/data/')])
 
     def test_initialization_never_replaces_existing_identity_state(self):
-        source = (STACKS / 'percolator/opencloud/start.sh').read_text()
+        source = (app('opencloud') / 'start.sh').read_text()
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             config_dir, data_dir = root / 'config', root / 'data'
@@ -1126,7 +1114,7 @@ class FileAndDAVReplacement(unittest.TestCase):
 class Tunnel(unittest.TestCase):
     """sieve's cloudflared routes: every app except the admin-only ones (config.yml.template)."""
 
-    TEMPLATE = STACKS / 'sieve' / 'cloudflared' / 'config' / 'config.yml.template'
+    TEMPLATE = app('cloudflared') / 'config' / 'config.yml.template'
     # Not admin-only in Authelia, but kept off the internet anyway (reasons in the template).
     NOT_PUBLIC = {'lldap', 'n8n', 'esphome', 'speedtest'}
 
@@ -1139,7 +1127,7 @@ class Tunnel(unittest.TestCase):
         return names
 
     def admin_hosts(self):
-        text = (STACKS / 'percolator' / 'authelia' / 'config' / 'configuration.yml.template').read_text()
+        text = (app('authelia') / 'config' / 'configuration.yml.template').read_text()
         block = re.search(r'domain: &admin_hosts\n(.*?)\n\s+subject:', text, re.S).group(1)
         return set(re.findall(r"'([a-z0-9-]+)\.\$\{DOMAIN\}'", block))
 
@@ -1172,110 +1160,31 @@ class Tunnel(unittest.TestCase):
         active = '\n'.join(line for line in text.splitlines() if not line.lstrip().startswith('#'))
         needed = {a or b for a, b in renderer.VARIABLE.findall(active)}
         fleet = set(re.findall(r'(?m)^([A-Z_]+)=', (STACKS / 'fleet.env').read_text()))
-        sieve = set(re.findall(r'(?m)^([A-Z_]+)=', (STACKS / 'sieve' / 'local.env.example').read_text()))
+        sieve = set(re.findall(r'(?m)^([A-Z_]+)=', (NODE_DIRS / 'sieve' / 'local.env.example').read_text()))
         self.assertEqual(needed - fleet - sieve, set(), 'a new setting would break the next render on sieve')
-
-
-class Flask(unittest.TestCase):
-    """flask, the offline recovery kit (docs/flask.md): stacks/roastery/flask."""
-
-    DIR = STACKS / 'roastery' / 'flask'
-
-    def test_versions_and_signing_keys_are_pinned(self):
-        script = (self.DIR / 'make-flask.ps1').read_text()
-        for name in ['DebianVersion', 'ResticVersion', 'RcloneVersion', 'KeePassXCVersion']:
-            self.assertRegex(script, rf"\${name} = '\d+\.\d+\.\d+'")
-        keys = dict(re.findall(r"^\s+(\w+)\s+= '([0-9A-F]{40})'", script, re.M))
-        self.assertEqual({'debian', 'restic', 'rclone', 'keepassxc'} - set(keys), set())
-
-    def test_the_vault_is_never_written_or_listed(self):
-        script = (self.DIR / 'make-flask.ps1').read_text()
-        self.assertIn("'^(flask\\.kdbx.*|SHA256SUMS", script)
-        self.assertNotRegex(script, r'(Copy-Item|Remove-Item|Move-Item)[^\n]*kdbx')
-
-    def test_recovery_makes_the_crypt_remote_like_drive_setup(self):
-        crypt = 'remote=drive:purrbrews-restic filename_encryption=standard directory_name_encryption=true'
-        self.assertIn(crypt, (STACKS / 'cellar' / 'restic' / 'drive-setup.sh').read_text())
-        self.assertIn(crypt, (self.DIR / 'RECOVERY.md').read_text())
-
-    def test_live_injection_is_pinned(self):
-        script = (self.DIR / 'make-flask.ps1').read_text()
-        self.assertRegex(script, r"\$LiveInjectionVersion = '\d+\.\d+'")
-        self.assertRegex(script, r"\$LiveInjectionSha256 = '[0-9a-f]{64}'")
-        self.assertIn('Assert-Hash (Join-Path $ld $liTar) $LiveInjectionSha256', script)
-
-    def test_live_system_files(self):
-        live = self.DIR / 'live'
-        files = [f for f in live.rglob('*') if f.is_file()]
-        self.assertTrue(files)
-        for f in files:
-            data = f.read_bytes()
-            self.assertNotIn(b'\r', data, f'{f}: CRLF would break it in the live system')
-            if data.startswith(b'#!/bin/sh'):
-                result = subprocess.run(['sh', '-n', str(f)], capture_output=True, text=True)
-                self.assertEqual(result.returncode, 0, f'{f}: {result.stderr}')
-            if f.suffix == '.desktop':
-                self.assertTrue(data.startswith(b'[Desktop Entry]'), f)
-        mount = (live / 'usr/local/sbin/mount-flask').read_text()
-        self.assertIn('/dev/mapper/$name', mount)
-        self.assertIn('mount -o ro,', mount)
-        keepass = (live / 'usr/local/bin/flask-keepassxc').read_text()
-        self.assertIn('--appimage-extract-and-run', keepass)   # no libfuse2 offline
-
-    def test_fill_vault_names_match_the_doc(self):
-        script = (self.DIR / 'fill-vault.ps1').read_text()
-        block = re.search(r'\$Tiers = \[ordered\]@\{(.*?)\n\}', script, re.S).group(1)
-        names = set(re.findall(r"'([A-Z][A-Z0-9_]+)'", block))
-        doc = (ROOT / 'docs' / 'flask.md').read_text()
-        in_doc = set(re.findall(r'^\| `([A-Z][A-Z0-9_]+)`', doc, re.M)) | set(re.findall(r'`, `([A-Z][A-Z0-9_]+)` \|', doc))
-        self.assertEqual(names, in_doc)
-
-    def test_powershell_files_are_ascii(self):
-        # PowerShell 5 reads a BOM-less .ps1 as ANSI: a UTF-8 dash becomes a
-        # smart quote, which it treats as a string delimiter.
-        for file in ROOT.rglob('*.ps1'):
-            if '.git' not in file.parts:
-                bad = [n for n, line in enumerate(file.read_text().splitlines(), 1) if not line.isascii()]
-                self.assertEqual(bad, [], f'{file.relative_to(ROOT)}: non-ASCII on lines {bad}')
-
-    def test_no_double_encoded_text(self):
-        # UTF-8 read as Windows-1252 and written back turns an em dash into
-        # three letters starting with a-circumflex. It happened to 20 compose
-        # files once (2026-10-10), in a PowerShell 5 round trip.
-        broken = re.compile('[\u00c2\u00c3\u00e2][\u0080-\u00bf\u0152-\u2122]')
-        for file in ROOT.rglob('*'):
-            if '.git' in file.parts or not file.is_file() or file.suffix in ('.pyc', '.exe', '.png', '.jpg'):
-                continue
-            try:
-                text = file.read_text(encoding='utf-8')
-            except UnicodeDecodeError:
-                continue
-            bad = [n for n, line in enumerate(text.splitlines(), 1) if broken.search(line)]
-            self.assertEqual(bad, [], f'{file.relative_to(ROOT)}: double-encoded text on lines {bad}')
-
 
 
 class AppsNeedTheRelayBundle(unittest.TestCase):
     """Without mail-relay's bundle, SSL_CERT_FILE points at nothing and SSO breaks."""
 
     def test_every_app_on_the_bundle_has_the_guard(self):
-        users = sorted(p.parent.name for p in (STACKS / 'percolator').glob('*/docker-compose.yml')
+        users = sorted(p.parent.name for p in STACKS.glob('*/*/docker-compose.yml')
                        if 'SSL_CERT_FILE: /etc/purrbrews/bundle.crt' in p.read_text(encoding='utf-8'))
         self.assertEqual(users, ['paperless', 'vaultwarden', 'vikunja'])
-        for app in users:
-            prepare = STACKS / 'percolator' / app / 'prepare.sh'
-            self.assertIn('mail-relay/require-bundle.sh', prepare.read_text(encoding='utf-8'), app)
+        for name in users:
+            prepare = app(name) / 'prepare.sh'
+            self.assertIn('mail/mail-relay/require-bundle.sh', prepare.read_text(encoding='utf-8'), name)
 
     def test_prepare_refuses_until_the_bundle_exists(self):
-        for app in ('vaultwarden', 'paperless', 'vikunja'):
-            with self.subTest(app=app), tempfile.TemporaryDirectory() as tmp:
+        for name in ('vaultwarden', 'paperless', 'vikunja'):
+            with self.subTest(app=name), tempfile.TemporaryDirectory() as tmp:
                 root = Path(tmp)
                 fake = root / 'bin'
                 fake.mkdir()
                 (fake / 'sudo').write_text('#!/bin/sh\nexec "$@"\n')
                 (fake / 'sudo').chmod(0o755)
                 env = dict(os.environ, PATH=f'{fake}{os.pathsep}{os.environ["PATH"]}')
-                script = STACKS / 'percolator' / app / 'prepare.sh'
+                script = app(name) / 'prepare.sh'
 
                 def prepare():
                     return subprocess.run(['bash', str(script), str(root / 'data')], env=env,
@@ -1283,7 +1192,7 @@ class AppsNeedTheRelayBundle(unittest.TestCase):
 
                 refused = prepare()
                 self.assertNotEqual(refused.returncode, 0)
-                self.assertIn(f'{app}/prepare.sh:', refused.stderr)
+                self.assertIn(f'{name}/prepare.sh:', refused.stderr)
                 self.assertIn('mail-relay up -d first', refused.stderr)
                 bundle = root / 'data/mail-relay/tls-public/bundle.crt'
                 bundle.parent.mkdir(parents=True)
@@ -1294,26 +1203,29 @@ class AppsNeedTheRelayBundle(unittest.TestCase):
 class UpgradeGates(unittest.TestCase):
     """Images that migrate their data one way wait for the owner's go-ahead."""
 
-    CASES = [  # node, app, data that exists once it has run, key, what to acknowledge
-        ('percolator', 'opencloud', 'opencloud/config/opencloud.yaml', 'OPENCLOUD_UPGRADE_READY', r'\d+'),
-        ('grinder', 'karakeep', 'karakeep-meilisearch/data.ms', 'KARAKEEP_SEARCH_UPGRADE_READY', r'\d+\.\d+\.\d+'),
-        ('grinder', 'traccar', 'traccar/data/database.mv.db', 'TRACCAR_UPGRADE_READY', r'\d+\.\d+'),
-        ('grinder', 'openwebui', 'openwebui/webui.db', 'OPENWEBUI_UPGRADE_READY', r'\d+\.\d+\.\d+'),
+    CASES = [  # app, data that exists once it has run, key, what to acknowledge
+        ('opencloud', 'opencloud/config/opencloud.yaml', 'OPENCLOUD_UPGRADE_READY', r'\d+'),
+        ('karakeep', 'karakeep-meilisearch/data.ms', 'KARAKEEP_SEARCH_UPGRADE_READY', r'\d+\.\d+\.\d+'),
+        ('traccar', 'traccar/data/database.mv.db', 'TRACCAR_UPGRADE_READY', r'\d+\.\d+'),
+        ('openwebui', 'openwebui/webui.db', 'OPENWEBUI_UPGRADE_READY', r'\d+\.\d+\.\d+'),
     ]
 
     def test_existing_data_waits_for_the_pinned_version(self):
-        for node, app, marker, key, shape in self.CASES:
-            with self.subTest(app=app), tempfile.TemporaryDirectory() as tmp:
+        for name, marker, key, shape in self.CASES:
+            with self.subTest(app=name), tempfile.TemporaryDirectory() as tmp:
                 root = Path(tmp)
                 shutil.copytree(STACKS / '_lib', root / 'stacks/_lib')
-                app_dir = root / 'stacks' / node / app
-                shutil.copytree(STACKS / node / app, app_dir)
-                (app_dir.parent / 'node.conf').write_text(f'APPS=({app})\n')
+                app_dir = root / 'stacks' / app(name).parent.name / name
+                shutil.copytree(app(name), app_dir)
+                node = root / 'nodes/test'
+                node.mkdir(parents=True)
+                (node / 'node.conf').write_text(f'APPS=({name})\n')
                 fake = root / 'bin'
                 fake.mkdir()
                 (fake / 'sudo').write_text('#!/bin/sh\nexec "$@"\n')
                 (fake / 'sudo').chmod(0o755)
-                env = dict(os.environ, PATH=f'{fake}{os.pathsep}{os.environ["PATH"]}')
+                # compose.sh exports the node's folder for an app's own scripts.
+                env = dict(os.environ, PATH=f'{fake}{os.pathsep}{os.environ["PATH"]}', PURRBREWS_NODE_DIR=str(node))
                 data = root / 'data'
 
                 def prepare():
@@ -1332,19 +1244,19 @@ class UpgradeGates(unittest.TestCase):
                 self.assertNotEqual(refused.returncode, 0)
                 version = re.search(rf'{key}=(\S+) in', refused.stderr).group(1)
                 self.assertRegex(version, rf'^{shape}$')
-                (app_dir.parent / '.env.local').write_text(f'{key}=0.0.1\n')
+                (node / '.env.local').write_text(f'{key}=0.0.1\n')
                 self.assertNotEqual(prepare().returncode, 0, 'an older acknowledgement is not this one')
-                (app_dir.parent / '.env.local').write_text(f'{key}={version}\n')
+                (node / '.env.local').write_text(f'{key}={version}\n')
                 self.assertEqual(prepare().returncode, 0, prepare().stderr)
                 self.assertEqual(record.read_text().strip(), version, 'an acknowledged start is recorded')
-                (app_dir.parent / '.env.local').write_text('')
+                (node / '.env.local').write_text('')
                 self.assertEqual(prepare().returncode, 0, 'the record carries it once the key is gone')
 
                 record.write_text('0.0.1\n')   # data on an older version
                 self.assertNotEqual(prepare().returncode, 0, 'an older record still waits for the key')
-                (app_dir.parent / '.env.local').write_text(f'{key}={version}\n')
+                (node / '.env.local').write_text(f'{key}={version}\n')
 
-                if app == 'opencloud':
+                if name == 'opencloud':
                     compose = app_dir / 'docker-compose.yml'
                     original = compose.read_text()
                     image = re.search(r'image: (opencloudeu/opencloud):(\d+)\.(\d+)\.(\d+)', original)
@@ -1356,78 +1268,6 @@ class UpgradeGates(unittest.TestCase):
                     new_major = f'image: {repository}:{int(major) + 1}.0.0'
                     compose.write_text(original.replace(image.group(0), new_major))
                     self.assertNotEqual(prepare().returncode, 0, 'a later major closes the gate again')
-
-
-class RoasteryInit(unittest.TestCase):
-    """init/roastery-init.ps1: the order and the guards that matter (runbook, 2026-10-08)."""
-
-    SCRIPT = ROOT / 'init' / 'roastery-init.ps1'
-
-    def steps(self):
-        block = re.search(r'\$AllSteps = @\((.*?)\)', self.SCRIPT.read_text(), re.S).group(1)
-        return re.findall(r"'([a-z_]+)'", block)
-
-    def test_every_step_has_a_function_and_a_header_line(self):
-        text = self.SCRIPT.read_text()
-        for step in self.steps():
-            self.assertIn(f'function Step-{step} {{', text)
-            self.assertRegex(text, rf'(?m)^#   {step} ')
-
-    def test_repository_before_anything_trusts_roastery(self):
-        steps = self.steps()
-        self.assertLess(steps.index('backup_target'), steps.index('apps'))
-        self.assertEqual(steps[-1], 'bootstrap', 'the bootstrap server is last and opt-in (README order)')
-        body = re.search(r'^function Step-backup_target \{.*?^\}', self.SCRIPT.read_text(), re.M | re.S).group(0)
-        guard, call = body.index("'config'"), body.index('backup-target\\setup.ps1')
-        self.assertLess(guard, call, 'the empty-repository guard must come before setup.ps1')
-        self.assertIn('-not $AllowEmptyRepository', body)
-
-    def test_bootstrap_never_writes_authorized_keys(self):
-        body = re.search(r'^function Step-bootstrap \{.*?^\}', self.SCRIPT.read_text(), re.M | re.S).group(0)
-        self.assertNotRegex(body, r'(Set-Content|Out-File|Add-Content|Write-LFFile|Copy-Item)[^\n]*\$keys')
-        self.assertIn('Confirm-Change', body)
-
-    def test_traefik_task_has_no_time_limit(self):
-        body = re.search(r'^function Step-traefik \{.*?^\}', self.SCRIPT.read_text(), re.M | re.S).group(0)
-        self.assertIn('-ExecutionTimeLimit ([TimeSpan]::Zero)', body)
-        self.assertIn("'config\\dynamic\\ollama.yml'", body)
-
-    def test_traefik_system_task_uses_protected_runtime(self):
-        body = re.search(r'^function Step-traefik \{.*?^\}', self.SCRIPT.read_text(), re.M | re.S).group(0)
-        self.assertIn("GetFolderPath('ProgramFiles')", body)
-        self.assertIn('Install-TraefikRuntime -Source $dir -Destination $runtime', body)
-        self.assertIn("$start = Join-Path $runtime 'start.ps1'", body)
-        self.assertIn("$exe = Join-Path $runtime 'traefik.exe'", body)
-        self.assertIn('-Execute $powershell -WorkingDirectory $runtime', body)
-        self.assertLess(body.index('Install-TraefikRuntime'), body.index('New-ScheduledTaskAction'))
-
-    def test_firewall_rules_are_scoped(self):
-        text = self.SCRIPT.read_text()
-        rules = re.findall(r"Set-FirewallRule '([a-z0-9-]+)' .*?@\{(.*?)\}( -Action Block)?", text, re.S)
-        allows = {name: spec for name, spec, block in rules if not block}
-        blocks = {name: spec for name, spec, block in rules if block}
-        self.assertEqual(set(allows), {'purrbrews-bootstrap', 'purrbrews-immich-ml', 'purrbrews-traefik'})
-        for name, spec in allows.items():
-            self.assertRegex(spec, r"RemoteAddress = \$(Fleet\['LAN_CIDR'\]|percolator)", name)
-        # Docker Desktop's own rule allows every port from anywhere, so the
-        # percolator-only allow needs blocks for everyone else (2026-10-13).
-        self.assertEqual(set(blocks), {'purrbrews-immich-ml-block-v4', 'purrbrews-immich-ml-block-v6'})
-        for spec in blocks.values():
-            self.assertIn('LocalPort = 3003', spec)
-        self.assertIn('Get-IPv4RangesExcept $percolator', blocks['purrbrews-immich-ml-block-v4'])
-
-    def test_runs_only_from_the_deploy_checkout(self):
-        text = self.SCRIPT.read_text()
-        self.assertIn("$DeployRoot = 'C:\\purrbrews-deploy'", text)
-        backup = re.search(r"\$BackupRoot = '([^']+)'", text).group(1)
-        deploy = re.search(r"\$DeployRoot = '([^']+)'", text).group(1)
-        self.assertFalse(deploy.lower().startswith(backup.lower() + '\\'),
-                         'the deploy checkout must not sit in the backup chroot')
-        main = text[text.index('# Main'):]
-        self.assertLess(main.index('Assert-DeployCheckout'), main.index('foreach ($step in $run)'))
-        guard = re.search(r'^function Assert-DeployCheckout \{.*?^\}', text, re.M | re.S).group(0)
-        for check in ("-ne $DeployRoot", "-ne 'main'", '--untracked-files=no'):
-            self.assertIn(check, guard)
 
 
 if __name__ == '__main__':

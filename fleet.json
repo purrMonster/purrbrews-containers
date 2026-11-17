@@ -6,7 +6,7 @@
       "tier": "essential",
       "optional": [],
       "prerequisites": [
-        "DNS and alert delivery verified before DHCP handover.",
+        "DNS and alert delivery verified before DHCP handover from the Humax router.",
         "Komodo Core public key installed."
       ]
     },
@@ -28,7 +28,7 @@
         "persian-perch"
       ],
       "prerequisites": [
-        "Backup repository recovered before enabling writers or Drive sync.",
+        "Backup repository restored or freshly initialised on cellar before enabling writers or Drive sync.",
         "SMB shares and access policy approved before opting in.",
         "External watcher deployment follows its own repository rollout instructions."
       ]
@@ -52,17 +52,8 @@
         "Application owner accounts created and initial passwords changed.",
         "Karakeep browser and Meilisearch migration rehearsed on a restored copy; see docs/image-upgrades.md.",
         "Komodo Core public key installed.",
-        "pourOver: its LLM service account and both Vikunja tokens exist (stacks/grinder/pourover/README.md)."
-      ]
-    },
-    "roastery": {
-      "platform": "windows",
-      "tier": "compute",
-      "optional": [],
-      "prerequisites": [
-        "Backup target recovered and Windows firewall configured using the rebuild guide.",
-        "Native Traefik and game mode installed separately.",
-        "NVIDIA driver supports the selected CUDA image before the diagnostic probe."
+        "litellm: the cloud model and its API key chosen (stacks/ai/litellm/README.md).",
+        "pourOver: its LLM service account and both Vikunja tokens exist (stacks/automation/pourover/README.md)."
       ]
     }
   }

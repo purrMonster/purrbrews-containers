@@ -18,7 +18,7 @@ spec.loader.exec_module(fleet)
 class Fleet(unittest.TestCase):
     def test_inventory_and_optional_services(self):
         nodes = fleet.inventory(ROOT)
-        self.assertEqual(len(nodes), 6)
+        self.assertEqual(len(nodes), 5)
         self.assertEqual(nodes["sieve"]["apps"][:2], ["unbound", "pihole"])
         self.assertNotIn("smb", fleet.selected_apps(nodes["cellar"], []))
         self.assertIn("smb", fleet.selected_apps(nodes["cellar"], ["smb"]))
@@ -113,34 +113,6 @@ class Fleet(unittest.TestCase):
              patch.object(fleet.subprocess, "run") as run, self.assertRaises(ValueError):
             fleet.deploy(ROOT, "example", node, argparse.Namespace())
         run.assert_not_called()
-
-
-class DailyFetch(unittest.TestCase):
-    """init/lib/purrbrews-pull.sh fetches; it never moves the checkout."""
-
-    def test_daily_fetch_does_not_move_checkout_or_print_transport_errors(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            (root / ".git").mkdir()
-            binary = root / "bin"
-            binary.mkdir()
-            trace = root / "calls"
-            git = binary / "git"
-            git.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$TRACE"\n'
-                           'case "$1" in\n rev-parse) printf "%040d\\n" 1 ;;\n'
-                           ' fetch) if [ "$FAIL_FETCH" = 1 ]; then echo private-transport-detail >&2; exit 1; fi ;;\nesac\n')
-            git.chmod(0o755)
-            env = dict(os.environ, PROJECT_DIR=str(root), TRACE=str(trace),
-                       PATH=str(binary) + os.pathsep + os.environ["PATH"], PULL_HEALTHCHECK_URL="")
-            for failure in ("0", "1"):
-                result = subprocess.run(["bash", str(ROOT / "init/lib/purrbrews-pull.sh")],
-                                        env=dict(env, FAIL_FETCH=failure), capture_output=True, text=True)
-                self.assertEqual(result.returncode, int(failure))
-                self.assertNotIn("private-transport-detail", result.stdout + result.stderr)
-            calls = trace.read_text()
-            self.assertIn("fetch --quiet origin", calls)
-            self.assertNotIn("pull", calls)
-            self.assertNotIn("checkout", calls)
 
 
 if __name__ == "__main__":

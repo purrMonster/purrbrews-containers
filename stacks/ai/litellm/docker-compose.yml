@@ -1,0 +1,55 @@
+# LiteLLM: the fleet's one door to a cloud model. It answers the OpenAI API and
+# passes each request to the provider named in config/config.yaml.template.
+# It replaces the local LLMs on roastery (llama-swap), which left the fleet in
+# the 2026-11 rebuild; when a GPU is back, the apps keep this address and only
+# the config changes.
+#
+# Who talks to it:
+#   - Open WebUI and anything else on this node, directly: http://litellm:4000
+#     on the proxy network. Nothing is published on the host.
+#   - pourOver and other machines, through this node's Traefik at
+#     llm.${DOMAIN}: LAN only, then Basic auth as an LLDAP service account in
+#     llm_api_group (Authelia's forward-auth-basic; the pattern roastery's
+#     route used). Everyone else needs an admin login.
+#
+# LiteLLM itself runs without a master key, so it has no database and nothing
+# to back up: the only ways in are the proxy network and Authelia. Every call
+# is billed by the provider, so keep it that way: never publish port 4000.
+#
+# The provider's API key stays in the container's environment
+# (secrets.conf -> secrets.env.local); the rendered config only names the
+# variable.
+#
+# Image: a stable release, by tag and digest (scripts/images.py, 2026-11-16).
+services:
+  litellm:
+    image: ghcr.io/berriai/litellm:v1.83.14-stable@sha256:c81eb79cd4333c6cfe374c0ec929110fd23f0ee5f7fd198855a6fbddc77b83ba
+    container_name: litellm
+    restart: unless-stopped
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    environment:
+      TZ: ${TZ}
+      LLM_UPSTREAM_API_KEY: ${LLM_UPSTREAM_API_KEY}
+    volumes:
+      - ./config/config.yaml:/app/config.yaml:ro
+    # LiteLLM's own liveness page, asked over IPv4 with the image's Python
+    # (there is no curl or wget in it).
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health/liveliness', timeout=4)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    security_opt: [no-new-privileges:true]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.litellm.rule=Host(`llm.${DOMAIN}`)"
+      - "traefik.http.routers.litellm.entrypoints=websecure"
+      - "traefik.http.routers.litellm.tls.certresolver=cloudflare"
+      - "traefik.http.routers.litellm.middlewares=authelia-forwardauth-basic@file"
+      - "traefik.http.services.litellm.loadbalancer.server.port=4000"
+
+networks:
+  default:
+    name: proxy
+    external: true

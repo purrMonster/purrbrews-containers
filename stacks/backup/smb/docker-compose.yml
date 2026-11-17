@@ -1,0 +1,36 @@
+# Samba: the household share and the app archive, for browsing from laptops.
+# The archive is also exported over NFS (../nfs), host-native.
+#
+# ghcr.io/servercontainers/samba, because dperson/samba (the one every
+# tutorial uses) is unmaintained. The latest channel is pinned by digest;
+# shares remain optional and require an explicit access policy before use.
+#
+# Not reachable yet: ufw-docker keeps 139/445 closed until smb/firewall has a
+# rule. UID_barista is the ops user's PUID (init writes it from barista's real uid),
+# the same as the NFS export's anonuid and what the consuming containers run as,
+# or SMB and NFS will fight over ownership.
+services:
+  smb:
+    image: ghcr.io/servercontainers/samba:latest@sha256:40235b97bf0e85f0c1a02abf294c168f375425320af112bb204f8170a6f6801e
+    container_name: smb
+    environment:
+      TZ: ${TZ}
+      SAMBA_CONF_WORKGROUP: WORKGROUP
+      SAMBA_CONF_SERVER_ROLE: standalone
+      AVAHI_DISABLE: "1"
+      SAMBA_VOLUME_CONFIG_household: "[household]; path=/shares/household; valid users = barista; guest ok = no; read only = no; browseable = yes"
+      SAMBA_VOLUME_CONFIG_archive: "[archive]; path=/shares/archive; valid users = barista; guest ok = no; read only = no; browseable = yes"
+      ACCOUNT_barista: ${SMB_BARISTA_PASSWORD}
+      UID_barista: "${PUID:?}"
+    volumes:
+      - ${MEDIA_DIR:?}/household:/shares/household
+      - ${MEDIA_DIR:?}/archive:/shares/archive
+    ports:
+      - "139:139"
+      - "445:445"
+    restart: unless-stopped
+
+networks:
+  default:
+    name: proxy
+    external: true
