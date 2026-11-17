@@ -20,10 +20,10 @@
 #
 # Where things go (runbook, 2026-09-27): databases are dumped on their own
 # node and the dumps are pushed to cellar, the dump store; file data goes
-# straight from each node into the restic repository on roastery. cellar
-# backs the dump store up into the same repository (`store`), wakes roastery
-# first, and copies the repository to Google Drive afterwards
-# (stacks/backup/restic).
+# straight from each node into the restic repository, also on cellar (since
+# the 2026-11 rebuild; it was on roastery). cellar backs the dump store up
+# into the same repository (`store`) and copies the repository to Google
+# Drive afterwards (stacks/backup/restic).
 #
 # <app>/backup, one directive per line, # for comments:
 #
@@ -420,7 +420,7 @@ run_restic_backup() {  # run_restic_backup <tag> <paths...>
   restic_env
   mkdir -p "$BACKUP_CACHE"
   if ! reach_repo; then
-    warn "roastery ($REPO_HOST) didn't answer on port 22 within ${BACKUP_WAIT_SECONDS}s; is it awake?"
+    warn "the repository host ($REPO_HOST) didn't answer on port 22 within ${BACKUP_WAIT_SECONDS}s; is cellar up?"
     return 1
   fi
   "${RESTIC[@]}" "${args[@]}" "$@" || rc=$?
@@ -451,7 +451,7 @@ cmd_files() {
       status=1
     fi
   done < <(each path)
-  log "Backing up $NODE_NAME's files (${#paths[@]} paths) → roastery"
+  log "Backing up $NODE_NAME's files (${#paths[@]} paths) → the repository"
   run_restic_backup files "${paths[@]}" || status=1
   return $status
 }
@@ -460,7 +460,7 @@ cmd_store() {
   load_settings
   [[ $IS_STORE -eq 1 ]] || die "'store' only runs on the dump store ($DUMP_STORE_HOST), not $NODE_NAME."
   [[ -d "$DUMP_DIR" ]] || die "no dump store at $DUMP_DIR."
-  log "Backing up the dump store $DUMP_DIR → roastery"
+  log "Backing up the dump store $DUMP_DIR → the repository"
   # --host is the store node; the per-node folders inside keep them apart.
   # No app excludes apply: DIRECTIVES stays empty.
   DIRECTIVES=()
@@ -527,28 +527,25 @@ cmd_keys() {
   [[ $IS_STORE -eq 1 ]] || pin_host "dump store" "$DUMP_STORE_HOST" || true
 
   [[ -n "$NODE_IP" ]] || { warn "NODE_IP isn't set (/opt/purrbrews/.env); can't write the authorize lines."; return 1; }
-  # The lines the far ends need, also left in a world-readable file: they're
-  # public keys, and it lets them be collected without a root shell.
-  {
-    echo "roastery from=\"$NODE_IP\",restrict $pub"
-    [[ $IS_STORE -eq 1 ]] || echo "store $NODE_NAME from=\"$NODE_IP\" $pub"
-  } > "$BACKUP_ETC/backup-authorize.txt"
+  # The line cellar needs, also left in a world-readable file: it's a public
+  # key, and it lets the lines be collected without a root shell.
+  echo "$NODE_NAME from=\"$NODE_IP\" $pub" > "$BACKUP_ETC/backup-authorize.txt"
   chmod 644 "$BACKUP_ETC/backup-authorize.txt"
 
   log "Authorize this node"
-  echo "On roastery, one line in deprecated/stacks/roastery/backup-target/authorized_keys, then"
-  echo "run setup.ps1 again (it copies the file to where sshd reads it):"
-  echo
-  echo "from=\"$NODE_IP\",restrict $pub"
-  echo
-  if [[ $IS_STORE -eq 0 ]]; then
-    echo "On cellar, one line in stacks/backup/restic/dump-store.keys, then"
-    echo "sudo ./restic/dump-store-setup.sh there:"
+  if [[ "$BACKUP_HUB" == true ]]; then
+    echo "This is the hub: restic/repo-setup.sh authorizes this key itself, so"
+    echo "it needs no line in restic/backup.keys. Run it (and dump-store-setup.sh)"
+    echo "whenever that file changes."
+  else
+    echo "On cellar, this line in stacks/backup/restic/backup.keys, then"
+    echo "sudo ./restic/repo-setup.sh and sudo ./restic/dump-store-setup.sh there"
+    echo "(the one key opens both the repository and the dump store):"
     echo
     echo "$NODE_NAME from=\"$NODE_IP\" $pub"
-    echo
   fi
-  echo "(both are also in $BACKUP_ETC/backup-authorize.txt)"
+  echo
+  echo "(also in $BACKUP_ETC/backup-authorize.txt)"
   return $status
 }
 
@@ -576,7 +573,7 @@ node_units() {
 cmd_install() {
   local pkgs=(restic rsync sqlite3 openssh-client util-linux curl) f
   load_settings
-  # rclone everywhere: restic reaches roastery through it (restic-env.sh).
+  # rclone everywhere: restic reaches the repository through it (restic-env.sh).
   pkgs+=(rclone)
   log "Packages: ${pkgs[*]}"
   apt-get update -q >/dev/null || warn "apt-get update failed; trying the install with what's cached"
@@ -588,7 +585,7 @@ cmd_install() {
 
   # Units from cellar's HDD-era backup (retired 2026-09-27): their scripts
   # are gone, so a timer left enabled fails every night.
-  for f in restic-backup mirror-to-roastery; do
+  for f in restic-backup mirror-to-roastery purrbrews-wake-roastery; do
     if [[ -e /etc/systemd/system/$f.timer || -e /etc/systemd/system/$f.service ]]; then
       systemctl disable --now "$f.timer" >/dev/null 2>&1 || true
       rm -f "/etc/systemd/system/$f.timer" "/etc/systemd/system/$f.service"
@@ -605,7 +602,7 @@ cmd_install() {
   done < <(node_units)
   systemctl daemon-reload
   echo
-  echo "Next: authorize the lines above on roastery (and cellar), then 'sudo ./backup.sh enable'."
+  echo "Next: authorize the line above on cellar, then 'sudo ./backup.sh enable'."
 }
 
 node_timers() {
@@ -682,10 +679,10 @@ cmd_doctor() {
     if (restic_env && "${RESTIC[@]}" cat config >/dev/null 2>&1); then
       ok "repository opens (restic cat config)"
     else
-      fail "roastery answers but the repository doesn't open: key not authorized, wrong password, or not initialised"
+      fail "cellar answers but the repository doesn't open: key not authorized (repo-setup.sh), wrong password, or not initialised (restic-init.sh)"
     fi
   else
-    fail "roastery isn't answering on port 22 (asleep? wake it and run doctor again)"
+    fail "the repository host isn't answering on port 22 (is cellar up?)"
   fi
   if [[ $IS_STORE -eq 0 ]]; then
     backup_ssh_opts
@@ -696,7 +693,7 @@ cmd_doctor() {
     if [[ -f "$BACKUP_KEY" ]] && rsync -n -r -e "ssh ${BACKUP_SSH_OPTS[*]}" "$empty/" "dumps@$DUMP_STORE_HOST:./" >/dev/null 2>&1; then
       ok "the dump store accepts this node's key"
     else
-      fail "the dump store doesn't accept this node's key yet (dump-store-setup.sh on cellar)"
+      fail "the dump store doesn't accept this node's key yet (backup.keys, then dump-store-setup.sh on cellar)"
     fi
     rmdir "$empty"
   fi

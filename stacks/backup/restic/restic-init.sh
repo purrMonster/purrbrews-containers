@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 #
-# restic-init.sh: create the backup repository on roastery. Once, by hand,
-# after roastery's backup target is set up (deprecated/stacks/roastery/backup-target)
-# and this node's key is authorized there (`sudo ./backup.sh keys`).
+# restic-init.sh: create the backup repository. Once, by hand, on cellar,
+# after `sudo ./backup.sh keys` and `sudo ./restic/repo-setup.sh` there. It
+# goes through the SFTP account like every other job, so the repository's
+# files belong to that account from the start.
 #
 # The nightly jobs deliberately never create it: backing up into a
 # repository that silently wasn't the real one is exactly how the old rsync
@@ -19,7 +20,7 @@ load_node "$(this_node_dir)"
 command -v restic >/dev/null || die "restic isn't installed (apt install restic)."
 
 restic_env
-wake_roastery || die "roastery isn't answering on port 22; is the backup target set up and awake?"
+reach_repo 30 || die "$REPO_HOST isn't answering on port 22; is sshd running?"
 
 if "${RESTIC[@]}" cat config >/dev/null 2>&1; then
   echo "There's already a repository at $RESTIC_REPOSITORY; nothing to do."
@@ -30,8 +31,9 @@ echo "Creating the restic repository at $RESTIC_REPOSITORY"
 cat <<EOF
 
 Done. Before anything else:
-  - copy RESTIC_PASSWORD (restic/secrets.env.local) to flask. Without it
-    every copy of the repository, roastery's and Drive's, is unreadable;
+  - copy RESTIC_PASSWORD (restic/secrets.env.local) to the recovery kit.
+    Without it every copy of the repository, cellar's and Drive's, is
+    unreadable;
   - paste the same value into each node's restic/secrets.env.local, via
     ./setup-secrets.sh there (it asks for it).
 EOF

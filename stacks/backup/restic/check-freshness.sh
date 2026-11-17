@@ -2,8 +2,8 @@
 #
 # check-freshness.sh: the morning check (purrbrews-backup-check.timer,
 # 06:00). A failed job alerts on its own; this catches the jobs that never
-# ran at all: a dead timer, a node that was off, a roastery that slept
-# through the night. Each of these must be younger than MAX_AGE_HOURS:
+# ran at all: a dead timer, a node that was off, a key that stopped being
+# accepted. Each of these must be younger than MAX_AGE_HOURS:
 #
 #   - every node's latest `files` snapshot    (a node with a <app>/backup file)
 #   - the dump store's latest `dumps` snapshot
@@ -59,8 +59,8 @@ age_h() { echo $(( ($1) / 3600 )); }
 
 # ── snapshots ────────────────────────────────────────────────────────────────
 restic_env
-if ! wake_roastery 300; then
-  stale+=("roastery unreachable: couldn't check any snapshot")
+if ! reach_repo 60; then
+  stale+=("the repository ($REPO_HOST) unreachable: couldn't check any snapshot")
 else
   json="$("${RESTIC[@]}" --retry-lock 30m snapshots --json --latest 1 --group-by host,tags)" \
     || { stale+=("restic snapshots failed"); json='[]'; }

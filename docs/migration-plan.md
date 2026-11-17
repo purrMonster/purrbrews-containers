@@ -24,7 +24,7 @@ Code this plan depends on that does not exist yet. Everything else is in the rep
 | # | What | Built from | Needed by |
 |---|---|---|---|
 | W1 | The fleet's payload for purrbrews-bootstrap: static address and derived MAC, the checkout in `/opt/purrbrews`, `/opt/purrbrews/.env`, data directories, the fetch-only timer. **Written 2026-11-18** (`payload/`), not yet run on a machine | `deprecated/init/` | Phase 1 |
-| W2 | The repository account on cellar (SFTP-only user, one folder, per-node keys), and the hub scripts without wake-on-LAN or the `roastery` remote | `deprecated/stacks/roastery/backup-target`, `stacks/backup/restic` | Phase 5 |
+| W2 | **Written 2026-11-18** (`stacks/backup/restic/repo-setup.sh`, README). The repository account on cellar (SFTP-only user, one folder, per-node keys), and the hub scripts without wake-on-LAN or the `roastery` remote | `deprecated/stacks/roastery/backup-target`, `stacks/backup/restic` | Phase 5 |
 | W3 | The recovery kit, built from americano | `deprecated/stacks/roastery/flask`, `deprecated/docs/flask.md` | Phase 5 |
 | W4 | Voice: Whisper, Piper, a satellite per ThinkCentre | nothing yet | Phase 9 |
 | W5 | Joining a node to the tailnet (it was a step of the old init) | `deprecated/init/purrbrews-init.sh`, `step_tailscale` | Phase 10 |
@@ -124,14 +124,13 @@ reachable on their own ports while Authelia is down, as designed.
 The one phase with real code to write first (W2, W3). Until it is done, no
 node holds data that exists nowhere else.
 
-1. **W2.** On cellar: an SFTP-only account whose only folder is the repository
-   on the NVMe, with one line per node's backup key, the way the dump store is
-   already set up (`dump-store-setup.sh` is the model;
-   `deprecated/stacks/roastery/backup-target/setup.ps1` is what it replaces).
-2. **W2.** In `stacks/_lib/restic-env.sh` and `stacks/backup/restic`: drop
-   wake-on-LAN, rename what is named after roastery, let the hub read its own
-   repository by path, and rewrite the README. Extend the tests; the three
-   root-only ones must pass in CI.
+1. **W2, written 2026-11-18.** The order to switch it on is in
+   [stacks/backup/restic/README.md](../stacks/backup/restic/README.md), "Tying it
+   together": `backup.sh install` on cellar and its secrets, then each node's
+   `install` and its line in `restic/backup.keys`, then `repo-setup.sh` and
+   `dump-store-setup.sh` on cellar.
+2. Before that, on cellar: `findmnt /srv` and `df -h /srv` show the NVMe, and
+   `sudo ./restic/repo-setup.sh --check` prints the keys it would install.
 3. A new repository: `restic init` with a new password (every app starts
    empty, so nothing is restored). If the old Drive copy is still there, move
    it aside first: the drive-sync guard refuses to overwrite a different

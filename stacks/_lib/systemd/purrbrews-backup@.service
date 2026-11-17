@@ -1,5 +1,5 @@
 # The nightly backup on one node: dump its databases, push the dumps to
-# cellar, back its files up to roastery (stacks/_lib/backup.sh). The instance
+# cellar, back its files up to the repository on cellar (stacks/_lib/backup.sh). The instance
 # name is the node's folder in nodes/, so every node installs the same file:
 #
 #   sudo cp /opt/purrbrews/stacks/_lib/systemd/purrbrews-backup@.* /etc/systemd/system/

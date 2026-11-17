@@ -2,17 +2,18 @@
 # shellcheck disable=SC2034  # the variables set here are used by the scripts that source this
 #
 # restic-env.sh: sourced by backup.sh and cellar's restic/ scripts, never run
-# on its own. Everything a node needs to talk to the backup repository on
-# roastery and the dump store on cellar, in one place, so the two sides can't
+# on its own. Everything a node needs to talk to the backup repository and
+# the dump store, both on cellar, in one place, so the two sides can't
 # disagree about a key path or an ssh option.
 #
 # Needs common.sh and load_node first.
 
 # The node's SSH identity for backups. root's, because the nightly job runs as
-# root (it reads every app's data, whoever owns it). One key serves both
-# roastery (SFTP) and cellar (the dump store); the far end limits what it can do.
+# root (it reads every app's data, whoever owns it). One key serves both the
+# repository (SFTP, account `restic`) and the dump store (rrsync, account
+# `dumps`); cellar limits what each account can do with it.
 BACKUP_KEY="${BACKUP_KEY:-/root/.ssh/purrbrews-backup}"
-# Host keys for roastery and cellar: pinned by `backup.sh keys` when they
+# The hub's host keys: pinned by `backup.sh keys` when they
 # answer, otherwise on the first connection (accept-new: a new host is
 # trusted once, a changed key is refused). Kept apart from root's own
 # known_hosts so a stray `ssh` never changes what backups trust.
@@ -21,9 +22,9 @@ BACKUP_KNOWN_HOSTS="$BACKUP_ETC/backup_known_hosts"
 # restic's local cache: speeds up every run, safe to delete.
 BACKUP_CACHE="${BACKUP_CACHE:-/var/cache/purrbrews-restic}"
 # All four can be overridden from the environment; only the tests do.
-# How long a node waits for roastery to wake before giving up. cellar sends
-# the wake-on-LAN at 01:25; the nodes start at 01:30; roastery takes a minute
-# or two out of S3.
+# How long a node waits for the repository's SSH before giving up. cellar is
+# always on, so this only matters when it is rebooting (an update, a power
+# cut that brought everything back at once).
 BACKUP_WAIT_SECONDS="${BACKUP_WAIT_SECONDS:-600}"
 BACKUP_LOCK="${BACKUP_LOCK:-/run/lock/purrbrews-backup.lock}"
 
@@ -36,8 +37,11 @@ backup_ssh_opts() {
 # restic_env: exports RESTIC_REPOSITORY / RESTIC_PASSWORD / RESTIC_CACHE_DIR
 # and sets RESTIC (the command to run, with the SFTP transport) plus
 # REPO_USER_HOST, REPO_HOST and REPO_PATH for the scripts that need the parts.
-restic_env() {
-  local repo password
+# Every node, the hub included, goes through the SFTP account, so every file
+# in the repository belongs to `restic` and any node can read what another
+# wrote. Only rclone's Drive sync reads it by path (repo_local_path).
+parse_repo() {  # sets REPO_USER_HOST REPO_USER REPO_HOST REPO_PATH from BACKUP_REPOSITORY
+  local repo
   repo="$(env_value BACKUP_REPOSITORY)"
   is_placeholder "$repo" && die "BACKUP_REPOSITORY isn't set (stacks/fleet.env)."
   REPO_USER_HOST=''; REPO_HOST=''; REPO_PATH="$repo"
@@ -53,6 +57,12 @@ restic_env() {
     # a disk plugged straight into a node); other restic backends aren't.
     die "BACKUP_REPOSITORY must be sftp:user@host:/path or an absolute path, not '$repo'."
   fi
+}
+
+restic_env() {
+  local repo password
+  parse_repo
+  repo="$(env_value BACKUP_REPOSITORY)"
 
   password="$(env_value RESTIC_PASSWORD restic)"
   is_placeholder "$password" \
@@ -64,27 +74,26 @@ restic_env() {
   backup_ssh_opts
   RESTIC=(restic)
   if [[ -n "$REPO_HOST" ]]; then
-    # Not restic's own SFTP backend: it chmods every file it writes, and
-    # Windows' OpenSSH answers that with SSH_FX_BAD_MESSAGE, so `restic init`
-    # never got past its first key (runbook, 2026-09-27). rclone's SFTP
-    # backend doesn't chmod, and with set_modtime off it sends no SETSTAT at
-    # all; restic drives it through `rclone serve restic --stdio`. Same
-    # account, key, chroot and path; the remote is defined here in the
-    # environment, so there's no rclone config to keep on every node.
-    export RESTIC_REPOSITORY="rclone:pbroastery:$REPO_PATH"
-    export RCLONE_CONFIG_PBROASTERY_TYPE=sftp
-    export RCLONE_CONFIG_PBROASTERY_HOST="$REPO_HOST"
-    export RCLONE_CONFIG_PBROASTERY_USER="$REPO_USER"
-    export RCLONE_CONFIG_PBROASTERY_KEY_FILE="$BACKUP_KEY"
-    export RCLONE_CONFIG_PBROASTERY_KNOWN_HOSTS_FILE="$BACKUP_KNOWN_HOSTS"
-    export RCLONE_CONFIG_PBROASTERY_SHELL_TYPE=none
-    export RCLONE_CONFIG_PBROASTERY_SET_MODTIME=false
-    export RCLONE_CONFIG_PBROASTERY_DISABLE_HASHCHECK=true
+    # Through rclone's SFTP backend, which restic drives with `rclone serve
+    # restic --stdio`, not restic's own. It was chosen when the repository was
+    # on Windows, whose OpenSSH refused restic's chmods (runbook, 2026-09-27).
+    # cellar's OpenSSH wouldn't, but this is the path the tests and the old
+    # fleet's nights exercised, so it stays. The remote is defined here
+    # in the environment: no rclone config to keep on every node.
+    export RESTIC_REPOSITORY="rclone:pbrepo:$REPO_PATH"
+    export RCLONE_CONFIG_PBREPO_TYPE=sftp
+    export RCLONE_CONFIG_PBREPO_HOST="$REPO_HOST"
+    export RCLONE_CONFIG_PBREPO_USER="$REPO_USER"
+    export RCLONE_CONFIG_PBREPO_KEY_FILE="$BACKUP_KEY"
+    export RCLONE_CONFIG_PBREPO_KNOWN_HOSTS_FILE="$BACKUP_KNOWN_HOSTS"
+    export RCLONE_CONFIG_PBREPO_SHELL_TYPE=none
+    export RCLONE_CONFIG_PBREPO_SET_MODTIME=false
+    export RCLONE_CONFIG_PBREPO_DISABLE_HASHCHECK=true
   fi
 }
 
 # pin_repo_host: rclone checks the host key strictly against
-# BACKUP_KNOWN_HOSTS and has no accept-new, so the first time roastery
+# BACKUP_KNOWN_HOSTS and has no accept-new, so the first time the hub
 # answers, its keys are added here (the same trust-on-first-use the ssh
 # options give the dump store). All key types, not just ed25519: rclone may
 # negotiate another, and a host listed with the wrong type is a "mismatch".
@@ -105,7 +114,7 @@ pin_repo_host() {
     if grep -qF " $type $key" <<< "$have"; then
       continue
     elif grep -qF " $type " <<< "$have"; then
-      warn "roastery's $type host key has CHANGED since it was pinned; not trusting it. Check before editing $BACKUP_KNOWN_HOSTS."
+      warn "$REPO_HOST's $type host key has CHANGED since it was pinned; not trusting it. Check before editing $BACKUP_KNOWN_HOSTS."
       return 1
     fi
     printf '%s %s %s\n' "$REPO_HOST" "$type" "$key" >> "$BACKUP_KNOWN_HOSTS"
@@ -137,7 +146,7 @@ port_open() {  # port_open <host> <port>: true if something accepts a TCP connec
   timeout 3 bash -c "exec 3<>/dev/tcp/$1/$2" 2>/dev/null
 }
 
-wait_for_repo() {  # wait_for_repo [seconds]: roastery's SSH answering, or false
+wait_for_repo() {  # wait_for_repo [seconds]: the repository's SSH answering, or false
   local limit="${1:-$BACKUP_WAIT_SECONDS}" waited=0
   [[ -n "$REPO_HOST" ]] || return 0  # a local repository is always there
   until port_open "$REPO_HOST" 22; do
@@ -168,47 +177,28 @@ with_lock() {
   "$@"
 }
 
-# ── roastery's wake-up (cellar only; the other nodes just wait) ─────────────
-
-# send_magic_packet <mac>: wake-on-LAN, broadcast on the LAN. python3 rather
-# than the wakeonlan package: every node already has python3 for rendering.
-send_magic_packet() {
-  python3 - "$1" "$(env_value LAN_CIDR)" <<'PY'
-import ipaddress, socket, sys
-mac = sys.argv[1].replace(':', '').replace('-', '').lower()
-if len(mac) != 12 or any(c not in '0123456789abcdef' for c in mac):
-    sys.exit(f'not a MAC address: {sys.argv[1]}')
-broadcast = str(ipaddress.ip_network(sys.argv[2] or '255.255.255.255/32', strict=False).broadcast_address)
-packet = b'\xff' * 6 + bytes.fromhex(mac) * 16
-with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    for port in (9, 7):
-        s.sendto(packet, (broadcast, port))
-PY
-}
-
-# wake_roastery [seconds]: wakes roastery if it's asleep and waits for its SSH.
-# Harmless when it's already up. Every cellar job that needs the repository
-# starts with this, rather than trusting that the 01:25 wake is still holding:
-# a machine woken with nobody at it goes back to sleep on its own schedule.
-wake_roastery() {
-  local mac
-  restic_env
-  [[ -n "$REPO_HOST" ]] || return 0
-  port_open "$REPO_HOST" 22 && { pin_repo_host; return 0; }
-  mac="$(env_value ROASTERY_WOL_MAC)"
-  is_placeholder "$mac" && { warn "ROASTERY_WOL_MAC isn't set in .env.local, so roastery can't be woken."; return 1; }
-  echo "roastery is asleep; sending wake-on-LAN to its USB NIC"
-  send_magic_packet "$mac" || return 1
-  wait_for_repo "${1:-300}"
-}
-
 # reach_repo [seconds]: what every job calls before touching the repository.
-# Wakes roastery on the node that has its MAC (cellar), just waits elsewhere.
+# There used to be a wake-on-LAN here, for when the repository lived on a
+# workstation that slept (retired 2026-11); cellar doesn't sleep.
 reach_repo() {
-  if is_placeholder "$(env_value ROASTERY_WOL_MAC)"; then
-    wait_for_repo "$@"
+  restic_env
+  wait_for_repo "$@"
+}
+
+# repo_local_path: where the repository is on this machine's disk, for the
+# one reader that goes by path (drive-sync.sh, through rclone). A local
+# BACKUP_REPOSITORY is its own path; an SFTP one is only on disk on the hub,
+# inside the account's chroot: BACKUP_REPO_ROOT + the path the nodes see.
+repo_local_path() {
+  parse_repo
+  if [[ -z "$REPO_HOST" ]]; then
+    printf '%s' "$REPO_PATH"
+  elif [[ "$BACKUP_HUB" == true ]]; then
+    local chroot
+    chroot="$(env_value BACKUP_REPO_ROOT)"
+    is_placeholder "$chroot" && die "BACKUP_REPO_ROOT isn't set (stacks/fleet.env)."
+    printf '%s%s' "${chroot%/}" "$REPO_PATH"
   else
-    wake_roastery "${1:-$BACKUP_WAIT_SECONDS}"
+    die "the repository is only on disk on the backup hub, not on $NODE_NAME."
   fi
 }
