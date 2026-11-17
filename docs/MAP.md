@@ -19,6 +19,7 @@ _Last updated: 2026-11-16 (the rebuild after the move)_
 | [`stacks/README.md`](../stacks/README.md) | How the stacks and the shared scripts work; adding an app or a node; backups; updates |
 | [`docs/operations.md`](operations.md) | Deploying a reviewed commit (`scripts/fleet.py`), recovery targets |
 | [`docs/image-upgrades.md`](image-upgrades.md) | Tag-and-digest pins, paired images, upgrades held until acknowledged |
+| [`docs/image-updates-2026-11.md`](image-updates-2026-11.md) | The November 2026 image updates: breaking changes acted on, and what's new in each app |
 | [`tailscale/README.md`](../tailscale/README.md) | Remote access over the tailnet (written for the old fleet; the join step is in the plan, phase 10) |
 | [`deprecated/ABOUT.md`](../deprecated/ABOUT.md) | The archive: the old runbook, README, bootstrap, init and roastery |
 

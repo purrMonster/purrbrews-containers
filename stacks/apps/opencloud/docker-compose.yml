@@ -1,9 +1,14 @@
 # Image: opencloudeu/opencloud, production channel, pinned by tag and digest.
+# Not opencloudeu/opencloud-rolling: upstream says rolling releases are not for
+# production. Moved from the 7.2 line to 9.1 for the rebuild (runbook,
+# 2026-11-17); every install starts empty, so the 9.x config migration and
+# search reindex were not needed. Guest links (9.x) stay off: they need
+# OC_ENABLE_GUEST_LINKS and SMTP for the notifications service.
 # External OIDC, roles, app tokens and client discovery verified in tagged source.
 # Existing installs wait for major acknowledgement via prepare.sh (image-upgrades.md).
 services:
   opencloud:
-    image: opencloudeu/opencloud:7.2.6@sha256:196f4137f69fd81ad241c4a17eae13902da6aa70b2567ea7c51ef9ac235f4d96
+    image: opencloudeu/opencloud:9.1.1@sha256:d7d5b547f9e41db24f030d6a6857c4184752b2c875c936952ee0601b6531cd51
     container_name: opencloud
     user: ${PUID}:${PGID}
     restart: unless-stopped
@@ -50,7 +55,6 @@ services:
       OC_MACHINE_AUTH_API_KEY: ${OPENCLOUD_MACHINE_AUTH_API_KEY}
       OC_SYSTEM_USER_API_KEY: ${OPENCLOUD_SYSTEM_USER_API_KEY}
       OC_URL_SIGNING_SECRET: ${OPENCLOUD_URL_SIGNING_SECRET}
-      THUMBNAILS_TRANSFER_TOKEN: ${OPENCLOUD_THUMBNAILS_TRANSFER_TOKEN}
     volumes:
       - ${DATA_DIR}/opencloud/config:/etc/opencloud
       - ${DATA_DIR}/opencloud/data:/var/lib/opencloud

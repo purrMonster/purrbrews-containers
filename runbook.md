@@ -36,7 +36,9 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - [ ] Rehearse one fresh machine through the one-liner, twice
 - [ ] Close the open Dependabot PRs once this branch is merged; they target the old paths (owner)
 - [ ] First CI run on this layout (PR #92). The three root-only backup tests passed locally as root on 2026-11-17 (see that entry); CI is the record
-- [ ] n8n 3.x and OpenCloud 9.x: majors held back in the 2026-11-17 image update; read their upgrade notes and decide before phases 6 and 8 (owner)
+- [x] OpenCloud to 9.1.1, the production line (owner asked, 2026-11-17; notes read, `docs/image-updates-2026-11.md`)
+- [ ] n8n 3.x: only betas so far (2.48.4 is the newest stable); move once a stable 3.x is out, planned for early December. Check its SSRF list against tailnet addresses (`docs/image-updates-2026-11.md`)
+- [ ] OpenCloud 9.1: check the custom CSP lets Excalidraw, Apollon and previews load (phase 6)
 
 **Phases 2 to 4: sieve, cellar, percolator's identity**
 
@@ -101,9 +103,9 @@ with a few limits:
 
 - **Databases stay on their major version** (Postgres 16 and 18, PostGIS on
   16, Mongo 7, pgvector on pg16): the apps that use them pin those majors.
-- **Apps with a newer major were held to their current one:** n8n stays on
-  2.x (3.3.0 exists) and OpenCloud on 7.x (9.x exists; Dependabot ignores its
-  majors by policy). Both are open in the Backlog.
+- **Apps with a newer major were held to their current one** in this first
+  pass: n8n on 2.x and OpenCloud on 7.x. Both were then moved on the owner's
+  request; see the n8n and OpenCloud paragraph below.
 - **Pairs moved together:** Immich server and ML to v3.4.1 (Immich's own
   compose keeps the same Postgres image); Komodo Core and Periphery to 2.3.4;
   the Scrutiny hub and collector to v0.10.0; both Pi-holes to 2026.11.0;
@@ -117,6 +119,24 @@ with a few limits:
 Digests come from `scripts/images.py`, one image at a time; each has a
 linux/amd64 build. Release notes were not read for each image; nothing has
 run on a node.
+
+**n8n and OpenCloud, and the release notes** (owner, 2026-11-17 21:44:
+"update opencloud and n8n as well … read the latest release notes … list any
+new functional features"). The notes between each old and new pin were read
+from GitHub releases and upstream upgrade docs. The results are in
+`docs/image-updates-2026-11.md`. Three corrections and one change came out of it:
+
+- **n8n is 2.48.4, not 2.49.0.** The first pass took the newest tag, and n8n's
+  2.49.0 and all of 3.x are betas (pre-releases on GitHub). 2.48.4 is the
+  newest stable release. 3.x waits for its stable release.
+- **OpenCloud is 9.1.1, not 9.2.0.** 9.2.0 is the rolling channel, which
+  upstream says is not for production. 9.1.x is the production line on the
+  same image.
+- **`THUMBNAILS_TRANSFER_TOKEN` removed** from OpenCloud's compose file and
+  secrets: from 9.x OpenCloud ignores it.
+- **Every other image was checked against its project's latest stable
+  release:** all match. Radicale's image (3.9.1.1) trails upstream's 3.9.2,
+  which isn't packaged yet. Meilisearch stays on v1.55.0 for Karakeep.
 
 **Evidence.** In a cloud workspace with Python 3.13, restic, rclone and
 sqlite3, on the commit with the image updates:

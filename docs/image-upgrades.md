@@ -41,7 +41,7 @@ start a version that hasn't been acknowledged in the node's `.env.local`.
 
 | App (node) | Key in `.env.local` | Acknowledge |
 |---|---|---|
-| OpenCloud (percolator) | `OPENCLOUD_UPGRADE_READY` | the pinned major, e.g. `7` |
+| OpenCloud (percolator) | `OPENCLOUD_UPGRADE_READY` | the pinned major, e.g. `9` |
 | Meilisearch for Karakeep (grinder) | `KARAKEEP_SEARCH_UPGRADE_READY` | the version, e.g. `1.55.0` |
 | Traccar (grinder) | `TRACCAR_UPGRADE_READY` | the version, e.g. `6.16` |
 | Open WebUI (grinder) | `OPENWEBUI_UPGRADE_READY` | the version, e.g. `0.11.4` |
@@ -64,6 +64,16 @@ app, restore the data directory, set the image back in Git. Reverting the image
 alone doesn't work once the data has been migrated.
 
 ### OpenCloud majors
+
+> **2026-11-17:** the rebuild moved OpenCloud from 7.2 to 9.1 on an empty
+> install, so none of the steps below were needed. Pin the **production**
+> line (`opencloudeu/opencloud`), never `opencloudeu/opencloud-rolling`: upstream
+> says rolling releases are not for production. From 9.x, thumbnail settings
+> live under `webdav: thumbnails:` and use `WEBDAV_THUMBNAILS_*` names, and the
+> `THUMBNAILS_TRANSFER_TOKEN` variable is gone (it was removed from the compose
+> file). Guest links need `OC_ENABLE_GUEST_LINKS` and the
+> `auth_guest.service_account` settings that `opencloud init` writes on a fresh
+> 9.x install.
 
 Read the [upstream upgrade guide](https://docs.opencloud.eu/docs/admin/maintenance/upgrade/upgrade-guide/)
 and the migration notes for each intervening major, including the
