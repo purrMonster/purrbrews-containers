@@ -31,7 +31,6 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 
 - [x] Do the ThinkCentres boot from the 128 GB M.2 SATA drives? No (owner, 2026-11-18). Disks re-planned: see the 2026-11-18 entry
 - [ ] The other machine checks in `docs/hardware.md` (`lsblk`, x360 memory slots, USB Ethernet) (owner)
-- [ ] W1 also mounts grinder's 256 GB SSD at `/srv/data`
 - [ ] The router's address, and that its DHCP turns off (owner)
 - [ ] purrbrews-bootstrap running on americano with americano's key in it (owner)
 - [ ] W1: write the payload (static address and derived MAC, checkout, `/opt/purrbrews/.env`, directories, fetch-only timer) from `deprecated/init/`
@@ -84,26 +83,28 @@ re-planned around that (`docs/hardware.md`):
 
 | Node | Was (2026-11-16) | Now |
 |---|---|---|
-| sieve | 128 GB M.2 SATA | 512 GB Intel NVMe |
+| sieve | 128 GB M.2 SATA | 256 GB SATA SSD (2.5" bay) |
 | percolator | 256 GB SATA SSD (OS) + 1 TB NVMe | 1 TB NVMe (OS and data) |
 | cellar | 1 TB NVMe | unchanged |
 | mochaPot | 128 GB M.2 SATA | unchanged |
-| grinder | 512 GB NVMe | 128 GB M.2 SATA (OS) + 256 GB SATA SSD (`/srv/data`) |
+| grinder | 512 GB NVMe | unchanged (owner) |
 
-**Why.** grinder's apps outgrow 128 GB, so its bay takes the 256 GB SSD.
-The bay could hold one of the old 1 TB HDDs instead, but those are 5 to 8
-years old, Scrutiny flagged one of them, and they are kept as the offline
-backup copies. sieve then gets the only NVMe left, and percolator, which lost
-its OS SSD, runs on its 1 TB NVMe alone.
+The second 128 GB M.2 SATA drive is the spare, which matters because
+mochaPot's SanDisk has a history of command timeouts. grinder's 2.5" bay
+stays free.
+
+**Why.** Claude first proposed the 512 GB NVMe for sieve and the 256 GB SSD
+in grinder's bay. The owner kept the 512 GB on grinder and put sieve on the
+256 GB SSD (2026-11-18 00:48 IST). The old HDDs stay the offline backup copies.
 
 **Changed.** `docs/hardware.md`, and the disk comments in the
-`local.env.example` files: percolator now has one disk, grinder two (adding
-`DISK_DEVICE_2`), and sieve's is an NVMe.
+`local.env.example` files: percolator now has one disk, and sieve's is the
+SATA SSD.
 
 **How to undo.** Revert this entry's commit.
 
-**Next step.** The remaining machine checks; then W1, which also has to mount
-grinder's SSD at `/srv/data`.
+**Next step.** The remaining machine checks (including that a ThinkCentre
+boots from a 2.5" SATA SSD); then W1, the bootstrap payload.
 
 ## 2026-11-17 — The owner's answers to the 2026-11-16 entry
 
