@@ -25,20 +25,36 @@ two 1 TB NVMe, two old 1 TB 2.5" SATA HDDs.
 
 The five node names and roles stay; the machines behind them are the ones the
 old fleet already used, so nothing is re-cased. What changes is where roastery's
-jobs go, one more RAM stick for cellar, and cellar's disk.
+jobs go, one more RAM stick for cellar, and the disks: the ThinkCentres don't
+boot from the 128 GB M.2 SATA drives (owner, 2026-11-18), so those two are the
+x360s' boot drives, and the ThinkCentres boot from NVMe.
 
 | Node | Machine | Where | RAM | Disks | Role |
 |---|---|---|---|---|---|
-| `sieve` | ThinkCentre | Living room, wired to the Humax router | 8 GB | 128 GB M.2 SATA | Network: DNS, DHCP, tunnel, alerting. Voice |
-| `percolator` | ThinkCentre | Second room | 16 GB | 256 GB SATA SSD (OS) + 1 TB NVMe (`/srv/data`) | Ingress, identity, the household apps. Voice |
+| `sieve` | ThinkCentre | Living room, wired to the Humax router | 8 GB | 512 GB Intel NVMe | Network: DNS, DHCP, tunnel, alerting. Voice |
+| `percolator` | ThinkCentre | Second room | 16 GB | 1 TB NVMe (OS and `/srv/data`) | Ingress, identity, the household apps. Voice |
 | `cellar` | ThinkCentre | Third room | 16 GB (was 8) | 1 TB NVMe (OS, dump store, **the restic repository**) | Backup hub, Komodo, Scrutiny. Voice |
 | `mochaPot` | x360 laptop | Wherever its screen is wanted | 8 GB | 128 GB M.2 SATA | Home Assistant, music, secondary DNS, kiosk |
-| `grinder` | x360 board | Next to a switch | 16 GB | 512 GB NVMe | Automation, LiteLLM, Immich ML, self-tracking |
+| `grinder` | x360 board | Next to a switch | 16 GB | 128 GB M.2 SATA (OS) + 256 GB SATA SSD in the 2.5" bay (`/srv/data`) | Automation, LiteLLM, Immich ML, self-tracking |
 
 That uses all eight sticks (8 + 16 + 16 + 8 + 16) and every SSD. The two old
 HDDs stay out of the machines: they are the offline backup copies, written
 through the USB dock and kept unplugged (the old fleet had already retired
-them from live duty for their age).
+them from live duty for their age, and Scrutiny flagged one of them).
+
+Disks, as revised on 2026-11-18:
+
+- **The x360s boot from the 128 GB M.2 SATA drives.** The ThinkCentres don't
+  boot from them (owner, 2026-11-18).
+- **grinder's 2.5" SATA bay holds the 256 GB SSD** for `/srv/data`: n8n,
+  pgvector, Karakeep's archives and Immich's models outgrow 128 GB. It takes
+  the SSD rather than an old HDD, because those are kept as the offline
+  backup copies.
+- **sieve gets the 512 GB NVMe.** It needs the least disk, and this is the
+  only NVMe left.
+- **percolator runs on its 1 TB NVMe alone.** The 256 GB SSD that used to
+  hold its OS went to grinder, and household data and the OS share the 1 TB
+  as they share the machine.
 
 Why this way:
 
@@ -102,13 +118,16 @@ mochaPot's own touchscreen.
 1. `lsblk -d -o NAME,SIZE,MODEL` on each: the old files disagree with the list
    above in two places (sieve "a 240 GB 2.5" SATA SSD", cellar "a 256 GB NVMe").
    The table follows the owner's list.
-2. That a ThinkCentre boots from an M.2 **SATA** stick (sieve's proposed disk).
-   If not, sieve needs one of the 2.5" drives and the plan shifts by one disk.
-3. That each x360 has two memory slots (grinder's 16 GB needs both).
+2. ~~That a ThinkCentre boots from an M.2 SATA stick.~~ It doesn't (owner,
+   2026-11-18); the disks above follow from that.
+3. That each x360 has two memory slots (grinder's 16 GB needs both). grinder's
+   board has a 2.5" SATA bay as its second drive slot (owner, 2026-11-18).
 4. mochaPot's 128 GB SanDisk has a history of command timeouts (Scrutiny, old
-   runbook 2026-09-26 and 2026-09-30). The other 128 GB stick goes to sieve;
-   if either misbehaves there is no spare SSD.
-5. Both USB Ethernet adapters: that Debian 13 brings them up at boot and that
+   runbook 2026-09-26 and 2026-09-30). The other 128 GB stick boots grinder;
+   if either misbehaves there is no spare SSD left, only the old HDDs.
+5. On grinder: mount the 256 GB SSD at `/srv/data` before any app comes up
+   (the bootstrap payload, plan phase 1, should do this from a setting).
+6. Both USB Ethernet adapters: that Debian 13 brings them up at boot and that
    the node's derived MAC sticks to them (the x360s have no port of their own).
-6. Memory speeds: 7th-gen boards run all of these sticks below their rated
+7. Memory speeds: 7th-gen boards run all of these sticks below their rated
    speed, so mixing 2666 and 3200 costs nothing. Keep the 3200 pair together.
