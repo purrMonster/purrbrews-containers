@@ -26,7 +26,7 @@ Code this plan depends on that does not exist yet. Everything else is in the rep
 | W1 | The fleet's payload for purrbrews-bootstrap: static address and derived MAC, the checkout in `/opt/purrbrews`, `/opt/purrbrews/.env`, data directories, the fetch-only timer. **Written 2026-11-18** (`payload/`), not yet run on a machine | `deprecated/init/` | Phase 1 |
 | W2 | **Written 2026-11-18** (`stacks/backup/restic/repo-setup.sh`, README). The repository account on cellar (SFTP-only user, one folder, per-node keys), and the hub scripts without wake-on-LAN or the `roastery` remote | `deprecated/stacks/roastery/backup-target`, `stacks/backup/restic` | Phase 5 |
 | W3 | **Written 2026-11-18** (`recovery/`, [recovery-kit.md](recovery-kit.md)). The recovery kit, built from americano | `deprecated/stacks/roastery/flask`, `deprecated/docs/flask.md` | Phase 5 |
-| W4 | Voice: Whisper, Piper, a satellite per ThinkCentre | nothing yet | Phase 9 |
+| W4 | **Written 2026-11-18** (`stacks/voice/`, [voice.md](voice.md)). Voice: Whisper, Piper, a satellite per ThinkCentre | nothing yet | Phase 9 |
 | W5 | Joining a node to the tailnet (it was a step of the old init) | `deprecated/init/purrbrews-init.sh`, `step_tailscale` | Phase 10 |
 | W6 | Node READMEs rewritten; roastery wording swept out of app READMEs and comments | the old READMEs, in place | As each node comes up |
 
@@ -49,13 +49,15 @@ empty.
 3. Review this branch and merge it; close the open Dependabot PRs (they target
    the old paths). CI runs the root-only backup tests, which could not run
    where this was written.
-4. Bring up purrbrews-bootstrap on americano from its release5. **W1, the payload:** written 2026-11-18, in [`payload/`](../payload/README.md).
+4. Bring up purrbrews-bootstrap on americano from its release image; put
+   americano's public key in it; note the TLS pin.
+5. **W1, the payload:** written 2026-11-18, in [`payload/`](../payload/README.md).
    purrbrews-bootstrap does the general steps; `payload/purrbrews-node.sh` does
    the rest: the checkout, `/opt/purrbrews/.env`, the data folders, `/etc/hosts`,
    the daily fetch and, last, the static address with the node's fixed MAC.
-   Addresses come from `stacks/fleet.env`. Serve it from americano as its README says.
-so it carries no
-   secret and not the domain, like this repo.
+   Addresses come from `stacks/fleet.env`. Serve it from americano as its README
+   says. The payload is public (anyone on the LAN can download it), so it
+   carries no secret and not the domain, like this repo.
 6. Rehearse on one machine that holds nothing yet: Debian 13 netinst with the SSH
    server, the bootstrap one-liner with the payload, then `ssh barista@<address>`.
 
@@ -206,16 +208,23 @@ costs nothing; the apps that call it queue or show an error.
 
 ## Phase 9: voice (W4)
 
-Not designed yet. Decided: each ThinkCentre (sieve, percolator, cellar) has a
-USB speaker and a conference-room mic and runs both engines itself, Whisper
-for speech-to-text and Piper for text-to-speech, with Home Assistant on
-mochaPot deciding what to do (owner, 2026-11-17).
+Needs: phase 7 (Home Assistant on mochaPot), and the speaker and mic in each
+room. Each ThinkCentre (sieve, percolator, cellar) runs Whisper, Piper and a
+satellite; Home Assistant on mochaPot decides what to do (owner, 2026-11-17).
+Written 2026-11-18 as `stacks/voice/`; the design and the steps are in
+[voice.md](voice.md).
 
-To decide first: which Whisper model the i3s can run in real time, with
-percolator's load in mind, since it runs the engines alongside the household
-apps; the wake word; and how audio devices are passed to a container on Debian. Then a
-`stacks/voice/` group, each image pinned by tag and digest, and one room
-proven end to end before the other two.
+1. sieve (the living room) first: `host-setup.sh` for audio, then the three
+   apps, then the Wyoming and ESPHome integrations and a room assistant in HA
+   ([voice.md](voice.md), "Bringing up a room").
+2. Measure: the speech-to-text time in HA's Assist debug view, written in the
+   runbook. Over about two seconds, `tiny-int8` on that node.
+3. Then percolator and cellar, the same way.
+
+**Done when** each room answers its wake word from its own speaker, and the
+speech-to-text times are in the runbook. **Way back:** `./compose.sh <app> down`
+for the three apps; the integrations in HA can be deleted; `host-setup.sh` lists
+what it changed on the machine.
 
 ## Phase 10: the ways in from outside
 

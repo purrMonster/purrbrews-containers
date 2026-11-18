@@ -1,0 +1,2 @@
+# ufw-docker route rules match the container port (after DNAT).
+route tcp 10300 $MOCHAPOT_LAN_IP  # whisper from Home Assistant only

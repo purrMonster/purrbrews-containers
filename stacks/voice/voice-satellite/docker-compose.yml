@@ -1,0 +1,56 @@
+# The room's voice satellite: Linux Voice Assistant (OHF-Voice), which listens
+# on the room's conference mic for the wake word, streams what follows to Home
+# Assistant on mochaPot, and plays the reply on the USB speaker. One per
+# ThinkCentre (sieve, percolator, cellar); docs/voice.md.
+#
+# Not Wyoming Satellite, the older way: it is no longer maintained, replaced
+# by this, which speaks the ESPHome protocol (so HA adds it under ESPHome, not
+# Wyoming) and has the wake word built in (microWakeWord, "okay nabu" by
+# default; chosen per satellite in HA afterwards).
+#
+# Audio: through the host's PipeWire, as the ops user, over its PulseAudio
+# socket. Headless Debian has none until host-setup.sh (beside this file) is
+# run once with sudo; prepare.sh refuses to start this until the socket
+# exists.
+#
+# Host networking: HA finds it by mDNS and talks to it on tcp/6053, and the
+# satellite's identity in HA is the node's own MAC (fixed by the payload).
+# The firewall file lets mochaPot, and only mochaPot, in.
+#
+# Image: ghcr.io/ohf-voice/linux-voice-assistant (digest from the registry,
+# 2026-11-18).
+services:
+  voice-satellite:
+    image: ghcr.io/ohf-voice/linux-voice-assistant:1.1.18@sha256:089f321a4e7408c61fbcd1ec691eb073961be022d651139f32b0dbead9b2af58
+    container_name: voice-satellite
+    restart: unless-stopped
+    network_mode: host
+    user: "${PUID:?}:${PGID:?}"
+    group_add: [audio]
+    # Upstream's: a higher scheduling priority for the audio thread.
+    cap_add: [SYS_NICE]
+    environment:
+      TZ: ${TZ}
+      # The name HA shows; the room, if the node's .env.local says which.
+      CLIENT_NAME: ${VOICE_ROOM:-${NODE:?}}
+      XDG_RUNTIME_DIR: /run/user/${PUID:?}
+      PULSE_SERVER: unix:/run/user/${PUID:?}/pulse/native
+      # Empty means PipeWire's default source and sink, which host-setup.sh
+      # sets to the USB devices; a node can name others in its .env.local.
+      AUDIO_INPUT_DEVICE: ${VOICE_INPUT_DEVICE:-}
+      AUDIO_OUTPUT_DEVICE: ${VOICE_OUTPUT_DEVICE:-}
+      # The peripheral API (buttons, LEDs) listens on every address by
+      # default; there are none here.
+      DISABLE_PERIPHERAL_API: "1"
+    volumes:
+      - /run/user/${PUID:?}:/run/user/${PUID:?}
+      # Downloaded wake words, and the preferences HA sets (wake word, mute).
+      - ${DATA_DIR:?}/voice-satellite/local:/app/local
+      - ${DATA_DIR:?}/voice-satellite/configuration:/app/configuration
+      - /etc/localtime:/etc/localtime:ro
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "linux_voice_assistant"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
