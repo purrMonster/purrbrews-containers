@@ -1,6 +1,6 @@
 # Copy to backup.keys (gitignored), then on cellar:
 #
-#   sudo ./restic/repo-setup.sh          the repository (account `restic`)
+#   sudo ./restic/repo-setup.sh          the repository (account `burmilla`)
 #   sudo ./restic/dump-store-setup.sh    the dump store (account `dumps`)
 #
 # One line per node other than cellar: paste what `sudo ./backup.sh keys`

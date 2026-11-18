@@ -10,7 +10,7 @@
 
 # The node's SSH identity for backups. root's, because the nightly job runs as
 # root (it reads every app's data, whoever owns it). One key serves both the
-# repository (SFTP, account `restic`) and the dump store (rrsync, account
+# repository (SFTP, account `burmilla`) and the dump store (rrsync, account
 # `dumps`); cellar limits what each account can do with it.
 BACKUP_KEY="${BACKUP_KEY:-/root/.ssh/purrbrews-backup}"
 # The hub's host keys: pinned by `backup.sh keys` when they

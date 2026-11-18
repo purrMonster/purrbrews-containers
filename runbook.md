@@ -52,7 +52,7 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 **Phase 5: backups**
 
 - [x] W2: the repository's SFTP account on cellar (`restic/repo-setup.sh`); hub scripts and README without roastery; tests extended. Written and run against a real sshd in the sandbox (2026-11-18 entry); not yet on cellar
-- [ ] The repository account's name: `restic` for now, but service accounts get cat-breed names. Pick one (say `manx`, `burmilla`, `nebelung`) and change `BACKUP_REPOSITORY` in `stacks/fleet.env` before phase 5; `repo-setup.sh` takes it from there (owner)
+- [x] The repository account's name: `burmilla` (owner, 2026-11-18); in `BACKUP_REPOSITORY`, `stacks/fleet.env`
 - [ ] On cellar before phase 5: `/srv` is on the NVMe (`findmnt /srv`), then `sudo ./restic/repo-setup.sh --check`
 - [ ] A new repository (`restic init`); password and crypt keys into the recovery kit the same day
 - [ ] Every node: install, keys, doctor, one nightly by hand, enable
@@ -102,8 +102,8 @@ roastery any more. Nothing ran on a node.
   wouldn't need it, but it's the path the tests and the old fleet exercised.
   Its built-in remote was renamed `pbroastery` → `pbrepo`.
 - **Drive authorization** now runs `rclone authorize` on americano, not roastery.
-- **Account name `restic`** goes against the cat-breed rule; left for the owner
-  (Backlog).
+- **Account name:** `restic` at first, against the cat-breed rule; the owner
+  chose `burmilla` the same day.
 
 **Changed:** `stacks/_lib/restic-env.sh` (no wake-on-LAN; `parse_repo`,
 `reach_repo`, `repo_local_path`), `stacks/_lib/backup.sh` (`keys` prints one
@@ -132,6 +132,12 @@ check warned falsely: with `pipefail`, grep quitting early SIGPIPEs sshd.
   service allows sftp connections only"). `sftp` saw only `/restic`, and
   `cd /etc` failed. The same key from another address got "Permission denied".
   `drive-sync.sh` copied the folder by path, and the copy opened with restic.
+- Re-run as `burmilla` after the rename (2026-11-18, fresh account): setup,
+  init, a backup and `snapshots` worked, with no file in the repository owned by
+  anyone else. The rename turned up a fault, now fixed: the account's home had
+  been a fixed `/var/lib/purrbrews-repo`, so a renamed account would get a home
+  owned by the old one, and sshd ignores keys there. It is `/var/lib/<account>`
+  now.
 
 **Not done:** nothing on cellar. Phase 5 is still the owner's: the account,
 `restic-init.sh`, each node's keys and `enable`, the restore test.

@@ -52,7 +52,10 @@ NODE_IP="$(env_value NODE_IP)"
 CHROOT="$(env_value BACKUP_REPO_ROOT)"; CHROOT="${CHROOT%/}"
 [[ "$CHROOT" =~ ^/[A-Za-z0-9._/-]+$ ]] || die "BACKUP_REPO_ROOT (stacks/fleet.env) must be an absolute path, not '$CHROOT'."
 REPO_DIR="$CHROOT$REPO_PATH"
-HOME_DIR=/var/lib/purrbrews-repo
+# Named after the account, so a renamed account can't inherit a home that
+# another one owns (sshd ignores keys in a home that isn't the user's).
+HOME_DIR="$(getent passwd "$USER_NAME" | cut -d: -f6 || true)"
+HOME_DIR="${HOME_DIR:-/var/lib/$USER_NAME}"
 [[ -f "$BACKUP_KEY.pub" ]] || die "no $BACKUP_KEY.pub; run 'sudo ./backup.sh keys' here first (cellar backs itself up through this account too)."
 
 # ── the keys, checked before anything changes ────────────────────────────────
@@ -97,6 +100,7 @@ fi
 # but root. The repository folder inside it is the account's alone.
 install -d -m 755 -o root -g root "$CHROOT"
 install -d -m 700 -o "$USER_NAME" -g "$USER_NAME" "$REPO_DIR"
+install -d -m 755 -o "$USER_NAME" -g "$USER_NAME" "$HOME_DIR"
 install -d -m 700 -o "$USER_NAME" -g "$USER_NAME" "$HOME_DIR/.ssh"
 install -m 600 -o "$USER_NAME" -g "$USER_NAME" "$tmp" "$HOME_DIR/.ssh/authorized_keys"
 note "$REPO_DIR: the repository folder ($USER_NAME's; nodes see it as $REPO_PATH)"

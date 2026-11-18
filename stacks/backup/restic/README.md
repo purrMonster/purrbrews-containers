@@ -9,7 +9,7 @@ every node, 01:30                 cellar
   backup.sh nightly
    ├─ dump databases ──push──►  /srv/dumps/<node>   (account dumps, rrsync)
    │                                  │ 02:30 store
-   └─ files ────────SFTP──────►  /srv/backup/restic  (account restic, chrooted)
+   └─ files ────────SFTP──────►  /srv/backup/restic  (account burmilla, chrooted)
                                        │ 03:00 Sun prune
                                   03:30 drive-sync (reads the folder by path)
                                         └──► Google Drive, drive-crypt:repo
@@ -51,8 +51,8 @@ they ran from 2026-09-28; in this one, from the night phase 5 of
 | What | Where | Owner |
 |---|---|---|
 | The chroot (`BACKUP_REPO_ROOT`, stacks/fleet.env) | `/srv/backup` | root, 755: sshd insists |
-| The repository (the path in `BACKUP_REPOSITORY`) | `/srv/backup/restic`, seen as `/restic` over SFTP | `restic`, 700 |
-| The account's keys | `/var/lib/purrbrews-repo/.ssh/authorized_keys`, rebuilt by `repo-setup.sh` | `restic`, 600 |
+| The repository (the path in `BACKUP_REPOSITORY`) | `/srv/backup/restic`, seen as `/restic` over SFTP | `burmilla`, 700 |
+| The account's keys | `/var/lib/burmilla/.ssh/authorized_keys`, rebuilt by `repo-setup.sh` | `burmilla`, 600 |
 | The sshd rules | `/etc/ssh/sshd_config.d/20-purrbrews-repo.conf` | root |
 
 A key in that file can do one thing: SFTP inside `/srv/backup`, from its node's
