@@ -109,7 +109,7 @@ Nothing in this table has run on a node since the move. "Not run" in the
 | Backup target | `stacks/roastery/backup-target` | | | Source | The Linux equivalent on cellar is phase 5 |
 | Samba | `stacks/cellar/smb` | `stacks/backup/smb` | cellar | Carried | Optional; unused, port closed, `latest` tag. Decide or drop |
 | NFS (host-native) | `stacks/cellar/nfs` | `stacks/backup/nfs` | cellar | Carried | |
-| flask, the recovery kit | `stacks/roastery/flask`, `docs/flask.md` | | | Source | Built with PowerShell on roastery. Rebuild from americano; the kit's contents list is still right |
+| flask, the recovery kit | `stacks/roastery/flask`, `docs/flask.md` | `recovery/`, `docs/recovery-kit.md` | | Rewritten | Bash on americano instead of PowerShell on roastery (W3, 2026-11-18). Same layout and checks; the vault list is `recovery/vault.tiers`, brought up to date with the new fleet |
 
 ## Everything that is not an app
 

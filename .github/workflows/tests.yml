@@ -46,7 +46,10 @@ jobs:
       # The suite's own `bash -n` only catches syntax. shellcheck comes with
       # GitHub's Ubuntu image.
       - name: shellcheck
-        run: find stacks nodes payload scripts tailscale -type f -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning
+        run: |
+          find stacks nodes payload scripts tailscale recovery -type f -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning
+          # the recovery kit's live-system scripts have no .sh: they're commands
+          shellcheck --severity=warning recovery/live/usr/local/sbin/* recovery/live/usr/local/bin/*
 
       - name: Tests (normal user)
         run: python3 -m pytest -q -rs tests

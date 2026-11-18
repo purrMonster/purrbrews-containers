@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=flask: open the kit
+Comment=The flask stick's files (RECOVERY.md, tools), mounted at /mnt/flask
+Exec=sh -c 'sudo /usr/local/sbin/mount-flask; xdg-open /mnt/flask'
+Icon=drive-removable-media
+Terminal=false
+Categories=Utility;

@@ -25,7 +25,7 @@ Code this plan depends on that does not exist yet. Everything else is in the rep
 |---|---|---|---|
 | W1 | The fleet's payload for purrbrews-bootstrap: static address and derived MAC, the checkout in `/opt/purrbrews`, `/opt/purrbrews/.env`, data directories, the fetch-only timer. **Written 2026-11-18** (`payload/`), not yet run on a machine | `deprecated/init/` | Phase 1 |
 | W2 | **Written 2026-11-18** (`stacks/backup/restic/repo-setup.sh`, README). The repository account on cellar (SFTP-only user, one folder, per-node keys), and the hub scripts without wake-on-LAN or the `roastery` remote | `deprecated/stacks/roastery/backup-target`, `stacks/backup/restic` | Phase 5 |
-| W3 | The recovery kit, built from americano | `deprecated/stacks/roastery/flask`, `deprecated/docs/flask.md` | Phase 5 |
+| W3 | **Written 2026-11-18** (`recovery/`, [recovery-kit.md](recovery-kit.md)). The recovery kit, built from americano | `deprecated/stacks/roastery/flask`, `deprecated/docs/flask.md` | Phase 5 |
 | W4 | Voice: Whisper, Piper, a satellite per ThinkCentre | nothing yet | Phase 9 |
 | W5 | Joining a node to the tailnet (it was a step of the old init) | `deprecated/init/purrbrews-init.sh`, `step_tailscale` | Phase 10 |
 | W6 | Node READMEs rewritten; roastery wording swept out of app READMEs and comments | the old READMEs, in place | As each node comes up |
@@ -142,7 +142,10 @@ node holds data that exists nowhere else.
    Drive copy read back.
 6. The offline copy: one HDD in the dock after each successful prune, the two
    alternating. Run a long SMART self-test on both first.
-7. **W3.** The recovery kit, from americano.
+7. **W3, written 2026-11-18.** The recovery kit, from americano, the same day the
+   new repository's keys exist: Ventoy on stick B, `recovery/make-flask.sh`, the
+   vault with `fill-vault.sh`, the paper, one offline boot of each stick
+   ([recovery-kit.md](recovery-kit.md), "Building it").
 
 **Done when** two nights in a row every node has a fresh snapshot, the morning
 check is quiet, a restore test passed, and Drive holds the same repository.

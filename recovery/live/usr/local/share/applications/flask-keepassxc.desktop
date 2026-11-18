@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=flask: KeePassXC (vault)
+Comment=Opens flask.kdbx read-only with the KeePassXC from the stick
+Exec=/usr/local/bin/flask-keepassxc
+Icon=dialog-password
+Terminal=false
+Categories=Utility;Security;

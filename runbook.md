@@ -58,7 +58,9 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - [ ] Every node: install, keys, doctor, one nightly by hand, enable
 - [ ] A restore test, and the Drive copy read back
 - [ ] Long SMART self-test on both old HDDs before they hold the offline copies
-- [ ] W3: the recovery kit rebuilt from americano
+- [x] W3: the recovery kit rebuilt from americano (`recovery/`, docs/recovery-kit.md). Written; a full download-and-verify and a build onto two stand-in sticks passed in the sandbox (2026-11-18 entry). Not yet on a real stick or a Mac
+- [ ] flask, the owner's part, once the new repository's keys exist: Ventoy on stick B (from Linux), `./make-flask.sh` on americano with both sticks, the vault (`fill-vault.sh`), the paper, then one boot of each stick on a ThinkCentre with the cable out (owner)
+- [ ] First run of `make-flask.sh` and `fill-vault.sh` on americano itself: they were written for macOS's bash 3.2 and tested only on Linux's bash 5 (sandbox, 2026-11-18). A `--prepare` on the Mac settles it
 
 **Phases 6 to 8: the apps**
 
@@ -76,6 +78,87 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - [ ] Two-factor in Authelia once every account has enrolled
 - [ ] W6: node READMEs rewritten; roastery wording swept from app READMEs and comments
 - [ ] Carried from the old Backlog, still open: `barista` in the `docker` group; Samba, shares or gone; a bot identity for agents' commits; the merged branches on GitHub (owner)
+
+## 2026-11-18 — W3: the recovery kit, built from americano
+
+**What.** The owner said "next?" after W2 merged. W3 was next in
+[the plan](docs/migration-plan.md): flask, the offline recovery kit, was built by
+PowerShell on roastery, which is gone. It's now `recovery/`, in bash, for
+americano. What goes on the sticks and in the vault is unchanged in kind.
+Nothing ran on a node or on a stick.
+
+**What's new:**
+
+- `recovery/make-flask.sh`, ported from `make-flask.ps1`. It has the same
+  steps (download, verify against the pinned keys, stage, write, read back) and
+  the same `--prepare` and `--check` modes. It finds sticks with `diskutil` on
+  macOS and `lsblk` on Linux. It keeps macOS's leftovers (`._` files, Spotlight)
+  off the sticks and out of the checks, and packs the boot-time archive as root
+  whoever builds it.
+- `recovery/fill-vault.sh`, ported from `fill-vault.ps1`. It reads over SSH, and
+  values go to `keepassxc-cli` on stdin only.
+- `recovery/vault.tiers`: the vault list in one place, which the script reads
+  and two tests check against the doc and against the apps' `secrets*.conf`.
+- `recovery/RECOVERY.md`, rewritten for this fleet. Case B is now "cellar is
+  gone".
+- `docs/recovery-kit.md`, which replaces `docs/flask.md`.
+- `recovery/live/` came over unchanged apart from comments.
+
+**Decisions** (Claude's, open to change):
+
+- **The name stays flask**, and so do the labels FLASK-A and FLASK-B: stick A
+  already has Ventoy and that label (2026-09-30).
+- **Ventoy is installed from Linux**, because there's no macOS installer: a
+  node, or stick A booted on a ThinkCentre. Commands in the doc.
+- **Mac tools added:** restic, rclone and the KeePassXC `.dmg` for both Mac
+  architectures, because americano is now where the kit gets used.
+- **Versions:** restic 0.19.1, rclone 1.76.0 (6 November, a security release),
+  Debian Live 13.7.0. KeePassXC stays on **2.7.12** even though 2.8.0 came out
+  on 4 November: 2.7's AppImage is the one proven in the live system. Try 2.8 at
+  the yearly check, with a boot.
+- **Vault list brought up to date:**
+  - Added `CAFE_APP_ENCRYPTION_KEY` and `CAFE_ACTUAL_ENCRYPTION_PASSWORD`
+    (Tier 2), `MAIL_RELAY_PASSWORD` and `LLM_UPSTREAM_API_KEY` (Tier 4).
+  - Dropped `OPENCLOUD_THUMBNAILS_TRANSFER_TOKEN` (gone in OpenCloud 9.1) and
+    roastery's Windows password.
+  - `PIHOLE_WEBPASSWORD` is only the secondary's; the primary has none.
+- **Boot test on a ThinkCentre with the cable out**, not in a VM: Apple Silicon
+  can't boot x86, and a VM doesn't test the firmware anyway.
+
+**Evidence** (sandbox, 2026-11-18):
+
+- `./make-flask.sh --prepare` for real, against the live sites:
+  - All four pinned keys imported with matching fingerprints.
+  - Signatures were good on Debian's SHA512SUMS, restic's and rclone's
+    SHA256SUMS, and all four KeePassXC files.
+  - Every download matched its signed checksum, and LiveInjection matched its
+    pinned hash.
+- Written onto two stand-in sticks (folders): 146 files each read back against
+  `SHA256SUMS`, and `sha256sum -c` agrees. The restic and rclone binaries from
+  the stick run (`restic 0.19.1`, `rclone v1.76.0`). Both archives are owned
+  0/0, with 755 on dirs and scripts and 644 on the desktop files. `ventoy.json`
+  names the 13.7.0 ISO.
+- Failures stop it, as they should:
+  - An edited restic SHA256SUMS gave "signature not good … no stick was
+    touched".
+  - An edited download gave "checksum mismatch", and the file was deleted.
+- Tests: 108 passed. New ones in `tests/test_recovery.py`:
+  - the list against the doc and the apps;
+  - no bash 4 features;
+  - `fill-vault.sh` against a stand-in keepassxc-cli: values never in its
+    output or arguments, and only what changed is rewritten;
+  - `--check` catches a changed file and notes extras.
+- shellcheck is clean; CI now shellchecks `recovery/` too.
+
+**Not checked:** a real stick, macOS (`diskutil`, `plutil`, bash 3.2; building
+bash 3.2 here wasn't allowed), the real `keepassxc-cli`, and a boot of the new
+build. All are in the Backlog.
+
+**Undo:** revert the commit. Nothing outside the repo changed. The old kit is
+still in `deprecated/`.
+
+**Next:** the owner's part of phase 5, then flask the same day. In code, W4
+(voice) is next.
 
 ## 2026-11-18 — W2: the backup repository moves to cellar (code)
 

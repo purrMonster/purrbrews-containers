@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=flask: mount the kit
+Comment=Mounts the flask stick read-only at /mnt/flask and opens it
+Exec=sh -c 'sudo /usr/local/sbin/mount-flask && xdg-open /mnt/flask'
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
