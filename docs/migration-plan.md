@@ -27,7 +27,7 @@ Code this plan depends on that does not exist yet. Everything else is in the rep
 | W2 | **Written 2026-11-18** (`stacks/backup/restic/repo-setup.sh`, README). The repository account on cellar (SFTP-only user, one folder, per-node keys), and the hub scripts without wake-on-LAN or the `roastery` remote | `deprecated/stacks/roastery/backup-target`, `stacks/backup/restic` | Phase 5 |
 | W3 | **Written 2026-11-18** (`recovery/`, [recovery-kit.md](recovery-kit.md)). The recovery kit, built from americano | `deprecated/stacks/roastery/flask`, `deprecated/docs/flask.md` | Phase 5 |
 | W4 | **Written 2026-11-18** (`stacks/voice/`, [voice.md](voice.md)). Voice: Whisper, Piper, a satellite per ThinkCentre | nothing yet | Phase 9 |
-| W5 | Joining a node to the tailnet (it was a step of the old init) | `deprecated/init/purrbrews-init.sh`, `step_tailscale` | Phase 10 |
+| W5 | **Written 2026-11-18** (the payload's `tailnet` step; [tailscale/README.md](../tailscale/README.md)). Joining a node to the tailnet (it was a step of the old init) | `deprecated/init/purrbrews-init.sh`, `step_tailscale` | Phase 10 |
 | W6 | Node READMEs rewritten; roastery wording swept out of app READMEs and comments | the old READMEs, in place | As each node comes up |
 
 ## Phase 0: save what exists (done)
@@ -228,9 +228,11 @@ what it changed on the machine.
 
 ## Phase 10: the ways in from outside
 
-1. **W5**, the tailnet: join each node (UFW stays the only gate, as before),
-   americano and the phone. Take the Remote Desktop grant out of
-   `tailscale/policy.hujson`.
+1. **W5**, the tailnet (written 2026-11-18): the policy pasted into the admin
+   console and split DNS set ([tailscale/README.md](../tailscale/README.md)),
+   then each node with the bootstrap one-liner and `--only tailnet`, americano
+   and the phone. UFW stays the only gate, as before. The Remote Desktop grant
+   is already out of `tailscale/policy.hujson`.
 2. The Cloudflare tunnel's routes in one pass (opencloud, radicale, cafe, meow,
    and the rest of the template), then the check that tunnel visitors show
    their own address in the logs.

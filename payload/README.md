@@ -51,11 +51,29 @@ Then, as barista and not with sudo, in `/opt/purrbrews/nodes/<node>`:
 Every step can be run again. A re-run fetches the repo but never moves the
 checkout: moving it is a reviewed step (`docs/operations.md`). To repeat one
 step, add its name after the node, for example `-- sieve --only network --yes`.
-Steps: `packages repo node folders hosts timers network`.
+Steps: `packages repo node folders hosts timers tailnet network`; `tailnet`
+runs only when named (below).
+
+## Joining the tailnet
+
+Phase 10 of `docs/migration-plan.md`, once every node is up and the policy is in
+the admin console ([`tailscale/README.md`](../tailscale/README.md)). The same
+one-liner, with the step named:
+
+```bash
+curl -fsSk https://<americano>:8443/bootstrap.sh | sudo PB_PIN='sha256//…' bash -s -- \
+  --user barista -- sieve --only tailnet
+```
+
+It installs Tailscale from its apt repo, opens SSH on `tailscale0` in UFW, and
+joins with `tag:purrbrews-node`, printing a sign-in link (open it, sign in as
+the tailnet's admin). On cellar and grinder, the subnet routers, it also
+forwards web and DNS onto the LAN. A one-off auth key in
+`/etc/purrbrews/tailscale-authkey` (root, 600) skips the link; it's used once
+and deleted. Never put a key in `payload.env`: it's served openly.
 
 ## What it doesn't do
 
-- Tailscale: a separate step, still to be written (`docs/migration-plan.md`, phase 10).
 - Backups: `sudo ./backup.sh install` on the node, once the hub exists (phase 5).
 - Anything as root from the checkout. The checkout belongs to the ops user, so
   root runs only the verified files of this payload, and only reads data from

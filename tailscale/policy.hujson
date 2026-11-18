@@ -7,18 +7,19 @@
 // file, since the repo is public; autogroups stand in for people.
 {
 	"tagOwners": {
-		// The five Debian nodes join with this tag (init's tailscale step).
+		// The five nodes join with this tag (the payload's tailnet step).
 		// Tagged devices belong to the tailnet, not to a person, and their
 		// keys don't expire, so a server never silently drops off.
 		"tag:purrbrews-node": ["autogroup:admin"],
 	},
 
-	// The subnet routers (TAILSCALE_SUBNET_ROUTERS: cellar, grinder) advertise
-	// the house's addresses as a /23. Approved automatically when a tagged
-	// node asks, so re-running init never waits on a click in the console.
+	// The subnet routers (TAILSCALE_SUBNET_ROUTERS in payload/payload.env:
+	// cellar, grinder) advertise a /23 around the house's 192.168.1.0/24.
+	// Approved automatically when a tagged node asks, so re-running the step
+	// never waits on a click in the console.
 	"autoApprovers": {
 		"routes": {
-			"192.168.1.0/23": ["tag:purrbrews-node"],
+			"192.168.0.0/23": ["tag:purrbrews-node"],
 		},
 	},
 
@@ -31,17 +32,9 @@
 			"dst": ["tag:purrbrews-node"],
 			"ip":  ["tcp:22"],
 		},
-		// Remote Desktop between your own devices: laptop or phone → roastery.
-		// autogroup:self never includes someone else's devices, so inviting
-		// another person later gives them nothing of yours.
-		{
-			"src": ["autogroup:member"],
-			"dst": ["autogroup:self"],
-			"ip":  ["tcp:3389", "udp:3389"],
-		},
 		// Every app, admin pages included, at its usual LAN address through a
 		// subnet router: each node's Traefik on 443.
-		// Only these six addresses, only 443, though the route is a /23. Who
+		// Only these five addresses, only 443, though the route is a /23. Who
 		// may open what is still Authelia's call, exactly as on the LAN.
 		{
 			"src": ["autogroup:member"],
@@ -63,6 +56,7 @@
 	//    tailnet, so a compromised node can't reach your laptop through it;
 	//  - no "ssh" section: the nodes run OpenSSH with their own keys and
 	//    sudo, not Tailscale SSH;
-	//  - no exit node, and nothing on the LAN beyond the six hosts above,
+	//  - no Remote Desktop: it was for roastery, which is out of the fleet
+	//    (2026-11); no exit node, and nothing on the LAN beyond the five hosts above,
 	//    port 443, and DNS on the two Pi-holes.
 }

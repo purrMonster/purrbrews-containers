@@ -3,6 +3,7 @@ and scripts/fleet-macs.sh, which shares its fleet list with the Pi-holes."""
 import hashlib
 import importlib.util
 import io
+import json
 import os
 from pathlib import Path
 import pwd
@@ -134,7 +135,7 @@ class Payload(unittest.TestCase):
 
     def test_list_steps_and_unknown_options(self):
         out = subprocess.run(['bash', str(self.SCRIPT), '--list-steps'], capture_output=True, text=True)
-        self.assertEqual(out.stdout.split(), ['packages', 'repo', 'node', 'folders', 'hosts', 'timers', 'network'])
+        self.assertEqual(out.stdout.split(), ['packages', 'repo', 'node', 'folders', 'hosts', 'timers', 'tailnet', 'network'])
         bad = subprocess.run(['bash', str(self.SCRIPT), '--only', 'nope'], capture_output=True, text=True)
         self.assertNotEqual(bad.returncode, 0)
 
@@ -194,6 +195,104 @@ class Payload(unittest.TestCase):
             self.assertNotEqual(unknown.returncode, 0)
             self.assertIn("No node 'roastery'", unknown.stderr)
 
+
+    def test_tailnet_only_runs_when_named(self):
+        source = self.SCRIPT.read_text()
+        self.assertRegex(source, r'(?m)^OPT_IN_STEPS=\(tailnet\)$')
+        body = re.search(r'^step_tailnet\(\) \{.*?^\}', source, re.M | re.S).group(0)
+        for flag in ['--netfilter-mode=off', '--accept-dns=false', '--ssh=false', '--reset']:
+            self.assertIn(flag, body)
+        settings = (PAYLOAD / 'payload.env').read_text()
+        self.assertIn('TAILSCALE_ROUTES=192.168.0.0/23\n', settings)   # a /23 on its boundary
+
+    def test_the_tailnet_route_holds_the_lan_and_the_policy_approves_it(self):
+        import ipaddress
+        settings = (PAYLOAD / 'payload.env').read_text()
+        routes = re.search(r'(?m)^TAILSCALE_ROUTES=(\S+)$', settings).group(1).split(',')
+        lan = ipaddress.ip_network(fleet_env()['LAN_CIDR'])
+        nets = [ipaddress.ip_network(r) for r in routes]    # strict: a /23 on its boundary
+        self.assertTrue(any(lan.subnet_of(n) and n.prefixlen < lan.prefixlen for n in nets),
+                        'a route wider than the LAN, so the LAN wins at home')
+        policy = (ROOT / 'tailscale/policy.hujson').read_text()
+        policy = re.sub(r'(?m)^\s*//.*$', '', policy)
+        policy = re.sub(r',(\s*[}\]])', r'\1', policy)
+        data = json.loads(policy)
+        self.assertEqual(sorted(data['autoApprovers']['routes']), sorted(routes))
+        self.assertNotIn('3389', json.dumps(data), 'Remote Desktop was for roastery')
+        routers = re.search(r'(?m)^TAILSCALE_SUBNET_ROUTERS=(.*)$', settings).group(1).split()
+        self.assertTrue(set(routers) <= {n.name for n in (ROOT / 'nodes').iterdir()})
+
+    @unittest.skipUnless(os.geteuid() == 0, 'needs root')
+    def test_tailnet_step_with_stand_in_commands(self):
+        user = next((p for p in pwd.getpwall() if p.pw_uid >= 1000 and p.pw_name != 'nobody'), None)
+        if user is None:
+            self.skipTest('needs an unprivileged user to act as the ops user')
+        stub = """#!/bin/bash
+printf '%s %s\\n' "$(basename "$0")" "$*" >> "$STUB_LOG"
+case "$(basename "$0") $1" in
+  'tailscale status') printf '{\\n  "BackendState": "NeedsLogin",\\n}\\n' ;;
+  'tailscale ip') echo 100.64.0.7 ;;
+  'ip -4') echo 'default via 192.168.1.1 dev enp1s0 proto static' ;;
+esac
+exit 0
+"""
+        def run(node, keyfile):
+            tmp = Path(tempfile.mkdtemp(dir='/tmp'))
+            self.addCleanup(shutil.rmtree, tmp)
+            project = tmp / 'opt'
+            shutil.copytree(ROOT / 'nodes', project / 'nodes', ignore=shutil.ignore_patterns('*.env.local'))
+            (project / 'stacks').mkdir()
+            shutil.copy(ROOT / 'stacks/fleet.env', project / 'stacks/fleet.env')
+            payload = tmp / 'payload'
+            shutil.copytree(PAYLOAD, payload)
+            settings = (PAYLOAD / 'payload.env').read_text().replace('PROJECT_DIR=/opt/purrbrews', f'PROJECT_DIR={project}')
+            (payload / 'payload.env').write_text(settings)
+            bin_ = tmp / 'bin'
+            bin_.mkdir()
+            for name in ['tailscale', 'ufw', 'systemctl', 'sysctl', 'iptables', 'ip', 'apt-get', 'curl']:
+                (bin_ / name).write_text(stub)
+                (bin_ / name).chmod(0o755)
+            etc, units, sysctl = tmp / 'etc', tmp / 'units', tmp / 'sysctl'
+            for d in (etc, units, sysctl):
+                d.mkdir()
+            if keyfile:
+                (etc / 'tailscale-authkey').write_text('stand-in-auth-key\n')
+                (etc / 'tailscale-authkey').chmod(0o600)
+            log = tmp / 'log'
+            env = dict(os.environ, PATH=f'{bin_}:{os.environ["PATH"]}', STUB_LOG=str(log),
+                       PB_ETC_DIR=str(etc), PB_UNIT_DIR=str(units), PB_SYSCTL_DIR=str(sysctl),
+                       PB_LOG_DIR=str(tmp / 'logs'))
+            result = subprocess.run(['bash', str(payload / 'purrbrews-node.sh'), node, '--user', user.pw_name,
+                                     '--only', 'tailnet'], env=env, capture_output=True, text=True,
+                                    stdin=subprocess.DEVNULL, start_new_session=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            return log.read_text() if log.exists() else '', etc, units, sysctl, result
+
+        calls, etc, units, sysctl, _ = run('grinder', keyfile=True)
+        self.assertIn('ufw allow in on tailscale0 to any port 22 proto tcp', calls)
+        self.assertIn('ufw allow 41641/udp', calls)
+        self.assertIn('ufw route allow in on tailscale0 proto tcp to any port 443', calls)
+        self.assertIn('out on enp1s0 proto udp to 192.168.1.0/24 port 53', calls)
+        up = next(l for l in calls.splitlines() if l.startswith('tailscale up'))
+        for arg in ['--hostname=grinder', '--netfilter-mode=off', '--accept-dns=false', '--ssh=false',
+                    '--advertise-tags=tag:purrbrews-node', '--advertise-routes=192.168.0.0/23',
+                    f'--auth-key=file:{etc}/tailscale-authkey']:
+            self.assertIn(arg, up.split())
+        self.assertNotIn('stand-in-auth-key', calls, 'the key goes by file, never on the command line')
+        self.assertFalse((etc / 'tailscale-authkey').exists(), 'the auth key is deleted once used')
+        self.assertIn('MASQUERADE', (units / 'purrbrews-tailscale-nat.service').read_text())
+        self.assertIn('net.ipv4.ip_forward = 1', (sysctl / '99-purrbrews-tailscale.conf').read_text())
+        self.assertNotIn('apt-get', calls, 'already installed: nothing to install')
+
+        calls, _, units, _, _ = run('sieve', keyfile=True)
+        up = next(l for l in calls.splitlines() if l.startswith('tailscale up'))
+        self.assertIn('--advertise-routes=', up.split())
+        self.assertNotIn('route allow', calls)
+        self.assertFalse((units / 'purrbrews-tailscale-nat.service').exists())
+
+        calls, _, _, _, result = run('sieve', keyfile=False)   # no key and no terminal
+        self.assertNotIn('tailscale up', calls)
+        self.assertIn('Not signed in', result.stderr)
 
 if __name__ == '__main__':
     unittest.main()
