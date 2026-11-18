@@ -369,7 +369,7 @@ class Layout(unittest.TestCase):
     def test_node_local_files_are_gitignored(self):
         for path in ['nodes/sieve/.env.local', 'stacks/monitoring/ntfy/secrets.env.local',
                      'stacks/fleet-management/komodo-periphery/keys/core.pub', 'stacks/backup/restic/cache/x',
-                     'stacks/backup/restic/dump-store.keys', 'stacks/backup/restic/secrets.env.local',
+                     'stacks/backup/restic/backup.keys', 'stacks/backup/restic/secrets.env.local',
                      'stacks/ai/litellm/secrets.env.local', '.env', '.fleet/sieve.json',
                      'deprecated/stacks/roastery/traefik/secrets.env.local',
                      'deprecated/stacks/roastery/backup-target/authorized_keys']:
@@ -748,6 +748,76 @@ class Backup(unittest.TestCase):
         for node in NODES:
             self.assertIn('restic', node_conf(node)['TOOLS'], node)
 
+    def test_the_repository_is_on_the_hub(self):
+        fleet = {k: v for k, _, v in (l.partition('=') for l in (STACKS / 'fleet.env').read_text().splitlines())
+                 if k and not k.startswith('#')}
+        m = re.fullmatch(r'sftp:([a-z_][a-z0-9_-]*)@([0-9.]+):(/[A-Za-z0-9._/-]+)', fleet['BACKUP_REPOSITORY'])
+        self.assertTrue(m, fleet['BACKUP_REPOSITORY'])
+        self.assertEqual(m.group(2), fleet['CELLAR_LAN_IP'], 'the repository is on cellar, the hub')
+        self.assertRegex(fleet['BACKUP_REPO_ROOT'], r'^/[A-Za-z0-9._/-]+$')
+
+    def test_nothing_live_wakes_roastery(self):
+        # The repository moved to cellar, which doesn't sleep (W2, 2026-11-18).
+        files = [*STACKS.rglob('*.sh'), *STACKS.rglob('*.service'), *STACKS.rglob('*.timer'), *NODE_DIRS.rglob('*')]
+        for file in files:
+            if file.is_file():
+                text = file.read_text(errors='replace')
+                for word in ['wake_roastery', 'ROASTERY_WOL_MAC', 'PBROASTERY', 'send_magic_packet', 'roastery:']:
+                    self.assertNotIn(word, text, f'{file.relative_to(ROOT)}: {word}')
+
+    def repo_path(self, node, env_local):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp)
+        root = copy_repo(tmp)
+        (root / 'nodes' / node / '.env.local').write_text(env_local)
+        script = ('source "$1/stacks/_lib/common.sh"; source "$LIB/restic-env.sh"; '
+                  'load_node "$1/nodes/$2"; repo_local_path')
+        return subprocess.run(['bash', '-c', script, '_', str(root), node], capture_output=True, text=True,
+                              env=dict(os.environ, RESTIC_PASSWORD='test'))
+
+    def test_the_hub_finds_the_repository_inside_the_chroot(self):
+        result = self.repo_path('cellar', '')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, '/srv/backup/restic')
+        other = self.repo_path('percolator', '')
+        self.assertNotEqual(other.returncode, 0)
+        self.assertIn('only on disk on the backup hub', other.stderr)
+        local = self.repo_path('percolator', 'BACKUP_REPOSITORY=/mnt/usb/restic\n')
+        self.assertEqual(local.stdout, '/mnt/usb/restic', local.stderr)
+
+    def repo_setup(self, keys):
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp)
+        root = copy_repo(tmp)
+        (root / '.env').write_text('NODE=cellar\nNODE_IP=192.168.1.12\n')
+        key = tmp / 'purrbrews-backup'
+        (tmp / 'purrbrews-backup.pub').write_text('ssh-ed25519 AAAAhub purrbrews-backup@cellar\n')
+        (tmp / 'backup.keys').write_text(keys)
+        env = dict(os.environ, BACKUP_KEY=str(key), BACKUP_KEYS_FILE=str(tmp / 'backup.keys'))
+        return subprocess.run(['bash', str(app('restic', root) / 'repo-setup.sh'), '--check'],
+                              capture_output=True, text=True, env=env)
+
+    def test_repo_setup_pins_every_key_to_its_node(self):
+        result = self.repo_setup('# a comment\n'
+                                 'percolator from="192.168.1.11" ssh-ed25519 AAAAperc purrbrews-backup@percolator\n'
+                                 'sieve from="192.168.1.10" ssh-ed25519 AAAAsieve purrbrews-backup@sieve  # trailing\n')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        lines = [line for line in result.stdout.splitlines() if line.startswith('from=')]
+        self.assertEqual(lines, [
+            'from="192.168.1.12",restrict ssh-ed25519 AAAAhub purrbrews-backup@cellar',
+            'from="192.168.1.11",restrict ssh-ed25519 AAAAperc purrbrews-backup@percolator',
+            'from="192.168.1.10",restrict ssh-ed25519 AAAAsieve purrbrews-backup@sieve'])
+        self.assertIn('chroot /srv/backup, repository /srv/backup/restic', result.stdout)
+
+    def test_repo_setup_refuses_bad_lines(self):
+        for line, why in [('roastery from="192.168.1.20" ssh-ed25519 AAAA x', "isn't a node"),
+                          ('cellar from="192.168.1.12" ssh-ed25519 AAAA x', 'is the hub'),
+                          ('sieve ssh-ed25519 AAAA x', 'from='),
+                          ('sieve from="192.168.1.10" ssh-rsa AAAA x', 'ssh-ed25519')]:
+            result = self.repo_setup(line + '\n')
+            self.assertNotEqual(result.returncode, 0, line)
+            self.assertIn(why, result.stderr, line)
+
     def test_only_the_hub_installs_the_hub_timers(self):
         script = ('source "$1/stacks/_lib/common.sh"; load_node "$1/nodes/$2"; '
                   'eval "$(sed -n \'/^node_units()/,/^}/p\' "$1/stacks/_lib/backup.sh")"; node_units')
@@ -821,27 +891,26 @@ class Backup(unittest.TestCase):
     @unittest.skipUnless(AS_ROOT and all(shutil.which(c) for c in ['restic', 'rclone', 'flock']),
                          'needs root, restic, rclone and flock')
     def test_drive_sync_never_mirrors_an_empty_or_different_repository(self):
-        # cellar's drive-sync makes Drive match roastery. After roastery was
-        # wiped (2026-10-07), an empty or re-initialised repository there must
-        # stop the sync instead of replacing the offsite copy.
+        # cellar's drive-sync makes Drive match the repository on cellar's disk.
+        # An empty or re-initialised repository there (roastery's was wiped
+        # 2026-10-07) must stop the sync instead of replacing the offsite copy.
         tmp = Path(tempfile.mkdtemp(dir='/tmp'))
         self.addCleanup(shutil.rmtree, tmp)
         root = copy_repo(tmp)
-        roastery, drive, etc = tmp / 'roastery', tmp / 'drive', tmp / 'etc'
+        repo, drive, etc = tmp / 'restic-repo', tmp / 'drive', tmp / 'etc'
         etc.mkdir()
-        (etc / 'rclone.conf').write_text('[roastery]\ntype = alias\nremote = /\n\n'
-                                         f'[drive-crypt]\ntype = alias\nremote = {drive}\n')
+        (etc / 'rclone.conf').write_text(f'[drive-crypt]\ntype = alias\nremote = {drive}\n')
         # NODE: drive-sync.sh lives with restic now and finds its node from here.
         (root / '.env').write_text(f'NODE=cellar\nNODE_IP=192.168.1.12\nDATA_DIR={tmp / "data"}\n')
         node = root / 'nodes/cellar'
-        (node / '.env.local').write_text(f'BACKUP_REPOSITORY={roastery}\nDUMP_DIR={tmp / "dumps"}\n'
+        (node / '.env.local').write_text(f'BACKUP_REPOSITORY={repo}\nDUMP_DIR={tmp / "dumps"}\n'
                                          'DUMP_STORE_HOST=192.168.1.12\n')
         (app('restic', root) / 'secrets.env.local').write_text('RESTIC_PASSWORD=test\n')
         env = dict(os.environ, BACKUP_ETC=str(etc), BACKUP_LOCK=str(tmp / 'lock'), BACKUP_CACHE=str(tmp / 'cache'),
                    RESTIC_PASSWORD='test', PATH=f"{fake_bin(tmp / 'bin')}:{os.environ['PATH']}")
 
         def init():
-            subprocess.run(['restic', '-q', '-r', str(roastery), 'init'], env=env, check=True, capture_output=True)
+            subprocess.run(['restic', '-q', '-r', str(repo), 'init'], env=env, check=True, capture_output=True)
 
         def sync():
             return subprocess.run(['bash', str(app('restic', root) / 'drive-sync.sh')], env=env, capture_output=True, text=True)
@@ -852,22 +921,22 @@ class Backup(unittest.TestCase):
         original = (drive / 'repo/config').read_bytes()
         files_before = sorted(p.relative_to(drive) for p in (drive / 'repo').rglob('*'))
 
-        shutil.rmtree(roastery)                    # wiped: the folder is back, empty
-        roastery.mkdir()
+        shutil.rmtree(repo)                    # wiped: the folder is back, empty
+        repo.mkdir()
         wiped = sync()
         self.assertNotEqual(wiped.returncode, 0)
         self.assertIn('no restic repository', wiped.stdout + wiped.stderr)
         self.assertEqual((drive / 'repo/config').read_bytes(), original)
 
-        shutil.rmtree(roastery)                    # rebuilt with a fresh `restic init`
+        shutil.rmtree(repo)                    # rebuilt with a fresh `restic init`
         init()
         other = sync()
         self.assertNotEqual(other.returncode, 0)
         self.assertIn('not the one on Drive', other.stdout + other.stderr)
         self.assertEqual(sorted(p.relative_to(drive) for p in (drive / 'repo').rglob('*')), files_before)
 
-        shutil.rmtree(roastery)                    # put back from Drive (RECOVERY.md part B)
-        shutil.copytree(drive / 'repo', roastery)
+        shutil.rmtree(repo)                    # put back from Drive (the recovery kit)
+        shutil.copytree(drive / 'repo', repo)
         back = sync()
         self.assertEqual(back.returncode, 0, back.stdout + back.stderr)
 

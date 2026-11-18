@@ -22,7 +22,7 @@ SUBSET="${1:-5%}"
 
 run() {
   restic_env
-  wake_roastery || return 1
+  reach_repo || return 1
   "${RESTIC[@]}" --retry-lock 1h check --read-data-subset="$SUBSET"
 }
 

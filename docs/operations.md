@@ -87,8 +87,8 @@ they are not claims about current availability or capacity.
 | Household | home automation and music | restore within 4 hours | local controls work without ingress/identity |
 | Optional/compute | automation, indexing, GPU | next maintenance window | app-specific smoke checks |
 
-The backup repository is moving from roastery to cellar and is not usable until
-that is built ([migration plan](migration-plan.md), phase 5). Adding an
+The backup repository is on cellar now (the code, 2026-11-18); it is not in use
+until phase 5 of the [migration plan](migration-plan.md) switches it on. Adding an
 offline/immutable copy, rebuilding the recovery kit and measuring power-loss
 recovery require hardware/live work. Preserve these as open runbook items until
 verified. Source tests cannot prove household DNS failover, real data

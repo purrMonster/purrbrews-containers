@@ -9,7 +9,7 @@
 # host and tag, so each node's files and the dump store age separately.
 #
 # Keeps 7 daily, 4 weekly, 12 monthly. At ~100 GB of source that's a small
-# multiple of it on roastery's NVMe.
+# multiple of it on cellar's NVMe.
 #
 set -Eeuo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -22,7 +22,7 @@ load_node "$(this_node_dir)"
 
 run() {
   restic_env
-  wake_roastery || return 1
+  reach_repo || return 1
   # --retry-lock: a node still on its first, hours-long backup holds a lock.
   "${RESTIC[@]}" --retry-lock 1h forget --group-by host,tags \
     --keep-daily 7 --keep-weekly 4 --keep-monthly 12 --prune

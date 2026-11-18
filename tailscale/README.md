@@ -129,8 +129,6 @@ you actually saw:
 - **Re-run the step** after changing `TAILSCALE_TAGS` or if a node was removed:
   `sudo bash deprecated/init/purrbrews-init.sh --only tailscale`. It restates the whole
   configuration each time (`--reset`).
-- **roastery asleep:** `ssh barista@cellar`, then
-  `/opt/purrbrews/stacks/backup/restic/wake-roastery.sh`.
 
 ## Not done here (on purpose, for now)
 

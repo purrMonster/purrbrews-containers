@@ -29,7 +29,7 @@ deprecated/bootstrap/data/
 
 # Backup keys: which node may write where. Public keys, but per-host state,
 # and the pinning (from=) is the part that matters.
-stacks/backup/restic/dump-store.keys
+stacks/backup/restic/backup.keys
 deprecated/stacks/roastery/backup-target/authorized_keys
 # The hub's old rendered rclone config; rclone's own now lives in /etc/purrbrews.
 stacks/backup/restic/rclone.conf

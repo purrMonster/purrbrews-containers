@@ -1,0 +1,15 @@
+# Copy to backup.keys (gitignored), then on cellar:
+#
+#   sudo ./restic/repo-setup.sh          the repository (account `burmilla`)
+#   sudo ./restic/dump-store-setup.sh    the dump store (account `dumps`)
+#
+# One line per node other than cellar: paste what `sudo ./backup.sh keys`
+# printed on that node, unchanged. The same key opens both accounts; each
+# account limits what it can do. cellar's own key needs no line here.
+#
+# <node> from="<ip>" ssh-ed25519 AAAA... purrbrews-backup@<node>
+#
+# sieve from="192.168.1.10" ssh-ed25519 AAAA... purrbrews-backup@sieve
+# percolator from="192.168.1.11" ssh-ed25519 AAAA... purrbrews-backup@percolator
+# mochaPot from="192.168.1.13" ssh-ed25519 AAAA... purrbrews-backup@mochaPot
+# grinder from="192.168.1.14" ssh-ed25519 AAAA... purrbrews-backup@grinder

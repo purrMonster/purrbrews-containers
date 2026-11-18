@@ -51,7 +51,9 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 
 **Phase 5: backups**
 
-- [ ] W2: the repository's SFTP account on cellar; hub scripts and README without roastery; tests extended
+- [x] W2: the repository's SFTP account on cellar (`restic/repo-setup.sh`); hub scripts and README without roastery; tests extended. Written and run against a real sshd in the sandbox (2026-11-18 entry); not yet on cellar
+- [x] The repository account's name: `burmilla` (owner, 2026-11-18); in `BACKUP_REPOSITORY`, `stacks/fleet.env`
+- [ ] On cellar before phase 5: `/srv` is on the NVMe (`findmnt /srv`), then `sudo ./restic/repo-setup.sh --check`
 - [ ] A new repository (`restic init`); password and crypt keys into the recovery kit the same day
 - [ ] Every node: install, keys, doctor, one nightly by hand, enable
 - [ ] A restore test, and the Drive copy read back
@@ -74,6 +76,76 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - [ ] Two-factor in Authelia once every account has enrolled
 - [ ] W6: node READMEs rewritten; roastery wording swept from app READMEs and comments
 - [ ] Carried from the old Backlog, still open: `barista` in the `docker` group; Samba, shares or gone; a bot identity for agents' commits; the merged branches on GitHub (owner)
+
+## 2026-11-18 — W2: the backup repository moves to cellar (code)
+
+**What.** The owner said "next" after W1; W2 was the next item in
+[the plan](docs/migration-plan.md). The restic repository now lives on cellar,
+in an SFTP-only account, and nothing in the backup code wakes or names
+roastery any more. Nothing ran on a node.
+
+**Decisions** (Claude's, open to change):
+
+- **One account for every node, cellar included.** cellar backs itself up over
+  SFTP to its own address, like the others. So every file in the repository
+  belongs to the account, and any node can read the index another wrote. If the
+  hub wrote by path as root instead, its files would be root's and unreadable to
+  the rest. Only `drive-sync.sh` reads the folder by path (as root, read-only),
+  which was the plan's "let the hub read its own repository by path".
+- **Where:** chroot `BACKUP_REPO_ROOT=/srv/backup` (new in `stacks/fleet.env`),
+  the repository at `/srv/backup/restic`, seen by the nodes as `/restic`, so
+  `BACKUP_REPOSITORY` didn't change. `/srv` must be on cellar's NVMe.
+- **One keys file.** `restic/dump-store.keys` became `restic/backup.keys`.
+  `repo-setup.sh` and `dump-store-setup.sh` both read it, and cellar's own key
+  goes in without a line. Each key is pinned to its node's address (`from=`).
+- **rclone stays as restic's SFTP transport.** It was there for Windows; Linux
+  wouldn't need it, but it's the path the tests and the old fleet exercised.
+  Its built-in remote was renamed `pbroastery` → `pbrepo`.
+- **Drive authorization** now runs `rclone authorize` on americano, not roastery.
+- **Account name:** `restic` at first, against the cat-breed rule; the owner
+  chose `burmilla` the same day.
+
+**Changed:** `stacks/_lib/restic-env.sh` (no wake-on-LAN; `parse_repo`,
+`reach_repo`, `repo_local_path`), `stacks/_lib/backup.sh` (`keys` prints one
+line for `backup.keys`; `install` also removes a leftover
+`purrbrews-wake-roastery` unit), every script in `stacks/backup/restic`, the new
+`repo-setup.sh` (with `--check`, which changes nothing), its README, the
+systemd unit comments, `stacks/README.md`, `docs/operations.md`,
+`docs/migration-plan.md`, and a stale line in `tailscale/README.md`.
+
+**Two existing bugs fixed on the way**, both in files W2 had to change:
+`dump-store-setup.sh` looked for nodes in `stacks/<node>` (gone since the
+restructure), so it would have refused every line. And its `sshd -T | grep -q`
+check warned falsely: with `pipefail`, grep quitting early SIGPIPEs sshd.
+
+**Evidence:**
+
+- Tests: 96 passed as root (the root-only drive-sync and nightly ones
+  included); 100 passed as an unprivileged user (the eight that refuse root);
+  shellcheck clean. New tests check: the repository is on the hub; nothing live
+  wakes roastery; `repo_local_path`; `repo-setup.sh --check` pins each key to its
+  address; and it refuses bad lines.
+- In the sandbox, against a real OpenSSH server (2026-11-18): `repo-setup.sh`
+  made the account and the chroot and reloaded sshd. `restic-init.sh` created the
+  repository through the account. A backup and `snapshots` worked. All 14 files
+  in the repository were owned by `restic`. A shell command was refused ("This
+  service allows sftp connections only"). `sftp` saw only `/restic`, and
+  `cd /etc` failed. The same key from another address got "Permission denied".
+  `drive-sync.sh` copied the folder by path, and the copy opened with restic.
+- Re-run as `burmilla` after the rename (2026-11-18, fresh account): setup,
+  init, a backup and `snapshots` worked, with no file in the repository owned by
+  anyone else. The rename turned up a fault, now fixed: the account's home had
+  been a fixed `/var/lib/purrbrews-repo`, so a renamed account would get a home
+  owned by the old one, and sshd ignores keys there. It is `/var/lib/<account>`
+  now.
+
+**Not done:** nothing on cellar. Phase 5 is still the owner's: the account,
+`restic-init.sh`, each node's keys and `enable`, the restore test.
+
+**Undo:** revert the commit. Nothing outside the repo changed.
+
+**Next:** W3, the recovery kit, or phase 1's owner checks; the plan's order
+is the owner's to choose.
 
 ## 2026-11-18 — W1: the bootstrap payload; Pi-hole's fleet list fixed
 

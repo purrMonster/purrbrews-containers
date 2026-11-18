@@ -1,15 +1,19 @@
 #!/usr/bin/env bash
 #
 # drive-sync.sh: the offsite copy (drive-sync.timer, 03:30). rclone copies
-# the repository from roastery (SFTP) to Google Drive through the crypt
+# the repository from cellar's disk to Google Drive through the crypt
 # remote, so Google sees neither the contents (restic encrypts those) nor
 # the file names (crypt hides those). Setup: drive-setup.sh.
 #
 # It's a sync, so prune's deletions carry over. What a sync deletes or
 # overwrites is moved to drive-crypt:deleted/<date> instead of vanishing,
 # and kept 30 days. That's the undo for the one thing SFTP can't stop: a
-# node's key deleting snapshots on roastery. Drive's copy of them outlives
-# the damage by a month.
+# node's key deleting snapshots in the repository. Drive's copy of them
+# outlives the damage by a month.
+#
+# It reads the repository by path (repo_local_path), as root: cellar is the
+# hub and the files are on its NVMe, so there's no reason to go through SFTP.
+# restic's lock check still goes through the account, like every other job.
 #
 set -Eeuo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -28,8 +32,9 @@ rc() { rclone --config "$RCLONE_CONF" "$@"; }
 REASON=''
 
 run() {
-  restic_env
-  wake_roastery || return 1
+  local src_dir
+  src_dir="$(repo_local_path)" || return 1
+  reach_repo || return 1
   # A sync in the middle of a backup or prune copies a half-written
   # repository. restic's own locks say whether anyone is writing; wait up to
   # an hour for them to clear. A lock left by a crashed run keeps failing
@@ -44,25 +49,26 @@ run() {
   done
 
   # Never mirror the wrong thing over the offsite copy. A sync makes Drive
-  # match roastery, so an empty or re-initialised repository there (a wiped
-  # or rebuilt roastery, 2026-10-07) would replace the Drive copy, with only
-  # the 30-day undo in drive-crypt:deleted between it and gone. restic writes
-  # a repository's config once, at init, and never again: roastery must
-  # have one, and if Drive has one too, it must be the same file.
+  # match cellar's repository, so an empty or re-initialised one (a wiped or
+  # rebuilt disk; roastery's, 2026-10-07, is why this check exists) would
+  # replace the Drive copy, with only the 30-day undo in drive-crypt:deleted
+  # between it and gone. restic writes a repository's config once, at init,
+  # and never again: the source must have one, and if Drive has one too, it
+  # must be the same file.
   local empty src dst
   empty="$(printf '' | sha256sum)"
-  src="$(rc cat "roastery:$REPO_PATH/config" 2>/dev/null | sha256sum)" || src="$empty"
+  src="$(cat "$src_dir/config" 2>/dev/null | sha256sum)" || src="$empty"
   if [[ "$src" == "$empty" ]]; then
-    REASON="roastery has no restic repository at $REPO_PATH (no readable config file). Not mirroring an empty or unreadable folder over the Drive copy; if it was wiped, flask/RECOVERY.md part B puts it back."
+    REASON="there's no restic repository at $src_dir (no readable config file). Not mirroring an empty or unreadable folder over the Drive copy; if it was wiped, the recovery kit's RECOVERY.md puts it back from Drive."
     warn "$REASON"; return 1
   fi
   dst="$(rc cat drive-crypt:repo/config 2>/dev/null | sha256sum)" || dst="$empty"
   if [[ "$dst" != "$empty" && "$dst" != "$src" ]]; then
-    REASON="roastery's repository is not the one on Drive (their config files differ): it was re-initialised. Not syncing; restore the Drive copy to roastery first, or move drive-crypt:repo aside by hand if replacing it is really meant."
+    REASON="the repository at $src_dir is not the one on Drive (their config files differ): it was re-initialised. Not syncing; restore the Drive copy to cellar first, or move drive-crypt:repo aside by hand if replacing it is really meant."
     warn "$REASON"; return 1
   fi
 
-  rc sync "roastery:$REPO_PATH" drive-crypt:repo \
+  rc sync "$src_dir" drive-crypt:repo \
     --backup-dir "drive-crypt:deleted/$(date +%F)" \
     --transfers 4 --checkers 8 --tpslimit 10 \
     --drive-chunk-size 64M --drive-use-trash=false \

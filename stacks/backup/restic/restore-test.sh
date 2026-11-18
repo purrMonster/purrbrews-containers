@@ -4,7 +4,7 @@
 # Restores into a scratch directory and checks what came out; touches
 # nothing live.
 #
-#   sudo ./restic/restore-test.sh                      from roastery
+#   sudo ./restic/restore-test.sh                      from the repository on cellar
 #   sudo ./restic/restore-test.sh --from drive         from the Google Drive copy
 #   sudo ./restic/restore-test.sh --host percolator    whose files to sample (default percolator)
 #   sudo ./restic/restore-test.sh --files 50           how many files to sample (default 20)
@@ -30,7 +30,7 @@ source "$LIB/restic-env.sh"
 load_node "$(this_node_dir)"
 [[ $EUID -eq 0 ]] || die "run with sudo: the repository is reached with root's backup key."
 
-FROM=roastery; HOST=percolator; SAMPLE=20; KEEP=0
+FROM=repo; HOST=percolator; SAMPLE=20; KEEP=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --from) FROM="${2:?}"; shift 2 ;;
@@ -40,7 +40,7 @@ while [[ $# -gt 0 ]]; do
     *) die "unknown option $1 (see the top of this file)" ;;
   esac
 done
-[[ "$FROM" == roastery || "$FROM" == drive ]] || die "--from is roastery or drive"
+[[ "$FROM" == repo || "$FROM" == drive ]] || die "--from is repo or drive"
 [[ "$SAMPLE" =~ ^[0-9]+$ ]] || die "--files takes a number"
 # The newest Postgres client reads every older dump format, so one image
 # checks every node's dumps. Pinned like everything else.
@@ -56,7 +56,7 @@ if [[ "$FROM" == drive ]]; then
   export RESTIC_REPOSITORY=rclone:drive-crypt:repo
   RESTIC=(restic)
 else
-  wake_roastery || die "roastery isn't answering."
+  reach_repo 30 || die "$REPO_HOST isn't answering on port 22."
 fi
 
 SCRATCH="$(mktemp -d /var/tmp/purrbrews-restore-test.XXXXXX)"

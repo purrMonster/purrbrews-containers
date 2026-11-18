@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 #
 # drive-setup.sh: one-time setup of rclone for the Google Drive copy. Writes
-# /etc/purrbrews/rclone.conf (root, 600) with three remotes:
+# /etc/purrbrews/rclone.conf (root, 600) with two remotes:
 #
-#   roastery     SFTP into roastery's backup target, read-only in practice:
-#                where drive-sync.sh reads the repository from
 #   drive        Google Drive, on my own API client (README: why)
 #   drive-crypt  drive:purrbrews-restic, with names and folders encrypted
+#
+# The repository itself needs no remote: drive-sync.sh reads it from
+# cellar's disk. (The old config had a third, `roastery`, for SFTP; an
+# existing one is left alone and unused.)
 #
 # Why not a rendered template any more: rclone writes the OAuth token back
 # into its config every time it refreshes it, and render-configs would
@@ -15,7 +17,7 @@
 #
 # Needs from restic/secrets.env.local (./setup-secrets.sh):
 #   RCLONE_DRIVE_CLIENT_ID, RCLONE_DRIVE_CLIENT_SECRET   your Google API client
-#   RCLONE_CRYPT_PASSWORD, RCLONE_CRYPT_SALT            generated; to flask
+#   RCLONE_CRYPT_PASSWORD, RCLONE_CRYPT_SALT            generated; to the recovery kit
 #
 #   sudo ./restic/drive-setup.sh            make whatever remote is missing
 #   sudo ./restic/drive-setup.sh --token    redo the Drive authorization
@@ -45,21 +47,7 @@ rc() { rclone --config "$RCLONE_CONF" "$@"; }
 install -d -m 755 "$BACKUP_ETC"
 [[ -f "$RCLONE_CONF" ]] || (umask 077 && : > "$RCLONE_CONF")
 chmod 600 "$RCLONE_CONF"
-restic_env
-[[ -n "$REPO_HOST" ]] || die "BACKUP_REPOSITORY isn't an sftp: one; nothing for rclone to read from."
-
-# ── roastery (SFTP) ──────────────────────────────────────────────────────────
-if has_remote roastery; then
-  note "roastery: already there"
-else
-  # shell_type none: roastery's account is sftp-only (internal-sftp in a
-  # chroot), so rclone mustn't try to run md5sum or df there.
-  rc config create roastery sftp \
-    host="$REPO_HOST" user="${REPO_USER_HOST%@*}" \
-    key_file="$BACKUP_KEY" known_hosts_file="$BACKUP_KNOWN_HOSTS" \
-    shell_type=none disable_hashcheck=true --non-interactive >/dev/null
-  note "roastery: made (sftp $REPO_USER_HOST, key $BACKUP_KEY)"
-fi
+REPO_DIR="$(repo_local_path)"
 
 # ── drive ────────────────────────────────────────────────────────────────────
 if has_remote drive && [[ $REDO_TOKEN -eq 0 ]]; then
@@ -69,8 +57,8 @@ else
   secret_value="$(secret RCLONE_DRIVE_CLIENT_SECRET)"
   cat <<EOF
 
-Drive needs a browser once, and cellar has none. On roastery (rclone for
-Windows: winget install Rclone.Rclone), in PowerShell:
+Drive needs a browser once, and cellar has none. On americano (rclone for
+macOS: brew install rclone), in a terminal:
 
     rclone authorize "drive" "$id" "<RCLONE_DRIVE_CLIENT_SECRET>"
 
@@ -94,7 +82,7 @@ if has_remote drive-crypt; then
   note "drive-crypt: already there"
 else
   # --obscure: rclone stores these obscured, not encrypted; the plain values
-  # stay in restic/secrets.env.local and in flask. Lose them and whatever is
+  # stay in restic/secrets.env.local and in the recovery kit. Lose them and whatever is
   # on Drive can't be read, even with RESTIC_PASSWORD.
   rc config create drive-crypt crypt \
     remote=drive:purrbrews-restic filename_encryption=standard directory_name_encryption=true \
@@ -107,10 +95,10 @@ log "Checking"
 rc lsd drive: --max-depth 1 >/dev/null && note "drive: signed in" \
   || die "drive doesn't answer: an OAuth error means run this with --token; a 403 means the client ID/secret aren't yours."
 rc mkdir drive-crypt:repo && note "drive-crypt: writable"
-if wake_roastery 120 && rc lsd "roastery:$REPO_PATH" >/dev/null 2>&1; then
-  note "roastery: the repository is readable over SFTP"
+if [[ -f "$REPO_DIR/config" ]]; then
+  note "the repository is at $REPO_DIR"
 else
-  warn "roastery: couldn't list $REPO_PATH over SFTP yet (asleep, or cellar's key not authorized there)."
+  warn "no repository at $REPO_DIR yet (repo-setup.sh, then restic-init.sh); drive-sync.sh refuses until there is."
 fi
 echo
-echo "Done. RCLONE_CRYPT_PASSWORD and RCLONE_CRYPT_SALT go to flask with RESTIC_PASSWORD."
+echo "Done. RCLONE_CRYPT_PASSWORD and RCLONE_CRYPT_SALT go to the recovery kit with RESTIC_PASSWORD."

@@ -190,9 +190,9 @@ defines, a template that isn't gitignored, an app no node runs, two apps with on
    They take the node's name from `NODE` and the disk from `DISK_DEVICE`. Its IP goes
    in percolator's `FORWARD_AUTH_CLIENTS`. `TOOLS=(restic)`.
 4. An entry in `fleet.json`, and its checks in Gatus.
-5. Backups: `sudo ./backup.sh keys`, then its lines in the hub's repository
-   account and `backup/restic/dump-store.keys`. The hub's morning check picks the
-   node up by itself.
+5. Backups: `sudo ./backup.sh keys`, then its line in the hub's
+   `backup/restic/backup.keys` and `repo-setup.sh` and `dump-store-setup.sh` run
+   there. The hub's morning check picks the node up by itself.
 
 ## Backups
 
@@ -207,18 +207,18 @@ Decided 2026-09-27 (`deprecated/runbook.md`); re-targeted in the 2026-11 rebuild
    every `secrets.env.local` and `/etc/purrbrews`) straight into the restic
    repository, over SFTP, `--host <node> --tag files`.
 
-The repository lived on roastery; it moves to cellar, the backup hub
-(`BACKUP_HUB=true` in its `node.conf`). The hub backs up the dump store
+The repository lived on roastery; since the 2026-11 rebuild it is on cellar,
+the backup hub (`BACKUP_HUB=true` in its `node.conf`), in an SFTP-only account
+chrooted to `BACKUP_REPO_ROOT`. cellar reaches it through that account too. The hub backs up the dump store
 (`--tag dumps`), prunes, copies the repository to Google Drive and checks each
 morning that everything above happened; [backup/restic/README.md](backup/restic/README.md)
 has that side and the order to switch it all on.
 
-**Not ready yet:** the SFTP account for the repository on cellar isn't written,
-and the hub's scripts and README still speak of waking roastery
-([migration plan](../docs/migration-plan.md), phase 5). No node backs up until
-that phase is done.
+**Not switched on yet:** the code is written (W2, 2026-11-18); the account,
+the repository and the timers come up in phase 5 of the
+[migration plan](../docs/migration-plan.md). No node backs up until then.
 
-`BACKUP_REPOSITORY`, `DUMP_DIR` and `DUMP_STORE_HOST` are in `fleet.env`; `restic`
+`BACKUP_REPOSITORY`, `BACKUP_REPO_ROOT`, `DUMP_DIR` and `DUMP_STORE_HOST` are in `fleet.env`; `restic`
 is in every node's `TOOLS`, and its `secrets.hook` makes the repository password
 on the hub and asks for it everywhere else, plus the ntfy URL for failure alerts.
 One key per node (`/root/.ssh/purrbrews-backup`), pinned host keys in `/etc/purrbrews`.
