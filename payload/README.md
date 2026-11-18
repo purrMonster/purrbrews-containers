@@ -17,9 +17,18 @@ from the same list.
 
 ## Serving it (on americano)
 
-1. A checkout of this repo on americano, on `main`.
-2. In purrbrews-bootstrap's `.env`: `BOOTSTRAP_PAYLOAD=<that checkout>/payload`.
-   Restart the container.
+Deployment copies on americano live in `~/Desktop/Tools`, apart from the
+development checkouts in `~/Desktop/Projects` (owner, 2026-11-19).
+
+1. A checkout of this repo, on `main` and only ever pulled:
+   `~/Desktop/Tools/purrbrews-containers`. `git pull` there is how a new payload
+   reaches the next machine; no restart needed.
+2. purrbrews-bootstrap in `~/Desktop/Tools/purrbrews-bootstrap`, its `.env` with
+   `BOOTSTRAP_PAYLOAD=$HOME/Desktop/Tools/purrbrews-containers/payload` and
+   `BOOTSTRAP_PUBLIC_URL=https://<americano's reserved address>:8443`, then
+   `docker compose up -d`. Docker needs macOS's *Files and Folders → Desktop
+   Folder* permission, or the payload looks empty. Check:
+   `curl -sk https://localhost:8443/files/SHA256SUMS` lists the files.
 3. On its admin page, **Settings → Payload entry script**: `purrbrews-node.sh`.
 4. In `client/bootstrap.sh`'s settings block on americano: `TIMEZONE="Asia/Kolkata"`.
 

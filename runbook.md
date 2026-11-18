@@ -30,12 +30,26 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 **Phase 1: foundations**
 
 - [x] Do the ThinkCentres boot from the 128 GB M.2 SATA drives? No (owner, 2026-11-18). Disks re-planned: see the 2026-11-18 entry
-- [ ] The other machine checks in `docs/hardware.md` (`lsblk`, x360 memory slots, USB Ethernet) (owner)
-- [ ] The router's address, and that its DHCP turns off (owner)
+- [x] A ThinkCentre boots from a 2.5" SATA SSD: yes (owner, 2026-11-18 23:22 IST)
+- [x] The x360s' USB Ethernet adapters come up under Debian: yes (owner, 2026-11-18 23:22 IST). That the derived MAC sticks to them is checked in the rehearsal (payload's network step)
+- [x] The x360s have two memory slots each, so grinder's 16 GB fits as two sticks (owner, 2026-11-18 23:23 IST)
+- [x] The drives as planned in `docs/hardware.md` (owner, 2026-11-18 23:33 IST: "the count is okay as is for now"); not listed by label. If one turns out different at install, the table changes then
+- [x] The router's address, and that its DHCP turns off: `192.168.1.1` (matches `GATEWAY` in stacks/fleet.env), and yes, it can be turned off (owner, 2026-11-18 23:23 IST). It stays on until sieve takes over in phase 2
+- [x] The router's DHCP pool is `192.168.1.33`–`.249` (owner, 2026-11-18 23:40 IST): clear of the nodes' `.10`–`.14`, so sieve can take `.10` while the router still hands out leases
 - [ ] purrbrews-bootstrap running on americano with americano's key in it (owner)
 - [x] W1: the payload is written (`payload/`, 2026-11-18). Tests run four of its steps as root; none of it has run on a machine yet
-- [ ] Serve the payload from americano (`payload/README.md`, "Serving it") (owner)
-- [ ] Rehearse one fresh machine through the one-liner, twice
+- [x] Serve the payload from americano: purrbrews-bootstrap 1.1.0 in `~/Desktop/Tools/purrbrews-bootstrap`, the payload from a deployment checkout of main in `~/Desktop/Tools/purrbrews-containers`. `/files/SHA256SUMS` lists README.md, lib/fleet.sh and lib/net-apply.sh with main's hashes (owner's output, compared 2026-11-19 00:02 IST)
+- [ ] americano's address reserved on the router (the nodes reach the bootstrap there), and the same reservation in Pi-hole at the DHCP handover (owner)
+- [ ] Rehearse one fresh machine through the one-liner, twice. sieve holds nothing yet, so sieve is the rehearsal (owner, 2026-11-18). First run passed (owner's output, 2026-11-19 00:33 IST):
+  - hostname `sieve`; `/opt/purrbrews/.env` has `NODE=sieve`, `NODE_IP=192.168.1.10`, `TZ=Asia/Kolkata`, `PUID`/`PGID` 1000;
+  - `enp0s31f6` at `192.168.1.10/24` with the derived MAC `02:33:68:72:0b:17` (matches `scripts/fleet-macs.sh`), default route via `192.168.1.1`;
+  - sshd: `passwordauthentication no`, `permitrootlogin no`, `allowusers barista`;
+  - UFW active, 22/tcp from `192.168.1.0/24` only;
+  - Docker 29.10.0 and Compose v5.8.0; barista not in the `docker` group, as designed (`sudo docker`);
+  - `purrbrews-bootstrap-sync.timer` and `purrbrews-pull.timer` scheduled;
+  - checkout at main, f9f144c.
+
+  Still to see: the second run of the same command, changing nothing
 - [ ] Close the open Dependabot PRs once this branch is merged; they target the old paths (owner)
 - [x] First CI run on this layout: `tests` passed on PR #92's head c024bd3, including the root-only run (checked 2026-11-17 16:25 UTC)
 - [x] OpenCloud to 9.1.1, the production line (owner asked, 2026-11-17; notes read, `docs/image-updates-2026-11.md`)
@@ -44,7 +58,9 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 
 **Phases 2 to 4: sieve, cellar, percolator's identity**
 
-- [ ] sieve: DNS answering, an alert reaching the phone, then the DHCP handover from the Humax router
+- [x] sieve: secrets set (`./setup-secrets.sh`: only `RESTIC_PASSWORD` left, for phase 5) and firewall applied: DNS 53 from the LAN, DHCP 67 from anywhere, the UIs from `proxy` only, voice from `192.168.1.13` only (owner's `ufw status`, 2026-11-19 00:51 IST)
+- [x] sieve: Unbound and Pi-hole answer DNS with DNSSEC validation. From sieve: `debian.org` NOERROR; `dnssec-failed.org` SERVFAIL, and with `+cd` it resolves (96.99.227.255), so validation is what refuses it (owner's output, 2026-11-19 00:52 IST). From americano across the LAN, `debian.org` resolves the same (2026-11-19 00:53 IST)
+- [ ] sieve: an alert reaching the phone (ntfy, traefik-edge, gatus), then the DHCP handover from the Humax router
 - [ ] cellar: Komodo and Scrutiny up; sieve's agents registered; the merged collector shows the node and its one disk
 - [ ] percolator: Traefik, CrowdSec, LLDAP with its service accounts (`scottishfold`, `pixiebob`, `sphynx`, the `llm_api_group` accounts), Authelia
 - [ ] Purelymail app password for the mail relay (owner); the relay has never run

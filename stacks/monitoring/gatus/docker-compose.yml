@@ -24,6 +24,14 @@ services:
       GATUS_NTFY_TOKEN: ${GATUS_NTFY_TOKEN:?run ./setup-secrets.sh}
       NTFY_CRITICAL_TOPIC: ${NTFY_CRITICAL_TOPIC:?run ./setup-secrets.sh}
       HEALTHCHECKS_PING_URL: ${HEALTHCHECKS_PING_URL:?run ./setup-secrets.sh}
+      # Which parts of the fleet to watch (config.yaml, top of endpoints):
+      # sieve's .env.local sets false for what isn't built yet.
+      GATUS_WATCH_PERCOLATOR: ${GATUS_WATCH_PERCOLATOR:-true}
+      GATUS_WATCH_CELLAR: ${GATUS_WATCH_CELLAR:-true}
+      GATUS_WATCH_MOCHAPOT: ${GATUS_WATCH_MOCHAPOT:-true}
+      GATUS_WATCH_GRINDER: ${GATUS_WATCH_GRINDER:-true}
+      GATUS_WATCH_TUNNEL: ${GATUS_WATCH_TUNNEL:-true}
+      GATUS_WATCH_NETALERTX: ${GATUS_WATCH_NETALERTX:-true}
     volumes:
       - ./config:/config:ro
       - ${DATA_DIR:?}/gatus:/data
