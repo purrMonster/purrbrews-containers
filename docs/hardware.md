@@ -107,7 +107,7 @@ mochaPot's own touchscreen.
 |---|---|
 | Router | Humax, from Tata Play Fiber. Its DHCP can be turned off |
 | LAN | `192.168.1.0/24` (the old house was `192.168.0.0/24`) |
-| Gateway | `192.168.1.1` **assumed**: read it off the router before phase 2 |
+| Gateway | `192.168.1.1`, the Humax router (owner, 2026-11-18); its DHCP can be turned off |
 | Nodes | `.10` sieve, `.11` percolator, `.12` cellar, `.13` mochaPot, `.14` grinder (the old last octets) |
 | DHCP pool | `.50` to `.250`, from sieve's Pi-hole once the router's DHCP is off |
 | Docker `proxy` network | `172.31.10.0/24` sieve, `172.30.0.0/24` percolator, `172.30.12.0/24` cellar, `172.30.13.0/24` mochaPot, `172.30.14.0/24` grinder |
@@ -119,8 +119,9 @@ mochaPot's own touchscreen.
    The table follows the owner's list.
 2. ~~That a ThinkCentre boots from an M.2 SATA stick.~~ It doesn't (owner,
    2026-11-18); the disks above follow from that.
-3. That each x360 has two memory slots (grinder's 16 GB needs both). grinder's
-   board has a 2.5" SATA bay as its second drive slot (owner, 2026-11-18).
+3. ~~That each x360 has two memory slots (grinder's 16 GB needs both).~~ Two
+   each (owner, 2026-11-18). grinder's board has a 2.5" SATA bay as its second
+   drive slot (owner, 2026-11-18).
 4. mochaPot's 128 GB SanDisk has a history of command timeouts (Scrutiny, old
    runbook 2026-09-26 and 2026-09-30). The other 128 GB drive is its spare.
 5. ~~That a ThinkCentre boots from a 2.5" SATA SSD (sieve's disk).~~ It does
