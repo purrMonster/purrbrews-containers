@@ -92,6 +92,13 @@ alerting:
       send-on-resolved: true
 
 endpoints:
+  # Which parts of the fleet exist yet. Each check outside sieve's own core
+  # has `enabled: ${GATUS_WATCH_<NODE>}`: true unless sieve's .env.local says
+  # false (docker-compose.yml passes them, defaulting to true). A fresh fleet
+  # comes up one node at a time, and a check for a node that isn't built yet
+  # only sends a DOWN alert (runbook, 2026-11-19). Turn a node's on once its
+  # apps answer: cellar's after percolator too, since its pages sign in
+  # through Authelia there, and sieve's own SSO pages count as PERCOLATOR.
   # ── Dead man's switch ─────────────────────────────────────────────────────
   # Not a check: each run pings healthchecks.io. If sieve, Gatus or the internet
   # connection dies, the pings stop and healthchecks.io alerts on its own.
@@ -151,6 +158,7 @@ endpoints:
   # Clients only try it when sieve fails, so a broken one stays invisible until
   # the day it's needed. Same two questions as sieve's: recursion, local names.
   - name: secondary dns (mochaPot)
+    enabled: ${GATUS_WATCH_MOCHAPOT}
     group: network
     url: 192.168.1.13
     interval: 5m
@@ -164,6 +172,7 @@ endpoints:
         description: the backup resolver on mochaPot isn't answering; DNS has no fallback
 
   - name: secondary dns local override (mochaPot)
+    enabled: ${GATUS_WATCH_MOCHAPOT}
     group: network
     url: 192.168.1.13
     interval: 15m
@@ -201,6 +210,7 @@ endpoints:
   # SSO answers: an unauthenticated request must be refused or sent to Authelia
   # (302/401). A 500 means Authelia on percolator is unreachable.
   - name: traefik certificate + sso
+    enabled: ${GATUS_WATCH_PERCOLATOR}
     group: network
     url: https://gatus.${DOMAIN}/
     interval: 15m
@@ -216,6 +226,7 @@ endpoints:
         description: certificate expiring within 10 days, or SSO not redirecting to login
 
   - name: cloudflare tunnel
+    enabled: ${GATUS_WATCH_TUNNEL}
     group: network
     url: http://cloudflared:2000/ready
     interval: 1m
@@ -253,6 +264,7 @@ endpoints:
         description: ntfy isn't reachable through the tunnel — phones away from home get nothing
 
   - name: netalertx
+    enabled: ${GATUS_WATCH_NETALERTX}
     group: network
     url: http://${NODE_IP}:20211/
     interval: 5m
@@ -285,6 +297,7 @@ endpoints:
   # Node reachability, all four enabled 2026-09-29. Add each node's app checks
   # here as its stacks land.
   - name: percolator
+    enabled: ${GATUS_WATCH_PERCOLATOR}
     group: fleet
     url: icmp://192.168.1.11
     interval: 2m
@@ -292,6 +305,7 @@ endpoints:
     alerts: [{type: ntfy}]
 
   - name: cellar
+    enabled: ${GATUS_WATCH_CELLAR}
     group: fleet
     url: icmp://192.168.1.12
     interval: 2m
@@ -299,6 +313,7 @@ endpoints:
     alerts: [{type: ntfy}]
 
   - name: mochaPot
+    enabled: ${GATUS_WATCH_MOCHAPOT}
     group: fleet
     url: icmp://192.168.1.13
     interval: 2m
@@ -306,6 +321,7 @@ endpoints:
     alerts: [{type: ntfy}]
 
   - name: grinder
+    enabled: ${GATUS_WATCH_GRINDER}
     group: fleet
     url: icmp://192.168.1.14
     interval: 2m
@@ -316,6 +332,7 @@ endpoints:
   # perch watches everything else; these two watch perch. /healthz is allowed from the fleet's node
   # addresses (sieve is one) without Authelia; the page itself must still be behind it.
   - name: perch
+    enabled: ${GATUS_WATCH_CELLAR}
     group: fleet
     url: https://perch.${DOMAIN}/healthz
     interval: 1m
@@ -330,6 +347,7 @@ endpoints:
         description: persianPerch is down or unhealthy - nothing else is watching the fleet
 
   - name: perch page is behind sso
+    enabled: ${GATUS_WATCH_CELLAR}
     group: fleet
     url: https://perch.${DOMAIN}/
     interval: 15m
@@ -353,36 +371,117 @@ endpoints:
   # Not here: gatus, ntfy and perch (checked above).
 
   # sieve
-  - {<<: *behind-sso, group: "apps: sieve", name: pihole, url: "https://pihole.${DOMAIN}/"}
-  - {<<: *behind-sso, group: "apps: sieve", name: netalertx (via traefik), url: "https://netalertx.${DOMAIN}/"}
-  - {<<: *behind-sso, group: "apps: sieve", name: traefik-sieve, url: "https://traefik-sieve.${DOMAIN}/"}
-  - {<<: *behind-sso, group: "apps: sieve", name: gatus-api, url: "https://gatus-api.${DOMAIN}/api/v1/endpoints/statuses"}
+  - <<: *behind-sso
+    group: "apps: sieve"
+    name: pihole
+    url: "https://pihole.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_PERCOLATOR}
+  - <<: *behind-sso
+    group: "apps: sieve"
+    name: netalertx (via traefik)
+    url: "https://netalertx.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_PERCOLATOR}
+  - <<: *behind-sso
+    group: "apps: sieve"
+    name: traefik-sieve
+    url: "https://traefik-sieve.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_PERCOLATOR}
+  - <<: *behind-sso
+    group: "apps: sieve"
+    name: gatus-api
+    url: "https://gatus-api.${DOMAIN}/api/v1/endpoints/statuses"
+    enabled: ${GATUS_WATCH_PERCOLATOR}
 
   # percolator: the sign-in first, since every other app needs it
-  - {<<: *own-login, group: "apps: percolator", name: authelia, url: "https://authelia.${DOMAIN}/"}
-  - {<<: *own-login, group: "apps: percolator", name: lldap, url: "https://lldap.${DOMAIN}/"}
-  - {<<: *own-login, group: "apps: percolator", name: vaultwarden, url: "https://vault.${DOMAIN}/"}
-  - {<<: *behind-sso, group: "apps: percolator", name: vaultwarden admin, url: "https://vault.${DOMAIN}/admin"}
-  - {<<: *own-login, group: "apps: percolator", name: radicale, url: "https://radicale.${DOMAIN}/"}
-  - {<<: *own-login, group: "apps: percolator", name: opencloud, url: "https://opencloud.${DOMAIN}/"}
-  - {<<: *own-login, group: "apps: percolator", name: immich, url: "https://immich.${DOMAIN}/"}
-  - {<<: *own-login, group: "apps: percolator", name: paperless, url: "https://paperless.${DOMAIN}/"}
-  - {<<: *own-login, group: "apps: percolator", name: mealie, url: "https://mealie.${DOMAIN}/"}
-  - {<<: *own-login, group: "apps: percolator", name: vikunja, url: "https://vikunja.${DOMAIN}/"}
+  - <<: *own-login
+    group: "apps: percolator"
+    name: authelia
+    url: "https://authelia.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_PERCOLATOR}
+  - <<: *own-login
+    group: "apps: percolator"
+    name: lldap
+    url: "https://lldap.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_PERCOLATOR}
+  - <<: *own-login
+    group: "apps: percolator"
+    name: vaultwarden
+    url: "https://vault.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_PERCOLATOR}
+  - <<: *behind-sso
+    group: "apps: percolator"
+    name: vaultwarden admin
+    url: "https://vault.${DOMAIN}/admin"
+    enabled: ${GATUS_WATCH_PERCOLATOR}
+  - <<: *own-login
+    group: "apps: percolator"
+    name: radicale
+    url: "https://radicale.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_PERCOLATOR}
+  - <<: *own-login
+    group: "apps: percolator"
+    name: opencloud
+    url: "https://opencloud.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_PERCOLATOR}
+  - <<: *own-login
+    group: "apps: percolator"
+    name: immich
+    url: "https://immich.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_PERCOLATOR}
+  - <<: *own-login
+    group: "apps: percolator"
+    name: paperless
+    url: "https://paperless.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_PERCOLATOR}
+  - <<: *own-login
+    group: "apps: percolator"
+    name: mealie
+    url: "https://mealie.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_PERCOLATOR}
+  - <<: *own-login
+    group: "apps: percolator"
+    name: vikunja
+    url: "https://vikunja.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_PERCOLATOR}
   # The backend's health, through the same route the apps use (the web app
   # is static files; a dead backend is what people would notice).
-  - {<<: *own-login, group: "apps: percolator", name: meowgram, url: "https://meow.${DOMAIN}/healthz"}
-  - {<<: *own-login, group: "apps: percolator", name: actualbudget, url: "https://actualbudget.${DOMAIN}/"}
-  - {<<: *own-login, group: "apps: percolator", name: freshrss, url: "https://freshrss.${DOMAIN}/"}
-  - {<<: *behind-sso, group: "apps: percolator", name: homepage, url: "https://homepage.${DOMAIN}/"}
-  - {<<: *behind-sso, group: "apps: percolator", name: purrcafe, url: "https://cafe.${DOMAIN}/"}
-  - {<<: *behind-sso, group: "apps: percolator", name: traefik, url: "https://traefik.${DOMAIN}/"}
+  - <<: *own-login
+    group: "apps: percolator"
+    name: meowgram
+    url: "https://meow.${DOMAIN}/healthz"
+    enabled: ${GATUS_WATCH_PERCOLATOR}
+  - <<: *own-login
+    group: "apps: percolator"
+    name: actualbudget
+    url: "https://actualbudget.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_PERCOLATOR}
+  - <<: *own-login
+    group: "apps: percolator"
+    name: freshrss
+    url: "https://freshrss.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_PERCOLATOR}
+  - <<: *behind-sso
+    group: "apps: percolator"
+    name: homepage
+    url: "https://homepage.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_PERCOLATOR}
+  - <<: *behind-sso
+    group: "apps: percolator"
+    name: purrcafe
+    url: "https://cafe.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_PERCOLATOR}
+  - <<: *behind-sso
+    group: "apps: percolator"
+    name: traefik
+    url: "https://traefik.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_PERCOLATOR}
   # Not a web app: the fleet's outgoing mail (percolator/mail-relay). Checks it
   # answers and offers STARTTLS. `insecure` because its certificate is from
   # the relay's own CA, which sieve doesn't carry; the clients that send
   # through it do verify. Doesn't prove Purelymail accepts the mail: that
   # shows as a growing queue (mail-relay/README.md).
   - name: mail relay
+    enabled: ${GATUS_WATCH_PERCOLATOR}
     group: "apps: percolator"
     url: starttls://192.168.1.11:587
     interval: 5m
@@ -393,27 +492,80 @@ endpoints:
         description: percolator's mail relay isn't answering; Authelia and Vaultwarden can't send mail
 
   # cellar
-  - {<<: *behind-sso, group: "apps: cellar", name: komodo, url: "https://komodo.${DOMAIN}/"}
-  - {<<: *behind-sso, group: "apps: cellar", name: scrutiny, url: "https://scrutiny.${DOMAIN}/"}
+  - <<: *behind-sso
+    group: "apps: cellar"
+    name: komodo
+    url: "https://komodo.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_CELLAR}
+  - <<: *behind-sso
+    group: "apps: cellar"
+    name: scrutiny
+    url: "https://scrutiny.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_CELLAR}
 
   # mochaPot
-  - {<<: *own-login, group: "apps: mochaPot", name: homeassistant, url: "https://homeassistant.${DOMAIN}/"}
-  - {<<: *behind-sso, group: "apps: mochaPot", name: music, url: "https://music.${DOMAIN}/"}
-  - {<<: *behind-sso, group: "apps: mochaPot", name: pihole-mochapot, url: "https://pihole-mochapot.${DOMAIN}/"}
+  - <<: *own-login
+    group: "apps: mochaPot"
+    name: homeassistant
+    url: "https://homeassistant.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_MOCHAPOT}
+  - <<: *behind-sso
+    group: "apps: mochaPot"
+    name: music
+    url: "https://music.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_MOCHAPOT}
+  - <<: *behind-sso
+    group: "apps: mochaPot"
+    name: pihole-mochapot
+    url: "https://pihole-mochapot.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_MOCHAPOT}
 
   # grinder
-  - {<<: *behind-sso, group: "apps: grinder", name: open webui, url: "https://chat.${DOMAIN}/"}
+  - <<: *behind-sso
+    group: "apps: grinder"
+    name: open webui
+    url: "https://chat.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_GRINDER}
   # LiteLLM's route answers 401 to a request with no service-account credentials.
-  - {<<: *behind-sso, group: "apps: grinder", name: llm, url: "https://llm.${DOMAIN}/health/liveliness"}
-  - {<<: *behind-sso, group: "apps: grinder", name: n8n, url: "https://n8n.${DOMAIN}/"}
-  - {<<: *behind-sso, group: "apps: grinder", name: karakeep, url: "https://karakeep.${DOMAIN}/"}
-  - {<<: *behind-sso, group: "apps: grinder", name: fittrackee, url: "https://fittrackee.${DOMAIN}/"}
-  - {<<: *behind-sso, group: "apps: grinder", name: traccar, url: "https://traccar.${DOMAIN}/"}
-  - {<<: *behind-sso, group: "apps: grinder", name: esphome, url: "https://esphome.${DOMAIN}/"}
-  - {<<: *behind-sso, group: "apps: grinder", name: speedtest, url: "https://speedtest.${DOMAIN}/"}
+  - <<: *behind-sso
+    group: "apps: grinder"
+    name: llm
+    url: "https://llm.${DOMAIN}/health/liveliness"
+    enabled: ${GATUS_WATCH_GRINDER}
+  - <<: *behind-sso
+    group: "apps: grinder"
+    name: n8n
+    url: "https://n8n.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_GRINDER}
+  - <<: *behind-sso
+    group: "apps: grinder"
+    name: karakeep
+    url: "https://karakeep.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_GRINDER}
+  - <<: *behind-sso
+    group: "apps: grinder"
+    name: fittrackee
+    url: "https://fittrackee.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_GRINDER}
+  - <<: *behind-sso
+    group: "apps: grinder"
+    name: traccar
+    url: "https://traccar.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_GRINDER}
+  - <<: *behind-sso
+    group: "apps: grinder"
+    name: esphome
+    url: "https://esphome.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_GRINDER}
+  - <<: *behind-sso
+    group: "apps: grinder"
+    name: speedtest
+    url: "https://speedtest.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_GRINDER}
   # pourOver has no route (nobody opens it; it reaches out to meowGram), so it's checked on its
   # port, which grinder's firewall opens to sieve only. /healthz also proves its SQLite opens.
   - name: pourover
+    enabled: ${GATUS_WATCH_GRINDER}
     group: "apps: grinder"
     url: "http://192.168.1.14:8790/healthz"
     interval: 5m

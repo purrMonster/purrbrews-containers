@@ -495,6 +495,29 @@ class Layout(unittest.TestCase):
     NOT_WATCHED = set()
 
     @unittest.skipUnless(yaml, 'needs PyYAML (apt install python3-yaml)')
+    def test_gatus_watches_only_what_exists(self):
+        # A fresh fleet comes up one node at a time; with every GATUS_WATCH_*
+        # false (sieve's local.env.example), only sieve's own core is checked,
+        # so a node that isn't built yet sends no DOWN alert (2026-11-19).
+        example = (NODE_DIRS / 'sieve' / 'local.env.example').read_text()
+        switches = re.findall(r'(?m)^(GATUS_WATCH_[A-Z]+)=false$', example)
+        compose = (app('gatus') / 'docker-compose.yml').read_text()
+        for key in switches:
+            self.assertIn(f'{key}: ${{{key}:-true}}', compose, key)
+        text = (app('gatus') / 'config/config.yaml').read_text()
+        used = set(re.findall(r'enabled: \$\{(GATUS_WATCH_[A-Z]+)\}', text))
+        self.assertEqual(used, set(switches))
+        env = dict.fromkeys(switches, 'false')
+        config = yaml.safe_load(re.sub(r'\$\{([A-Z_]+)\}', lambda m: env.get(m.group(1), 'x'), text))
+        on = {e['name'] for e in config['endpoints'] if e.get('enabled', True) is not False}
+        self.assertEqual(on, {'healthchecks.io heartbeat', 'pihole → unbound (recursion)', 'pihole local override',
+                              'dnssec validation', 'pihole web', 'traefik', 'ntfy', 'ntfy (public)', 'gateway',
+                              'internet'})
+        for e in config['endpoints']:
+            if re.search(r'192\.168\.1\.1[1-4]\b', str(e.get('url', ''))):
+                self.assertIs(e.get('enabled'), False, f'{e["name"]} watches another node without a switch')
+
+    @unittest.skipUnless(yaml, 'needs PyYAML (apt install python3-yaml)')
     def test_every_route_has_an_end_to_end_check(self):
         routed = set()
         for file in STACKS.rglob('*'):
