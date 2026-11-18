@@ -38,8 +38,9 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - [x] The router's DHCP pool is `192.168.1.33`–`.249` (owner, 2026-11-18 23:40 IST): clear of the nodes' `.10`–`.14`, so sieve can take `.10` while the router still hands out leases
 - [ ] purrbrews-bootstrap running on americano with americano's key in it (owner)
 - [x] W1: the payload is written (`payload/`, 2026-11-18). Tests run four of its steps as root; none of it has run on a machine yet
-- [ ] Serve the payload from americano (`payload/README.md`, "Serving it") (owner)
-- [ ] Rehearse one fresh machine through the one-liner, twice
+- [x] Serve the payload from americano: purrbrews-bootstrap 1.1.0 in `~/Desktop/Tools/purrbrews-bootstrap`, the payload from a deployment checkout of main in `~/Desktop/Tools/purrbrews-containers`. `/files/SHA256SUMS` lists README.md, lib/fleet.sh and lib/net-apply.sh with main's hashes (owner's output, compared 2026-11-19 00:02 IST)
+- [ ] americano's address reserved on the router (the nodes reach the bootstrap there), and the same reservation in Pi-hole at the DHCP handover (owner)
+- [ ] Rehearse one fresh machine through the one-liner, twice. sieve holds nothing yet, so sieve is the rehearsal: if it goes wrong, reinstall and run it again (owner, 2026-11-18)
 - [ ] Close the open Dependabot PRs once this branch is merged; they target the old paths (owner)
 - [x] First CI run on this layout: `tests` passed on PR #92's head c024bd3, including the root-only run (checked 2026-11-17 16:25 UTC)
 - [x] OpenCloud to 9.1.1, the production line (owner asked, 2026-11-17; notes read, `docs/image-updates-2026-11.md`)
