@@ -30,7 +30,9 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 **Phase 1: foundations**
 
 - [x] Do the ThinkCentres boot from the 128 GB M.2 SATA drives? No (owner, 2026-11-18). Disks re-planned: see the 2026-11-18 entry
-- [ ] The other machine checks in `docs/hardware.md` (`lsblk`, x360 memory slots, USB Ethernet) (owner)
+- [x] A ThinkCentre boots from a 2.5" SATA SSD: yes (owner, 2026-11-18 23:22 IST)
+- [x] The x360s' USB Ethernet adapters come up under Debian: yes (owner, 2026-11-18 23:22 IST). That the derived MAC sticks to them is checked in the rehearsal (payload's network step)
+- [ ] The other machine checks in `docs/hardware.md`: the drives and memory by label (disks can still move between machines, so they're listed before they're placed), the x360 memory slots (owner)
 - [ ] The router's address, and that its DHCP turns off (owner)
 - [ ] purrbrews-bootstrap running on americano with americano's key in it (owner)
 - [x] W1: the payload is written (`payload/`, 2026-11-18). Tests run four of its steps as root; none of it has run on a machine yet

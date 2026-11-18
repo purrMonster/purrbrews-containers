@@ -123,9 +123,10 @@ mochaPot's own touchscreen.
    board has a 2.5" SATA bay as its second drive slot (owner, 2026-11-18).
 4. mochaPot's 128 GB SanDisk has a history of command timeouts (Scrutiny, old
    runbook 2026-09-26 and 2026-09-30). The other 128 GB drive is its spare.
-5. That a ThinkCentre boots from a 2.5" SATA SSD (sieve's disk). The old sieve
-   did, from "a 240 GB 2.5" SATA SSD".
-6. Both USB Ethernet adapters: that Debian 13 brings them up at boot and that
-   the node's derived MAC sticks to them (the x360s have no port of their own).
+5. ~~That a ThinkCentre boots from a 2.5" SATA SSD (sieve's disk).~~ It does
+   (owner, 2026-11-18).
+6. Both USB Ethernet adapters: ~~that Debian 13 brings them up~~ it does (owner,
+   2026-11-18). Still to see, in the rehearsal: that the node's derived MAC
+   sticks to them (the x360s have no port of their own).
 7. Memory speeds: 7th-gen boards run all of these sticks below their rated
    speed, so mixing 2666 and 3200 costs nothing. Keep the 3200 pair together.
