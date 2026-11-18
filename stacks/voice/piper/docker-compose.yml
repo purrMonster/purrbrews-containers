@@ -1,0 +1,42 @@
+# Piper behind the Wyoming protocol: text-to-speech for Home Assistant's
+# voice pipeline. Runs on each ThinkCentre (sieve, percolator, cellar), so the
+# room's own machine makes the spoken replies and nothing leaves the house
+# (owner, 2026-11-17; docs/voice.md).
+#
+# Home Assistant on mochaPot is the only client: it opens tcp/10200 here
+# (Settings → Devices & services → Wyoming Protocol → this node's address).
+# The protocol has no authentication, so this app's firewall file lets
+# mochaPot, and only mochaPot, reach it.
+#
+# The voice is VOICE_PIPER_VOICE (stacks/fleet.env; a node can override it in
+# its .env.local), downloaded on first start into DATA_DIR/piper. Piper is
+# light: a medium voice speaks faster than real time on these i3s.
+#
+# Image: rhasspy/wyoming-piper, the plain image (not -omnivoice, which adds
+# torch for a different backend). Digest from Docker Hub, 2026-11-18. 2.5.4
+# came out the day before; this is the one before it.
+services:
+  piper:
+    image: rhasspy/wyoming-piper:2.5.3@sha256:0f4598a8f8a984275f67c066d7cd96d26ef2601947d0372b8f32c82ae18fb7cd
+    container_name: piper
+    restart: unless-stopped
+    # The image adds --uri tcp://0.0.0.0:10200 and --data-dir /data itself
+    # (its docker_run.sh). Its voice web UI stays off.
+    command:
+      - --voice
+      - ${VOICE_PIPER_VOICE:?}
+    environment:
+      TZ: ${TZ}
+    volumes:
+      # Voices: re-downloaded if deleted.
+      - ${DATA_DIR:?}/piper:/data
+    ports:
+      - "10200:10200"
+    security_opt: [no-new-privileges:true]
+    # No healthcheck here: the image has its own
+    # (python3 -m wyoming_piper.health_check, from its Dockerfile).
+
+networks:
+  default:
+    name: proxy
+    external: true

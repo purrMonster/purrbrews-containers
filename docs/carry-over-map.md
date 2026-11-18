@@ -70,7 +70,7 @@ Nothing in this table has run on a node since the move. "Not run" in the
 | Music Assistant | `stacks/mochaPot/musicassistant` | `stacks/home/musicassistant` | mochaPot | Carried | |
 | ESPHome | `stacks/grinder/esphome` | `stacks/home/esphome` | grinder | Carried | |
 | Kiosk (host-native) | `stacks/mochaPot/kiosk` | `stacks/home/kiosk` | mochaPot | Carried | Listed in mochaPot's `TOOLS` so its template still renders |
-| Voice: Whisper, Piper, satellites | | (planned: `stacks/voice/…`) | sieve, percolator, cellar | Not written | Migration plan, phase 9 |
+| Voice: Whisper, Piper, satellites | | `stacks/voice/whisper`, `piper`, `voice-satellite` | sieve, percolator, cellar | New | W4, 2026-11-18 ([voice.md](voice.md)); brought up in phase 9 |
 
 ### automation and ai
 
@@ -142,4 +142,4 @@ Nothing in this table has run on a node since the move. "Not run" in the
 
 - 49 app folders now, each with one home (46 with a compose file, plus restic, NFS and the kiosk); 54 app slots across the five `node.conf` files.
 - Three Traefik folders instead of six, one Periphery instead of five, one collector instead of five.
-- 2 new stacks (LiteLLM; Immich ML rewritten for the CPU), 1 planned (voice).
+- 5 new stacks: LiteLLM, Immich ML rewritten for the CPU, and voice (Whisper, Piper, the satellite).

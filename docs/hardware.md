@@ -86,15 +86,16 @@ Why this way:
 When a GPU is back, the local models return behind the same LiteLLM address, so
 no app changes; `deprecated/stacks/roastery/llama-swap` is the starting point.
 
-## Voice (owner's plan, not built)
+## Voice (written, not yet brought up)
 
 Each ThinkCentre gets a USB speaker and a conference-room mic and runs
 speech-to-text and text-to-speech locally (Whisper and Piper), with Home
 Assistant on mochaPot as the brain. That makes sieve, percolator and cellar the
 three voice machines, and all three run both engines, percolator included
-(owner, 2026-11-17). No stack exists yet: [migration plan](migration-plan.md),
-phase 9. percolator is the busiest machine, so its Whisper model is the one to
-size with care.
+(owner, 2026-11-17). The stack is `stacks/voice/` ([voice.md](voice.md));
+bringing it up is phase 9 of the [migration plan](migration-plan.md).
+percolator is the busiest machine, so its Whisper model is the one to size with
+care.
 
 The living-room screen: the owner would rather have a tablet on a dock (or an
 ESP32 screen) there than the laptop. Until one exists, the kiosk stays on

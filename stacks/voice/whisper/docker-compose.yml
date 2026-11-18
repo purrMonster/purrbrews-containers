@@ -1,0 +1,44 @@
+# Whisper (faster-whisper) behind the Wyoming protocol: speech-to-text for
+# Home Assistant's voice pipeline. Runs on each ThinkCentre (sieve, percolator,
+# cellar), so the room's own machine turns its speech into text and nothing
+# leaves the house (owner, 2026-11-17; docs/voice.md).
+#
+# Home Assistant on mochaPot is the only client: it opens tcp/10300 here
+# (Settings → Devices & services → Wyoming Protocol → this node's address).
+# The protocol has no authentication, so this app's firewall file lets
+# mochaPot, and only mochaPot, reach it.
+#
+# The model is VOICE_WHISPER_MODEL (stacks/fleet.env; a node can override it
+# in its .env.local). Downloaded on first start into DATA_DIR/whisper, which
+# is why the image's own healthcheck allows five minutes.
+#
+# Image: rhasspy/wyoming-whisper (built from OHF-Voice/wyoming-faster-whisper;
+# digest from Docker Hub, 2026-11-18). 3.9.0 came out the day before; this is
+# the one before it.
+services:
+  whisper:
+    image: rhasspy/wyoming-whisper:3.8.1@sha256:ba6fcb6056ebe237d15a325381763a80af2fc8fcedaa04f6a714a7375eb20d80
+    container_name: whisper
+    restart: unless-stopped
+    # The image adds --uri tcp://0.0.0.0:10300, --data-dir /data and
+    # --device cpu itself (its docker_run.sh).
+    command:
+      - --model
+      - ${VOICE_WHISPER_MODEL:?}
+      - --language
+      - ${VOICE_LANGUAGE:?}
+    environment:
+      TZ: ${TZ}
+    volumes:
+      # Model weights and the libraries' caches: re-downloaded if deleted.
+      - ${DATA_DIR:?}/whisper:/data
+    ports:
+      - "10300:10300"
+    security_opt: [no-new-privileges:true]
+    # No healthcheck here: the image has its own
+    # (python3 -m wyoming_faster_whisper.health_check, from its Dockerfile).
+
+networks:
+  default:
+    name: proxy
+    external: true

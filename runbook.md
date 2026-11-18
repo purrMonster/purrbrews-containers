@@ -72,12 +72,108 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 
 **Phases 9 to 11**
 
-- [ ] W4: voice designed (Whisper and Piper on all three ThinkCentres) and one room proven
-- [ ] W5: tailnet join; the Remote Desktop grant out of `tailscale/policy.hujson`
+- [x] W4: voice written (`stacks/voice/`, docs/voice.md; 2026-11-18 entry). Compose files render and the firewall lets in mochaPot alone (tests); not run on a machine
+- [ ] Voice, phase 9: sieve's room end to end (`host-setup.sh`, the three apps, the HA integrations and the room's assistant), the speech-to-text times written here, then percolator and cellar (owner)
+- [x] W5: the payload's `tailnet` step, and the Remote Desktop grant out of `tailscale/policy.hujson` (2026-11-18 entry). Tested against stand-in commands; not run on a machine
+- [ ] Tailnet, phase 10: the policy pasted and split DNS set in the admin console, then each node `--only tailnet`, americano and the phone; the checks in tailscale/README.md, "Is it working?" (owner)
 - [ ] Cloudflare tunnel routes in one pass; then the visitor-address check
 - [ ] Two-factor in Authelia once every account has enrolled
 - [ ] W6: node READMEs rewritten; roastery wording swept from app READMEs and comments
 - [ ] Carried from the old Backlog, still open: `barista` in the `docker` group; Samba, shares or gone; a bot identity for agents' commits; the merged branches on GitHub (owner)
+
+## 2026-11-18 — W4 and W5: voice in each room; the tailnet step
+
+**What.** The owner asked to finish W4 and W5. Both are written; neither has
+run on a machine. Also fixed steps 4 and 5 of phase 1 in the migration plan,
+which an earlier edit had run together.
+
+**W4, voice** (`stacks/voice/`, [docs/voice.md](docs/voice.md)). Each
+ThinkCentre (sieve, percolator, cellar) runs three apps:
+
+- `whisper`: speech to text, `rhasspy/wyoming-whisper` 3.8.1.
+- `piper`: text to speech, `rhasspy/wyoming-piper` 2.5.3.
+- `voice-satellite`: Linux Voice Assistant 1.1.18, which handles the wake
+  word, the mic and the speaker.
+
+Home Assistant on mochaPot is the only client.
+
+Decisions (Claude's, open to change):
+
+- **Satellite: Linux Voice Assistant**, not Wyoming Satellite. Wyoming Satellite
+  is no longer maintained, and Linux Voice Assistant replaced it. It speaks the
+  ESPHome protocol and has the wake word built in, so there's no openWakeWord
+  service.
+- **Audio through the ops user's PipeWire**, over its PulseAudio socket, which
+  is how the image expects it. `host-setup.sh` installs PipeWire and sets it up
+  for a headless node:
+  - lingering, so it runs with nobody logged in;
+  - a WirePlumber setting so it doesn't wait for a logged-in seat.
+
+  `prepare.sh` won't start the satellite without the socket.
+- **Only mochaPot is let in.** Neither protocol authenticates, so each app's
+  firewall file allows mochaPot alone: 10300 and 10200, plus 6053 and mDNS for
+  the satellite. The satellite's peripheral API, which listens everywhere by
+  default, is switched off.
+- **Whisper model `base-int8` to start** (`VOICE_WHISPER_MODEL`, fleet.env).
+  Not measured: the first room settles it. percolator's
+  `local.env.example` has the `tiny-int8` line ready.
+- **Images one release back:** Whisper 3.9.0 and Piper 2.5.4 both came out on
+  2026-11-17.
+
+**W5, the tailnet.** The old init's tailscale step is now the payload's
+`tailnet` step (`payload/purrbrews-node.sh`). It runs only when named:
+
+```
+… bash -s -- --user barista -- <node> --only tailnet
+```
+
+It refuses to run together with `network`. Settings are in
+`payload/payload.env`. It does the same as the old step:
+
+- `--netfilter-mode=off`, so UFW is the only gate: 22 on `tailscale0`, and
+  41641/udp.
+- On cellar and grinder, the subnet routers: forwarding, the UFW route rules
+  for 443 and 53, and the NAT unit.
+- An auth key by file only, deleted once used.
+
+**Fixed along the way:**
+
+- The route was `192.168.1.0/23`, which is not a network (a /23 starts on an
+  even third number). An earlier address sweep had turned the old
+  `192.168.0.0/23` into it, in both the policy and the README, and Tailscale
+  would have refused it. It's `192.168.0.0/23` again, which holds the house's
+  `192.168.1.0/24`. A test now checks the route against `LAN_CIDR` and the
+  policy's auto-approver.
+- The Remote Desktop grant (for roastery) is out of `tailscale/policy.hujson`.
+  `tailscale/README.md` is rewritten without roastery or the old init.
+
+**Evidence** (sandbox, 2026-11-18):
+
+- **Voice:**
+  - `docker compose config` renders all three apps with sample settings,
+    including the room-name default.
+  - Digests were read from Docker Hub's tags API (its registry endpoint refused
+    this sandbox) and from GHCR.
+  - The images themselves weren't run: there's no Docker daemon here.
+- **Tests:** 113 passed as root, 116 as an unprivileged user. New ones:
+  - voice on exactly the three ThinkCentres;
+  - its firewall rules from mochaPot only, on each;
+  - the tailnet step only when named;
+  - the route and the policy agree;
+  - the step run as root against stand-in `tailscale`/`ufw`/system commands.
+    A router gets the NAT unit, forwarding and `--advertise-routes`, and the
+    key is passed as `file:` and deleted. A plain node gets none of that.
+    With no key and no terminal it doesn't run `up`.
+- shellcheck is clean.
+
+**Not checked:** `host-setup.sh` (it needs systemd user sessions; none here),
+the real images and devices, and a real `tailscale up`. These are phases 9 and
+10, in the Backlog.
+
+**Undo:** revert the commits. Nothing outside the repo changed.
+
+**Next:** W6, the node READMEs, as each node comes up. Everything else is the
+owner's phases.
 
 ## 2026-11-18 — W3: the recovery kit, built from americano
 

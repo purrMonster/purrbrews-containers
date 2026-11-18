@@ -20,6 +20,10 @@
 #              NODE_IP, TZ, PUID/PGID, the folders), which stacks/_lib reads
 #   hosts      every other node's name in /etc/hosts
 #   timers     the daily fetch (purrbrews-pull.timer); it never moves the checkout
+#   tailnet    only when named (--only tailnet): Tailscale, joined with the
+#              fleet's tag; SSH over it through UFW, and on the subnet routers
+#              (TAILSCALE_SUBNET_ROUTERS) web and DNS onto the LAN. Phase 10 of
+#              docs/migration-plan.md; tailscale/README.md
 #   network    static address from stacks/fleet.env and the node's fixed MAC,
 #              switched over detached with a rollback after ~60 s. Last, because
 #              an SSH session drops when the address changes. Asks first (on
@@ -44,7 +48,10 @@ source "$HERE/lib/node-mac.sh"
 # shellcheck source=lib/fleet.sh
 source "$HERE/lib/fleet.sh"
 
-ALL_STEPS=(packages repo node folders hosts timers network)
+ALL_STEPS=(packages repo node folders hosts timers tailnet network)
+# Steps that run only when --only names them: joining the tailnet needs the
+# policy in the admin console first, and a sign-in or an auth key.
+OPT_IN_STEPS=(tailnet)
 SETTINGS="$HERE/payload.env"
 # Where things go. Overridable for the tests only.
 ETC_DIR="${PB_ETC_DIR:-/etc/purrbrews}"
@@ -52,6 +59,7 @@ LIB_DST="${PB_LIB_DST:-/usr/local/lib/purrbrews}"
 LOG_DIR="${PB_LOG_DIR:-/var/log/purrbrews}"
 HOSTS_FILE="${PB_HOSTS_FILE:-/etc/hosts}"
 UNIT_DIR="${PB_UNIT_DIR:-/etc/systemd/system}"
+SYSCTL_DIR="${PB_SYSCTL_DIR:-/etc/sysctl.d}"
 BOOTSTRAP_CONF="${PB_BOOTSTRAP_CONF:-/etc/purrbrews-bootstrap/client.conf}"
 
 CURRENT_STEP=start
@@ -325,6 +333,146 @@ step_network() {
   ok "static address${want_mac:+ and MAC} switch starts in 5 s (log: $LOG_DIR/net-apply.log)"
 }
 
+# ── tailnet ──────────────────────────────────────────────────────────────────
+# Ported from the old init's tailscale step (deprecated/init/purrbrews-init.sh).
+# Every run states the whole configuration (tailscale up --reset), so a
+# hand-made change can't linger.
+
+install_tailscale() {
+  if command -v tailscale >/dev/null; then ok "tailscale is installed"; return; fi
+  # From Tailscale's own apt repo, the way purrbrews-bootstrap adds Docker's.
+  # Debian's unattended upgrades don't cover it; its own auto-update (below)
+  # keeps it current.
+  local suite
+  suite="$(. /etc/os-release && printf '%s' "${VERSION_CODENAME:-}")"
+  [[ -n "$suite" ]] || die "can't tell the Debian release (VERSION_CODENAME in /etc/os-release)."
+  if ! curl -fsS -m 10 -o /dev/null "https://pkgs.tailscale.com/stable/debian/dists/$suite/Release"; then
+    die "Tailscale's repo has no '$suite' suite yet; install it by hand (tailscale.com/download) and run again."
+  fi
+  install -m 0755 -d /etc/apt/keyrings
+  curl -fsSL "https://pkgs.tailscale.com/stable/debian/$suite.noarmor.gpg" -o /etc/apt/keyrings/tailscale.gpg
+  chmod a+r /etc/apt/keyrings/tailscale.gpg
+  printf '%s\n' 'Types: deb' 'URIs: https://pkgs.tailscale.com/stable/debian' "Suites: $suite" \
+    'Components: main' 'Signed-By: /etc/apt/keyrings/tailscale.gpg' > /etc/apt/sources.list.d/tailscale.sources
+  apt-get update -q >/dev/null
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -q tailscale >/dev/null
+  ok "tailscale installed from pkgs.tailscale.com ($suite)"
+}
+
+# The apps over the tailnet (tailscale/README.md, "Apps over the tailnet"). A
+# tailnet device reaches https://<app>.${DOMAIN} at the app's LAN address
+# through this node, and the Pi-holes through split DNS. Three pieces, since
+# with --netfilter-mode=off Tailscale sets up none of them itself:
+#   - forwarding on;
+#   - UFW forwards 443 and 53 from tailscale0 and nothing else (which LAN
+#     hosts may be reached is the tailnet policy's job: its grants name them);
+#   - NAT onto the LAN, so every node sees the request coming from this node's
+#     LAN address and its "from the LAN" rules apply unchanged. A oneshot unit
+#     adds the rule, since UFW's before.rules would add a nat rule again on
+#     every reload.
+tailnet_router() {
+  local lan_if rule
+  lan_if="$(ip -4 route show default | awk '{for (i = 1; i <= NF; i++) if ($i == "dev") { print $(i + 1); exit }}')"
+  [[ -n "$lan_if" ]] || die "no default route: can't tell which interface is the LAN."
+  printf '# Written by the purrbrews payload (tailnet step): this node is a Tailscale subnet router.\nnet.ipv4.ip_forward = 1\n' \
+    > "$SYSCTL_DIR/99-purrbrews-tailscale.conf"
+  sysctl -q -p "$SYSCTL_DIR/99-purrbrews-tailscale.conf"
+  # "to any" for 443: this node's own Traefik is a container, so after
+  # Docker's DNAT the destination is a container address, not the LAN.
+  ufw route allow in on tailscale0 proto tcp to any port 443 comment 'purrbrews: tailnet → web (subnet router)' >/dev/null
+  ufw route allow in on tailscale0 out on "$lan_if" proto tcp to "$LAN_CIDR" port 53 comment 'purrbrews: tailnet → Pi-hole (subnet router)' >/dev/null
+  ufw route allow in on tailscale0 out on "$lan_if" proto udp to "$LAN_CIDR" port 53 comment 'purrbrews: tailnet → Pi-hole (subnet router)' >/dev/null
+  rule="POSTROUTING -s 100.64.0.0/10 -o $lan_if -j MASQUERADE"
+  cat > "$UNIT_DIR/purrbrews-tailscale-nat.service" <<EOF
+[Unit]
+Description=PurrBrews: NAT the tailnet traffic this subnet router forwards onto the LAN
+Wants=network-online.target
+After=network-online.target ufw.service docker.service tailscaled.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'iptables -t nat -C $rule 2>/dev/null || iptables -t nat -A $rule'
+ExecStop=/bin/sh -c 'iptables -t nat -D $rule 2>/dev/null || true'
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  systemctl daemon-reload
+  systemctl enable purrbrews-tailscale-nat.service >/dev/null
+  systemctl restart purrbrews-tailscale-nat.service
+  # shellcheck disable=SC2086  # the rule is words on purpose
+  iptables -t nat -C $rule 2>/dev/null || die "the NAT rule isn't in place: systemctl status purrbrews-tailscale-nat"
+  ok "subnet router: forwarding on, web (443) and DNS (53) from the tailnet, NAT via $lan_if"
+}
+
+step_tailnet() {
+  [[ -n "${NODE_IP:-}" ]] || load_fleet
+  local tags routers routes router=false r keyfile="$ETC_DIR/tailscale-authkey" state
+  tags="$(setting TAILSCALE_TAGS tag:purrbrews-node)"
+  routers="$(setting TAILSCALE_SUBNET_ROUTERS "cellar grinder")"
+  routes="$(setting TAILSCALE_ROUTES 192.168.0.0/23)"
+  [[ "$tags" =~ ^tag:[a-z0-9-]+(,tag:[a-z0-9-]+)*$ ]] || die "TAILSCALE_TAGS in payload.env must look like tag:purrbrews-node[,tag:other], not '$tags'."
+  [[ "$routes" =~ ^[0-9]+(\.[0-9]+){3}/[0-9]{1,2}(,[0-9]+(\.[0-9]+){3}/[0-9]{1,2})*$ ]] \
+    || die "TAILSCALE_ROUTES in payload.env must be comma-separated CIDRs, not '$routes'."
+  for r in $routers; do
+    [[ -n "${FLEET_IP[$r]:-}" ]] || die "TAILSCALE_SUBNET_ROUTERS names '$r', which isn't a node."
+    [[ "$r" == "$NODE" ]] && router=true
+  done
+  command -v ufw >/dev/null || die "ufw isn't installed (purrbrews-bootstrap's firewall step): with --netfilter-mode=off it is the only filter on tailscale0."
+
+  install_tailscale
+  systemctl enable --now tailscaled >/dev/null
+  # --netfilter-mode=off: by default Tailscale puts its own chains ahead of
+  # UFW's and accepts everything arriving on tailscale0, so every port on the
+  # node would answer the tailnet whatever UFW says. Off, UFW decides alone,
+  # and the tailnet gets SSH and nothing else. Published container ports stay
+  # shut too: ufw-docker only lets Docker's own subnets past.
+  ufw allow in on tailscale0 to any port 22 proto tcp comment 'purrbrews: ssh over tailscale' >/dev/null
+  ufw allow 41641/udp comment 'purrbrews: tailscale (wireguard)' >/dev/null
+  ok "UFW: SSH on tailscale0, WireGuard on 41641/udp"
+
+  if $router; then
+    tailnet_router
+  elif [[ -f "$UNIT_DIR/purrbrews-tailscale-nat.service" ]]; then
+    systemctl disable --now purrbrews-tailscale-nat.service >/dev/null 2>&1 || true
+    rm -f "$UNIT_DIR/purrbrews-tailscale-nat.service" "$SYSCTL_DIR/99-purrbrews-tailscale.conf"
+    systemctl daemon-reload
+    warn "No longer a subnet router: NAT and forwarding removed. Delete its 'tailnet →' rules by hand (sudo ufw status numbered)."
+  fi
+
+  # --accept-dns=false: the node keeps the Pi-holes, not MagicDNS.
+  # --ssh=false: the nodes run OpenSSH with their own keys, not Tailscale SSH.
+  local args=(up --reset "--hostname=${NODE,,}" --accept-dns=false --netfilter-mode=off --ssh=false
+              "--advertise-tags=$tags")
+  if $router; then args+=("--advertise-routes=$routes"); else args+=(--advertise-routes=); fi
+  state="$(tailscale status --json 2>/dev/null | sed -n 's/^ *"BackendState": *"\([^"]*\)".*/\1/p' | head -n 1)" || true
+  if [[ "$state" != Running ]]; then
+    if [[ -f "$keyfile" ]]; then
+      [[ "$(stat -c '%U %a' "$keyfile")" =~ ^root\ [46]00$ ]] || die "$keyfile must be owned by root, mode 600."
+      args+=("--auth-key=file:$keyfile")
+      say "  joining with the auth key in $keyfile"
+    elif have_tty; then
+      say "  joining: open the link below and sign in as the tailnet's admin (the tag needs it)."
+    else
+      warn "Not signed in, and no terminal to sign in from. Put an auth key in $keyfile (root, 600), or run this from a terminal."
+      return 0
+    fi
+  fi
+  tailscale "${args[@]}" \
+    || die "tailscale up failed. If it says the tag isn't permitted, paste tailscale/policy.hujson into the admin console first (tailscale/README.md)."
+  if [[ -f "$keyfile" ]]; then
+    shred -u "$keyfile" 2>/dev/null || rm -f "$keyfile"
+    ok "auth key used and deleted"
+  fi
+  tailscale set --auto-update=true || warn "couldn't turn on Tailscale's auto-update; update it with apt instead."
+  local tsip
+  tsip="$(tailscale ip -4 2>/dev/null | head -n 1)"
+  [[ -n "$tsip" ]] || die "tailscale is up but has no address: tailscale status"
+  ok "on the tailnet as ${NODE,,} at $tsip ($tags); SSH only, through UFW; DNS stays on the Pi-holes"
+  if $router; then ok "advertising $routes: web and DNS only, NATed onto the LAN"; fi
+}
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 step_enabled() {
@@ -333,6 +481,7 @@ step_enabled() {
     for x in $ONLY; do [[ "$x" == "$s" ]] && return 0; done
     return 1
   fi
+  for x in "${OPT_IN_STEPS[@]}"; do [[ "$x" == "$s" ]] && return 1; done
   for x in $SKIP; do [[ "$x" == "$s" ]] && return 1; done
   return 0
 }
@@ -346,7 +495,7 @@ main() {
       --skip)       SKIP="${SKIP} ${2:?--skip needs step names}"; shift 2 ;;
       --yes|-y)     AUTO_YES=true; shift ;;
       --list-steps) printf '%s\n' "${ALL_STEPS[@]}"; exit 0 ;;
-      -h|--help)    sed -n '2,36p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+      -h|--help)    sed -n '2,/^set -Eeuo/p' "${BASH_SOURCE[0]}" | grep '^#' | sed 's/^# \{0,1\}//'; exit 0 ;;
       -*)           die "Unknown option: $1" ;;
       *)            [[ -z "$NODE" ]] || die "Only one node name."; NODE="$1"; shift ;;
     esac
@@ -356,6 +505,9 @@ main() {
   for s in $ONLY $SKIP; do
     [[ " ${ALL_STEPS[*]} " == *" $s "* ]] || die "Unknown step '$s'. Steps: ${ALL_STEPS[*]}"
   done
+  if [[ " $ONLY " == *" tailnet "* && " $ONLY " == *" network "* ]]; then
+    die "tailnet and network in one run: the address change would cut the sign-in off. One, then the other."
+  fi
 
   [[ "$(id -u)" -eq 0 ]] || die "Run as root (purrbrews-bootstrap does)."
   [[ -n "$NODE" ]] || NODE="$(hostname -s)"

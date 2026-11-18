@@ -330,6 +330,22 @@ class Layout(unittest.TestCase):
             run |= set(conf['APPS'])
         self.assertEqual(sorted(set(homes) - run), [], 'apps no node.conf runs: add them to a node or move them to deprecated/')
 
+    def test_voice_runs_on_the_three_thinkcentres(self):
+        # One room each (owner, 2026-11-17): engines and satellite together.
+        voice = {'whisper', 'piper', 'voice-satellite'}
+        for node in NODES:
+            apps = set(node_conf(node)['APPS'])
+            if node in ('sieve', 'percolator', 'cellar'):
+                self.assertLessEqual(voice, apps, node)
+            else:
+                self.assertFalse(voice & apps, node)
+        fleet = (STACKS / 'fleet.env').read_text()
+        for key in ['VOICE_LANGUAGE', 'VOICE_WHISPER_MODEL', 'VOICE_PIPER_VOICE']:
+            self.assertRegex(fleet, rf'(?m)^{key}=\S+$')
+        satellite = (app('voice-satellite') / 'docker-compose.yml').read_text()
+        self.assertIn('DISABLE_PERIPHERAL_API: "1"', satellite)
+        self.assertIn('network_mode: host', satellite)
+
     def test_every_node_uses_the_same_network_name_with_a_fixed_subnet(self):
         # One name everywhere, so an app can move between nodes without an edit,
         # and a pinned subnet, so firewall.sh works before any container has run.
@@ -562,6 +578,20 @@ class Firewall(unittest.TestCase):
         # published ports are matched after DNAT, on the container's port
         self.assertIn('route allow proto tcp from 192.168.1.0/24 to any port 5000', out)
         self.assertNotIn('port 5001', out)
+
+    def test_voice_answers_home_assistant_only(self):
+        # Wyoming and the ESPHome API have no authentication: mochaPot (Home
+        # Assistant) is the only address let in, on every voice node.
+        extra = {'percolator': "FORWARD_AUTH_CLIENTS=192.168.1.10\nMAIL_RELAY_CLIENTS='192.168.1.13'\n"}
+        for node in ['sieve', 'percolator', 'cellar']:
+            out = self.dry_run(node, 'PROXY_SUBNET=172.31.10.0/24\n' + extra.get(node, ''))
+            for rule in ['route allow proto tcp from 192.168.1.13 to any port 10300',
+                         'route allow proto tcp from 192.168.1.13 to any port 10200',
+                         'allow proto tcp from 192.168.1.13 to any port 6053',
+                         'allow proto udp from 192.168.1.13 to any port 5353']:
+                self.assertIn(rule, out, node)
+            for port in [10300, 10200, 6053]:
+                self.assertNotRegex(out, rf'from 192\.168\.1\.0/24 to any port {port}\b', node)
 
     def test_cellar_and_bad_tokens(self):
         out = self.dry_run('cellar', '')
