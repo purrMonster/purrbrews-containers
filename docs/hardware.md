@@ -79,7 +79,7 @@ Why this way:
 | Immich machine learning | roastery's GPU | grinder's CPU (`stacks/ai/immich-ml`) | Stack written, not yet run. Slow first pass |
 | restic repository | roastery's NVMe, SFTP | cellar's 1 TB NVMe, SFTP | **Not built**: [migration plan](migration-plan.md), phase 5 |
 | Bootstrap server | A container on roastery | [purrbrews-bootstrap](https://github.com/purrMonster/purrbrews-bootstrap) on americano | Server exists; the fleet's payload is not written (phase 1) |
-| Recovery kit builder (flask) | PowerShell on roastery | To be rebuilt from americano | Not started (phase 5) |
+| Recovery kit builder (flask) | PowerShell on roastery | `recovery/make-flask.sh` and `fill-vault.sh` on americano | Written 2026-11-18; the sticks are the owner's ([recovery-kit.md](recovery-kit.md)) |
 | The key every node trusts | `purrbrews-roastery` on roastery | A key on americano, handed out by the bootstrap server | With phase 1 |
 | Remote Desktop target | roastery | None | Policy line left in `tailscale/policy.hujson`; remove in phase 10 |
 

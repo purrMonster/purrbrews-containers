@@ -16,6 +16,8 @@ _Last updated: 2026-11-16 (the rebuild after the move)_
 | [`docs/migration-plan.md`](migration-plan.md) | The rebuild, phase by phase, and what still has to be written |
 | [`docs/hardware.md`](hardware.md) | Which machine is which node, memory and disks, where roastery's jobs went |
 | [`payload/README.md`](../payload/README.md) | The bootstrap payload: what makes a fresh machine a node, and how americano serves it |
+| [`docs/recovery-kit.md`](recovery-kit.md) | flask, the offline recovery kit: what's on the sticks and in the vault, and how americano builds it (`recovery/`) |
+| [`recovery/RECOVERY.md`](../recovery/RECOVERY.md) | What to do when something is gone: one node, cellar, or everything online |
 | [`docs/carry-over-map.md`](carry-over-map.md) | Where every app and file of the old layout went |
 | [`stacks/README.md`](../stacks/README.md) | How the stacks and the shared scripts work; adding an app or a node; backups; updates |
 | [`docs/operations.md`](operations.md) | Deploying a reviewed commit (`scripts/fleet.py`), recovery targets |

@@ -1,0 +1,54 @@
+# What fill-vault.sh copies into flask.kdbx: one secret per line,
+#
+#   <tier> <NAME> [per-node]
+#
+# names as they appear in the apps' secrets*.conf (a test checks every one
+# still exists there, so a renamed or dropped key can't silently fall out of
+# the vault). `per-node` means it differs between nodes on purpose and gets
+# one entry per node. docs/recovery-kit.md explains each one; keep the two in
+# step (a test checks that too).
+
+# Tier 1: without these, nothing restores. Also on the paper.
+1 RESTIC_PASSWORD
+1 RCLONE_CRYPT_PASSWORD
+1 RCLONE_CRYPT_SALT
+
+# Tier 2: keys that match the data. Restored with the wrong one, data stays unreadable.
+2 N8N_ENCRYPTION_KEY
+2 AUTHELIA_STORAGE_ENCRYPTION_KEY
+2 LLDAP_KEY_SEED
+2 LLDAP_JWT_SECRET
+2 PAPERLESS_SECRET_KEY
+2 FRESHRSS_OIDC_CRYPTO_KEY
+2 SPEEDTEST_TRACKER_APP_KEY
+2 KOMODO_DATABASE_PASSWORD
+2 KOMODO_JWT_SECRET
+2 OPENCLOUD_JWT_SECRET
+2 OPENCLOUD_TRANSFER_SECRET
+2 OPENCLOUD_MACHINE_AUTH_API_KEY
+2 OPENCLOUD_SYSTEM_USER_API_KEY
+2 OPENCLOUD_URL_SIGNING_SECRET
+2 CAFE_APP_ENCRYPTION_KEY
+2 CAFE_ACTUAL_ENCRYPTION_PASSWORD
+
+# Tier 3: emergency logins and directory binds.
+3 LLDAP_ADMIN_PASSWORD
+3 PAPERLESS_ADMIN_PASSWORD
+3 RADICALE_LDAP_READER_PASSWORD
+3 VAULTWARDEN_ADMIN_PASSWORD
+3 KOMODO_INIT_ADMIN_PASSWORD
+3 PIHOLE_WEBPASSWORD
+3 NTFY_ADMIN_PASSWORD
+3 ESPHOME_DASHBOARD_PASSWORD
+3 SPEEDTEST_TRACKER_ADMIN_PASSWORD
+3 SMB_BARISTA_PASSWORD
+
+# Tier 4: outside accounts. Re-creatable, slowly.
+4 CF_DNS_API_TOKEN per-node
+4 TUNNEL_TOKEN
+4 RCLONE_DRIVE_CLIENT_ID
+4 RCLONE_DRIVE_CLIENT_SECRET
+4 HEALTHCHECKS_PING_URL
+4 NTFY_URL
+4 MAIL_RELAY_PASSWORD
+4 LLM_UPSTREAM_API_KEY
