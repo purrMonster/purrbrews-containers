@@ -33,7 +33,7 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - [x] A ThinkCentre boots from a 2.5" SATA SSD: yes (owner, 2026-11-18 23:22 IST)
 - [x] The x360s' USB Ethernet adapters come up under Debian: yes (owner, 2026-11-18 23:22 IST). That the derived MAC sticks to them is checked in the rehearsal (payload's network step)
 - [x] The x360s have two memory slots each, so grinder's 16 GB fits as two sticks (owner, 2026-11-18 23:23 IST)
-- [ ] The other machine checks in `docs/hardware.md`: the drives and memory by label (disks can still move between machines, so they're listed before they're placed) (owner)
+- [x] The drives as planned in `docs/hardware.md` (owner, 2026-11-18 23:33 IST: "the count is okay as is for now"); not listed by label. If one turns out different at install, the table changes then
 - [x] The router's address, and that its DHCP turns off: `192.168.1.1` (matches `GATEWAY` in stacks/fleet.env), and yes, it can be turned off (owner, 2026-11-18 23:23 IST). It stays on until sieve takes over in phase 2
 - [ ] purrbrews-bootstrap running on americano with americano's key in it (owner)
 - [x] W1: the payload is written (`payload/`, 2026-11-18). Tests run four of its steps as root; none of it has run on a machine yet
