@@ -58,7 +58,9 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 
 **Phases 2 to 4: sieve, cellar, percolator's identity**
 
-- [ ] sieve: DNS answering, an alert reaching the phone, then the DHCP handover from the Humax router
+- [x] sieve: secrets set (`./setup-secrets.sh`: only `RESTIC_PASSWORD` left, for phase 5) and firewall applied: DNS 53 from the LAN, DHCP 67 from anywhere, the UIs from `proxy` only, voice from `192.168.1.13` only (owner's `ufw status`, 2026-11-19 00:51 IST)
+- [x] sieve: Unbound and Pi-hole answer DNS with DNSSEC validation. From sieve: `debian.org` NOERROR; `dnssec-failed.org` SERVFAIL, and with `+cd` it resolves (96.99.227.255), so validation is what refuses it (owner's output, 2026-11-19 00:52 IST). The same `dig` from another LAN machine is still to see
+- [ ] sieve: an alert reaching the phone (ntfy, traefik-edge, gatus), then the DHCP handover from the Humax router
 - [ ] cellar: Komodo and Scrutiny up; sieve's agents registered; the merged collector shows the node and its one disk
 - [ ] percolator: Traefik, CrowdSec, LLDAP with its service accounts (`scottishfold`, `pixiebob`, `sphynx`, the `llm_api_group` accounts), Authelia
 - [ ] Purelymail app password for the mail relay (owner); the relay has never run
