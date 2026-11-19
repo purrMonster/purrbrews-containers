@@ -107,7 +107,8 @@ mochaPot's own touchscreen.
 |---|---|
 | Router | Humax, from Tata Play Fiber. Its DHCP can be turned off |
 | LAN | `192.168.1.0/24` (the old house was `192.168.0.0/24`) |
-| Gateway | `192.168.1.1`, the Humax router (owner, 2026-11-18); its DHCP can be turned off |
+| Gateway | `192.168.1.1`, the Humax router (owner, 2026-11-18). Its DHCP is off since 2026-11-19: sieve's Pi-hole hands out `.50`–`.250` |
+| americano | `192.168.1.15`, set by hand on the Mac (outside every DHCP pool): the nodes reach purrbrews-bootstrap there |
 | Nodes | `.10` sieve, `.11` percolator, `.12` cellar, `.13` mochaPot, `.14` grinder (the old last octets) |
 | DHCP pool | `.50` to `.250`, from sieve's Pi-hole once the router's DHCP is off |
 | Docker `proxy` network | `172.31.10.0/24` sieve, `172.30.0.0/24` percolator, `172.30.12.0/24` cellar, `172.30.13.0/24` mochaPot, `172.30.14.0/24` grinder |
