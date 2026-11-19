@@ -17,6 +17,7 @@ import re
 import shutil
 import stat
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -165,6 +166,31 @@ class DNS(unittest.TestCase):
             self.assertIn('02:00:00:00:00:10,192.168.1.10,sieve', leases)
             self.assertIn('aa:bb:cc:dd:ee:ff,192.168.1.30,workstation', leases)
             self.assertNotIn('PIHOLE_DHCP_HOSTS', outputs['mochaPot'])
+
+
+class DHCPHandover(unittest.TestCase):
+    # enable-dhcp.sh's range check read only the node's .env.local; LAN_CIDR
+    # and GATEWAY moved to fleet.env in the restructure, and the handover died
+    # on a KeyError (2026-11-19). Run its check as sieve would.
+    def check(self, env_local):
+        script = (app('pihole') / 'enable-dhcp.sh').read_text()
+        block = re.search(r"^python3 - \"\$DIR\" \"\$LIB\" <<'PY'\n(.*?)^PY$", script, re.M | re.S).group(1)
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp)
+        (tmp / '.env.local').write_text(env_local)
+        return subprocess.run([sys.executable, '-c', block, str(tmp), str(STACKS / '_lib')],
+                              capture_output=True, text=True)
+
+    def test_sieves_range_passes_with_the_fleet_settings(self):
+        example = (NODE_DIRS / 'sieve' / 'local.env.example').read_text()
+        r = self.check(example)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn('192.168.1.50–192.168.1.250; gateway 192.168.1.1', r.stdout)
+
+    def test_a_range_over_the_gateway_is_refused(self):
+        r = self.check('PIHOLE_DHCP_START=192.168.1.1\nPIHOLE_DHCP_END=192.168.1.250\n')
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn('refusing activation', r.stdout + r.stderr)
 
 
 class Render(unittest.TestCase):

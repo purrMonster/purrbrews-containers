@@ -33,8 +33,11 @@ import runpy
 import sys
 node = Path(sys.argv[1])
 helper = runpy.run_path(str(Path(sys.argv[2]) / 'dns-records.py'))
-path = node / '.env.local'
-values = helper['read_env'](path)
+# fleet.env first, then the node's .env.local over it, as compose.sh layers
+# them: LAN_CIDR and GATEWAY are fleet-wide (stacks/fleet.env) since the
+# 2026-11 restructure, the DHCP range is the node's.
+values = helper['read_env'](Path(sys.argv[2]).parent / 'fleet.env')
+values.update(helper['read_env'](node / '.env.local'))
 network = ipaddress.IPv4Network(values['LAN_CIDR'])
 start = ipaddress.IPv4Address(values['PIHOLE_DHCP_START'])
 end = ipaddress.IPv4Address(values['PIHOLE_DHCP_END'])
