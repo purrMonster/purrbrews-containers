@@ -39,7 +39,7 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - [ ] purrbrews-bootstrap running on americano with americano's key in it (owner)
 - [x] W1: the payload is written (`payload/`, 2026-11-18). Tests run four of its steps as root; none of it has run on a machine yet
 - [x] Serve the payload from americano: purrbrews-bootstrap 1.1.0 in `~/Desktop/Tools/purrbrews-bootstrap`, the payload from a deployment checkout of main in `~/Desktop/Tools/purrbrews-containers`. `/files/SHA256SUMS` lists README.md, lib/fleet.sh and lib/net-apply.sh with main's hashes (owner's output, compared 2026-11-19 00:02 IST)
-- [ ] americano's address reserved on the router (the nodes reach the bootstrap there), and the same reservation in Pi-hole at the DHCP handover (owner)
+- [x] americano's address: set by hand on the Mac to `192.168.1.15`, outside the router's old pool (`.33`+) and Pi-hole's (`.50`+), so no DHCP server can hand it out; no reservation needed (owner, 2026-11-19 10:52 IST)
 - [ ] Rehearse one fresh machine through the one-liner, twice. sieve holds nothing yet, so sieve is the rehearsal (owner, 2026-11-18). First run passed (owner's output, 2026-11-19 00:33 IST):
   - hostname `sieve`; `/opt/purrbrews/.env` has `NODE=sieve`, `NODE_IP=192.168.1.10`, `TZ=Asia/Kolkata`, `PUID`/`PGID` 1000;
   - `enp0s31f6` at `192.168.1.10/24` with the derived MAC `02:33:68:72:0b:17` (matches `scripts/fleet-macs.sh`), default route via `192.168.1.1`;
@@ -60,7 +60,12 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 
 - [x] sieve: secrets set (`./setup-secrets.sh`: only `RESTIC_PASSWORD` left, for phase 5) and firewall applied: DNS 53 from the LAN, DHCP 67 from anywhere, the UIs from `proxy` only, voice from `192.168.1.13` only (owner's `ufw status`, 2026-11-19 00:51 IST)
 - [x] sieve: Unbound and Pi-hole answer DNS with DNSSEC validation. From sieve: `debian.org` NOERROR; `dnssec-failed.org` SERVFAIL, and with `+cd` it resolves (96.99.227.255), so validation is what refuses it (owner's output, 2026-11-19 00:52 IST). From americano across the LAN, `debian.org` resolves the same (2026-11-19 00:53 IST)
-- [ ] sieve: an alert reaching the phone (ntfy, traefik-edge, gatus), then the DHCP handover from the Humax router
+- [x] sieve: DHCP handed over. The router's DHCP is off; Pi-hole's `dhcp.active` is `true`, it listens on `0.0.0.0:67`, range `192.168.1.50`–`.250`, router `192.168.1.1` (owner's output, 2026-11-19 10:51 IST); devices get their leases from it (owner, 10:58 IST). `enable-dhcp.sh` itself failed on `KeyError: 'LAN_CIDR'` before changing anything; fixed (it now reads fleet.env), with a test. Pi-hole had in fact served DHCP since its first start the night before, beside the router's: its compose always enables it, and the plan wrongly said "DNS only" (corrected)
+- [x] sieve: a test alert reached the phone (Android, the ntfy app on `https://ntfy.<domain>` as barista, topic `purrbrews-alerts`; owner, 2026-11-19 12:07 IST). Getting there:
+  - Pi-hole answered app names with Cloudflare's addresses until it was recreated (`./compose.sh pihole up -d`); after that `dig @127.0.0.1 ntfy.<domain>` gave `192.168.1.10` (11:19 IST). Why the first start lacked them isn't known; Gatus's "pihole local override" check will catch a repeat once Gatus runs;
+  - the phone's Android **Private DNS** sent lookups past Pi-hole; turned off (owner). The router's IPv6 DHCP and DNS are off too (owner). The Mac had `1.1.1.1` as its second DNS server; to be replaced with `192.168.1.13`. Notes in `stacks/network/pihole/README.md`, "Handing over DHCP"
+- [x] IPv6 on Tata fiber (new since ACT's IPv4-only CGNAT): sieve has no global IPv6 address (`ip -6 addr show scope global` empty, owner's output 2026-11-19 12:11 IST), as the payload intends (`ipv6.method disabled`), so its `[::]` listeners (22, 53, 80, 443) are unreachable over IPv6. The router's IPv6 DHCP and DNS are off (owner). Still worth a look: the Humax's IPv6 firewall blocks inbound, for the household's own devices (owner)
+- [ ] sieve: Gatus running with the `GATUS_WATCH_*` switches off (after `git pull` and `./setup-secrets.sh`), its log clean, and its "pihole local override" check green
 - [ ] cellar: Komodo and Scrutiny up; sieve's agents registered; the merged collector shows the node and its one disk
 - [ ] percolator: Traefik, CrowdSec, LLDAP with its service accounts (`scottishfold`, `pixiebob`, `sphynx`, the `llm_api_group` accounts), Authelia
 - [ ] Purelymail app password for the mail relay (owner); the relay has never run

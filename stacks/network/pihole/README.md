@@ -55,6 +55,19 @@ Do this in one sitting:
    Settings → DHCP → Currently active leases.
 5. Watch a couple of days before trusting it: phones, TVs and anything with a
    reservation.
+6. Turn the router's **IPv6 DNS** off too (DHCPv6, and DNS in its router
+   advertisements). Its IPv4 DHCP being off doesn't stop it offering itself as
+   a resolver over IPv6, and phones prefer that.
+
+**When a device still gets public answers** (a 530 from Cloudflare instead of the
+app, 2026-11-19), it's asking some other resolver:
+
+- **Android Private DNS** (Settings → Network → Private DNS) on *Automatic* or a
+  hostname sends lookups past Pi-hole. Turn it **Off** on the household's phones.
+- **A second DNS server set by hand** (the Mac had `1.1.1.1`) gets asked too,
+  and answers with the public record. Use `192.168.1.10` and `192.168.1.13` only.
+- To see whether a device asks sieve at all:
+  `sudo docker exec pihole pihole -t | grep <name>`, then use the app.
 
 **Break-glass:** if sieve will be down longer than the lease grace period (~3.5 days),
 ensure sieve cannot start its Pi-hole, then enable the router's DHCP temporarily.

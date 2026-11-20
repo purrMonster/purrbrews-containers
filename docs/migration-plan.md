@@ -71,13 +71,20 @@ Needs: phase 1. The router still does DHCP and DNS until step 5.
 
 1. Set sieve up (ThinkCentre, living room, wired to the router). In `nodes/sieve`:
    `./setup-secrets.sh`, `sudo ./firewall.sh`.
-2. `unbound`, then `pihole`, as DNS only. From americano: `dig @192.168.1.10`
-   for a public name (recursion) and, after step 3, a local one.
+2. `unbound`, then `pihole`. **Pi-hole serves DHCP as soon as it starts**: its
+   compose file always enables it (the node with `RESOLVER=primary` is the
+   LAN's only DHCP server). So turn the router's DHCP off when Pi-hole first
+   starts, or the two hand out leases side by side. (On 2026-11-19 it ran a
+   night beside the router's: this step said "DNS only", which it never was.)
+   From americano: `dig @192.168.1.10` for a public name (recursion) and, after
+   step 3, a local one.
 3. `ntfy`, `traefik-edge`, `gatus`. Send a test alert and see it on the phone:
    monitoring is the last thing allowed to break.
 4. `netalertx`, `komodo-periphery` and `scrutiny-collector` can wait for phase 3.
-5. **DHCP handover.** Turn DHCP off on the Humax router, then
-   `bash stacks/network/pihole/enable-dhcp.sh --routers-dhcp-disabled` on sieve.
+5. **DHCP handover.** With the router's DHCP off,
+   `bash stacks/network/pihole/enable-dhcp.sh --routers-dhcp-disabled` on sieve
+   checks the range and gateway, restarts Pi-hole, and confirms it's listening
+   on 67/udp.
    Reconnect one phone and one laptop; check lease, gateway and resolver.
 6. `cloudflared` once percolator has something to publish (phase 4).
 
