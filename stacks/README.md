@@ -57,8 +57,8 @@ but have settings or templates (`restic` on every node, `kiosk` on mochaPot).
 |---|---|---|
 | `sieve` | Network: DNS, DHCP, tunnel, alerting | [nodes/sieve](../nodes/sieve/README.md) |
 | `percolator` | Ingress, identity (SSO) and the daily apps | [nodes/percolator](../nodes/percolator/README.md) |
-| `cellar` | Backups (the repository too, since the rebuild), file shares, Komodo, the Scrutiny hub | [nodes/cellar](../nodes/cellar/README.md) |
-| `mochaPot` | Home automation, music, the wall screen, secondary DNS | [nodes/mochaPot](../nodes/mochaPot/README.md) |
+| `cellar` | Backups (the repository too, since the rebuild), file shares, Komodo, the Scrutiny hub, Home Assistant | [nodes/cellar](../nodes/cellar/README.md) |
+| `mochaPot` | Music, the wall screen, secondary DNS | [nodes/mochaPot](../nodes/mochaPot/README.md) |
 | `grinder` | Automation, AI (LiteLLM, Immich ML), self-tracking | [nodes/grinder](../nodes/grinder/README.md) |
 
 roastery, the Windows workstation, is out of the fleet; its stacks and PowerShell
@@ -215,7 +215,7 @@ morning that everything above happened; [backup/restic/README.md](backup/restic/
 has that side and the order to switch it all on.
 
 **Not switched on yet:** the code is written (W2, 2026-11-18); the account,
-the repository and the timers come up in phase 5 of the
+the repository and the timers come up in phase 4 of the
 [migration plan](../docs/migration-plan.md). No node backs up until then.
 
 `BACKUP_REPOSITORY`, `BACKUP_REPO_ROOT`, `DUMP_DIR` and `DUMP_STORE_HOST` are in `fleet.env`; `restic`

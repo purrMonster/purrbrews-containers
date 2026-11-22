@@ -503,12 +503,13 @@ endpoints:
     url: "https://scrutiny.${DOMAIN}/"
     enabled: ${GATUS_WATCH_CELLAR}
 
-  # mochaPot
   - <<: *own-login
-    group: "apps: mochaPot"
+    group: "apps: cellar"
     name: homeassistant
     url: "https://homeassistant.${DOMAIN}/"
-    enabled: ${GATUS_WATCH_MOCHAPOT}
+    enabled: ${GATUS_WATCH_CELLAR}
+
+  # mochaPot
   - <<: *behind-sso
     group: "apps: mochaPot"
     name: music

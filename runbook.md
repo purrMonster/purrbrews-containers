@@ -56,7 +56,7 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - [ ] n8n 3.x: only betas so far (2.48.4 is the newest stable); move once a stable 3.x is out, planned for early December. Check its SSRF list against tailnet addresses (`docs/image-updates-2026-11.md`)
 - [ ] OpenCloud 9.1: check the custom CSP lets Excalidraw, Apollon and previews load (phase 6)
 
-**Phases 2 to 4: sieve, cellar, percolator's identity**
+**Phases 2 and 3: sieve, cellar** (phases renumbered 2026-11-22: backups are now 4, before percolator)
 
 - [x] sieve: secrets set (`./setup-secrets.sh`: only `RESTIC_PASSWORD` left, for phase 5) and firewall applied: DNS 53 from the LAN, DHCP 67 from anywhere, the UIs from `proxy` only, voice from `192.168.1.13` only (owner's `ufw status`, 2026-11-19 00:51 IST)
 - [x] sieve: Unbound and Pi-hole answer DNS with DNSSEC validation. From sieve: `debian.org` NOERROR; `dnssec-failed.org` SERVFAIL, and with `+cd` it resolves (96.99.227.255), so validation is what refuses it (owner's output, 2026-11-19 00:52 IST). From americano across the LAN, `debian.org` resolves the same (2026-11-19 00:53 IST)
@@ -67,26 +67,31 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - [x] IPv6 on Tata fiber (new since ACT's IPv4-only CGNAT): sieve has no global IPv6 address (`ip -6 addr show scope global` empty, owner's output 2026-11-19 12:11 IST), as the payload intends (`ipv6.method disabled`), so its `[::]` listeners (22, 53, 80, 443) are unreachable over IPv6. The router's IPv6 DHCP and DNS are off (owner). Still worth a look: the Humax's IPv6 firewall blocks inbound, for the household's own devices (owner)
 - [ ] sieve: Gatus running with the `GATUS_WATCH_*` switches off (after `git pull` and `./setup-secrets.sh`), its log clean, and its "pihole local override" check green
 - [ ] cellar: Komodo and Scrutiny up; sieve's agents registered; the merged collector shows the node and its one disk
-- [ ] percolator: Traefik, CrowdSec, LLDAP with its service accounts (`scottishfold`, `pixiebob`, `sphynx`, the `llm_api_group` accounts), Authelia
-- [ ] Purelymail app password for the mail relay (owner); the relay has never run
+- [ ] sieve: `sudo ./firewall.sh` again for the voice rules from cellar (`192.168.1.12`), then delete the three from `192.168.1.13` (`sudo ufw status numbered`, `sudo ufw delete <n>`): Home Assistant moved (2026-11-22 entry)
 
-**Phase 5: backups**
+**Phase 4: backups**
 
 - [x] W2: the repository's SFTP account on cellar (`restic/repo-setup.sh`); hub scripts and README without roastery; tests extended. Written and run against a real sshd in the sandbox (2026-11-18 entry); not yet on cellar
 - [x] The repository account's name: `burmilla` (owner, 2026-11-18); in `BACKUP_REPOSITORY`, `stacks/fleet.env`
-- [ ] On cellar before phase 5: `/srv` is on the NVMe (`findmnt /srv`), then `sudo ./restic/repo-setup.sh --check`
+- [ ] On cellar before phase 4: `/srv` is on the NVMe (`findmnt /srv`), then `sudo ./restic/repo-setup.sh --check`
 - [ ] A new repository (`restic init`); password and crypt keys into the recovery kit the same day
-- [ ] Every node: install, keys, doctor, one nightly by hand, enable
+- [ ] sieve and cellar: install, keys, doctor, one nightly by hand, enable; every later node the same in its own phase
 - [ ] A restore test, and the Drive copy read back
 - [ ] Long SMART self-test on both old HDDs before they hold the offline copies
 - [x] W3: the recovery kit rebuilt from americano (`recovery/`, docs/recovery-kit.md). Written; a full download-and-verify and a build onto two stand-in sticks passed in the sandbox (2026-11-18 entry). Not yet on a real stick or a Mac
 - [ ] flask, the owner's part, once the new repository's keys exist: Ventoy on stick B (from Linux), `./make-flask.sh` on americano with both sticks, the vault (`fill-vault.sh`), the paper, then one boot of each stick on a ThinkCentre with the cable out (owner)
 - [ ] First run of `make-flask.sh` and `fill-vault.sh` on americano itself: they were written for macOS's bash 3.2 and tested only on Linux's bash 5 (sandbox, 2026-11-18). A `--prepare` on the Mac settles it
 
+**Phase 5: percolator, ingress and identity**
+
+- [ ] percolator: Traefik, CrowdSec, LLDAP with its service accounts (`scottishfold`, `pixiebob`, `sphynx`, the `llm_api_group` accounts), Authelia; its backups on
+- [ ] Purelymail app password for the mail relay (owner); the relay has never run
+
 **Phases 6 to 8: the apps**
 
 - [ ] percolator's household apps, one at a time, empty, each with a night's backup behind it
-- [ ] mochaPot: secondary Pi-hole, Home Assistant with `trusted_proxies` for the new subnet, the merged Traefik checked with host-networked apps, kiosk
+- [ ] cellar: Home Assistant with `trusted_proxies` for cellar's subnet (`172.30.12.0/24`), signing in through Authelia and locally; Bluetooth checked (`bluetoothctl list`)
+- [ ] mochaPot: secondary Pi-hole, Music Assistant, the merged Traefik checked with host-networked apps, the kiosk showing Home Assistant on cellar
 - [ ] grinder: LiteLLM healthy and `llm.${DOMAIN}` refusing a request without credentials; Open WebUI answering; Immich ML reachable from percolator only
 - [ ] pourOver's planning tried against the cloud model before it is switched on
 - [ ] Gatus: a check for Immich ML's port
@@ -101,6 +106,44 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - [ ] Two-factor in Authelia once every account has enrolled
 - [ ] W6: node READMEs rewritten; roastery wording swept from app READMEs and comments
 - [ ] Carried from the old Backlog, still open: `barista` in the `docker` group; Samba, shares or gone; a bot identity for agents' commits; the merged branches on GitHub (owner)
+
+## 2026-11-22 — Layout by failure: Home Assistant to cellar; disks recounted; backups before percolator
+
+**What.** The owner recounted the disks and asked Claude to decide the split of
+apps across the machines by function and by what each failure takes down,
+memory included. Decided (Claude, at the owner's request):
+
+- **Machines as planned.** percolator stays on its ThinkCentre (ingress and
+  sign-in on built-in Ethernet); grinder stays on the x360 board.
+- **Home Assistant moves from mochaPot to cellar.** Built-in Ethernet instead of
+  a USB adapter; not percolator, so the house keeps working when sign-in is
+  down; cellar is the quietest node. The cost: cellar now carries Home
+  Assistant and backups together. Music Assistant stays on mochaPot (owner).
+  The kiosk shows Home Assistant on cellar at `http://192.168.1.12:8123`.
+- **Disks** (owner's count: two 1 TB, one 512 GB and one 256 GB NVMe, two
+  256 GB SATA SSDs, two 128 GB M.2 SATA, plus roastery's own 1 TB): grinder on
+  the 256 GB NVMe (the old plan's "512 GB Intel NVMe" for grinder was wrong);
+  the 512 GB NVMe kept for roastery (owner); spares are a 256 GB SATA SSD
+  (sieve's kind) and a 128 GB M.2 SATA (mochaPot's kind). No spare for the 1 TB
+  drives.
+- **Memory unchanged:** 8 / 16 / 16 / 8 / 16 GB.
+- **Backups before percolator** (owner, 2026-11-21): the migration plan's
+  phases 4 and 5 swapped. Backups are phase 4, with only sieve and cellar;
+  each later node joins in its own phase.
+
+The table of what each failure stops, and the memory estimates, are in
+`docs/hardware.md`, "When a node goes down".
+
+**Changed.** `nodes/cellar/node.conf` and `nodes/mochaPot/node.conf` (APPS);
+the voice firewalls (`$CELLAR_LAN_IP`); cloudflared's route for
+`homeassistant`; the Gatus check (now under cellar's switch); purrCafe's and
+persianPerch's Home Assistant URL; the kiosk's `KIOSK_URL`; the HA README's
+`trusted_proxies`; tests; `docs/hardware.md`, `migration-plan.md`, `voice.md`,
+`MAP.md`, `carry-over-map.md`, the node READMEs, `fleet.json`. Pi-hole's record
+for `homeassistant` follows from `node.conf` (`refresh-dns`).
+
+**Not done.** Nothing on a machine. sieve's firewall still has the three voice
+rules from mochaPot (applied 2026-11-19); re-run and delete, as in the backlog.
 
 ## 2026-11-18 — W4 and W5: voice in each room; the tailnet step
 

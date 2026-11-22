@@ -33,8 +33,8 @@ _Last updated: 2026-11-16 (the rebuild after the move)_
 |---|---|---|---|
 | sieve | .10 | Network: Pi-hole, Unbound, cloudflared, ntfy, Gatus, NetAlertX | [nodes/sieve](../nodes/sieve/README.md) |
 | percolator | .11 | Ingress and identity (Traefik, Authelia, LLDAP) and the household apps | [nodes/percolator](../nodes/percolator/README.md) |
-| cellar | .12 | Backup hub and repository, Scrutiny hub, Komodo | [nodes/cellar](../nodes/cellar/README.md) |
-| mochaPot | .13 | Home Assistant, Music Assistant, secondary Pi-hole, kiosk | [nodes/mochaPot](../nodes/mochaPot/README.md) |
+| cellar | .12 | Backup hub and repository, Scrutiny hub, Komodo, Home Assistant | [nodes/cellar](../nodes/cellar/README.md) |
+| mochaPot | .13 | Music Assistant, secondary Pi-hole, kiosk | [nodes/mochaPot](../nodes/mochaPot/README.md) |
 | grinder | .14 | Automation and AI: n8n, pgvector, LiteLLM, Open WebUI, Immich ML, self-tracking | [nodes/grinder](../nodes/grinder/README.md) |
 
 ## Stack groups
@@ -68,7 +68,7 @@ _Last updated: 2026-11-16 (the rebuild after the move)_
 | Household dashboard | purrCafe (own repo) | percolator |
 | Links, read-later | Karakeep | grinder |
 | Automations and their vectors | n8n, pgvector | grinder |
-| Home automation | Home Assistant | mochaPot |
+| Home automation | Home Assistant | cellar |
 | Backups | restic repository, database dumps | cellar, with copies on Google Drive and two offline disks (planned) |
 
 ## Related repositories

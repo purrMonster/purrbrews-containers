@@ -1,6 +1,7 @@
 # Home Assistant
 
-`https://homeassistant.${DOMAIN}`, or `http://192.168.1.13:8123` directly.
+`https://homeassistant.${DOMAIN}`, or `http://192.168.1.12:8123` directly.
+It runs on cellar (moved from mochaPot on 2026-11-22; docs/hardware.md says why).
 
 Host networking (discovery needs it), with its own Postgres for the recorder on
 `127.0.0.1:5432`. The onboarding wizard runs on the first visit; there's no
@@ -20,7 +21,7 @@ and I spent an evening on 400s learning so.
 http:
   use_x_forwarded_for: true
   trusted_proxies:
-    - 172.30.13.0/24    # PROXY_SUBNET: this node's Traefik
+    - 172.30.12.0/24    # PROXY_SUBNET: this node's (cellar's) Traefik
     - 192.168.1.10/32   # sieve: cloudflared (tunnel) in front of Traefik
 ```
 

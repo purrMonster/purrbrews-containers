@@ -3,10 +3,10 @@
 # cellar), so the room's own machine turns its speech into text and nothing
 # leaves the house (owner, 2026-11-17; docs/voice.md).
 #
-# Home Assistant on mochaPot is the only client: it opens tcp/10300 here
+# Home Assistant on cellar is the only client: it opens tcp/10300 here
 # (Settings → Devices & services → Wyoming Protocol → this node's address).
 # The protocol has no authentication, so this app's firewall file lets
-# mochaPot, and only mochaPot, reach it.
+# cellar, and only cellar, reach it.
 #
 # The model is VOICE_WHISPER_MODEL (stacks/fleet.env; a node can override it
 # in its .env.local). Downloaded on first start into DATA_DIR/whisper, which

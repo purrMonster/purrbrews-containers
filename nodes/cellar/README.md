@@ -6,18 +6,21 @@
 > but check each step against [`docs/migration-plan.md`](../../docs/migration-plan.md)
 > and [`docs/hardware.md`](../../docs/hardware.md) before relying on it.
 
-**The dump store, file shares and the fleet's ops tools**: `192.168.1.12`, ThinkCentre
-M710q (i3-7100T, 8 GB), NVMe for the OS and the dump store, plus an old 1 TB HDD
-that no longer holds backups.
+**Backups, the fleet's ops tools and Home Assistant**: `192.168.1.12`, ThinkCentre
+M710q (i3-7100T, 16 GB), one 1 TB NVMe for the OS, the dump store and the restic
+repository ([docs/hardware.md](../../docs/hardware.md)).
 
 cellar is always on, so anything that has to run on a schedule, and be noticed
-when it doesn't, lives here.
+when it doesn't, lives here. Home Assistant moved here from mochaPot on
+2026-11-22: built-in Ethernet, the quietest node, and not percolator, so the house
+keeps working when sign-in is down.
 
 | App | URL | What it's for |
 |---|---|---|
 | [Komodo](../../stacks/fleet-management/komodo/) | `komodo.${DOMAIN}` (admins), or `:9120` | Container management for the whole fleet (Core, Mongo, cellar's own agent) |
 | [Scrutiny](../../stacks/fleet-management/scrutiny/) | `scrutiny.${DOMAIN}` (admins), or `:8080` | SMART disk health; the hub every node's collector reports to |
-| [Traefik](../../stacks/network/traefik/) | — | HTTPS for the two above, and persianPerch |
+| [Home Assistant](../../stacks/home/homeassistant/README.md) | `homeassistant.${DOMAIN}`, or `:8123` | Home automation and the voice assistants' brain; signs in with Authelia itself (OIDC), local account as the break-glass |
+| [Traefik](../../stacks/network/traefik/) | — | HTTPS for the three above, and persianPerch |
 | [persianPerch](../../stacks/fleet-management/persian-perch/) | `perch.${DOMAIN}` (admins) | The fleet's watcher: containers, backups, disks, endpoints, files dropped, the house. Read-only; alerts to ntfy |
 | [Samba](../../stacks/backup/smb/) | `\\cellar\household`, `\\cellar\archive` | File shares. Built, not in use yet (no firewall rule) |
 | [NFS](../../stacks/backup/nfs/README.md) | `cellar:/srv/media/archive` | Archive export, host-native. Nothing mounts it yet |
@@ -30,7 +33,7 @@ As `barista` in `/opt/purrbrews/nodes/cellar`, once the node is set up (`docs/mi
 ```bash
 ./setup-secrets.sh      # asks for DOMAIN, TRAEFIK_ACME_EMAIL, the two disks, the
                         # Cloudflare token and the Drive client; generates the rest
-sudo ./firewall.sh      # LAN → 80/443 (Traefik), 9120 (Komodo), 8080 (Scrutiny)
+sudo ./firewall.sh      # LAN → 80/443 (Traefik), 9120 (Komodo), 8080 (Scrutiny), 8123 (Home Assistant)
 ```
 
 Then, in order (`node.conf`), checking each before the next:
@@ -40,11 +43,13 @@ Then, in order (`node.conf`), checking each before the next:
 | 1 | `./compose.sh komodo up -d` | `sudo docker logs komodo-core` starts clean; log in at `http://192.168.1.12:9120` as `barista` with `KOMODO_INIT_ADMIN_PASSWORD` from `komodo/secrets.env.local` |
 | 2 | `./compose.sh scrutiny up -d` | both disks listed at `http://192.168.1.12:8080` |
 | 3 | `./compose.sh traefik up -d` | certificates issued in `sudo docker logs traefik`; `https://komodo.${DOMAIN}` asks for an Authelia login |
-| 4 | `./compose.sh smb up -d` | only when the shares are wanted; add the rule in `smb/firewall` first |
-| 5 | `./compose.sh persian-perch up -d` | its [README](../../stacks/fleet-management/persian-perch/README.md) checklist; read persianPerch's `integration/ROLLOUT.md` before the first run |
+| 4 | `./compose.sh homeassistant up -d` | migration plan phase 7, once Authelia exists: onboarding at `http://192.168.1.12:8123`, then the [configuration.yaml steps](../../stacks/home/homeassistant/README.md#configurationyaml) (`trusted_proxies` is `172.30.12.0/24`) |
+| 5 | `./compose.sh smb up -d` | only when the shares are wanted; add the rule in `smb/firewall` first |
+| 6 | whisper, piper, voice-satellite | migration plan phase 9 ([docs/voice.md](../../docs/voice.md)) |
+| 7 | `./compose.sh persian-perch up -d` | its [README](../../stacks/fleet-management/persian-perch/README.md) checklist; read persianPerch's `integration/ROLLOUT.md` before the first run |
 | — | `sudo ./nfs/setup-nfs.sh`, then [restic/README.md](../../stacks/backup/restic/README.md) | host-native, whenever needed |
 
-`./compose.sh --all up -d` does 1–5 in that order once everything has been up once.
+`./compose.sh --all up -d` does 1–7 in that order once everything has been up once.
 
 ## Things worth knowing
 
@@ -72,6 +77,8 @@ Then, in order (`node.conf`), checking each before the next:
 | `/srv/data/komodo/mongo-*` | Komodo's database | yes, as a `mongodump` |
 | `/srv/data/komodo/keys` | Core's key pair | yes (every agent trusts `core.pub`) |
 | `/srv/data/scrutiny` | SMART history | no |
+| `/srv/data/homeassistant` | config, automations, `secrets.yaml` | **yes** |
+| `/srv/data/postgres-homeassistant` | recorder history | as a dump, if at all |
 | `/srv/data/traefik/acme` | certificates | no, re-issued |
 | `/srv/dumps/<node>` | every node's database dumps (the dump store) | yes, as the `dumps` snapshot (`backup.sh store`) |
 | `/srv/media/{household,archive}` | the shares | yes, once they hold anything |

@@ -1,2 +1,2 @@
 # ufw-docker route rules match the container port (after DNAT).
-route tcp 10200 $MOCHAPOT_LAN_IP  # piper from Home Assistant only
+route tcp 10200 $CELLAR_LAN_IP  # piper from Home Assistant only

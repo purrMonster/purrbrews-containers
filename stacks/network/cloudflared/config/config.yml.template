@@ -78,11 +78,13 @@ ingress:
   #   service: https://${PERCOLATOR_LAN_IP}:443
   #   originRequest: {originServerName: lldap.${DOMAIN}}
 
-  # ── mochaPot: the house ────────────────────────────────────────────────────
+  # ── cellar: the house ──────────────────────────────────────────────────────
   # Home Assistant has its own login, no Authelia in front (the app needs that).
   - hostname: homeassistant.${DOMAIN}
-    service: https://${MOCHAPOT_LAN_IP}:443
+    service: https://${CELLAR_LAN_IP}:443
     originRequest: {originServerName: homeassistant.${DOMAIN}}
+
+  # ── mochaPot: music ────────────────────────────────────────────────────────
   - hostname: music.${DOMAIN}
     service: https://${MOCHAPOT_LAN_IP}:443
     originRequest: {originServerName: music.${DOMAIN}}

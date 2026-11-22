@@ -366,9 +366,9 @@ identity_providers:
       - client_id: 'homeassistant'
         client_name: 'Home Assistant'
         # The only client whose app isn't on this node. Home Assistant runs
-        # on mochaPot and reads the plaintext from its own secrets.yaml, so
+        # on cellar and reads the plaintext from its own secrets.yaml, so
         # both halves are kept in authelia/secrets.conf and the plaintext is
-        # copied across by hand (mochaPot/homeassistant/README.md).
+        # copied across by hand (stacks/home/homeassistant/README.md).
         client_secret: '${HOMEASSISTANT_OIDC_CLIENT_SECRET_HASH}'
         public: false
         authorization_policy: 'household'

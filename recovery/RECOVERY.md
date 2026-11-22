@@ -25,7 +25,7 @@ on the paper.
 - No cellar, no Drive, no internet → **C**, then **A**
 
 The nodes, for reference: sieve .10 (network), percolator .11 (apps), cellar .12
-(backups, fleet management), mochaPot .13 (home), grinder .14 (automation, AI),
+(backups, fleet management, Home Assistant), mochaPot .13 (music, wall screen), grinder .14 (automation, AI),
 all on 192.168.1.0/24. Each node's checkout is `/opt/purrbrews`; its commands
 are in `/opt/purrbrews/nodes/<node>/`, and every command below that starts with
 `./` is run from there.

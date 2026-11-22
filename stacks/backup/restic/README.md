@@ -43,7 +43,7 @@ cellar does.
 
 Every job needs root (root's backup key and the rclone config are root's) and
 reports failures to `NTFY_URL` (`restic/secrets.env.local`). In the old fleet
-they ran from 2026-09-28; in this one, from the night phase 5 of
+they ran from 2026-09-28; in this one, from the night phase 4 of
 [the migration plan](../../../docs/migration-plan.md) finishes.
 
 ## Where it lives on cellar

@@ -24,8 +24,8 @@ Code this plan depends on that does not exist yet. Everything else is in the rep
 | # | What | Built from | Needed by |
 |---|---|---|---|
 | W1 | The fleet's payload for purrbrews-bootstrap: static address and derived MAC, the checkout in `/opt/purrbrews`, `/opt/purrbrews/.env`, data directories, the fetch-only timer. **Written 2026-11-18** (`payload/`), not yet run on a machine | `deprecated/init/` | Phase 1 |
-| W2 | **Written 2026-11-18** (`stacks/backup/restic/repo-setup.sh`, README). The repository account on cellar (SFTP-only user, one folder, per-node keys), and the hub scripts without wake-on-LAN or the `roastery` remote | `deprecated/stacks/roastery/backup-target`, `stacks/backup/restic` | Phase 5 |
-| W3 | **Written 2026-11-18** (`recovery/`, [recovery-kit.md](recovery-kit.md)). The recovery kit, built from americano | `deprecated/stacks/roastery/flask`, `deprecated/docs/flask.md` | Phase 5 |
+| W2 | **Written 2026-11-18** (`stacks/backup/restic/repo-setup.sh`, README). The repository account on cellar (SFTP-only user, one folder, per-node keys), and the hub scripts without wake-on-LAN or the `roastery` remote | `deprecated/stacks/roastery/backup-target`, `stacks/backup/restic` | Phase 4 |
+| W3 | **Written 2026-11-18** (`recovery/`, [recovery-kit.md](recovery-kit.md)). The recovery kit, built from americano | `deprecated/stacks/roastery/flask`, `deprecated/docs/flask.md` | Phase 4 |
 | W4 | **Written 2026-11-18** (`stacks/voice/`, [voice.md](voice.md)). Voice: Whisper, Piper, a satellite per ThinkCentre | nothing yet | Phase 9 |
 | W5 | **Written 2026-11-18** (the payload's `tailnet` step; [tailscale/README.md](../tailscale/README.md)). Joining a node to the tailnet (it was a step of the old init) | `deprecated/init/purrbrews-init.sh`, `step_tailscale` | Phase 10 |
 | W6 | Node READMEs rewritten; roastery wording swept out of app READMEs and comments | the old READMEs, in place | As each node comes up |
@@ -35,7 +35,7 @@ Code this plan depends on that does not exist yet. Everything else is in the rep
 The owner decided that **every app starts empty** and has already backed up
 what is needed from the old nodes (owner, 2026-11-17). Nothing in this plan restores from
 the old fleet: no old data directory, secrets file or restic repository is
-carried over. Phase 5 makes a new repository and phase 6 brings each app up
+carried over. Phase 4 makes a new repository and phase 6 brings each app up
 empty.
 
 ## Phase 1: foundations
@@ -86,7 +86,7 @@ Needs: phase 1. The router still does DHCP and DNS until step 5.
    checks the range and gateway, restarts Pi-hole, and confirms it's listening
    on 67/udp.
    Reconnect one phone and one laptop; check lease, gateway and resolver.
-6. `cloudflared` once percolator has something to publish (phase 4).
+6. `cloudflared` once percolator has something to publish (phase 5).
 
 **Done when** a device that joins the Wi-Fi gets its lease and DNS from sieve,
 Gatus is green for what exists, and an alert reaches the phone. **Way back:**
@@ -96,42 +96,23 @@ back within a lease renewal, sooner if reconnected.
 ## Phase 3: cellar, fleet management
 
 1. Set cellar up with its 1 TB NVMe and second memory stick. `komodo`,
-   `scrutiny`, `traefik`.
+   `scrutiny`, `traefik`. Home Assistant is on cellar too (2026-11-22) but waits
+   for phase 7: it signs in through Authelia, which comes in phase 5.
 2. Copy Komodo Core's public key to sieve; bring up `komodo-periphery` and
    `scrutiny-collector` there. **Check** the merged collector: the node appears
    in Scrutiny under its name with its one disk.
-3. Leave `smb` and `persian-perch` out (optional in `fleet.json`). Leave backups
-   for phase 5.
+3. Leave `smb` and `persian-perch` out (optional in `fleet.json`). Backups are
+   the next phase.
 
 **Done when** Komodo lists cellar and sieve, and Scrutiny shows both nodes'
 disks. **Way back:** `./compose.sh --all down` on cellar; nothing depends on it yet.
 
-## Phase 4: percolator, ingress and identity
+## Phase 4: backups, on cellar
 
-No household data yet: that waits for backups (phase 5).
-
-1. Set percolator up. Every app starts empty, so its data disk is wiped like
-   the system disk; check first that the owner's backup of it is done.
-2. `traefik-ingress`, `crowdsec`.
-3. `mail-relay`, if the Purelymail app password exists (owner). Without it
-   Paperless, Vikunja and Vaultwarden will not start in phase 6.
-4. `lldap`, then `stacks/identity/lldap/lldap-bootstrap.sh`; create the service
-   accounts (`scottishfold`, `pixiebob`, `sphynx`, one LLM account per caller in
-   `llm_api_group`). `authelia`.
-5. On sieve: `./render-configs.sh` and recreate Pi-hole so the new names
-   resolve; add cellar's and sieve's addresses to `FORWARD_AUTH_CLIENTS` if they
-   changed; `sudo ./firewall.sh` on percolator.
-6. `homepage`, then `komodo-periphery` and `scrutiny-collector`.
-
-**Done when** `authelia.${DOMAIN}` signs a person in, an admin page on sieve
-and one on cellar ask for that sign-in and let an admin through, and a
-household account is refused there. **Way back:** the other nodes' pages are
-reachable on their own ports while Authelia is down, as designed.
-
-## Phase 5: backups, on cellar
-
-The one phase with real code to write first (W2, W3). Until it is done, no
-node holds data that exists nowhere else.
+Before percolator (owner, 2026-11-21): no node holds household data until the
+backups that would protect it run. At this point only sieve and cellar exist;
+each later node joins the backups in its own phase (`backup.sh install`, its
+key line on cellar, one `nightly` by hand) before any data goes on it.
 
 1. **W2, written 2026-11-18.** The order to switch it on is in
    [stacks/backup/restic/README.md](../stacks/backup/restic/README.md), "Tying it
@@ -145,7 +126,7 @@ node holds data that exists nowhere else.
    it aside first: the drive-sync guard refuses to overwrite a different
    repository on Drive, by design. The password and the crypt keys go to the
    recovery kit the same day.
-4. Per node: `sudo ./backup.sh install`, `keys`, authorise the lines on cellar,
+4. Per node (sieve and cellar now): `sudo ./backup.sh install`, `keys`, authorise the lines on cellar,
    `doctor`, then `nightly` by hand once, then `enable`.
 5. A restore test of one node's snapshot into a scratch directory, and the
    Drive copy read back.
@@ -156,9 +137,33 @@ node holds data that exists nowhere else.
    vault with `fill-vault.sh`, the paper, one offline boot of each stick
    ([recovery-kit.md](recovery-kit.md), "Building it").
 
-**Done when** two nights in a row every node has a fresh snapshot, the morning
+**Done when** two nights in a row sieve and cellar have a fresh snapshot, the morning
 check is quiet, a restore test passed, and Drive holds the same repository.
 **Way back:** `sudo ./backup.sh disable` per node; nothing else reads the repository.
+
+## Phase 5: percolator, ingress and identity
+
+Backups run from phase 4, so percolator joins them before its apps hold anything.
+
+1. Set percolator up. Every app starts empty, so its data disk is wiped like
+   the system disk; check first that the owner's backup of it is done.
+2. `traefik-ingress`, `crowdsec`.
+3. `mail-relay`, if the Purelymail app password exists (owner). Without it
+   Paperless, Vikunja and Vaultwarden will not start in phase 6.
+4. `lldap`, then `stacks/identity/lldap/lldap-bootstrap.sh`; create the service
+   accounts (`scottishfold`, `pixiebob`, `sphynx`, one LLM account per caller in
+   `llm_api_group`). `authelia`.
+5. On sieve: `./render-configs.sh` and recreate Pi-hole so the new names
+   resolve; add cellar's and sieve's addresses to `FORWARD_AUTH_CLIENTS` if they
+   changed; `sudo ./firewall.sh` on percolator.
+6. `homepage`, then `komodo-periphery` and `scrutiny-collector`.
+7. Backups: `sudo ./backup.sh install`, `keys`, its line in `restic/backup.keys`
+   on cellar, `doctor`, `nightly` by hand once, `enable`.
+
+**Done when** `authelia.${DOMAIN}` signs a person in, an admin page on sieve
+and one on cellar ask for that sign-in and let an admin through, and a
+household account is refused there. **Way back:** the other nodes' pages are
+reachable on their own ports while Authelia is down, as designed.
 
 ## Phase 6: percolator, the household apps
 
@@ -178,20 +183,31 @@ pass before the household puts anything into the next one.
 **Way back:** per app, `./compose.sh <app> down` and its data directory from
 the night before.
 
-## Phase 7: mochaPot, home
+## Phase 7: home (Home Assistant on cellar, then mochaPot)
 
-1. Set mochaPot up through its USB Ethernet adapter. `pihole-secondary` first;
+Home Assistant moved from mochaPot to cellar on 2026-11-22
+([hardware.md](hardware.md), "When a node goes down").
+
+1. On cellar: `homeassistant`, onboarded fresh; the `configuration.yaml` steps
+   in [its README](../stacks/home/homeassistant/README.md) (`trusted_proxies`
+   is cellar's `proxy` subnet, `172.30.12.0/24`, and sieve's address; the
+   recorder; sign-in through Authelia). `sudo ./firewall.sh` for port 8123.
+   **Check** Bluetooth: `bluetoothctl list` on cellar. The ThinkCentres may have
+   no Bluetooth; if so, a USB adapter or an ESPHome Bluetooth proxy, or none if
+   nothing needs it.
+2. On sieve: `./render-configs.sh`, recreate Pi-hole and cloudflared, so
+   `homeassistant.${DOMAIN}` points at cellar.
+3. Set mochaPot up through its USB Ethernet adapter. `pihole-secondary` first;
    check it answers and that sieve's DHCP hands out both resolvers.
-2. `homeassistant`, onboarded fresh, set `trusted_proxies` in its
-   UI to the `proxy` subnet and sieve's address; `musicassistant`; `traefik`.
-   **Check** the merged Traefik with host-networked apps: all three pages open
-   through it.
-3. `komodo-periphery`, `scrutiny-collector` (it uses
+4. `musicassistant`, `traefik`. **Check** the merged Traefik with
+   host-networked apps: Pi-hole's and Music Assistant's pages open through it.
+5. `komodo-periphery`, `scrutiny-collector` (it uses
    `nodes/mochaPot/scrutiny-collector.yaml` for the SanDisk), the kiosk
-   (`stacks/home/kiosk`).
+   (`stacks/home/kiosk`, showing Home Assistant on cellar), backups.
 
-**Done when** the three pages open by name, the kiosk shows the dashboard after
-a reboot, and stopping sieve's Pi-hole for a minute leaves name resolution working.
+**Done when** `homeassistant.${DOMAIN}` signs in through Authelia and with the
+local account, the kiosk shows the dashboard after a reboot of mochaPot, and
+stopping sieve's Pi-hole for a minute leaves name resolution working.
 
 ## Phase 8: grinder, automation and AI
 
@@ -205,7 +221,8 @@ a reboot, and stopping sieve's Pi-hole for a minute leaves name resolution worki
 4. `immich-ml`; `sudo ./firewall.sh`; from percolator `curl` its port, from
    sieve confirm it is refused. Start Immich's jobs and watch grinder's load for
    a day.
-5. The self-tracking apps, `esphome`, `speedtest-tracker`, `traefik` and the agents.
+5. The self-tracking apps, `esphome`, `speedtest-tracker`, `traefik` and the
+   agents. Backups, as on every node.
 6. `pourover`, last and only if wanted (`--include-optional pourover`): try
    its planning against the cloud model with one harmless message first.
 
@@ -215,9 +232,9 @@ costs nothing; the apps that call it queue or show an error.
 
 ## Phase 9: voice (W4)
 
-Needs: phase 7 (Home Assistant on mochaPot), and the speaker and mic in each
+Needs: phase 7 (Home Assistant on cellar), and the speaker and mic in each
 room. Each ThinkCentre (sieve, percolator, cellar) runs Whisper, Piper and a
-satellite; Home Assistant on mochaPot decides what to do (owner, 2026-11-17).
+satellite (owner, 2026-11-17); Home Assistant on cellar decides what to do.
 Written 2026-11-18 as `stacks/voice/`; the design and the steps are in
 [voice.md](voice.md).
 

@@ -1,3 +1,3 @@
 # Host-networked: plain allow rules.
-allow tcp 6053 $MOCHAPOT_LAN_IP  # voice satellite (ESPHome API) from Home Assistant only
-allow udp 5353 $MOCHAPOT_LAN_IP  # mDNS from Home Assistant, so it finds the satellite
+allow tcp 6053 $CELLAR_LAN_IP  # voice satellite (ESPHome API) from Home Assistant only
+allow udp 5353 $CELLAR_LAN_IP  # mDNS from Home Assistant, so it finds the satellite

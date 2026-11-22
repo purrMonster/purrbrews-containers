@@ -95,9 +95,9 @@ services:
       # disks: the Scrutiny hub
       PERCH_DISKS_URL: ${PERCH_DISKS_URL}
       PERCH_DISKS_EVERY: ${PERCH_DISKS_EVERY}
-      # whiskers: Home Assistant on mochaPot
+      # whiskers: Home Assistant on cellar
       # whiskers off until the ESP32 sensors arrive (owner, 2026-10-04): uncomment to turn it on
-      # PERCH_WHISKERS_URL: ws://${MOCHAPOT_LAN_IP}:8123/api/websocket
+      # PERCH_WHISKERS_URL: ws://${CELLAR_LAN_IP}:8123/api/websocket
       PERCH_WHISKERS_TOKEN: ${PERCH_WHISKERS_TOKEN}
       PERCH_WHISKERS_ENTITIES: ${PERCH_WHISKERS_ENTITIES}
       PERCH_WHISKERS_EVERY: ${PERCH_WHISKERS_EVERY}

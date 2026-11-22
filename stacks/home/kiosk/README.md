@@ -12,8 +12,9 @@ cd ..
 sudo ./kiosk/setup-kiosk.sh
 ```
 
-Defaults `KIOSK_URL` to Home Assistant's own dashboard on this same node
-(`http://127.0.0.1:8123`, once `../homeassistant` is up) — point it at
+Defaults `KIOSK_URL` to Home Assistant's own dashboard on cellar, straight to
+its port (`http://192.168.1.12:8123`), so the screen needs neither DNS nor
+Traefik — point it at
 whatever dashboard view should actually be shown (a specific HA
 `lovelace` view URL, say) once that's decided; not the same thing as just
 "Home Assistant is running here."
