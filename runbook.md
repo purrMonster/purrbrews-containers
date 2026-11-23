@@ -160,6 +160,8 @@ Bluetooth. The x360 has a mixed pair (SK Hynix + G.Skill 3200, both at 2133).
   migration plan (both apps in phase 8, grinder's Traefik first), READMEs,
   MAP, carry-over map, `docs/image-upgrades.md` and `docs/recovery-kit.md`
   (OpenCloud's gate and secrets are on grinder).
+- grinder's `local.env.example` gains `LLDAP_ADMIN_GROUP` and
+  `LLDAP_HOUSEHOLD_GROUP` (same names as percolator's) for OpenCloud's roles.
 - Tests: the backup test finds Immich in grinder's plan; the DNS test sends
   `opencloud` and `immich` to `.14`.
 
