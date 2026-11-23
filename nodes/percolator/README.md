@@ -20,7 +20,6 @@ and shared household accounts. Radicale authenticates DAV directly against LLDAP
 | [LLDAP](../../stacks/identity/lldap/) | `lldap.${DOMAIN}` | Household accounts and groups |
 | [Authelia](../../stacks/identity/authelia/) | `authelia.${DOMAIN}` | Single sign-on for every app |
 | [Vaultwarden](../../stacks/apps/vaultwarden/) | `vault.${DOMAIN}` | Passwords |
-| [OpenCloud](../../stacks/apps/opencloud/) | `opencloud.${DOMAIN}` | Files through Authelia OIDC |
 | [Radicale](../../stacks/apps/radicale/) | `radicale.${DOMAIN}` | Calendars and contacts through LLDAP Basic auth |
 | [Paperless-ngx](../../stacks/apps/paperless/) | `paperless.${DOMAIN}` | Scanned documents |
 | [Mealie](../../stacks/apps/mealie/) | `mealie.${DOMAIN}` | Recipes and meal plans |
@@ -51,7 +50,7 @@ flowchart LR
       T --> DAV["Radicale"]
       DAV -->|LDAP| L
       A --- R[("Redis")]
-      T --> Apps["Vaultwarden · OpenCloud · Paperless<br/>Mealie · Vikunja · Actual · FreshRSS · Homepage · purrCafe"]
+      T --> Apps["Vaultwarden · Paperless<br/>Mealie · Vikunja · Actual · FreshRSS · Homepage · purrCafe"]
       Apps -->|"OIDC via authelia.DOMAIN<br/>(alias to Traefik)"| T
       Apps --- DB[("own Postgres / Valkey<br/>per app, private")]
     end
@@ -108,15 +107,15 @@ signal (in its README) before the next. "Container started" is not a success sig
 | 2b | `./compose.sh mail-relay up -d` (after the Purelymail app password: [its README](../../stacks/mail/mail-relay/README.md)) | `mail-relay` is `healthy`; `/srv/data/mail-relay/tls-public/ca.crt` exists |
 | 3 | `./compose.sh lldap up -d` then `./lldap-bootstrap.sh` in an interactive terminal | groups exist, `barista` created — **save the one-time password shown on the terminal** |
 | 4 | `./compose.sh authelia up -d` | log in at `https://authelia.${DOMAIN}` as `barista`; the Traefik dashboard opens; from sieve, `curl -s -o /dev/null -w '%{http_code}' http://192.168.1.11:9091/api/health` gives `200` |
-| 5+ | `./compose.sh <app> up -d` for radicale, opencloud, vaultwarden, paperless, mealie, vikunja, meowgram, actualbudget, freshrss, homepage, purrcafe | the app's README checklist |
+| 5+ | `./compose.sh <app> up -d` for radicale, vaultwarden, paperless, mealie, vikunja, meowgram, actualbudget, freshrss, homepage, purrcafe | the app's README checklist |
 | last | `./compose.sh komodo-periphery up -d`, `./compose.sh scrutiny-collector up -d` | percolator shows up in Komodo and Scrutiny on cellar (copy `komodo-periphery/keys/core.pub` from cellar first) |
 
 Once everything has been up once, `./compose.sh --all up -d` brings the whole node up
 in that order, and `./compose.sh --all down` takes it down in reverse.
 
 Radicale requires a dedicated read-only directory account before setup/render.
-OpenCloud initializes persistent internal IDs and credentials only on empty data;
-keep its generated config with its storage. Follow both app READMEs before use.
+Follow its README before use. (OpenCloud and Immich are on grinder since
+2026-11-23.)
 
 ## Scripts
 
@@ -154,8 +153,8 @@ LLDAP if they shouldn't reach the Traefik dashboard or be admin in Mealie.
 `<app>/secrets.env.local` and `<APP>_OIDC_CLIENT_SECRET_HASH` from
 `authelia/secrets.env.local`, then `./setup-secrets.sh`,
 `./compose.sh authelia up -d`, `./compose.sh <app> up -d`. Immich (on
-grinder) keeps the secret in its own settings too; paste the new one there. OpenCloud public
-clients have no OIDC client secrets.
+grinder) keeps the secret in its own settings too; paste the new one there. OpenCloud (also on
+grinder) has public clients only, so no OIDC client secrets.
 
 ## Ports
 
@@ -179,7 +178,6 @@ Everything lives under `/srv/data/<app>/` on the NVMe:
 | `lldap` | user directory (SQLite) | **yes** |
 | `authelia/data` | 2FA enrolments, consent (SQLite) | **yes** |
 | `vaultwarden` | vaults (SQLite), attachments | **yes** |
-| `opencloud/data`, `opencloud/config` | all file/identity metadata, content, generated config and keys | **yes**, together; restore test required |
 | `radicale/collections` | calendars, contacts and metadata | **yes** |
 | `paperless/{data,media,export}`, `paperless/postgres` | documents, database | **yes** (database as a dump) |
 | `mealie`, `vikunja`, `actualbudget`, `freshrss` | SQLite + files | **yes** |

@@ -33,10 +33,10 @@ machines stayed where they were.
 | Node | Machine | Network | RAM | Disk | Apps |
 |---|---|---|---|---|---|
 | `sieve` | ThinkCentre, living room | built-in | 8 GB (1 × 8) | 256 GB SATA SSD (2.5" bay) | **The network:** Unbound, Pi-hole (DNS and DHCP), cloudflared, Traefik for the edge, ntfy, Gatus, NetAlertX. Voice for its room |
-| `percolator` | ThinkCentre M710q, second room | built-in | 16 GB (2 × 8; one stick in so far) | **256 GB EVM NVMe** (OS and `/srv/data`) (2026-11-23) | **Ingress and sign-in:** Traefik, CrowdSec, the mail relay, LLDAP, Authelia. **The household apps:** Radicale, OpenCloud, Vaultwarden, Paperless, Mealie, Vikunja, meowGram, Actual, FreshRSS, Homepage, purrCafe. Voice for its room |
+| `percolator` | ThinkCentre M710q, second room | built-in | 16 GB (2 × 8; one stick in so far) | **256 GB EVM NVMe** (OS and `/srv/data`) (2026-11-23) | **Ingress and sign-in:** Traefik, CrowdSec, the mail relay, LLDAP, Authelia. **The household apps:** Radicale, Vaultwarden, Paperless, Mealie, Vikunja, meowGram, Actual, FreshRSS, Homepage, purrCafe. Voice for its room |
 | `cellar` | ThinkCentre, third room | built-in | 16 GB (2 × 8) | 256 GB SATA SSD (OS, 2.5" bay) + 1 TB NVMe (`/srv`: dump store, **the restic repository**) | **Backups** (the hub and the repository), Komodo, the Scrutiny hub, persianPerch, Samba. **Home Assistant.** Voice for its room |
 | `mochaPot` | x360 laptop, at the wall screen | USB adapter | 8 GB (1 × 8) | 128 GB M.2 SATA (the SanDisk) | The second Pi-hole (DNS only), Music Assistant, the kiosk |
-| `grinder` | x360 board, next to a switch | USB adapter | 16 GB (2 × 8) | **1 TB WD SN530 NVMe** (M.2) (2026-11-23) | **Photos: Immich** (2026-11-23). Automation and AI: n8n, LiteLLM, Immich ML, the embedding worker and its Postgres, Open WebUI, Karakeep, FitTrackee, Traccar, ESPHome, speedtest-tracker, pourOver |
+| `grinder` | x360 board, next to a switch | USB adapter | 16 GB (2 × 8) | **1 TB WD SN530 NVMe** (M.2) (2026-11-23) | **Photos and files: Immich, OpenCloud** (2026-11-23). Automation and AI: n8n, LiteLLM, Immich ML, the embedding worker and its Postgres, Open WebUI, Karakeep, FitTrackee, Traccar, ESPHome, speedtest-tracker, pourOver |
 
 Every node also runs the Komodo agent, the Scrutiny collector and Traefik (on
 sieve and percolator, their own edge and ingress Traefiks), and backs up to
@@ -82,11 +82,12 @@ percolator.** Then each node's failure takes down one kind of thing.
   so it needs neither DNS nor Traefik. If the USB adapter proves flaky, the
   secondary resolver moves to cellar (one word in two `node.conf` files,
   `DNS_SECONDARY` in `fleet.env`, and the Gatus check).
-- **grinder holds what can be shed, and Immich.** Immich moved here on
-  2026-11-23 (owner), when the disks stayed as installed: the 1 TB NVMe went
-  into the x360 and percolator kept the 256 GB, so the photos follow the big
-  disk and sit beside their machine learning. It is the one household app
-  that goes down with grinder; everything else on it can be shed.
+- **grinder holds what can be shed, and the two apps that grow.** Immich and
+  OpenCloud moved here on 2026-11-23 (owner), when the disks stayed as
+  installed: the 1 TB NVMe went into the x360 and percolator kept the 256 GB,
+  so photos and files follow the big disk (Immich beside its machine
+  learning). They are the household apps that go down with grinder;
+  everything else on it can be shed. Both still sign in through percolator.
 
 Home Assistant on a ThinkCentre loses one thing: the laptop's built-in
 Bluetooth. Whether the ThinkCentres have Bluetooth is not known yet
@@ -98,10 +99,10 @@ needs it, a USB Bluetooth adapter or an ESPHome Bluetooth proxy covers it.
 | Down | Stops | Keeps working |
 |---|---|---|
 | sieve | New DHCP leases (devices keep theirs until they expire); every public hostname (the tunnel); alerts and Gatus; the living room's voice | Name resolution, through mochaPot's Pi-hole (slowly: clients wait out the primary first). Everything else by address on the LAN; Home Assistant |
-| percolator | Sign-in, and with it every page behind Authelia on any node (on grinder, Immich's *Login with Authelia*; its own passwords still work); the household apps; the second room's voice | Home Assistant (its local account; and the kiosk), music, DNS and DHCP, alerts, backups. Komodo and Scrutiny on their own ports |
+| percolator | Sign-in, and with it every page behind Authelia on any node (on grinder too: OpenCloud, and Immich's *Login with Authelia*, though its own passwords still work); the household apps; the second room's voice | Home Assistant (its local account; and the kiosk), music, DNS and DHCP, alerts, backups. Komodo and Scrutiny on their own ports |
 | cellar | Home Assistant and the voice assistants in every room; the kiosk's dashboard; backups (the nightly runs fail and say so); Komodo, Scrutiny, persianPerch | Sign-in and the household apps, DNS and DHCP, the tunnel, alerts, music |
 | mochaPot | The second resolver, music, the wall screen | Everything else |
-| grinder | Immich (photos and phone backup), n8n's automations, the AI chat and LiteLLM, Karakeep, FitTrackee, Traccar, the ESPHome dashboard (devices keep working with Home Assistant), speed tests | Everything else |
+| grinder | Immich (photos and phone backup), OpenCloud (files and sync), n8n's automations, the AI chat and LiteLLM, Karakeep, FitTrackee, Traccar, the ESPHome dashboard (devices keep working with Home Assistant), speed tests | Everything else |
 | Power cut | Everything but mochaPot, unless the router and switches are on a UPS | mochaPot's resolver, for whatever still has power |
 
 cellar now carries two things the house notices (Home Assistant and backups),
@@ -116,10 +117,10 @@ numbers once they run. Swap is on every node.
 | Node | RAM | Expected use | Heaviest |
 |---|---|---|---|
 | sieve | 8 GB | 2–3 GB | Whisper's model, NetAlertX |
-| percolator | 16 GB (8 until the second stick) | 7–9 GB | Paperless, OpenCloud, Whisper |
+| percolator | 16 GB (8 until the second stick) | 6–8 GB | Paperless, Authelia and LLDAP, Whisper |
 | cellar | 16 GB | 5–7 GB, more during a prune | Komodo and its database, Home Assistant and its Postgres, restic at night |
 | mochaPot | 8 GB | about 2 GB | Chromium for the kiosk, Music Assistant |
-| grinder | 16 GB | 10–13 GB | Immich and its Postgres, Immich ML with its models loaded, Open WebUI, the embedding worker, Karakeep's Chrome |
+| grinder | 16 GB | 11–14 GB | Immich and its Postgres, OpenCloud, Immich ML with its models loaded, Open WebUI, the embedding worker, Karakeep's Chrome |
 
 All five CPUs are two-core 7th-gen chips, which matters more than memory:
 percolator's Whisper is the model to size with care (docs/voice.md), and
@@ -130,13 +131,12 @@ Immich's and Paperless's first imports are best left to run overnight.
 - **The ThinkCentres don't boot from the 128 GB M.2 SATA drives** (owner,
   2026-11-18), so those stay with the x360s: mochaPot's, and the spare.
 - **grinder runs on a 1 TB WD SN530 NVMe** (as installed, owner 2026-11-23;
-  the 2026-11-22 plan gave it the 256 GB). It holds Immich's library, the one
-  thing in the fleet that grows by the gigabyte. Its 2.5" bay stays free.
+  the 2026-11-22 plan gave it the 256 GB). It holds Immich's library and OpenCloud's
+  files, the two things in the fleet that grow by the gigabyte. Its 2.5" bay stays free.
 - **sieve runs on a 256 GB SATA SSD** in its 2.5" bay (owner, 2026-11-18).
 - **percolator runs on the 256 GB EVM NVMe alone** (as installed, owner
   2026-11-23; cellar's old system disk). OS and household data share it: about
-  229 GB, with OpenCloud's files the thing to watch now that Immich is on
-  grinder. The old Seagate 1 TB HDD is in its bay for now, holding an
+  229 GB, ample now that Immich and OpenCloud are on grinder. The old Seagate 1 TB HDD is in its bay for now, holding an
   installer image; it is still meant for the offline copies.
 - **cellar gets the second 1 TB NVMe and a second stick** because it holds the
   restic repository that used to live on roastery. Debian went onto the second

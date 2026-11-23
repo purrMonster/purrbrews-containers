@@ -43,9 +43,6 @@ ingress:
   - hostname: radicale.${DOMAIN}
     service: https://${PERCOLATOR_LAN_IP}:443
     originRequest: {originServerName: radicale.${DOMAIN}}
-  - hostname: opencloud.${DOMAIN}
-    service: https://${PERCOLATOR_LAN_IP}:443
-    originRequest: {originServerName: opencloud.${DOMAIN}}
   - hostname: paperless.${DOMAIN}
     service: https://${PERCOLATOR_LAN_IP}:443
     originRequest: {originServerName: paperless.${DOMAIN}}
@@ -90,6 +87,9 @@ ingress:
   - hostname: immich.${DOMAIN}
     service: https://${GRINDER_LAN_IP}:443
     originRequest: {originServerName: immich.${DOMAIN}}
+  - hostname: opencloud.${DOMAIN}
+    service: https://${GRINDER_LAN_IP}:443
+    originRequest: {originServerName: opencloud.${DOMAIN}}
   - hostname: chat.${DOMAIN}
     service: https://${GRINDER_LAN_IP}:443
     originRequest: {originServerName: chat.${DOMAIN}}

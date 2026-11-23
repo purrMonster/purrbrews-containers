@@ -134,7 +134,7 @@ with a new one instead, the data stays unreadable.
 | `FRESHRSS_OIDC_CRYPTO_KEY` | percolator/freshrss | FreshRSS's OIDC sign-in |
 | `SPEEDTEST_TRACKER_APP_KEY` | grinder/speedtest-tracker | its encrypted settings |
 | `KOMODO_DATABASE_PASSWORD`, `KOMODO_JWT_SECRET` | cellar/komodo | Komodo's database and sessions |
-| `OPENCLOUD_JWT_SECRET`, `OPENCLOUD_TRANSFER_SECRET`, `OPENCLOUD_MACHINE_AUTH_API_KEY`, `OPENCLOUD_SYSTEM_USER_API_KEY`, `OPENCLOUD_URL_SIGNING_SECRET` | percolator/opencloud | restore with its generated config and data |
+| `OPENCLOUD_JWT_SECRET`, `OPENCLOUD_TRANSFER_SECRET`, `OPENCLOUD_MACHINE_AUTH_API_KEY`, `OPENCLOUD_SYSTEM_USER_API_KEY`, `OPENCLOUD_URL_SIGNING_SECRET` | grinder/opencloud | restore with its generated config and data |
 | `CAFE_APP_ENCRYPTION_KEY` | percolator/purrcafe | saved mailboxes can't be read |
 | `CAFE_ACTUAL_ENCRYPTION_PASSWORD` | percolator/purrcafe | the budget file's end-to-end encryption password, if it has one: lose it and the budget can't be opened |
 

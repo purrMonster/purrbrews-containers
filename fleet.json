@@ -16,8 +16,7 @@
       "optional": [],
       "prerequisites": [
         "Initial LLDAP users and groups bootstrapped before routine deployment.",
-        "Verified data backup available before application upgrades.",
-        "OpenCloud pinned major acknowledged with OPENCLOUD_UPGRADE_READY after verified config/data backup and migration rehearsal."
+        "Verified data backup available before application upgrades."
       ]
     },
     "cellar": {
@@ -53,6 +52,7 @@
         "Karakeep browser and Meilisearch migration rehearsed on a restored copy; see docs/image-upgrades.md.",
         "Komodo Core public key installed.",
         "Immich server (stacks/apps/immich) and immich-ml on the same version.",
+        "OpenCloud pinned major acknowledged with OPENCLOUD_UPGRADE_READY after verified config/data backup and migration rehearsal.",
         "litellm: the cloud model and its API key chosen (stacks/ai/litellm/README.md).",
         "pourOver: its LLM service account and both Vikunja tokens exist (stacks/automation/pourover/README.md)."
       ]

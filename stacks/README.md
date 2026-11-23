@@ -59,7 +59,7 @@ but have settings or templates (`restic` on every node, `kiosk` on mochaPot).
 | `percolator` | Ingress, identity (SSO) and the daily apps | [nodes/percolator](../nodes/percolator/README.md) |
 | `cellar` | Backups (the repository too, since the rebuild), file shares, Komodo, the Scrutiny hub, Home Assistant | [nodes/cellar](../nodes/cellar/README.md) |
 | `mochaPot` | Music, the wall screen, secondary DNS | [nodes/mochaPot](../nodes/mochaPot/README.md) |
-| `grinder` | Automation, AI (LiteLLM, Immich ML), photos (Immich), self-tracking | [nodes/grinder](../nodes/grinder/README.md) |
+| `grinder` | Automation, AI (LiteLLM, Immich ML), photos (Immich), files (OpenCloud), self-tracking | [nodes/grinder](../nodes/grinder/README.md) |
 
 roastery, the Windows workstation, is out of the fleet; its stacks and PowerShell
 twins are under [`../deprecated/`](../deprecated/ABOUT.md).

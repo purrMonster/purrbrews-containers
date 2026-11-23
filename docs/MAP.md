@@ -35,7 +35,7 @@ _Last updated: 2026-11-16 (the rebuild after the move)_
 | percolator | .11 | Ingress and identity (Traefik, Authelia, LLDAP) and the household apps | [nodes/percolator](../nodes/percolator/README.md) |
 | cellar | .12 | Backup hub and repository, Scrutiny hub, Komodo, Home Assistant | [nodes/cellar](../nodes/cellar/README.md) |
 | mochaPot | .13 | Music Assistant, secondary Pi-hole, kiosk | [nodes/mochaPot](../nodes/mochaPot/README.md) |
-| grinder | .14 | Automation and AI: n8n, pgvector, LiteLLM, Open WebUI, Immich and Immich ML, self-tracking | [nodes/grinder](../nodes/grinder/README.md) |
+| grinder | .14 | Automation and AI: n8n, pgvector, LiteLLM, Open WebUI, Immich and Immich ML, OpenCloud, self-tracking | [nodes/grinder](../nodes/grinder/README.md) |
 
 ## Stack groups
 
@@ -57,7 +57,7 @@ _Last updated: 2026-11-16 (the rebuild after the move)_
 | Kind of thing | App | Node |
 |---|---|---|
 | Passwords | Vaultwarden | percolator |
-| Files | OpenCloud | percolator |
+| Files | OpenCloud | grinder |
 | Calendars, contacts | Radicale | percolator |
 | Photos | Immich | grinder |
 | Documents | Paperless-ngx | percolator |

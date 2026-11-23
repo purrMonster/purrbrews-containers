@@ -41,7 +41,7 @@ start a version that hasn't been acknowledged in the node's `.env.local`.
 
 | App (node) | Key in `.env.local` | Acknowledge |
 |---|---|---|
-| OpenCloud (percolator) | `OPENCLOUD_UPGRADE_READY` | the pinned major, e.g. `9` |
+| OpenCloud (grinder) | `OPENCLOUD_UPGRADE_READY` | the pinned major, e.g. `9` |
 | Meilisearch for Karakeep (grinder) | `KARAKEEP_SEARCH_UPGRADE_READY` | the version, e.g. `1.55.0` |
 | Traccar (grinder) | `TRACCAR_UPGRADE_READY` | the version, e.g. `6.16` |
 | Open WebUI (grinder) | `OPENWEBUI_UPGRADE_READY` | the version, e.g. `0.11.4` |
@@ -87,7 +87,7 @@ major can be skipped or that replacing the image performs every migration.
 2. Pin the target tag and digest with `scripts/images.py`. Compare the generated
    config with the target's defaults and apply the version-specific migration
    instructions; never run forced initialization over existing identity state.
-3. Set `OPENCLOUD_UPGRADE_READY` in percolator's `.env.local` to the pinned major
+3. Set `OPENCLOUD_UPGRADE_READY` in grinder's `.env.local` to the pinned major
    printed by the gate, then `./compose.sh opencloud up -d`.
 4. Verify admin/household OIDC, bot app-token DAV, file checksums, shares, iOS
    Files integration and desktop sync, then repeat the restore check.

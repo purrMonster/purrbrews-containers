@@ -102,7 +102,7 @@ class DNS(unittest.TestCase):
     def test_actual_routes(self):
         # Which node answers for a name comes from node.conf: the node whose APPS runs the app.
         lines, hosts = dns.records(ROOT, 'example.test', io.StringIO(FLEET), '192.168.1.20 americano')
-        for host, ip in [('authelia', 11), ('opencloud', 11), ('radicale', 11), ('komodo', 12), ('homeassistant', 12),
+        for host, ip in [('authelia', 11), ('opencloud', 14), ('immich', 14), ('radicale', 11), ('komodo', 12), ('homeassistant', 12),
                          ('n8n', 14), ('llm', 14), ('pihole', 10), ('pihole-mochapot', 13)]:
             self.assertIn(f'address=/{host}.example.test/192.168.1.{ip}', lines)
             self.assertIn(f'local=/{host}.example.test/', lines)

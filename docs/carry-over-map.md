@@ -47,7 +47,7 @@ Nothing in this table has run on a node since the move. "Not run" in the
 | App | Old path | New path | Runs on | Status | What changed, what is left |
 |---|---|---|---|---|---|
 | Vaultwarden | `stacks/percolator/vaultwarden` | `stacks/apps/vaultwarden` | percolator | Carried | Needs the relay bundle |
-| OpenCloud | `stacks/percolator/opencloud` | `stacks/apps/opencloud` | percolator | Carried | Upgrade gate: a fresh install records its version itself |
+| OpenCloud | `stacks/percolator/opencloud` | `stacks/apps/opencloud` | grinder | Carried | Moved to grinder with Immich (2026-11-23). Upgrade gate: a fresh install records its version itself |
 | Radicale | `stacks/percolator/radicale` | `stacks/apps/radicale` | percolator | Carried | Needs `scottishfold` in LLDAP |
 | Immich | `stacks/percolator/immich` | `stacks/apps/immich` | grinder | Changed | Moved to grinder with its ML (2026-11-23); ML by container name, no `IMMICH_ML_URL`. v3.3.3 was merged but never deployed on the old fleet |
 | Paperless-ngx | `stacks/percolator/paperless` | `stacks/apps/paperless` | percolator | Carried | Needs the relay bundle |

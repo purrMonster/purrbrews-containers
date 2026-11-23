@@ -55,7 +55,7 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - [x] First CI run on this layout: `tests` passed on PR #92's head c024bd3, including the root-only run (checked 2026-11-17 16:25 UTC)
 - [x] OpenCloud to 9.1.1, the production line (owner asked, 2026-11-17; notes read, `docs/image-updates-2026-11.md`)
 - [ ] n8n 3.x: only betas so far (2.48.4 is the newest stable); move once a stable 3.x is out, planned for early December. Check its SSRF list against tailnet addresses (`docs/image-updates-2026-11.md`)
-- [ ] OpenCloud 9.1: check the custom CSP lets Excalidraw, Apollon and previews load (phase 6)
+- [ ] OpenCloud 9.1: check the custom CSP lets Excalidraw, Apollon and previews load (phase 8, on grinder)
 
 **Phases 2 and 3: sieve, cellar** (phases renumbered 2026-11-22: backups are now 4, before percolator)
 
@@ -99,9 +99,9 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - [ ] percolator's household apps, one at a time, empty, each with a night's backup behind it
 - [ ] cellar: Home Assistant with `trusted_proxies` for cellar's subnet (`172.30.12.0/24`), signing in through Authelia and locally; Bluetooth checked (`bluetoothctl list`)
 - [ ] mochaPot: secondary Pi-hole, Music Assistant, the merged Traefik checked with host-networked apps, the kiosk showing Home Assistant on cellar
-- [ ] grinder: LiteLLM healthy and `llm.${DOMAIN}` refusing a request without credentials; Open WebUI answering; Immich up with its ML, port 3003 unreachable from other nodes
+- [ ] grinder: LiteLLM healthy and `llm.${DOMAIN}` refusing a request without credentials; Open WebUI answering; Immich up with its ML, port 3003 unreachable from other nodes; OpenCloud signing in through Authelia
 - [ ] pourOver's planning tried against the cloud model before it is switched on
-- [ ] CrowdSec or not in front of Immich on grinder, before its tunnel route goes live (owner)
+- [ ] CrowdSec or not in front of Immich and OpenCloud on grinder, before their tunnel routes go live (owner)
 
 **Phases 9 to 11**
 
@@ -114,7 +114,7 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - [ ] W6: node READMEs rewritten; roastery wording swept from app READMEs and comments
 - [ ] Carried from the old Backlog, still open: `barista` in the `docker` group; Samba, shares or gone; a bot identity for agents' commits; the merged branches on GitHub (owner)
 
-## 2026-11-23 — percolator and grinder surveyed; disks as installed; Immich to grinder
+## 2026-11-23 — percolator and grinder surveyed; disks as installed; Immich and OpenCloud to grinder
 
 **What.** The owner ran a hardware survey on two machines (pasted in chat,
 2026-11-23 IST) and decided, in chat at 22:11 and 22:13 IST:
@@ -127,6 +127,8 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
   percolator's 2.5" bay for now, holding an installer image.
 - **Immich moves from percolator to grinder**, onto the big disk and beside
   its machine learning.
+- **OpenCloud follows it** (owner, 22:31 IST), for the same disk: with both on
+  grinder, percolator's 256 GB holds only small, slow-growing data.
 
 The owner had also weighed percolator on the x360; Claude advised against it
 (same CPU class, all ingress through a USB adapter, the voice rooms) and the
@@ -139,7 +141,10 @@ Bluetooth. The x360 has a mixed pair (SK Hynix + G.Skill 3200, both at 2133).
 
 **Changed** (`claude/immich-to-grinder`):
 
-- `immich` out of percolator's `node.conf`, into grinder's after `immich-ml`.
+- `immich` and `opencloud` out of percolator's `node.conf`, into grinder's
+  after `immich-ml`. OpenCloud keeps `OC_OIDC_ISSUER` on Authelia, now
+  reached through Pi-hole's record; its router names the `cloudflare`
+  resolver; its upgrade-gate prerequisite moves to grinder in `fleet.json`.
 - Immich reaches its ML as `immich-machine-learning:3003` on grinder's `proxy`
   network; `IMMICH_ML_URL` is gone. immich-ml publishes no port and its
   `firewall` file is removed.
@@ -151,18 +156,22 @@ Bluetooth. The x360 has a mixed pair (SK Hynix + G.Skill 3200, both at 2133).
   60 s; Immich's router names the `cloudflare` resolver.
 - The tunnel route and the Gatus check point at grinder; Pi-hole's record
   follows on the next render on sieve and mochaPot.
-- `docs/hardware.md` (both rows, the failure and memory tables, disks),
-  the migration plan (Immich in phase 8), READMEs, MAP, carry-over map; the
-  backup test now finds Immich in grinder's plan.
+- `docs/hardware.md` (both rows, the failure and memory tables, disks), the
+  migration plan (both apps in phase 8, grinder's Traefik first), READMEs,
+  MAP, carry-over map, `docs/image-upgrades.md` and `docs/recovery-kit.md`
+  (OpenCloud's gate and secrets are on grinder).
+- Tests: the backup test finds Immich in grinder's plan; the DNS test sends
+  `opencloud` and `immich` to `.14`.
 
 **Open**
 
 - percolator's second stick (16 GB planned; one in).
-- No CrowdSec in front of Immich on grinder (Backlog).
+- No CrowdSec in front of Immich or OpenCloud on grinder (Backlog).
 - The Seagate: still meant for the offline copies; long SMART test and wipe.
 
-**Undo.** Revert the commit: Immich returns to percolator with
-`IMMICH_ML_URL=http://192.168.1.14:3003` and immich-ml's firewall file.
+**Undo.** Revert the branch's commits: Immich and OpenCloud return to
+percolator, Immich with `IMMICH_ML_URL=http://192.168.1.14:3003` and
+immich-ml's firewall file.
 
 ## 2026-11-22 — Layout by failure: Home Assistant to cellar; disks recounted; backups before percolator
 

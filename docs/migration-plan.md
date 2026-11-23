@@ -167,9 +167,9 @@ reachable on their own ports while Authelia is down, as designed.
 
 ## Phase 6: percolator, the household apps
 
-One app at a time, in `node.conf` order: radicale, opencloud, vaultwarden,
-paperless, mealie, vikunja, meowgram, actualbudget, freshrss, purrcafe.
-(Immich moved to grinder on 2026-11-23: phase 8.)
+One app at a time, in `node.conf` order: radicale, vaultwarden, paperless,
+mealie, vikunja, meowgram, actualbudget, freshrss, purrcafe. (Immich and
+OpenCloud moved to grinder on 2026-11-23: phase 8.)
 
 Every app starts empty (owner, 2026-11-17). For each: bring it up, run its
 README's checklist, add or confirm its Gatus check, and let one night's backup
@@ -218,10 +218,13 @@ stopping sieve's Pi-hole for a minute leaves name resolution working.
 3. `litellm` ([its README](../stacks/ai/litellm/README.md)): healthy, and
    `llm.${DOMAIN}` answers 401 to a request without credentials. Then
    `openwebui`: the model `default` is listed and answers.
-4. `immich-ml`, then `immich` (copy the mail relay's `ca.crt` from percolator
-   first: [its README](../stacks/apps/immich/README.md)). Its checklist; confirm
-   3003 is not reachable from another node. Start Immich's jobs and watch
-   grinder's load for a day; one night's backup before the household uses it.
+4. `traefik` early this time (the next two have no direct port). Then
+   `immich-ml` and `immich` (copy the mail relay's `ca.crt` from percolator
+   first: [its README](../stacks/apps/immich/README.md)): its checklist;
+   confirm 3003 is not reachable from another node; start Immich's jobs and
+   watch grinder's load for a day. Then `opencloud`: its README's checklist,
+   the CSP check from the Backlog. One night's backup behind each before the
+   household uses it.
 5. The self-tracking apps, `esphome`, `speedtest-tracker`, `traefik` and the
    agents. Backups, as on every node.
 6. `pourover`, last and only if wanted (`--include-optional pourover`): try
