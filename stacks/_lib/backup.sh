@@ -430,11 +430,24 @@ cmd_push() {
   log "Pushing $NODE_DUMPS → dumps@$DUMP_STORE_HOST"
   # cellar pins this key to `rrsync -wo <DUMP_DIR>/<node>`, so the far side
   # of the path is already this node's folder there and nothing else.
-  # --delay-updates: the store never holds half of tonight's set.
-  rsync -rt --delete --delay-updates --partial-dir=.rsync-partial \
-    --exclude='*.partial' \
+  # No --delay-updates or --partial-dir: with Debian 13's rsync the receiver
+  # failed to create the partial dir, discarded every file and still exited 0
+  # (sieve, 2026-11-23). Each file still lands whole (rsync writes a temporary
+  # file and renames it); a night's dumps are independent of each other.
+  # rsync's exit code can't be trusted to catch a discarded file, so anything
+  # it says on stderr fails the push too. rrsync -wo can't be read back.
+  local err rc=0
+  err="$(mktemp)"
+  rsync -rt --delete --exclude='*.partial' \
     -e "ssh ${BACKUP_SSH_OPTS[*]}" \
-    "$NODE_DUMPS/" "dumps@$DUMP_STORE_HOST:./"
+    "$NODE_DUMPS/" "dumps@$DUMP_STORE_HOST:./" 2> >(tee "$err" >&2) || rc=$?
+  wait
+  if [[ $rc -ne 0 ]] || grep -q -i -E 'discarding|unable to|error|failed' "$err"; then
+    rm -f "$err"
+    warn "pushing the dumps to $DUMP_STORE_HOST failed (rsync exit $rc; its messages are above)"
+    return 1
+  fi
+  rm -f "$err"
 }
 
 # ── files / store ────────────────────────────────────────────────────────────
