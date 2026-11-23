@@ -951,7 +951,10 @@ class Backup(unittest.TestCase):
         (data / 'vaultwarden/icon_cache/a.png').write_text('png')
         (root / '.env').write_text(f'NODE_IP=192.168.1.11\nDATA_DIR={data}\n')
         node = root / 'nodes/percolator'
-        node.joinpath('node.conf').write_text('APPS=(vaultwarden)\n')
+        # netalertx has never run here (no data at all): left out, not a failure.
+        # persian-perch has run but its optional database isn't there yet.
+        (data / 'persian-perch').mkdir()
+        node.joinpath('node.conf').write_text('APPS=(vaultwarden netalertx persian-perch)\n')
         (node / '.env.local').write_text(f'BACKUP_REPOSITORY={repo}\nDUMP_DIR={dumps}\nDUMP_STORE_HOST=192.168.1.11\n')
         (app('restic', root) / 'secrets.env.local').write_text('RESTIC_PASSWORD=test\n')
         env = dict(os.environ, BACKUP_KEY=str(tmp / 'key'), BACKUP_ETC=str(tmp / 'etc'),
@@ -969,8 +972,15 @@ class Backup(unittest.TestCase):
         self.assertNotIn('db.sqlite3', listing)   # the live database: the dump has it
         self.assertNotIn('icon_cache', listing)
         self.assertIn('.env.local', listing)      # the node's own settings always go
+        self.assertIn('not started on this node yet, so not backed up: netalertx', result.stdout)
+        self.assertIn('persian-perch/persian-perch: nothing at', result.stdout)
         store = subprocess.run(['bash', str(node / 'backup.sh'), 'store'], env=env, capture_output=True, text=True)
         self.assertEqual(store.returncode, 0, store.stderr)
+        # Once an app has run, its missing files fail the night again.
+        (data / 'netalertx').mkdir()
+        again = subprocess.run(['bash', str(node / 'backup.sh'), 'nightly'], env=env, capture_output=True, text=True)
+        self.assertNotEqual(again.returncode, 0, again.stdout)
+        self.assertIn('netalertx', again.stdout + again.stderr)
 
     @unittest.skipUnless(AS_ROOT and all(shutil.which(c) for c in ['restic', 'rclone', 'flock']),
                          'needs root, restic, rclone and flock')

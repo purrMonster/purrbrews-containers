@@ -78,6 +78,9 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - [x] The repository account's name: `burmilla` (owner, 2026-11-18); in `BACKUP_REPOSITORY`, `stacks/fleet.env`
 - [ ] On cellar before phase 4: `/srv` is on the NVMe (`findmnt /srv`), then `sudo ./restic/repo-setup.sh --check`
 - [ ] A new repository (`restic init`); password and crypt keys into the recovery kit the same day
+- [x] cellar: `backup.sh install`, secrets generated, `repo-setup.sh --check` showed `burmilla` chrooted to `/srv/backup` with cellar's key (2026-11-23 21:28 IST); repository opened, and cellar's first files snapshot saved (`89716cdf`, 21:41 IST)
+- [ ] cellar's first `enable` stopped on "dump failed": persianPerch's optional SQLite wasn't there, and a plain path that doesn't exist slipped past the optional check (`setpriv: failed to parse reuid`). Fixed, with a test; re-run `enable` after the pull
+- [ ] sieve's doctor failed on NetAlertX's data: in sieve's `APPS` but never started. backup.sh now leaves out apps that have never run on the node (a note in the log), so bringing apps up one at a time doesn't break the nights. Re-run `enable` after the pull
 - [ ] sieve and cellar: install, keys, doctor, one nightly by hand, enable; every later node the same in its own phase
 - [ ] A restore test, and the Drive copy read back
 - [ ] Long SMART self-test on both old HDDs before they hold the offline copies
