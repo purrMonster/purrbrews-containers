@@ -46,10 +46,10 @@ Nodes are named after coffee gear. Hardware and rooms: [`docs/hardware.md`](docs
 | Node | Address | Machine | Role |
 |---|---|---|---|
 | [`sieve`](nodes/sieve/README.md) | 192.168.1.10 | ThinkCentre, by the router | Pi-hole DNS and DHCP, Unbound, the Cloudflare tunnel, ntfy, Gatus |
-| [`percolator`](nodes/percolator/README.md) | 192.168.1.11 | ThinkCentre | Traefik, CrowdSec, LLDAP, Authelia, and the household apps (Vaultwarden, OpenCloud, Radicale, Immich, Paperless-ngx, Mealie, Vikunja, Actual Budget, FreshRSS, meowGram) |
+| [`percolator`](nodes/percolator/README.md) | 192.168.1.11 | ThinkCentre | Traefik, CrowdSec, LLDAP, Authelia, and the household apps (Vaultwarden, OpenCloud, Radicale, Paperless-ngx, Mealie, Vikunja, Actual Budget, FreshRSS, meowGram) |
 | [`cellar`](nodes/cellar/README.md) | 192.168.1.12 | ThinkCentre | Backups and their repository, Komodo, the Scrutiny hub, Home Assistant |
 | [`mochaPot`](nodes/mochaPot/README.md) | 192.168.1.13 | Laptop with a touchscreen | Music Assistant, the second Pi-hole, the wall screen |
-| [`grinder`](nodes/grinder/README.md) | 192.168.1.14 | Bare laptop board | n8n, pgvector, LiteLLM (a cloud model behind one address), Open WebUI, Immich's machine learning, Karakeep, FitTrackee, Traccar, ESPHome |
+| [`grinder`](nodes/grinder/README.md) | 192.168.1.14 | HP x360 | n8n, pgvector, LiteLLM (a cloud model behind one address), Open WebUI, Immich and its machine learning, Karakeep, FitTrackee, Traccar, ESPHome |
 
 Every node also runs its own Traefik, a Komodo agent and a Scrutiny collector.
 

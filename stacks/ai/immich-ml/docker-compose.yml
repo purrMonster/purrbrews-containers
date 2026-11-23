@@ -1,15 +1,16 @@
-# immich-machine-learning for percolator's Immich: face recognition and smart
-# search. It ran on roastery's GPU until the 2026-11 rebuild; with roastery out
-# it runs here on grinder's CPU, so percolator (the busiest node) doesn't. On
-# an i5 that is slow but steady: the first pass over the library takes days,
-# new uploads minutes.
+# immich-machine-learning for Immich: face recognition and smart search. It
+# ran on roastery's GPU until the 2026-11 rebuild; with roastery out it runs on
+# grinder's CPU, next to Immich itself (both moved here from percolator,
+# owner 2026-11-23). On an i5 that is slow but steady: the first pass over the
+# library takes days, new uploads minutes.
 #
 # The tag must match immich-server exactly (stacks/apps/immich). Bump both
 # together.
 #
 # It has no authentication at all ("no security measures whatsoever", in
-# Immich's words). The only guard is this app's firewall file, which lets
-# percolator, and only percolator, reach 3003.
+# Immich's words). So it publishes no port: immich-server reaches it as
+# immich-machine-learning:3003 on grinder's proxy network, and nothing off
+# this machine can.
 #
 # Image: ghcr.io/immich-app/immich-machine-learning (the plain CPU build;
 # digest from the registry, 2026-11-16).
@@ -23,8 +24,6 @@ services:
     volumes:
       # Model weights: downloaded on first use, safe to delete.
       - ${DATA_DIR:?}/immich-ml/model-cache:/cache
-    ports:
-      - "3003:3003"
     security_opt: [no-new-privileges:true]
     # No healthcheck here because the image has its own (`python3
     # healthcheck.py`, read from the image config 2026-10-08), so

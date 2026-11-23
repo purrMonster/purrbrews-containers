@@ -36,6 +36,7 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - [x] The drives as planned in `docs/hardware.md` (owner, 2026-11-18 23:33 IST: "the count is okay as is for now"); not listed by label. If one turns out different at install, the table changes then
 - [x] The router's address, and that its DHCP turns off: `192.168.1.1` (matches `GATEWAY` in stacks/fleet.env), and yes, it can be turned off (owner, 2026-11-18 23:23 IST). It stays on until sieve takes over in phase 2
 - [x] The router's DHCP pool is `192.168.1.33`–`.249` (owner, 2026-11-18 23:40 IST): clear of the nodes' `.10`–`.14`, so sieve can take `.10` while the router still hands out leases
+- [x] percolator and grinder surveyed (owner's script, 2026-11-23 entry): disks as installed, one stick in percolator so far
 - [ ] purrbrews-bootstrap running on americano with americano's key in it (owner)
 - [x] W1: the payload is written (`payload/`, 2026-11-18). Tests run four of its steps as root; none of it has run on a machine yet
 - [x] Serve the payload from americano: purrbrews-bootstrap 1.1.0 in `~/Desktop/Tools/purrbrews-bootstrap`, the payload from a deployment checkout of main in `~/Desktop/Tools/purrbrews-containers`. `/files/SHA256SUMS` lists README.md, lib/fleet.sh and lib/net-apply.sh with main's hashes (owner's output, compared 2026-11-19 00:02 IST)
@@ -98,9 +99,9 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - [ ] percolator's household apps, one at a time, empty, each with a night's backup behind it
 - [ ] cellar: Home Assistant with `trusted_proxies` for cellar's subnet (`172.30.12.0/24`), signing in through Authelia and locally; Bluetooth checked (`bluetoothctl list`)
 - [ ] mochaPot: secondary Pi-hole, Music Assistant, the merged Traefik checked with host-networked apps, the kiosk showing Home Assistant on cellar
-- [ ] grinder: LiteLLM healthy and `llm.${DOMAIN}` refusing a request without credentials; Open WebUI answering; Immich ML reachable from percolator only
+- [ ] grinder: LiteLLM healthy and `llm.${DOMAIN}` refusing a request without credentials; Open WebUI answering; Immich up with its ML, port 3003 unreachable from other nodes
 - [ ] pourOver's planning tried against the cloud model before it is switched on
-- [ ] Gatus: a check for Immich ML's port
+- [ ] CrowdSec or not in front of Immich on grinder, before its tunnel route goes live (owner)
 
 **Phases 9 to 11**
 
@@ -112,6 +113,56 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - [ ] Two-factor in Authelia once every account has enrolled
 - [ ] W6: node READMEs rewritten; roastery wording swept from app READMEs and comments
 - [ ] Carried from the old Backlog, still open: `barista` in the `docker` group; Samba, shares or gone; a bot identity for agents' commits; the merged branches on GitHub (owner)
+
+## 2026-11-23 — percolator and grinder surveyed; disks as installed; Immich to grinder
+
+**What.** The owner ran a hardware survey on two machines (pasted in chat,
+2026-11-23 IST) and decided, in chat at 22:11 and 22:13 IST:
+
+- The ThinkCentre M710q now at `192.168.1.163` (DHCP) is **percolator**; the
+  HP x360 at `192.168.1.119` (USB adapter, no Wi-Fi: the board) is **grinder**.
+- **The disks stay as installed**, which swaps the 2026-11-22 plan's two:
+  percolator boots from the 256 GB EVM NVMe (cellar's old system disk),
+  grinder from a 1 TB WD SN530 NVMe. The old Seagate ST1000LM035 is in
+  percolator's 2.5" bay for now, holding an installer image.
+- **Immich moves from percolator to grinder**, onto the big disk and beside
+  its machine learning.
+
+The owner had also weighed percolator on the x360; Claude advised against it
+(same CPU class, all ingress through a USB adapter, the voice rooms) and the
+owner kept percolator on the ThinkCentre.
+
+**What the surveys showed** (`docs/hardware.md`, "Checked on the machines"):
+both UEFI, Debian 13, kernel 6.12.117, AVX, SSH up with password login still
+on, clocks synced. The M710q has one 8 GB stick (ChannelB empty) and Intel
+Bluetooth. The x360 has a mixed pair (SK Hynix + G.Skill 3200, both at 2133).
+
+**Changed** (`claude/immich-to-grinder`):
+
+- `immich` out of percolator's `node.conf`, into grinder's after `immich-ml`.
+- Immich reaches its ML as `immich-machine-learning:3003` on grinder's `proxy`
+  network; `IMMICH_ML_URL` is gone. immich-ml publishes no port and its
+  `firewall` file is removed.
+- Mail: percolator's relay at `192.168.1.11:587` (grinder is already in
+  `MAIL_RELAY_CLIENTS`; the certificate carries that address), with a copy of
+  the relay's `ca.crt` on grinder (Immich README).
+- The shared `stacks/network/traefik` (grinder, cellar, mochaPot) gets
+  `readTimeout: 0s`, as traefik-ingress has, so long uploads aren't cut at
+  60 s; Immich's router names the `cloudflare` resolver.
+- The tunnel route and the Gatus check point at grinder; Pi-hole's record
+  follows on the next render on sieve and mochaPot.
+- `docs/hardware.md` (both rows, the failure and memory tables, disks),
+  the migration plan (Immich in phase 8), READMEs, MAP, carry-over map; the
+  backup test now finds Immich in grinder's plan.
+
+**Open**
+
+- percolator's second stick (16 GB planned; one in).
+- No CrowdSec in front of Immich on grinder (Backlog).
+- The Seagate: still meant for the offline copies; long SMART test and wipe.
+
+**Undo.** Revert the commit: Immich returns to percolator with
+`IMMICH_ML_URL=http://192.168.1.14:3003` and immich-ml's firewall file.
 
 ## 2026-11-22 — Layout by failure: Home Assistant to cellar; disks recounted; backups before percolator
 

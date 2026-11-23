@@ -49,7 +49,7 @@ Nothing in this table has run on a node since the move. "Not run" in the
 | Vaultwarden | `stacks/percolator/vaultwarden` | `stacks/apps/vaultwarden` | percolator | Carried | Needs the relay bundle |
 | OpenCloud | `stacks/percolator/opencloud` | `stacks/apps/opencloud` | percolator | Carried | Upgrade gate: a fresh install records its version itself |
 | Radicale | `stacks/percolator/radicale` | `stacks/apps/radicale` | percolator | Carried | Needs `scottishfold` in LLDAP |
-| Immich | `stacks/percolator/immich` | `stacks/apps/immich` | percolator | Changed | `IMMICH_ML_URL` now points at grinder. v3.3.3 was merged but never deployed on the old fleet |
+| Immich | `stacks/percolator/immich` | `stacks/apps/immich` | grinder | Changed | Moved to grinder with its ML (2026-11-23); ML by container name, no `IMMICH_ML_URL`. v3.3.3 was merged but never deployed on the old fleet |
 | Paperless-ngx | `stacks/percolator/paperless` | `stacks/apps/paperless` | percolator | Carried | Needs the relay bundle |
 | Mealie | `stacks/percolator/mealie` | `stacks/apps/mealie` | percolator | Carried | |
 | Vikunja | `stacks/percolator/vikunja` | `stacks/apps/vikunja` | percolator | Carried | Needs the relay bundle |
@@ -82,14 +82,14 @@ Nothing in this table has run on a node since the move. "Not run" in the
 | pourOver | `stacks/grinder/pourover` | `stacks/automation/pourover` | grinder | Changed | Talks to `llm.${DOMAIN}` and asks for the model `default`. **Check**: it was written against llama-swap; try its planning prompt against the cloud model before relying on it. Optional in `fleet.json` |
 | LiteLLM | | `stacks/ai/litellm` | grinder | New | The one door to a cloud model. Set up for any OpenAI-compatible endpoint until the provider is chosen: base URL, model id and API key. No master key, no database: reachable only on grinder's `proxy` network and through Authelia |
 | Open WebUI | `stacks/grinder/openwebui` | `stacks/ai/openwebui` | grinder | Changed | Points at LiteLLM instead of Ollama on roastery. Kept as the chat page; replace it if something lighter is wanted |
-| Immich ML | `stacks/roastery/immich-ml` | `stacks/ai/immich-ml` | grinder | Changed | CPU image instead of CUDA, model cache under `DATA_DIR`, port 3003 open to percolator only. Must stay on Immich's version |
+| Immich ML | `stacks/roastery/immich-ml` | `stacks/ai/immich-ml` | grinder | Changed | CPU image instead of CUDA, model cache under `DATA_DIR`, no published port since Immich moved beside it (2026-11-23). Must stay on Immich's version |
 | llama-swap, game mode | `stacks/roastery/llama-swap`, `game-mode` | | | Source | Come back behind LiteLLM when there is a GPU again |
 
 ### monitoring and fleet management
 
 | App | Old path | New path | Runs on | Status | What changed, what is left |
 |---|---|---|---|---|---|
-| Gatus | `stacks/sieve/gatus` | `stacks/monitoring/gatus` | sieve | Changed | New addresses; a check for `llm`. Still to add: immich-ml's port |
+| Gatus | `stacks/sieve/gatus` | `stacks/monitoring/gatus` | sieve | Changed | New addresses; a check for `llm`. Immich moved to grinder's group |
 | ntfy | `stacks/sieve/ntfy` | `stacks/monitoring/ntfy` | sieve | Carried | |
 | Speedtest Tracker | `stacks/grinder/speedtest-tracker` | `stacks/monitoring/speedtest-tracker` | grinder | Carried | |
 | Komodo Core | `stacks/cellar/komodo` | `stacks/fleet-management/komodo` | cellar | Carried | |

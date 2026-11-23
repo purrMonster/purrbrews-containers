@@ -425,11 +425,6 @@ endpoints:
     enabled: ${GATUS_WATCH_PERCOLATOR}
   - <<: *own-login
     group: "apps: percolator"
-    name: immich
-    url: "https://immich.${DOMAIN}/"
-    enabled: ${GATUS_WATCH_PERCOLATOR}
-  - <<: *own-login
-    group: "apps: percolator"
     name: paperless
     url: "https://paperless.${DOMAIN}/"
     enabled: ${GATUS_WATCH_PERCOLATOR}
@@ -522,6 +517,11 @@ endpoints:
     enabled: ${GATUS_WATCH_MOCHAPOT}
 
   # grinder
+  - <<: *own-login
+    group: "apps: grinder"
+    name: immich
+    url: "https://immich.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_GRINDER}
   - <<: *behind-sso
     group: "apps: grinder"
     name: open webui

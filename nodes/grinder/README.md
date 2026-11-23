@@ -6,19 +6,23 @@
 > but check each step against [`docs/migration-plan.md`](../../docs/migration-plan.md)
 > and [`docs/hardware.md`](../../docs/hardware.md) before relying on it.
 
-**Automation, AI indexing and the self-tracking apps**: `192.168.1.14`, a bare HP
-Pavilion board (i5 7th gen, 16 GB, 512 GB NVMe).
+**Automation, AI, photos and the self-tracking apps**: `192.168.1.14`, an HP
+Pavilion x360 (i5-7200U, 16 GB, one 1 TB WD SN530 NVMe, USB Ethernet; checked
+2026-11-23).
 
-Nothing on grinder is household-critical, on purpose. If it's down for an evening
-nobody notices, which is also what makes its spare memory the landing zone when
-another node dies.
+Immich moved here from percolator on 2026-11-23 (owner), next to its machine
+learning. It is the one household app on grinder: if grinder is down, photo
+backup from phones waits. Everything else here can be down for an evening
+without anyone noticing.
 
 | App | URL | What it's for |
 |---|---|---|
 | n8n | `n8n.${DOMAIN}`, or `:5678` | Workflow automation; ties the rest together |
 | postgres-vector | — | Postgres + pgvector, the vector store |
 | embedding-worker | — | CPU embeddings for n8n, built here (`embedding-worker/Dockerfile`) |
-| Open WebUI | `chat.${DOMAIN}`, or `:8081` | Chat with the models on roastery's GPU |
+| [Immich](../../stacks/apps/immich/) | `immich.${DOMAIN}` (no direct port) | Photos and videos; its own login and Authelia OIDC |
+| [Immich ML](../../stacks/ai/immich-ml/) | — (only on `proxy`) | Faces and smart search for Immich, on the CPU |
+| Open WebUI | `chat.${DOMAIN}`, or `:8081` | Chat with the cloud model through LiteLLM |
 | Karakeep | `karakeep.${DOMAIN}`, or `:3030` | Bookmarks and read-it-later |
 | FitTrackee | `fittrackee.${DOMAIN}`, or `:5001` | Rides, from the bike computer's GPX |
 | Traccar | `traccar.${DOMAIN}`, or `:8082` (phone posts to `:5055`) | Live position of the bike |
@@ -32,8 +36,8 @@ another node dies.
 Every app with a UI is behind Authelia on its hostname and keeps its own port open
 to the LAN. Unlike on cellar or mochaPot, every one of those ports has a real login
 of its own, so the way in when Authelia is down is never an open door.
-postgres-vector and the embedding worker aren't published at all; they're only on
-`proxy`.
+Immich is the exception: no direct port, only its route. postgres-vector, the
+embedding worker and Immich ML aren't published at all; they're only on `proxy`.
 
 ## Setup
 
@@ -84,11 +88,18 @@ n8n's, which has to belong to uid 1000 or n8n dies with `EACCES` on every start.
 |---|---|---|
 | `/srv/data/n8n` | workflows, credentials (encrypted with `N8N_ENCRYPTION_KEY`) | **yes**, and the key to flask |
 | `/srv/data/pourover` | pourOver's SQLite (command log, queue, confirms) | yes (a `.dump`); the tasks are in Vikunja |
+| `/srv/data/immich/library`, `immich/postgres` | photos, database | **yes** (database as a dump; thumbnails and encoded video excluded) |
+| `/srv/data/immich-ml/model-cache` | model weights | no; downloaded again |
 | `/srv/data/postgres-vector` | embeddings | no; derived, can be rebuilt |
 | `/srv/data/karakeep*`, `openwebui`, `fittrackee`, `postgres-fittrackee`, `traccar`, `esphome` | app data | yes (Postgres as a dump) |
 | `/srv/data/speedtest-tracker`, `traefik/acme` | history, certificates | no |
 
 ## Known gaps
+
+- **No CrowdSec in front of Immich.** On percolator, Immich sat behind
+  traefik-ingress with the CrowdSec bouncer; grinder's Traefik has none, and
+  Immich is published through the tunnel with only its own login. Decide
+  before the tunnel route goes live (phase 11).
 
 - **Open WebUI can't reach Ollama once roastery binds it to localhost** behind its
   own Traefik and Authelia. That needs machine-to-machine auth that keeps Authelia

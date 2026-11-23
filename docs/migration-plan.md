@@ -168,7 +168,8 @@ reachable on their own ports while Authelia is down, as designed.
 ## Phase 6: percolator, the household apps
 
 One app at a time, in `node.conf` order: radicale, opencloud, vaultwarden,
-immich, paperless, mealie, vikunja, meowgram, actualbudget, freshrss, purrcafe.
+paperless, mealie, vikunja, meowgram, actualbudget, freshrss, purrcafe.
+(Immich moved to grinder on 2026-11-23: phase 8.)
 
 Every app starts empty (owner, 2026-11-17). For each: bring it up, run its
 README's checklist, add or confirm its Gatus check, and let one night's backup
@@ -177,7 +178,6 @@ pass before the household puts anything into the next one.
 - OpenCloud and the other apps with upgrade gates record their version on a
   fresh install; nothing needs acknowledging.
 - meowGram: an empty install of 2.0.0 needs no dump first.
-- Immich: faces and search wait for phase 8.
 
 **Done when** each app's checklist is ticked in the runbook with what was seen.
 **Way back:** per app, `./compose.sh <app> down` and its data directory from
@@ -218,9 +218,10 @@ stopping sieve's Pi-hole for a minute leaves name resolution working.
 3. `litellm` ([its README](../stacks/ai/litellm/README.md)): healthy, and
    `llm.${DOMAIN}` answers 401 to a request without credentials. Then
    `openwebui`: the model `default` is listed and answers.
-4. `immich-ml`; `sudo ./firewall.sh`; from percolator `curl` its port, from
-   sieve confirm it is refused. Start Immich's jobs and watch grinder's load for
-   a day.
+4. `immich-ml`, then `immich` (copy the mail relay's `ca.crt` from percolator
+   first: [its README](../stacks/apps/immich/README.md)). Its checklist; confirm
+   3003 is not reachable from another node. Start Immich's jobs and watch
+   grinder's load for a day; one night's backup before the household uses it.
 5. The self-tracking apps, `esphome`, `speedtest-tracker`, `traefik` and the
    agents. Backups, as on every node.
 6. `pourover`, last and only if wanted (`--include-optional pourover`): try

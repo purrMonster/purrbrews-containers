@@ -40,9 +40,6 @@ ingress:
   - hostname: cafe.${DOMAIN}
     service: https://${PERCOLATOR_LAN_IP}:443
     originRequest: {originServerName: cafe.${DOMAIN}}
-  - hostname: immich.${DOMAIN}
-    service: https://${PERCOLATOR_LAN_IP}:443
-    originRequest: {originServerName: immich.${DOMAIN}}
   - hostname: radicale.${DOMAIN}
     service: https://${PERCOLATOR_LAN_IP}:443
     originRequest: {originServerName: radicale.${DOMAIN}}
@@ -89,7 +86,10 @@ ingress:
     service: https://${MOCHAPOT_LAN_IP}:443
     originRequest: {originServerName: music.${DOMAIN}}
 
-  # ── grinder: automation and the rest ──────────────────────────────────────
+  # ── grinder: automation, photos and the rest ──────────────────────────────
+  - hostname: immich.${DOMAIN}
+    service: https://${GRINDER_LAN_IP}:443
+    originRequest: {originServerName: immich.${DOMAIN}}
   - hostname: chat.${DOMAIN}
     service: https://${GRINDER_LAN_IP}:443
     originRequest: {originServerName: chat.${DOMAIN}}

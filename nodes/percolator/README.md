@@ -22,7 +22,6 @@ and shared household accounts. Radicale authenticates DAV directly against LLDAP
 | [Vaultwarden](../../stacks/apps/vaultwarden/) | `vault.${DOMAIN}` | Passwords |
 | [OpenCloud](../../stacks/apps/opencloud/) | `opencloud.${DOMAIN}` | Files through Authelia OIDC |
 | [Radicale](../../stacks/apps/radicale/) | `radicale.${DOMAIN}` | Calendars and contacts through LLDAP Basic auth |
-| [Immich](../../stacks/apps/immich/) | `immich.${DOMAIN}` | Photos and videos |
 | [Paperless-ngx](../../stacks/apps/paperless/) | `paperless.${DOMAIN}` | Scanned documents |
 | [Mealie](../../stacks/apps/mealie/) | `mealie.${DOMAIN}` | Recipes and meal plans |
 | [Vikunja](../../stacks/apps/vikunja/) | `vikunja.${DOMAIN}` | To-do lists |
@@ -52,12 +51,11 @@ flowchart LR
       T --> DAV["Radicale"]
       DAV -->|LDAP| L
       A --- R[("Redis")]
-      T --> Apps["Vaultwarden · OpenCloud · Immich · Paperless<br/>Mealie · Vikunja · Actual · FreshRSS · Homepage · purrCafe"]
+      T --> Apps["Vaultwarden · OpenCloud · Paperless<br/>Mealie · Vikunja · Actual · FreshRSS · Homepage · purrCafe"]
       Apps -->|"OIDC via authelia.DOMAIN<br/>(alias to Traefik)"| T
       Apps --- DB[("own Postgres / Valkey<br/>per app, private")]
     end
     ST["sieve · Traefik"] -->|"ForwardAuth :9091<br/>(direct, firewalled)"| A
-    Apps -. "Immich ML :3003" .-> RO["roastery · GPU"]
 ```
 
 - **One network for the web tier.** Traefik and each app's web container share the
@@ -88,9 +86,6 @@ flowchart LR
    `192.168.1.11` for LAN clients. Until sieve's Pi-hole serves them, add them to
    the router's local DNS or to a laptop's hosts file for testing. The apps
    themselves don't need this (see the alias above).
-4. **For Immich's machine learning** (optional at first): roastery's address, and
-   `immich-machine-learning` running there at the same version as `immich-server`,
-   with its Windows Firewall rule for port 3003 scoped to `192.168.1.11`.
 
 ## Bring-up
 
@@ -113,7 +108,7 @@ signal (in its README) before the next. "Container started" is not a success sig
 | 2b | `./compose.sh mail-relay up -d` (after the Purelymail app password: [its README](../../stacks/mail/mail-relay/README.md)) | `mail-relay` is `healthy`; `/srv/data/mail-relay/tls-public/ca.crt` exists |
 | 3 | `./compose.sh lldap up -d` then `./lldap-bootstrap.sh` in an interactive terminal | groups exist, `barista` created — **save the one-time password shown on the terminal** |
 | 4 | `./compose.sh authelia up -d` | log in at `https://authelia.${DOMAIN}` as `barista`; the Traefik dashboard opens; from sieve, `curl -s -o /dev/null -w '%{http_code}' http://192.168.1.11:9091/api/health` gives `200` |
-| 5+ | `./compose.sh <app> up -d` for radicale, opencloud, vaultwarden, immich, paperless, mealie, vikunja, meowgram, actualbudget, freshrss, homepage, purrcafe | the app's README checklist |
+| 5+ | `./compose.sh <app> up -d` for radicale, opencloud, vaultwarden, paperless, mealie, vikunja, meowgram, actualbudget, freshrss, homepage, purrcafe | the app's README checklist |
 | last | `./compose.sh komodo-periphery up -d`, `./compose.sh scrutiny-collector up -d` | percolator shows up in Komodo and Scrutiny on cellar (copy `komodo-periphery/keys/core.pub` from cellar first) |
 
 Once everything has been up once, `./compose.sh --all up -d` brings the whole node up
@@ -158,8 +153,8 @@ LLDAP if they shouldn't reach the Traefik dashboard or be admin in Mealie.
 **Rotate an OIDC client secret:** delete `<APP>_OIDC_CLIENT_SECRET` from
 `<app>/secrets.env.local` and `<APP>_OIDC_CLIENT_SECRET_HASH` from
 `authelia/secrets.env.local`, then `./setup-secrets.sh`,
-`./compose.sh authelia up -d`, `./compose.sh <app> up -d`. Immich keeps
-the secret in its own settings too; paste the new one there. OpenCloud public
+`./compose.sh authelia up -d`, `./compose.sh <app> up -d`. Immich (on
+grinder) keeps the secret in its own settings too; paste the new one there. OpenCloud public
 clients have no OIDC client secrets.
 
 ## Ports
@@ -186,7 +181,6 @@ Everything lives under `/srv/data/<app>/` on the NVMe:
 | `vaultwarden` | vaults (SQLite), attachments | **yes** |
 | `opencloud/data`, `opencloud/config` | all file/identity metadata, content, generated config and keys | **yes**, together; restore test required |
 | `radicale/collections` | calendars, contacts and metadata | **yes** |
-| `immich/library`, `immich/postgres` | photos, database | **yes** (database as a dump) |
 | `paperless/{data,media,export}`, `paperless/postgres` | documents, database | **yes** (database as a dump) |
 | `mealie`, `vikunja`, `actualbudget`, `freshrss` | SQLite + files | **yes** |
 | `meowgram/postgres`, `meowgram/secrets` | chat history, the push key | **yes** (database as a dump) |

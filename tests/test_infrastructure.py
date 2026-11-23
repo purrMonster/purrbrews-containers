@@ -932,7 +932,10 @@ class Backup(unittest.TestCase):
     def test_excludes_are_scoped_to_their_app(self):
         out = self.plan('percolator').stdout
         self.assertIn('/srv/data/vaultwarden/**/db.sqlite3*', out)
+        self.assertNotIn('/srv/data/immich', out)
+        out = self.plan('grinder').stdout
         self.assertIn('/srv/data/immich/library/thumbs', out)
+        self.assertIn('immich/immich.pgdump', out)
         self.assertNotIn('/srv/data/immich/**/db.sqlite3', out)
 
     @unittest.skipUnless(AS_ROOT and shutil.which('restic') and shutil.which('sqlite3') and shutil.which('setpriv'),
