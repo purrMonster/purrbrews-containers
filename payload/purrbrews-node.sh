@@ -194,10 +194,16 @@ step_folders() {
 # write_hosts <file>: a marked block with every other node, replacing the last one.
 write_hosts() {
   local begin="# >>> purrbrews fleet (managed by the bootstrap payload) >>>"
-  local end="# <<< purrbrews fleet <<<" tmp n
+  local end="# <<< purrbrews fleet <<<" tmp n self
+  # Debian's installer maps 127.0.1.1 to the name the machine was installed
+  # with. After a rename (--hostname) that line still names the old one, and
+  # sudo complains on every call that it can't resolve the host. So the line
+  # always names the machine as it is now.
+  self="$(hostname)"
   tmp="$(mktemp)"
-  awk -v b="$begin" -v e="$end" '$0==b{s=1;next} $0==e{s=0;next} !s' "$1" > "$tmp"
+  awk -v b="$begin" -v e="$end" '$0==b{s=1;next} $0==e{s=0;next} s{next} $1=="127.0.1.1"{next} 1' "$1" > "$tmp"
   {
+    printf '127.0.1.1\t%s\n' "$self"
     printf '%s\n' "$begin"
     for n in "${!FLEET_IP[@]}"; do
       [[ "$n" == "$NODE" ]] && continue
