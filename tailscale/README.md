@@ -107,7 +107,7 @@ you actually saw:
   both time out.
 - Away from home: `https://immich.<domain>` and an admin page such as
   `https://pihole.<domain>` load after the Authelia login, and
-  `nc -zv -w3 192.168.1.13 8123` (a direct port) times out.
+  `nc -zv -w3 192.168.1.12 8123` (a direct port, Home Assistant on cellar) times out.
 - Admin console → *Machines*: cellar and grinder show *Subnets* `192.168.0.0/23`,
   approved. On each, `systemctl is-active purrbrews-tailscale-nat` says `active`.
 - On a node, `sudo ufw status | grep tailscale0` shows the SSH rule (plus the three

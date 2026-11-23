@@ -83,7 +83,7 @@ and deleted. Never put a key in `payload.env`: it's served openly.
 
 ## What it doesn't do
 
-- Backups: `sudo ./backup.sh install` on the node, once the hub exists (phase 5).
+- Backups: `sudo ./backup.sh install` on the node, once the hub exists (phase 4).
 - Anything as root from the checkout. The checkout belongs to the ops user, so
   root runs only the verified files of this payload, and only reads data from
   the checkout. A test checks this.

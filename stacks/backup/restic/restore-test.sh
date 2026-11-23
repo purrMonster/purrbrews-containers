@@ -4,11 +4,11 @@
 # Restores into a scratch directory and checks what came out; touches
 # nothing live.
 #
-#   sudo ./restic/restore-test.sh                      from the repository on cellar
-#   sudo ./restic/restore-test.sh --from drive         from the Google Drive copy
-#   sudo ./restic/restore-test.sh --host percolator    whose files to sample (default percolator)
-#   sudo ./restic/restore-test.sh --files 50           how many files to sample (default 20)
-#   sudo ./restic/restore-test.sh --keep               leave the scratch directory for a look
+#   sudo ../../stacks/backup/restic/restore-test.sh                      from the repository on cellar
+#   sudo ../../stacks/backup/restic/restore-test.sh --from drive         from the Google Drive copy
+#   sudo ../../stacks/backup/restic/restore-test.sh --host percolator    whose files to sample (default percolator)
+#   sudo ../../stacks/backup/restic/restore-test.sh --files 50           how many files to sample (default 20)
+#   sudo ../../stacks/backup/restic/restore-test.sh --keep               leave the scratch directory for a look
 #
 # What it does:
 #   1. restores the latest `dumps` snapshot (every node's database dumps) and

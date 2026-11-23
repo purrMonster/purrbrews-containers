@@ -14,7 +14,7 @@ it, and why, is unchanged.
 
 Status: **scripts written (2026-11-18); the sticks are the owner's.** Stick A
 already has Ventoy and booted twice in the old fleet (2026-09-30). Next:
-[Building it](#building-it), once the new repository exists (phase 5 of the
+[Building it](#building-it), once the new repository exists (phase 4 of the
 [migration plan](migration-plan.md)): there's no point filling a vault with keys
 that are about to change.
 

@@ -6,29 +6,29 @@
 > but check each step against [`docs/migration-plan.md`](../../docs/migration-plan.md)
 > and [`docs/hardware.md`](../../docs/hardware.md) before relying on it.
 
-**Home automation, music and the wall screen**: `192.168.1.13`, HP Pavilion x360
-(i5-7200U, 8 GB, 128 GB M.2 SATA), Debian 13 with a kiosk session on its own
-touchscreen.
+**Music, the wall screen and the second resolver**: `192.168.1.13`, HP Pavilion
+x360 (i5-7200U, 8 GB, 128 GB M.2 SATA, USB Ethernet), Debian 13 with a kiosk
+session on its own touchscreen.
 
-Home Assistant lives here rather than on percolator for blast radius: it shares a
-failure domain with neither the app tier nor the network tier, the wall dashboard
-still renders when percolator is down, and the laptop battery rides out a power cut.
+Home Assistant was here until 2026-11-22; it is on cellar now, on built-in
+Ethernet ([docs/hardware.md](../../docs/hardware.md), "When a node goes down").
+The wall screen shows it from there, straight to its port. The laptop battery
+still earns its place: it keeps the second resolver up through a power cut.
 
 | App | URL | What it's for |
 |---|---|---|
-| [Home Assistant](../../stacks/home/homeassistant/README.md) | `homeassistant.${DOMAIN}`, or `:8123` | Home automation; signs in with Authelia itself (OIDC) |
 | Music Assistant | `music.${DOMAIN}` (Authelia), or `:8095` | Whole-house audio |
 | [Pi-hole](../../stacks/network/pihole-secondary/README.md) | `pihole-mochapot.${DOMAIN}` (admins), or `:8081` | Secondary DNS. **Never DHCP** |
-| Traefik | — | HTTPS for the three above |
-| [kiosk](../../stacks/home/kiosk/README.md) | the wall screen | cage + Chromium on tty1, host-native |
+| Traefik | — | HTTPS for the two above |
+| [kiosk](../../stacks/home/kiosk/README.md) | the wall screen | cage + Chromium on tty1, host-native; shows Home Assistant on cellar |
 | Komodo Periphery | — | Lets Komodo on cellar manage this node's containers |
 | Scrutiny collector | — | SMART data for the hub on cellar |
 
-Home Assistant, Music Assistant and Pi-hole are all host-networked (discovery and
-DNS need it), so Traefik reaches them by URL and they see its requests coming from
-`proxy` (`PROXY_SUBNET`). Their own ports stay open to the LAN: that's the
-way in when Authelia or Traefik is down. Home Assistant and Pi-hole have their own
-logins there; Music Assistant has none.
+Music Assistant and Pi-hole are host-networked (discovery and DNS need it), so
+Traefik reaches them by URL and they see its requests coming from `proxy`
+(`PROXY_SUBNET`). Their own ports stay open to the LAN: that's the way in when
+Authelia or Traefik is down. Pi-hole has its own login there; Music Assistant
+has none.
 
 ## Setup
 
@@ -45,11 +45,10 @@ Then, in order (`node.conf`):
 | # | Command | Check |
 |---|---|---|
 | 1 | `./compose.sh pihole up -d` | `dig @192.168.1.13 gatus.${DOMAIN} +short` gives `192.168.1.10` |
-| 2 | `./compose.sh homeassistant up -d` | onboarding at `http://192.168.1.13:8123`; then the [configuration.yaml steps](../../stacks/home/homeassistant/README.md#configurationyaml) |
-| 3 | `./compose.sh musicassistant up -d` | players on the LAN show up |
-| 4 | `./compose.sh traefik up -d` | certificates issued; the three hostnames load (Home Assistant only once it trusts `PROXY_SUBNET`) |
-| 5 | `./compose.sh komodo-periphery up -d`, `./compose.sh scrutiny-collector up -d` | mochaPot in Komodo and Scrutiny on cellar (copy `komodo-periphery/keys/core.pub` from cellar first) |
-| — | `sudo ./kiosk/setup-kiosk.sh` | the dashboard on the screen after a reboot |
+| 2 | `./compose.sh musicassistant up -d` | players on the LAN show up |
+| 3 | `./compose.sh traefik up -d` | certificates issued; both hostnames load |
+| 4 | `./compose.sh komodo-periphery up -d`, `./compose.sh scrutiny-collector up -d` | mochaPot in Komodo and Scrutiny on cellar (copy `komodo-periphery/keys/core.pub` from cellar first) |
+| — | `sudo ./kiosk/setup-kiosk.sh` | Home Assistant's dashboard (on cellar) on the screen after a reboot |
 
 Pi-hole goes before Traefik because both want host ports; Pi-hole's UI moved to 8081
 so Traefik can have 80.
@@ -71,8 +70,6 @@ so Traefik can have 80.
 
 | Path | Contents | Back up |
 |---|---|---|
-| `/srv/data/homeassistant` | config, automations, `secrets.yaml` | **yes** |
-| `/srv/data/postgres-homeassistant` | recorder history | as a dump, if at all |
 | `/srv/data/musicassistant` | library, players | optional |
 | `/srv/data/pihole` | settings, query log | no; it's all in compose and generated |
 
@@ -80,7 +77,4 @@ so Traefik can have 80.
 
 - **The kiosk's crash recovery is untested**: nothing restarts cage if Chromium
   exits, short of a reboot ([kiosk/README.md](../../stacks/home/kiosk/README.md)).
-- **Home Assistant is pinned** (2026.10.0 since 2026-10-08), not on `:stable`:
-  an upgrade is a tag bump after reading the release notes, never a side effect
-  of a routine pull.
 - **Blocklists aren't synced** between the two Pi-holes.

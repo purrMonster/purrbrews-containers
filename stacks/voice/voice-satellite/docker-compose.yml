@@ -1,6 +1,6 @@
 # The room's voice satellite: Linux Voice Assistant (OHF-Voice), which listens
 # on the room's conference mic for the wake word, streams what follows to Home
-# Assistant on mochaPot, and plays the reply on the USB speaker. One per
+# Assistant on cellar, and plays the reply on the USB speaker. One per
 # ThinkCentre (sieve, percolator, cellar); docs/voice.md.
 #
 # Not Wyoming Satellite, the older way: it is no longer maintained, replaced
@@ -15,7 +15,7 @@
 #
 # Host networking: HA finds it by mDNS and talks to it on tcp/6053, and the
 # satellite's identity in HA is the node's own MAC (fixed by the payload).
-# The firewall file lets mochaPot, and only mochaPot, in.
+# The firewall file lets cellar, and only cellar, in.
 #
 # Image: ghcr.io/ohf-voice/linux-voice-assistant (digest from the registry,
 # 2026-11-18).

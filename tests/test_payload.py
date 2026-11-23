@@ -9,6 +9,7 @@ from pathlib import Path
 import pwd
 import re
 import shutil
+import socket
 import subprocess
 import tempfile
 import unittest
@@ -167,7 +168,7 @@ class Payload(unittest.TestCase):
                         .replace('MEDIA_DIR=/srv/media', f'MEDIA_DIR={media}'))
             (payload / 'payload.env').write_text(settings)
             hosts = tmp / 'hosts'
-            hosts.write_text('127.0.0.1\tlocalhost\n')
+            hosts.write_text('127.0.0.1\tlocalhost\n127.0.1.1\tdebian\n')  # as the installer leaves it
             env = dict(os.environ, PB_ETC_DIR=str(tmp / 'etc'), PB_HOSTS_FILE=str(hosts),
                        PB_LOG_DIR=str(tmp / 'log'), PB_LIB_DST=str(tmp / 'lib'), PB_UNIT_DIR=str(tmp / 'units'),
                        GIT_CONFIG_SYSTEM=str(tmp / 'gitconfig'), GIT_TERMINAL_PROMPT='0')
@@ -189,6 +190,9 @@ class Payload(unittest.TestCase):
             self.assertIn('192.168.1.10\tsieve\n', text)
             self.assertIn('192.168.1.13\tmochaPot\n', text)
             self.assertNotIn('\tgrinder\n', text)             # its own name isn't in the block
+            self.assertNotIn('debian', text)                  # the install-time name is gone
+            self.assertEqual(text.count('127.0.1.1\t'), 1)    # and 127.0.1.1 names this machine, once
+            self.assertIn(f'127.0.1.1\t{socket.gethostname()}\n', text)
             unknown = subprocess.run(['bash', str(payload / 'purrbrews-node.sh'), 'roastery', '--user', user.pw_name,
                                       '--only', 'node'], env=env, capture_output=True, text=True,
                                      stdin=subprocess.DEVNULL)

@@ -102,7 +102,7 @@ class DNS(unittest.TestCase):
     def test_actual_routes(self):
         # Which node answers for a name comes from node.conf: the node whose APPS runs the app.
         lines, hosts = dns.records(ROOT, 'example.test', io.StringIO(FLEET), '192.168.1.20 americano')
-        for host, ip in [('authelia', 11), ('opencloud', 11), ('radicale', 11), ('komodo', 12), ('homeassistant', 13),
+        for host, ip in [('authelia', 11), ('opencloud', 11), ('radicale', 11), ('komodo', 12), ('homeassistant', 12),
                          ('n8n', 14), ('llm', 14), ('pihole', 10), ('pihole-mochapot', 13)]:
             self.assertIn(f'address=/{host}.example.test/192.168.1.{ip}', lines)
             self.assertIn(f'local=/{host}.example.test/', lines)
@@ -619,8 +619,9 @@ class Firewall(unittest.TestCase):
 
     def test_host_networked_apps_allow_the_proxy_network(self):
         out = self.dry_run('mochaPot', 'PROXY_SUBNET=172.30.13.0/24\n')
-        for port in [8123, 8095, 8081]:
+        for port in [8095, 8081]:
             self.assertIn(f'allow proto tcp from 172.30.13.0/24 to any port {port}', out)
+        self.assertNotIn('port 8123', out)  # Home Assistant is on cellar now
         self.assertNotIn('port 67', out)
         out = self.dry_run('grinder', '', network_subnet='172.18.0.0/16')
         self.assertIn('allow proto tcp from 172.18.0.0/16 to any port 6052', out)
@@ -629,23 +630,27 @@ class Firewall(unittest.TestCase):
         self.assertNotIn('port 5001', out)
 
     def test_voice_answers_home_assistant_only(self):
-        # Wyoming and the ESPHome API have no authentication: mochaPot (Home
+        # Wyoming and the ESPHome API have no authentication: cellar (Home
         # Assistant) is the only address let in, on every voice node.
         extra = {'percolator': "FORWARD_AUTH_CLIENTS=192.168.1.10\nMAIL_RELAY_CLIENTS='192.168.1.13'\n"}
         for node in ['sieve', 'percolator', 'cellar']:
             out = self.dry_run(node, 'PROXY_SUBNET=172.31.10.0/24\n' + extra.get(node, ''))
-            for rule in ['route allow proto tcp from 192.168.1.13 to any port 10300',
-                         'route allow proto tcp from 192.168.1.13 to any port 10200',
-                         'allow proto tcp from 192.168.1.13 to any port 6053',
-                         'allow proto udp from 192.168.1.13 to any port 5353']:
+            for rule in ['route allow proto tcp from 192.168.1.12 to any port 10300',
+                         'route allow proto tcp from 192.168.1.12 to any port 10200',
+                         'allow proto tcp from 192.168.1.12 to any port 6053',
+                         'allow proto udp from 192.168.1.12 to any port 5353']:
                 self.assertIn(rule, out, node)
+            self.assertNotIn('from 192.168.1.13 to any port 10300', out, node)  # mochaPot no longer
             for port in [10300, 10200, 6053]:
                 self.assertNotRegex(out, rf'from 192\.168\.1\.0/24 to any port {port}\b', node)
 
     def test_cellar_and_bad_tokens(self):
-        out = self.dry_run('cellar', '')
+        out = self.dry_run('cellar', 'PROXY_SUBNET=172.30.12.0/24\n')
         for port in [80, 443, 9120, 8080]:
             self.assertIn(f'route allow proto tcp from 192.168.1.0/24 to any port {port}', out)
+        # Home Assistant (host-networked) from the LAN and from this node's Traefik
+        self.assertIn('allow proto tcp from 192.168.1.0/24 to any port 8123', out)
+        self.assertIn('allow proto tcp from 172.30.12.0/24 to any port 8123', out)
         self.assertNotIn('port 445', out)  # smb stays closed until its rule is uncommented
         with tempfile.TemporaryDirectory() as tmp:
             root = copy_repo(tmp)
@@ -946,7 +951,10 @@ class Backup(unittest.TestCase):
         (data / 'vaultwarden/icon_cache/a.png').write_text('png')
         (root / '.env').write_text(f'NODE_IP=192.168.1.11\nDATA_DIR={data}\n')
         node = root / 'nodes/percolator'
-        node.joinpath('node.conf').write_text('APPS=(vaultwarden)\n')
+        # netalertx has never run here (no data at all): left out, not a failure.
+        # persian-perch has run but its optional database isn't there yet.
+        (data / 'persian-perch').mkdir()
+        node.joinpath('node.conf').write_text('APPS=(vaultwarden netalertx persian-perch)\n')
         (node / '.env.local').write_text(f'BACKUP_REPOSITORY={repo}\nDUMP_DIR={dumps}\nDUMP_STORE_HOST=192.168.1.11\n')
         (app('restic', root) / 'secrets.env.local').write_text('RESTIC_PASSWORD=test\n')
         env = dict(os.environ, BACKUP_KEY=str(tmp / 'key'), BACKUP_ETC=str(tmp / 'etc'),
@@ -964,8 +972,15 @@ class Backup(unittest.TestCase):
         self.assertNotIn('db.sqlite3', listing)   # the live database: the dump has it
         self.assertNotIn('icon_cache', listing)
         self.assertIn('.env.local', listing)      # the node's own settings always go
+        self.assertIn('not started on this node yet, so not backed up: netalertx', result.stdout)
+        self.assertIn('persian-perch/persian-perch: nothing at', result.stdout)
         store = subprocess.run(['bash', str(node / 'backup.sh'), 'store'], env=env, capture_output=True, text=True)
         self.assertEqual(store.returncode, 0, store.stderr)
+        # Once an app has run, its missing files fail the night again.
+        (data / 'netalertx').mkdir()
+        again = subprocess.run(['bash', str(node / 'backup.sh'), 'nightly'], env=env, capture_output=True, text=True)
+        self.assertNotEqual(again.returncode, 0, again.stdout)
+        self.assertIn('netalertx', again.stdout + again.stderr)
 
     @unittest.skipUnless(AS_ROOT and all(shutil.which(c) for c in ['restic', 'rclone', 'flock']),
                          'needs root, restic, rclone and flock')

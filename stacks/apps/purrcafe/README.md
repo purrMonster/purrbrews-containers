@@ -18,7 +18,7 @@ published image like any other.
 
 | Panel | Source | How Café reaches it |
 |---|---|---|
-| Home | Home Assistant on mochaPot | `http://${MOCHAPOT_LAN_IP}:8123` with a token (like persianPerch) |
+| Home | Home Assistant on cellar | `http://${CELLAR_LAN_IP}:8123` with a token (like persianPerch) |
 | Budget | Actual Budget, here | `http://actualbudget:5006` on `proxy`; read-only |
 | Inbox | each person's own IMAP mailbox | `CAFE_MAIL_IMAP_HOST`; each person connects their own in *Settings* |
 | Fleet | Gatus on sieve | `https://gatus-api.${DOMAIN}`, Basic auth through Authelia (like persianPerch) |

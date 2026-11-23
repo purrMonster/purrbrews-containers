@@ -2,7 +2,7 @@
 
 **Each ThinkCentre is a room's voice assistant.** sieve (living room), percolator
 and cellar each have a USB speaker and a conference-room mic, and each runs its
-own speech-to-text and text-to-speech. Home Assistant on mochaPot decides what to
+own speech-to-text and text-to-speech. Home Assistant on cellar decides what to
 do with what was said. Nothing leaves the house; no cloud voice service is
 involved (owner, 2026-11-17). The code is `stacks/voice/` (W4, written
 2026-11-18); bringing it up is phase 9 of the [migration plan](migration-plan.md).
@@ -10,7 +10,7 @@ involved (owner, 2026-11-17). The code is `stacks/voice/` (W4, written
 ## How a request flows
 
 ```
-room mic ──► voice-satellite ──(ESPHome API, tcp/6053)──► Home Assistant (mochaPot)
+room mic ──► voice-satellite ──(ESPHome API, tcp/6053)──► Home Assistant (cellar)
              wake word here                                 │
                                                             ├─(Wyoming, tcp/10300)─► whisper   speech → text
                                                             ├─ intent: what to do (Assist)
@@ -24,13 +24,13 @@ transcribed and its reply spoken by its own ThinkCentre.
 
 | App | Image | Port, open to | Does |
 |---|---|---|---|
-| `whisper` | `rhasspy/wyoming-whisper` 3.8.1 | tcp/10300, mochaPot only | speech to text (faster-whisper, CPU) |
-| `piper` | `rhasspy/wyoming-piper` 2.5.3 | tcp/10200, mochaPot only | text to speech |
-| `voice-satellite` | `ghcr.io/ohf-voice/linux-voice-assistant` 1.1.18 | tcp/6053 and mDNS, mochaPot only | wake word, mic in, speaker out |
+| `whisper` | `rhasspy/wyoming-whisper` 3.8.1 | tcp/10300, cellar only | speech to text (faster-whisper, CPU) |
+| `piper` | `rhasspy/wyoming-piper` 2.5.3 | tcp/10200, cellar only | text to speech |
+| `voice-satellite` | `ghcr.io/ohf-voice/linux-voice-assistant` 1.1.18 | tcp/6053 and mDNS, cellar only | wake word, mic in, speaker out |
 
 The Wyoming protocol and the ESPHome API have no authentication of their own, so
-the firewall is the guard: each app's `firewall` file lets mochaPot in and nothing
-else. A test checks it on all three nodes.
+the firewall is the guard: each app's `firewall` file lets cellar (Home Assistant's
+node, since 2026-11-22) in and nothing else. A test checks it on all three nodes.
 
 ## Decisions
 

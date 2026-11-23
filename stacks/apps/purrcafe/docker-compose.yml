@@ -1,5 +1,5 @@
 # purrCafe — the household dashboard: home sensors (Home Assistant on
-# mochaPot), the month's budget (Actual, here), each person's own inbox
+# cellar), the month's budget (Actual, here), each person's own inbox
 # (IMAP), fleet reachability (Gatus on sieve) and a wall view for the kiosk.
 # Built in its own repo (purrMonster/purrCafe); here it's a published image
 # like any other. Behind Authelia ForwardAuth: the app reads who you are from
@@ -39,8 +39,8 @@ services:
       AUTH_ADMIN_GROUP: ${LLDAP_ADMIN_GROUP}
       AUTH_HOUSEHOLD_GROUP: ${LLDAP_HOUSEHOLD_GROUP}
       AUTH_WALL_GROUP: ${CAFE_WALL_GROUP}
-      # Home Assistant on mochaPot, straight to its port: a token, no SSO hop.
-      HA_URL: http://${MOCHAPOT_LAN_IP}:8123
+      # Home Assistant on cellar, straight to its port: a token, no SSO hop.
+      HA_URL: http://${CELLAR_LAN_IP}:8123
       HA_TOKEN: ${CAFE_HA_TOKEN}
       # Actual on the shared `proxy` network. Its public name sits behind the
       # OIDC login and fails with network-failure (purrCafe handoff, 2026-10-03).

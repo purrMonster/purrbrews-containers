@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # restic-init.sh: create the backup repository. Once, by hand, on cellar,
-# after `sudo ./backup.sh keys` and `sudo ./restic/repo-setup.sh` there. It
+# after `sudo ./backup.sh keys` and `sudo ../../stacks/backup/restic/repo-setup.sh` there. It
 # goes through the SFTP account like every other job, so the repository's
 # files belong to that account from the start.
 #

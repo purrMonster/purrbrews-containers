@@ -30,7 +30,8 @@
       "prerequisites": [
         "Backup repository restored or freshly initialised on cellar before enabling writers or Drive sync.",
         "SMB shares and access policy approved before opting in.",
-        "External watcher deployment follows its own repository rollout instructions."
+        "External watcher deployment follows its own repository rollout instructions.",
+        "Home Assistant onboarding and trusted proxies configured."
       ]
     },
     "mochaPot": {
@@ -38,7 +39,6 @@
       "tier": "household",
       "optional": [],
       "prerequisites": [
-        "Home Assistant onboarding and trusted proxies configured.",
         "Kiosk installation remains a separate host operation."
       ]
     },

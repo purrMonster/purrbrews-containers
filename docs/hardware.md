@@ -18,58 +18,125 @@ has been checked against the machines themselves.
 
 Memory: eight 8 GB DDR4 SO-DIMMs (six 2666 MHz, two 3200 MHz), 64 GB in all.
 
-Storage: two 128 GB M.2 SATA SSDs, one 256 GB SATA SSD, one 512 GB Intel NVMe,
-two 1 TB NVMe, two old 1 TB 2.5" SATA HDDs.
+Storage (the owner's count, 2026-11-22; roastery's own 1 TB NVMe not included):
+two 1 TB NVMe, one 512 GB NVMe, one 256 GB NVMe, two 256 GB 2.5" SATA SSDs, two
+128 GB M.2 SATA SSDs, and the two old 1 TB 2.5" SATA HDDs.
 
-## Who gets what (confirmed 2026-11-17)
+## Who gets what (confirmed 2026-11-17, revised 2026-11-22)
 
 The five node names and roles stay; the machines behind them are the ones the
-old fleet already used, so nothing is re-cased. What changes is where roastery's
-jobs go, one more RAM stick for cellar, and the disks: the ThinkCentres don't
-boot from the 128 GB M.2 SATA drives (owner, 2026-11-18), so those stay with
-the x360s.
+old fleet already used, so nothing is re-cased. On 2026-11-22 the owner asked
+Claude to decide the split by function and by what each failure takes down:
+Home Assistant moved from mochaPot to cellar, grinder's disk changed, and the
+machines stayed where they were.
 
-| Node | Machine | Where | RAM | Disks | Role |
+| Node | Machine | Network | RAM | Disk | Apps |
 |---|---|---|---|---|---|
-| `sieve` | ThinkCentre | Living room, wired to the Humax router | 8 GB | 256 GB SATA SSD (2.5" bay) | Network: DNS, DHCP, tunnel, alerting. Voice |
-| `percolator` | ThinkCentre | Second room | 16 GB | 1 TB NVMe (OS and `/srv/data`) | Ingress, identity, the household apps. Voice |
-| `cellar` | ThinkCentre | Third room | 16 GB (was 8) | 1 TB NVMe (OS, dump store, **the restic repository**) | Backup hub, Komodo, Scrutiny. Voice |
-| `mochaPot` | x360 laptop | Wherever its screen is wanted | 8 GB | 128 GB M.2 SATA | Home Assistant, music, secondary DNS, kiosk |
-| `grinder` | x360 board | Next to a switch | 16 GB | 512 GB Intel NVMe (M.2) | Automation, LiteLLM, Immich ML, self-tracking |
+| `sieve` | ThinkCentre, living room | built-in | 8 GB (1 × 8) | 256 GB SATA SSD (2.5" bay) | **The network:** Unbound, Pi-hole (DNS and DHCP), cloudflared, Traefik for the edge, ntfy, Gatus, NetAlertX. Voice for its room |
+| `percolator` | ThinkCentre, second room | built-in | 16 GB (2 × 8) | 1 TB NVMe (OS and `/srv/data`) | **Ingress and sign-in:** Traefik, CrowdSec, the mail relay, LLDAP, Authelia. **The household apps:** Radicale, OpenCloud, Vaultwarden, Immich, Paperless, Mealie, Vikunja, meowGram, Actual, FreshRSS, Homepage, purrCafe. Voice for its room |
+| `cellar` | ThinkCentre, third room | built-in | 16 GB (2 × 8) | 256 GB SATA SSD (OS, 2.5" bay) + 1 TB NVMe (`/srv`: dump store, **the restic repository**) | **Backups** (the hub and the repository), Komodo, the Scrutiny hub, persianPerch, Samba. **Home Assistant.** Voice for its room |
+| `mochaPot` | x360 laptop, at the wall screen | USB adapter | 8 GB (1 × 8) | 128 GB M.2 SATA (the SanDisk) | The second Pi-hole (DNS only), Music Assistant, the kiosk |
+| `grinder` | x360 board, next to a switch | USB adapter | 16 GB (2 × 8) | **256 GB NVMe** (M.2) | Automation and AI: n8n, LiteLLM, Immich ML, the embedding worker and its Postgres, Open WebUI, Karakeep, FitTrackee, Traccar, ESPHome, speedtest-tracker, pourOver |
 
-That uses all eight sticks (8 + 16 + 16 + 8 + 16). The second 128 GB M.2 SATA
-drive is the spare. The two old
-HDDs stay out of the machines: they are the offline backup copies, written
-through the USB dock and kept unplugged (the old fleet had already retired
-them from live duty for their age, and Scrutiny flagged one of them).
+Every node also runs the Komodo agent, the Scrutiny collector and Traefik (on
+sieve and percolator, their own edge and ingress Traefiks), and backs up to
+cellar. Memory uses all eight sticks (8 + 16 + 16 + 8 + 16); the 3200 MHz pair
+goes into one of the 16 GB nodes.
 
-Disks, as revised on 2026-11-18:
+Off the fleet:
+
+| Disk | Where |
+|---|---|
+| 512 GB NVMe | Kept for roastery, when it's back (owner, 2026-11-22), beside its own 1 TB |
+| 128 GB M.2 SATA | **Spare** for mochaPot, whose SanDisk has a history of command timeouts. The ThinkCentres don't boot from it |
+| The two old 1 TB HDDs | The offline backup copies, through the USB dock, kept unplugged. Old, and Scrutiny flagged one |
+
+There is no spare for the two 1 TB NVMe drives. If one fails, the 512 GB can
+stand in until roastery is back, or a new drive is bought. Nor, since cellar
+took the second 256 GB SATA SSD for its OS (2026-11-23), is there a spare a
+ThinkCentre can boot from: a cheap 2.5" SATA SSD is worth buying.
+
+### Why this split
+
+The rule is the same one that put the network on a ThinkCentre: **what the
+house can't do without goes on built-in Ethernet, on a node that isn't
+percolator.** Then each node's failure takes down one kind of thing.
+
+- **sieve is the network and nothing else heavy.** DNS, DHCP, the tunnel and
+  the alerts. It watches the others, so it can't share their failures. Its
+  voice apps are small and only its own room's.
+- **percolator holds everything behind sign-in.** The household apps go down
+  with Authelia anyway, so they share its machine; splitting them across nodes
+  would add failures without removing one.
+- **Home Assistant goes to cellar** (it was on mochaPot). Lights, sensors and
+  the voice assistants are the house's own infrastructure, so: built-in
+  Ethernet (mochaPot answers through a USB adapter, and it's the laptop people
+  move); not percolator, so the house keeps working when sign-in or a household
+  app update breaks; not grinder, which is meant to be cheap to lose; not sieve,
+  which should stay small and predictable for DNS. cellar is the quietest
+  machine: busy only at night for backups, rarely changed, 16 GB.
+- **mochaPot keeps the second resolver, Music Assistant and the screen.** Its
+  battery rides out a power cut, which is when a second resolver earns its
+  place; music is not something the house depends on. The wall screen now shows
+  Home Assistant on cellar, straight to its port (`http://192.168.1.12:8123`),
+  so it needs neither DNS nor Traefik. If the USB adapter proves flaky, the
+  secondary resolver moves to cellar (one word in two `node.conf` files,
+  `DNS_SECONDARY` in `fleet.env`, and the Gatus check).
+- **grinder holds what can be shed.** Nothing on it is household-critical, so
+  its free memory is where things land when another node dies. Immich keeps
+  serving photos without it; only faces and search wait.
+
+Home Assistant on a ThinkCentre loses one thing: the laptop's built-in
+Bluetooth. Whether the ThinkCentres have Bluetooth is not known yet
+(`bluetoothctl list` on cellar, migration plan phase 7). If not, and something
+needs it, a USB Bluetooth adapter or an ESPHome Bluetooth proxy covers it.
+
+### When a node goes down
+
+| Down | Stops | Keeps working |
+|---|---|---|
+| sieve | New DHCP leases (devices keep theirs until they expire); every public hostname (the tunnel); alerts and Gatus; the living room's voice | Name resolution, through mochaPot's Pi-hole (slowly: clients wait out the primary first). Everything else by address on the LAN; Home Assistant |
+| percolator | Sign-in, and with it every page behind Authelia on any node; the household apps; the second room's voice | Home Assistant (its local account; and the kiosk), music, DNS and DHCP, alerts, backups. Komodo and Scrutiny on their own ports |
+| cellar | Home Assistant and the voice assistants in every room; the kiosk's dashboard; backups (the nightly runs fail and say so); Komodo, Scrutiny, persianPerch | Sign-in and the household apps, DNS and DHCP, the tunnel, alerts, music |
+| mochaPot | The second resolver, music, the wall screen | Everything else |
+| grinder | n8n's automations, the AI chat and LiteLLM, Immich's faces and search, Karakeep, FitTrackee, Traccar, the ESPHome dashboard (devices keep working with Home Assistant), speed tests | Everything else |
+| Power cut | Everything but mochaPot, unless the router and switches are on a UPS | mochaPot's resolver, for whatever still has power |
+
+cellar now carries two things the house notices (Home Assistant and backups),
+which is the cost of this layout. Backups tolerate a missed night; Home
+Assistant is the one to watch, and Gatus on sieve checks it.
+
+### Memory, roughly
+
+Estimates for planning, from the apps' usual footprints; Komodo shows the real
+numbers once they run. Swap is on every node.
+
+| Node | RAM | Expected use | Heaviest |
+|---|---|---|---|
+| sieve | 8 GB | 2–3 GB | Whisper's model, NetAlertX |
+| percolator | 16 GB | 10–12 GB | Immich and its Postgres, Paperless, OpenCloud, Whisper |
+| cellar | 16 GB | 5–7 GB, more during a prune | Komodo and its database, Home Assistant and its Postgres, restic at night |
+| mochaPot | 8 GB | about 2 GB | Chromium for the kiosk, Music Assistant |
+| grinder | 16 GB | 8–11 GB | Immich ML with its models loaded, Open WebUI, the embedding worker, Karakeep's Chrome |
+
+All five CPUs are two-core 7th-gen chips, which matters more than memory:
+percolator's Whisper is the model to size with care (docs/voice.md), and
+Immich's and Paperless's first imports are best left to run overnight.
+
+### Disks, as revised
 
 - **The ThinkCentres don't boot from the 128 GB M.2 SATA drives** (owner,
-  2026-11-18). mochaPot keeps one; the other is the spare, which matters
-  because mochaPot's SanDisk has a history of command timeouts.
-- **grinder gets the 512 GB NVMe** in its M.2 slot (owner, 2026-11-18), as in
-  the old fleet. Its 2.5" SATA bay stays free for later.
-- **sieve runs on the 256 GB SATA SSD** in its 2.5" bay (owner, 2026-11-18). It
-  needs the least disk of the five.
+  2026-11-18), so those stay with the x360s: mochaPot's, and the spare.
+- **grinder gets the 256 GB NVMe** (2026-11-22). Its apps need 40–60 GB at
+  most (images, models, old images until they're pruned); Karakeep's archived
+  pages are the one thing that grows. Its 2.5" bay stays free.
+- **sieve runs on a 256 GB SATA SSD** in its 2.5" bay (owner, 2026-11-18).
 - **percolator runs on its 1 TB NVMe alone.** OS and household data share it.
-
-Why this way:
-
-- **The network node is a ThinkCentre** (owner's decision): DNS and DHCP for the
-  house should not hang off a USB Ethernet adapter. It needs the least memory
-  and disk of the five.
-- **cellar gets the second 1 TB NVMe and a second stick** because it now holds
-  the restic repository that used to live on roastery. Its old 256 GB system
-  disk would not hold a repository for percolator's data.
-- **grinder takes the AI jobs** that need no GPU: LiteLLM (a proxy, almost no
-  load) and Immich's machine learning on the CPU. percolator already carries
-  nineteen apps on two cores.
-- **mochaPot keeps the secondary Pi-hole**: its battery rides out a power cut,
-  which is when a second resolver earns its place. The cost is that it answers
-  through a USB Ethernet adapter; if that proves flaky, the secondary moves to
-  cellar (one word in two `node.conf` files, `DNS_SECONDARY` in `fleet.env`,
-  and the Gatus check).
+- **cellar gets the second 1 TB NVMe and a second stick** because it holds the
+  restic repository that used to live on roastery. Debian went onto the second
+  256 GB SATA SSD in its bay (2026-11-23) and stayed there: the NVMe is all
+  `/srv`, so a full repository can't stop the OS and a reinstall never touches
+  the backups.
 
 ## Where roastery's jobs went
 
@@ -77,7 +144,7 @@ Why this way:
 |---|---|---|---|
 | Local LLMs (llama-swap, game mode) | roastery's GPU | A cloud model through LiteLLM on grinder, `llm.${DOMAIN}` | Stack written, not yet run. Provider not chosen; any OpenAI-compatible endpoint |
 | Immich machine learning | roastery's GPU | grinder's CPU (`stacks/ai/immich-ml`) | Stack written, not yet run. Slow first pass |
-| restic repository | roastery's NVMe, SFTP | cellar's 1 TB NVMe, SFTP | **Not built**: [migration plan](migration-plan.md), phase 5 |
+| restic repository | roastery's NVMe, SFTP | cellar's 1 TB NVMe, SFTP | **Not built**: [migration plan](migration-plan.md), phase 4 |
 | Bootstrap server | A container on roastery | [purrbrews-bootstrap](https://github.com/purrMonster/purrbrews-bootstrap) on americano | Server exists; the fleet's payload is not written (phase 1) |
 | Recovery kit builder (flask) | PowerShell on roastery | `recovery/make-flask.sh` and `fill-vault.sh` on americano | Written 2026-11-18; the sticks are the owner's ([recovery-kit.md](recovery-kit.md)) |
 | The key every node trusts | `purrbrews-roastery` on roastery | A key on americano, handed out by the bootstrap server | With phase 1 |
@@ -90,7 +157,7 @@ no app changes; `deprecated/stacks/roastery/llama-swap` is the starting point.
 
 Each ThinkCentre gets a USB speaker and a conference-room mic and runs
 speech-to-text and text-to-speech locally (Whisper and Piper), with Home
-Assistant on mochaPot as the brain. That makes sieve, percolator and cellar the
+Assistant on cellar as the brain. That makes sieve, percolator and cellar the
 three voice machines, and all three run both engines, percolator included
 (owner, 2026-11-17). The stack is `stacks/voice/` ([voice.md](voice.md));
 bringing it up is phase 9 of the [migration plan](migration-plan.md).
@@ -126,6 +193,8 @@ mochaPot's own touchscreen.
    drive slot (owner, 2026-11-18).
 4. mochaPot's 128 GB SanDisk has a history of command timeouts (Scrutiny, old
    runbook 2026-09-26 and 2026-09-30). The other 128 GB drive is its spare.
+8. Bluetooth on the ThinkCentres (for Home Assistant on cellar): `bluetoothctl
+   list`. None is fine unless something in the house needs it.
 5. ~~That a ThinkCentre boots from a 2.5" SATA SSD (sieve's disk).~~ It does
    (owner, 2026-11-18).
 6. Both USB Ethernet adapters: ~~that Debian 13 brings them up~~ it does (owner,

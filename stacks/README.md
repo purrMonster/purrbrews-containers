@@ -57,8 +57,8 @@ but have settings or templates (`restic` on every node, `kiosk` on mochaPot).
 |---|---|---|
 | `sieve` | Network: DNS, DHCP, tunnel, alerting | [nodes/sieve](../nodes/sieve/README.md) |
 | `percolator` | Ingress, identity (SSO) and the daily apps | [nodes/percolator](../nodes/percolator/README.md) |
-| `cellar` | Backups (the repository too, since the rebuild), file shares, Komodo, the Scrutiny hub | [nodes/cellar](../nodes/cellar/README.md) |
-| `mochaPot` | Home automation, music, the wall screen, secondary DNS | [nodes/mochaPot](../nodes/mochaPot/README.md) |
+| `cellar` | Backups (the repository too, since the rebuild), file shares, Komodo, the Scrutiny hub, Home Assistant | [nodes/cellar](../nodes/cellar/README.md) |
+| `mochaPot` | Music, the wall screen, secondary DNS | [nodes/mochaPot](../nodes/mochaPot/README.md) |
 | `grinder` | Automation, AI (LiteLLM, Immich ML), self-tracking | [nodes/grinder](../nodes/grinder/README.md) |
 
 roastery, the Windows workstation, is out of the fleet; its stacks and PowerShell
@@ -207,6 +207,13 @@ Decided 2026-09-27 (`deprecated/runbook.md`); re-targeted in the 2026-11 rebuild
    every `secrets.env.local` and `/etc/purrbrews`) straight into the restic
    repository, over SFTP, `--host <node> --tag files`.
 
+An app in `APPS` that has never been started on the node is left out, with a
+note in the log: the apps come up one at a time, and one that hasn't run has
+nothing to back up. The sign is its data folder (or, for an app with only
+database lines, its container). Once that exists the app is backed up like the
+rest, and a file it needs going missing fails the night. `backup.sh plan`
+shows everything, started or not.
+
 The repository lived on roastery; since the 2026-11 rebuild it is on cellar,
 the backup hub (`BACKUP_HUB=true` in its `node.conf`), in an SFTP-only account
 chrooted to `BACKUP_REPO_ROOT`. cellar reaches it through that account too. The hub backs up the dump store
@@ -214,9 +221,8 @@ chrooted to `BACKUP_REPO_ROOT`. cellar reaches it through that account too. The 
 morning that everything above happened; [backup/restic/README.md](backup/restic/README.md)
 has that side and the order to switch it all on.
 
-**Not switched on yet:** the code is written (W2, 2026-11-18); the account,
-the repository and the timers come up in phase 5 of the
-[migration plan](../docs/migration-plan.md). No node backs up until then.
+**Switched on in phase 4** of the [migration plan](../docs/migration-plan.md)
+(2026-11-23): the account and the repository on cellar, cellar first.
 
 `BACKUP_REPOSITORY`, `BACKUP_REPO_ROOT`, `DUMP_DIR` and `DUMP_STORE_HOST` are in `fleet.env`; `restic`
 is in every node's `TOOLS`, and its `secrets.hook` makes the repository password

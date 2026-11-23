@@ -123,13 +123,53 @@ resolve_value() {  # resolve_value <app> <token>: $KEY looked up, anything else 
 # (fields separated by \x1f so a value can hold spaces).
 DIRECTIVES=()
 
+# app_brought_up <app> <directive>...: has this app ever been started on this
+# node? A node's APPS lists everything it will run, but the apps come up one
+# at a time (docs/migration-plan.md), and an app that has never run has
+# nothing to back up. The sign is its data: if any top folder its path or
+# sqlite lines name exists, it has run (a folder outlives `down`, so a stopped
+# app is still backed up, and still fails loudly if its files go missing).
+# An app with only database lines counts as started once its container exists,
+# running or not.
+app_brought_up() {
+  local app="$1" d p root c found_paths=0
+  shift
+  for d in "$@"; do
+    split_directive "$d"
+    case "$D_KIND" in
+      path|sqlite)
+        found_paths=1
+        p="${D_FIELDS[-1]}"
+        if [[ "$p" == MEDIA_DIR/* ]]; then p="${p#MEDIA_DIR/}"; root="$MEDIA_DIR/${p%%/*}"
+        else root="$DATA_DIR/${p%%/*}"; fi
+        [[ -e "$root" ]] && return 0 ;;
+    esac
+  done
+  [[ $found_paths -eq 0 ]] || return 1
+  [[ -n "${DOCKER[*]:-}" ]] || use_docker
+  for d in "$@"; do
+    split_directive "$d"
+    case "$D_KIND" in
+      pg|mongo)
+        c="$(resolve_value "$app" "${D_FIELDS[1]}" 2>/dev/null)" || continue
+        "${DOCKER[@]}" inspect "$c" >/dev/null 2>&1 && return 0 ;;
+    esac
+  done
+  return 1
+}
+
+# parse_backup_files [--all]: without --all, apps that have never been
+# started here are left out, with a note (app_brought_up).
 parse_backup_files() {
-  local app spec line kind optional fields
-  local -a words
+  local app spec line kind optional fields all=0
+  local -a words app_directives
+  [[ "${1:-}" == --all ]] && all=1
   DIRECTIVES=()
+  SKIPPED_APPS=()
   for app in "${APPS[@]}"; do
     spec="$(app_dir "$app")/backup"
     [[ -f "$spec" ]] || continue
+    app_directives=()
     while IFS= read -r line || [[ -n "$line" ]]; do
       line="${line%%#*}"
       read -r -a words <<< "$line"
@@ -157,9 +197,19 @@ parse_backup_files() {
         exclude) [[ "${words[1]}" != */* ]] || check_path "$app" "${words[1]}" ;;
       esac
       fields="$(IFS=$'\x1f'; printf '%s' "${words[*]:1}")"
-      DIRECTIVES+=("$app|$kind|$optional|$fields")
+      app_directives+=("$app|$kind|$optional|$fields")
     done < "$spec"
+    [[ ${#app_directives[@]} -gt 0 ]] || continue
+    if [[ $all -eq 0 ]] && ! app_brought_up "$app" "${app_directives[@]}"; then
+      SKIPPED_APPS+=("$app")
+      continue
+    fi
+    DIRECTIVES+=("${app_directives[@]}")
   done
+  if [[ ${#SKIPPED_APPS[@]} -gt 0 ]]; then
+    note "not started on this node yet, so not backed up: ${SKIPPED_APPS[*]}"
+  fi
+  return 0
 }
 
 each() {  # each <kind>: prints the matching directives, one per line
@@ -191,7 +241,7 @@ settings_paths() {  # the node's own settings, always backed up
 cmd_plan() {
   local d name
   load_settings
-  parse_backup_files
+  parse_backup_files --all
   echo "$NODE_NAME: DATA_DIR=$DATA_DIR  dumps → $NODE_DUMPS"
   if [[ $IS_STORE -eq 1 ]]; then
     echo "  this node is the dump store: dumps stay here, and 'store' backs up $DUMP_DIR"
@@ -298,6 +348,9 @@ dump_sqlite() {  # dump_sqlite <app> <optional> <name> <path glob>
   # shellcheck disable=SC2206  # the glob expansion is the point
   files=($pattern)
   shopt -u nullglob
+  # nullglob only drops patterns with wildcards; a plain path that doesn't
+  # exist stays in the list as it is.
+  [[ ${#files[@]} -eq 1 && ! -e "${files[0]}" ]] && files=()
   if [[ ${#files[@]} -eq 0 ]]; then
     [[ "$optional" -eq 1 ]] && { note "$app/$name: nothing at ${pattern}; optional, skipped"; return 0; }
     warn "$app/$name: nothing at $pattern"; return 1
@@ -539,7 +592,7 @@ cmd_keys() {
     echo "whenever that file changes."
   else
     echo "On cellar, this line in stacks/backup/restic/backup.keys, then"
-    echo "sudo ./restic/repo-setup.sh and sudo ./restic/dump-store-setup.sh there"
+    echo "sudo ../../stacks/backup/restic/repo-setup.sh and sudo ../../stacks/backup/restic/dump-store-setup.sh there"
     echo "(the one key opens both the repository and the dump store):"
     echo
     echo "$NODE_NAME from=\"$NODE_IP\" $pub"

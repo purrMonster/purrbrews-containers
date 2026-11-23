@@ -3,8 +3,8 @@
 # verify.sh: read part of the repository back and check it
 # (purrbrews-backup-verify.timer, the 1st of each month).
 #
-#   sudo ./restic/verify.sh           checks structure and reads 5% of the data
-#   sudo ./restic/verify.sh 100%      reads everything (hours; do it by hand)
+#   sudo ../../stacks/backup/restic/verify.sh           checks structure and reads 5% of the data
+#   sudo ../../stacks/backup/restic/verify.sh 100%      reads everything (hours; do it by hand)
 #
 # restic picks a different 5% each time, so a year of these reads the lot.
 # This proves the repository is intact; restore-test.sh proves it's usable.

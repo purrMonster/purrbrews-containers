@@ -66,7 +66,7 @@ Nothing in this table has run on a node since the move. "Not run" in the
 
 | App | Old path | New path | Runs on | Status | What changed, what is left |
 |---|---|---|---|---|---|
-| Home Assistant | `stacks/mochaPot/homeassistant` | `stacks/home/homeassistant` | mochaPot | Carried | `trusted_proxies` must list the new `proxy` subnet and sieve's new address. Voice (phase 9) adds the Wyoming integrations |
+| Home Assistant | `stacks/mochaPot/homeassistant` | `stacks/home/homeassistant` | cellar (moved from mochaPot, 2026-11-22) | Carried | `trusted_proxies` must list cellar's `proxy` subnet and sieve's new address. Voice (phase 9) adds the Wyoming integrations |
 | Music Assistant | `stacks/mochaPot/musicassistant` | `stacks/home/musicassistant` | mochaPot | Carried | |
 | ESPHome | `stacks/grinder/esphome` | `stacks/home/esphome` | grinder | Carried | |
 | Kiosk (host-native) | `stacks/mochaPot/kiosk` | `stacks/home/kiosk` | mochaPot | Carried | Listed in mochaPot's `TOOLS` so its template still renders |
@@ -103,10 +103,10 @@ Nothing in this table has run on a node since the move. "Not run" in the
 
 | App | Old path | New path | Runs on | Status | What changed, what is left |
 |---|---|---|---|---|---|
-| restic, the hub | `stacks/cellar/restic` | `stacks/backup/restic` | cellar (`BACKUP_HUB=true`) | Changed | Paths and units only. **Not usable**: still written around a repository on roastery (wake-on-LAN, an rclone remote named `roastery`). Phase 5 |
+| restic, the hub | `stacks/cellar/restic` | `stacks/backup/restic` | cellar (`BACKUP_HUB=true`) | Changed | Paths and units only. **Not usable**: still written around a repository on roastery (wake-on-LAN, an rclone remote named `roastery`). Phase 4 |
 | restic, the nodes | `stacks/<node>/restic/secrets.conf` | same folder, `secrets.client.conf` | every node (`TOOLS`) | Merged | `secrets.hook` picks the hub's or a client's spec |
 | Wake roastery | `stacks/cellar/restic/wake-roastery.*` | | | Archived | Nothing to wake |
-| Backup target | `stacks/roastery/backup-target` | | | Source | The Linux equivalent on cellar is phase 5 |
+| Backup target | `stacks/roastery/backup-target` | | | Source | The Linux equivalent on cellar is phase 4 |
 | Samba | `stacks/cellar/smb` | `stacks/backup/smb` | cellar | Carried | Optional; unused, port closed, `latest` tag. Decide or drop |
 | NFS (host-native) | `stacks/cellar/nfs` | `stacks/backup/nfs` | cellar | Carried | |
 | flask, the recovery kit | `stacks/roastery/flask`, `docs/flask.md` | `recovery/`, `docs/recovery-kit.md` | | Rewritten | Bash on americano instead of PowerShell on roastery (W3, 2026-11-18). Same layout and checks; the vault list is `recovery/vault.tiers`, brought up to date with the new fleet |

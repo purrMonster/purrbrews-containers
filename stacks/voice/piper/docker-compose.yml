@@ -3,10 +3,10 @@
 # room's own machine makes the spoken replies and nothing leaves the house
 # (owner, 2026-11-17; docs/voice.md).
 #
-# Home Assistant on mochaPot is the only client: it opens tcp/10200 here
+# Home Assistant on cellar is the only client: it opens tcp/10200 here
 # (Settings → Devices & services → Wyoming Protocol → this node's address).
 # The protocol has no authentication, so this app's firewall file lets
-# mochaPot, and only mochaPot, reach it.
+# cellar, and only cellar, reach it.
 #
 # The voice is VOICE_PIPER_VOICE (stacks/fleet.env; a node can override it in
 # its .env.local), downloaded on first start into DATA_DIR/piper. Piper is
