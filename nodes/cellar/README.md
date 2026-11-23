@@ -7,8 +7,8 @@
 > and [`docs/hardware.md`](../../docs/hardware.md) before relying on it.
 
 **Backups, the fleet's ops tools and Home Assistant**: `192.168.1.12`, ThinkCentre
-M710q (i3-7100T, 16 GB), one 1 TB NVMe for the OS, the dump store and the restic
-repository ([docs/hardware.md](../../docs/hardware.md)).
+M710q (i3-7100T, 16 GB): a 256 GB SATA SSD for the OS, and the 1 TB NVMe as `/srv`
+for the dump store and the restic repository ([docs/hardware.md](../../docs/hardware.md)).
 
 cellar is always on, so anything that has to run on a schedule, and be noticed
 when it doesn't, lives here. Home Assistant moved here from mochaPot on

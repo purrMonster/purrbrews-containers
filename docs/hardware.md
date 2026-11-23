@@ -34,7 +34,7 @@ machines stayed where they were.
 |---|---|---|---|---|---|
 | `sieve` | ThinkCentre, living room | built-in | 8 GB (1 × 8) | 256 GB SATA SSD (2.5" bay) | **The network:** Unbound, Pi-hole (DNS and DHCP), cloudflared, Traefik for the edge, ntfy, Gatus, NetAlertX. Voice for its room |
 | `percolator` | ThinkCentre, second room | built-in | 16 GB (2 × 8) | 1 TB NVMe (OS and `/srv/data`) | **Ingress and sign-in:** Traefik, CrowdSec, the mail relay, LLDAP, Authelia. **The household apps:** Radicale, OpenCloud, Vaultwarden, Immich, Paperless, Mealie, Vikunja, meowGram, Actual, FreshRSS, Homepage, purrCafe. Voice for its room |
-| `cellar` | ThinkCentre, third room | built-in | 16 GB (2 × 8) | 1 TB NVMe (OS, dump store, **the restic repository**) | **Backups** (the hub and the repository), Komodo, the Scrutiny hub, persianPerch, Samba. **Home Assistant.** Voice for its room |
+| `cellar` | ThinkCentre, third room | built-in | 16 GB (2 × 8) | 256 GB SATA SSD (OS, 2.5" bay) + 1 TB NVMe (`/srv`: dump store, **the restic repository**) | **Backups** (the hub and the repository), Komodo, the Scrutiny hub, persianPerch, Samba. **Home Assistant.** Voice for its room |
 | `mochaPot` | x360 laptop, at the wall screen | USB adapter | 8 GB (1 × 8) | 128 GB M.2 SATA (the SanDisk) | The second Pi-hole (DNS only), Music Assistant, the kiosk |
 | `grinder` | x360 board, next to a switch | USB adapter | 16 GB (2 × 8) | **256 GB NVMe** (M.2) | Automation and AI: n8n, LiteLLM, Immich ML, the embedding worker and its Postgres, Open WebUI, Karakeep, FitTrackee, Traccar, ESPHome, speedtest-tracker, pourOver |
 
@@ -48,12 +48,13 @@ Off the fleet:
 | Disk | Where |
 |---|---|
 | 512 GB NVMe | Kept for roastery, when it's back (owner, 2026-11-22), beside its own 1 TB |
-| 256 GB 2.5" SATA SSD | **Spare.** Boots sieve (its bay), fits grinder's 2.5" bay |
 | 128 GB M.2 SATA | **Spare** for mochaPot, whose SanDisk has a history of command timeouts. The ThinkCentres don't boot from it |
 | The two old 1 TB HDDs | The offline backup copies, through the USB dock, kept unplugged. Old, and Scrutiny flagged one |
 
 There is no spare for the two 1 TB NVMe drives. If one fails, the 512 GB can
-stand in until roastery is back, or a new drive is bought.
+stand in until roastery is back, or a new drive is bought. Nor, since cellar
+took the second 256 GB SATA SSD for its OS (2026-11-23), is there a spare a
+ThinkCentre can boot from: a cheap 2.5" SATA SSD is worth buying.
 
 ### Why this split
 
@@ -132,7 +133,10 @@ Immich's and Paperless's first imports are best left to run overnight.
 - **sieve runs on a 256 GB SATA SSD** in its 2.5" bay (owner, 2026-11-18).
 - **percolator runs on its 1 TB NVMe alone.** OS and household data share it.
 - **cellar gets the second 1 TB NVMe and a second stick** because it holds the
-  restic repository that used to live on roastery.
+  restic repository that used to live on roastery. Debian went onto the second
+  256 GB SATA SSD in its bay (2026-11-23) and stayed there: the NVMe is all
+  `/srv`, so a full repository can't stop the OS and a reinstall never touches
+  the backups.
 
 ## Where roastery's jobs went
 
