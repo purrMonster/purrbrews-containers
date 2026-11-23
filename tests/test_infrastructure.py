@@ -982,6 +982,40 @@ class Backup(unittest.TestCase):
         self.assertNotEqual(again.returncode, 0, again.stdout)
         self.assertIn('netalertx', again.stdout + again.stderr)
 
+    @unittest.skipUnless(AS_ROOT and shutil.which('rsync') and shutil.which('rrsync'), 'needs root, rsync and rrsync')
+    def test_push_lands_the_dumps_and_fails_when_rsync_discards_them(self):
+        # sieve, 2026-11-23: Debian 13's rsync couldn't make the partial dir on
+        # cellar, discarded every file, exited 0, and the night said OK.
+        tmp = Path(tempfile.mkdtemp(dir='/tmp'))
+        self.addCleanup(shutil.rmtree, tmp)
+        root = copy_repo(tmp)
+        dumps, store = tmp / 'dumps', tmp / 'store'
+        (dumps / 'sieve/pihole').mkdir(parents=True)
+        (dumps / 'sieve/pihole/gravity.sql.gz').write_text('dump')
+        store.mkdir()
+        (root / '.env').write_text(f'NODE=sieve\nNODE_IP=192.168.1.10\nDATA_DIR={tmp / "data"}\n')
+        node = root / 'nodes/sieve'
+        (node / '.env.local').write_text(f'DUMP_DIR={dumps}\nDUMP_STORE_HOST=192.168.1.12\n')
+        bin_dir = fake_bin(tmp / 'bin')
+        ssh = bin_dir / 'ssh'
+        # The store side as cellar has it: the key pinned to `rrsync -wo <store>`.
+        ssh.write_text('#!/usr/bin/env bash\n'
+                       # rsync passes `-l dumps 192.168.1.12` or `dumps@192.168.1.12`
+                       'while [[ $# -gt 0 && "$1" != 192.168.1.12 && "$1" != *@192.168.1.12 ]]; do shift; done\n'
+                       '[[ $# -gt 0 ]] || { echo "fake ssh: no host" >&2; exit 255; }; shift\n'
+                       '[[ -z "${FAKE_DISCARD:-}" ]] || { echo "Unable to create partial-dir for x -- discarding completed file." >&2; exit 0; }\n'
+                       f'SSH_ORIGINAL_COMMAND="$*" exec rrsync -wo {store}\n')
+        ssh.chmod(0o755)
+        env = dict(os.environ, BACKUP_KEY=str(tmp / 'key'), BACKUP_ETC=str(tmp / 'etc'),
+                   BACKUP_LOCK=str(tmp / 'lock'), PATH=f"{bin_dir}:{os.environ['PATH']}")
+        ok = subprocess.run(['bash', str(node / 'backup.sh'), 'push'], env=env, capture_output=True, text=True)
+        self.assertEqual(ok.returncode, 0, ok.stdout + ok.stderr)
+        self.assertEqual((store / 'pihole/gravity.sql.gz').read_text(), 'dump')
+        bad = subprocess.run(['bash', str(node / 'backup.sh'), 'push'], env=dict(env, FAKE_DISCARD='1'),
+                             capture_output=True, text=True)
+        self.assertNotEqual(bad.returncode, 0, bad.stdout + bad.stderr)
+        self.assertIn('pushing the dumps', bad.stderr)
+
     @unittest.skipUnless(AS_ROOT and all(shutil.which(c) for c in ['restic', 'rclone', 'flock']),
                          'needs root, restic, rclone and flock')
     def test_drive_sync_never_mirrors_an_empty_or_different_repository(self):
