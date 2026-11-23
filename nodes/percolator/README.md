@@ -21,12 +21,14 @@ and shared household accounts. Radicale authenticates DAV directly against LLDAP
 | [Authelia](../../stacks/identity/authelia/) | `authelia.${DOMAIN}` | Single sign-on for every app |
 | [Vaultwarden](../../stacks/apps/vaultwarden/) | `vault.${DOMAIN}` | Passwords |
 | [Radicale](../../stacks/apps/radicale/) | `radicale.${DOMAIN}` | Calendars and contacts through LLDAP Basic auth |
-| [Paperless-ngx](../../stacks/apps/paperless/) | `paperless.${DOMAIN}` | Scanned documents |
 | [Mealie](../../stacks/apps/mealie/) | `mealie.${DOMAIN}` | Recipes and meal plans |
 | [Vikunja](../../stacks/apps/vikunja/) | `vikunja.${DOMAIN}` | To-do lists |
 | [meowGram](../../stacks/apps/meowgram/) | `meow.${DOMAIN}` | The household chat (own repo; Authelia OIDC in the app) |
 | [Actual Budget](../../stacks/apps/actualbudget/) | `actualbudget.${DOMAIN}` | Budgeting |
 | [FreshRSS](../../stacks/apps/freshrss/) | `freshrss.${DOMAIN}` | News feeds |
+| [Karakeep](../../stacks/apps/karakeep/) | `karakeep.${DOMAIN}` (SSO), or `:3030` | Bookmarks and read-it-later (from grinder, 2026-11-23) |
+| [FitTrackee](../../stacks/apps/fittrackee/) | `fittrackee.${DOMAIN}` (SSO), or `:5001` | Rides, from the bike computer's GPX (from grinder) |
+| [Traccar](../../stacks/apps/traccar/) | `traccar.${DOMAIN}` (SSO), or `:8082`; the phone posts to `:5055` | Live position of the bike (from grinder) |
 | [Homepage](../../stacks/apps/homepage/) | `homepage.${DOMAIN}` | Start page: a tile for every app |
 | [purrCafe](../../stacks/apps/purrcafe/) | `cafe.${DOMAIN}` | Household dashboard: home, budget, inbox, fleet; `/wall` for the kiosk |
 | Komodo Periphery | — | Lets Komodo on cellar manage this node's containers |
@@ -50,7 +52,7 @@ flowchart LR
       T --> DAV["Radicale"]
       DAV -->|LDAP| L
       A --- R[("Redis")]
-      T --> Apps["Vaultwarden · Paperless<br/>Mealie · Vikunja · Actual · FreshRSS · Homepage · purrCafe"]
+      T --> Apps["Vaultwarden · Mealie · Vikunja · Actual<br/>FreshRSS · Karakeep · FitTrackee · Traccar · Homepage · purrCafe"]
       Apps -->|"OIDC via authelia.DOMAIN<br/>(alias to Traefik)"| T
       Apps --- DB[("own Postgres / Valkey<br/>per app, private")]
     end
@@ -107,7 +109,7 @@ signal (in its README) before the next. "Container started" is not a success sig
 | 2b | `./compose.sh mail-relay up -d` (after the Purelymail app password: [its README](../../stacks/mail/mail-relay/README.md)) | `mail-relay` is `healthy`; `/srv/data/mail-relay/tls-public/ca.crt` exists |
 | 3 | `./compose.sh lldap up -d` then `./lldap-bootstrap.sh` in an interactive terminal | groups exist, `barista` created — **save the one-time password shown on the terminal** |
 | 4 | `./compose.sh authelia up -d` | log in at `https://authelia.${DOMAIN}` as `barista`; the Traefik dashboard opens; from sieve, `curl -s -o /dev/null -w '%{http_code}' http://192.168.1.11:9091/api/health` gives `200` |
-| 5+ | `./compose.sh <app> up -d` for radicale, vaultwarden, paperless, mealie, vikunja, meowgram, actualbudget, freshrss, homepage, purrcafe | the app's README checklist |
+| 5+ | `./compose.sh <app> up -d` for radicale, vaultwarden, mealie, vikunja, meowgram, actualbudget, freshrss, karakeep, fittrackee, traccar, homepage, purrcafe | the app's README checklist; for the three from grinder, the first visits below |
 | last | `./compose.sh komodo-periphery up -d`, `./compose.sh scrutiny-collector up -d` | percolator shows up in Komodo and Scrutiny on cellar (copy `komodo-periphery/keys/core.pub` from cellar first) |
 
 Once everything has been up once, `./compose.sh --all up -d` brings the whole node up
@@ -163,10 +165,13 @@ grinder) has public clients only, so no OIDC client secrets.
 | 80, 443 | all interfaces (UFW: LAN only) | Traefik |
 | 9091 | all interfaces (UFW: `FORWARD_AUTH_CLIENTS` only) | Authelia, ForwardAuth for other nodes' Traefik |
 | 587 | all interfaces (UFW: `MAIL_RELAY_CLIENTS` only) | Mail relay, for other nodes' apps |
+| 3030, 5001, 8082 | published (UFW route: LAN, on the container ports 3000, 5000, 8082) | Karakeep, FitTrackee, Traccar, each with its own login behind the SSO route |
+| 5055 | published (UFW route: LAN) | Traccar's OsmAnd ingest, what the phone posts to; not HTTP |
 | 17170 | 127.0.0.1 | LLDAP admin UI (break-glass: `ssh -L 17170:127.0.0.1:17170 barista@percolator`) |
 | 22 | host (UFW: LAN only) | sshd, from init |
 
-Nothing else is published. Check `sudo ss -tlnp` before adding a port.
+Nothing else is published. (The three app ports came with the apps from grinder,
+2026-11-23.) Check `sudo ss -tlnp` before adding a port.
 
 ## Data
 
@@ -179,7 +184,7 @@ Everything lives under `/srv/data/<app>/` on the NVMe:
 | `authelia/data` | 2FA enrolments, consent (SQLite) | **yes** |
 | `vaultwarden` | vaults (SQLite), attachments | **yes** |
 | `radicale/collections` | calendars, contacts and metadata | **yes** |
-| `paperless/{data,media,export}`, `paperless/postgres` | documents, database | **yes** (database as a dump) |
+| `karakeep*`, `fittrackee`, `postgres-fittrackee`, `traccar` | bookmarks, rides, positions (Traccar on H2) | **yes** (Postgres as a dump) |
 | `mealie`, `vikunja`, `actualbudget`, `freshrss` | SQLite + files | **yes** |
 | `meowgram/postgres`, `meowgram/secrets` | chat history, the push key | **yes** (database as a dump) |
 | `purrcafe` | encrypted mailboxes, budget cache, `home.json` | **yes**, with `purrcafe/secrets.env.local` (the key) |
@@ -188,6 +193,14 @@ Everything lives under `/srv/data/<app>/` on the NVMe:
 
 Never copy a running Postgres data directory as a backup; dump it
 (`pg_dump`) and back up the dump. The dump job is not built yet (see the runbook).
+
+## First visits for the apps from grinder
+
+| App | What to do |
+|---|---|
+| Karakeep | Set `DISABLE_SIGNUPS: "false"` for the first account, then straight back to `"true"` and `up -d` again. Its `NEXTAUTH_URL` is the direct-port URL while the route is `karakeep.${DOMAIN}`: check the phone's share sheet signs in through the hostname. Image `release` is unpinned |
+| FitTrackee | Create the first account (check whether it becomes admin on this version). |
+| Traccar | **Log in as admin/admin and change it at once**; the image won't take it from the environment. The phone's server is `http://192.168.1.11:5055` now. Traccar is on H2, not Postgres; fine for GPS pings |
 
 ## Gotchas
 

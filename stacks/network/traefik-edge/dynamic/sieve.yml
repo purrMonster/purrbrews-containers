@@ -39,6 +39,13 @@ http:
       middlewares: [authelia, secure-headers]
       service: api@internal
 
+    # Speedtest Tracker (from grinder, 2026-11-23); its own login too.
+    speedtest:
+      rule: Host(`speedtest.{{ env "DOMAIN" }}`)
+      entryPoints: [websecure]
+      middlewares: [authelia, secure-headers]
+      service: speedtest
+
     # ntfy has its own accounts, so no Authelia. On the LAN, phones reach it here;
     # away from home, through the Cloudflare tunnel (which goes to ntfy directly).
     ntfy:
@@ -89,3 +96,6 @@ http:
     ntfy:
       loadBalancer:
         servers: [{url: "http://ntfy:8080"}]
+    speedtest:
+      loadBalancer:
+        servers: [{url: "http://speedtest-tracker:80"}]

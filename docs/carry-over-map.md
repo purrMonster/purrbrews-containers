@@ -50,7 +50,7 @@ Nothing in this table has run on a node since the move. "Not run" in the
 | OpenCloud | `stacks/percolator/opencloud` | `stacks/apps/opencloud` | grinder | Carried | Moved to grinder with Immich (2026-11-23). Upgrade gate: a fresh install records its version itself |
 | Radicale | `stacks/percolator/radicale` | `stacks/apps/radicale` | percolator | Carried | Needs `scottishfold` in LLDAP |
 | Immich | `stacks/percolator/immich` | `stacks/apps/immich` | grinder | Changed | Moved to grinder with its ML (2026-11-23); ML by container name, no `IMMICH_ML_URL`. v3.3.3 was merged but never deployed on the old fleet |
-| Paperless-ngx | `stacks/percolator/paperless` | `stacks/apps/paperless` | percolator | Carried | Needs the relay bundle |
+| Paperless-ngx | `stacks/percolator/paperless` | `stacks/apps/paperless` | grinder | Carried | Moved to grinder (2026-11-23); builds the relay bundle there from a copied `ca.crt` |
 | Mealie | `stacks/percolator/mealie` | `stacks/apps/mealie` | percolator | Carried | |
 | Vikunja | `stacks/percolator/vikunja` | `stacks/apps/vikunja` | percolator | Carried | Needs the relay bundle |
 | meowGram | `stacks/percolator/meowgram` | `stacks/apps/meowgram` | percolator | Carried | 2.0.0 is pinned and was never rolled out. Starts empty (owner, 2026-11-17), so there is nothing to dump first |
@@ -58,9 +58,9 @@ Nothing in this table has run on a node since the move. "Not run" in the
 | FreshRSS | `stacks/percolator/freshrss` | `stacks/apps/freshrss` | percolator | Carried | |
 | Homepage | `stacks/percolator/homepage` | `stacks/apps/homepage` | percolator | Carried | Tiles not reviewed for the new hosts (`llm`) |
 | purrCafe | `stacks/percolator/purrcafe` | `stacks/apps/purrcafe` | percolator | Carried | Never ran on the old fleet |
-| Karakeep | `stacks/grinder/karakeep` | `stacks/apps/karakeep` | grinder | Carried | Old Backlog: check the phone share sheet signs in through the host name |
-| FitTrackee | `stacks/grinder/fittrackee` | `stacks/apps/fittrackee` | grinder | Carried | |
-| Traccar | `stacks/grinder/traccar` | `stacks/apps/traccar` | grinder | Carried | |
+| Karakeep | `stacks/grinder/karakeep` | `stacks/apps/karakeep` | percolator (from grinder, 2026-11-23) | Carried | Old Backlog: check the phone share sheet signs in through the host name |
+| FitTrackee | `stacks/grinder/fittrackee` | `stacks/apps/fittrackee` | percolator (from grinder, 2026-11-23) | Carried | |
+| Traccar | `stacks/grinder/traccar` | `stacks/apps/traccar` | percolator (from grinder, 2026-11-23) | Carried | |
 
 ### home
 
@@ -68,7 +68,7 @@ Nothing in this table has run on a node since the move. "Not run" in the
 |---|---|---|---|---|---|
 | Home Assistant | `stacks/mochaPot/homeassistant` | `stacks/home/homeassistant` | cellar (moved from mochaPot, 2026-11-22) | Carried | `trusted_proxies` must list cellar's `proxy` subnet and sieve's new address. Voice (phase 9) adds the Wyoming integrations |
 | Music Assistant | `stacks/mochaPot/musicassistant` | `stacks/home/musicassistant` | mochaPot | Carried | |
-| ESPHome | `stacks/grinder/esphome` | `stacks/home/esphome` | grinder | Carried | |
+| ESPHome | `stacks/grinder/esphome` | `stacks/home/esphome` | cellar (from grinder, 2026-11-23) | Carried | |
 | Kiosk (host-native) | `stacks/mochaPot/kiosk` | `stacks/home/kiosk` | mochaPot | Carried | Listed in mochaPot's `TOOLS` so its template still renders |
 | Voice: Whisper, Piper, satellites | | `stacks/voice/whisper`, `piper`, `voice-satellite` | sieve, percolator, cellar | New | W4, 2026-11-18 ([voice.md](voice.md)); brought up in phase 9 |
 
@@ -91,7 +91,7 @@ Nothing in this table has run on a node since the move. "Not run" in the
 |---|---|---|---|---|---|
 | Gatus | `stacks/sieve/gatus` | `stacks/monitoring/gatus` | sieve | Changed | New addresses; a check for `llm`. Immich moved to grinder's group |
 | ntfy | `stacks/sieve/ntfy` | `stacks/monitoring/ntfy` | sieve | Carried | |
-| Speedtest Tracker | `stacks/grinder/speedtest-tracker` | `stacks/monitoring/speedtest-tracker` | grinder | Carried | |
+| Speedtest Tracker | `stacks/grinder/speedtest-tracker` | `stacks/monitoring/speedtest-tracker` | sieve (from grinder, 2026-11-23; route in sieve.yml) | Carried | |
 | Komodo Core | `stacks/cellar/komodo` | `stacks/fleet-management/komodo` | cellar | Carried | |
 | Komodo Periphery | `stacks/{sieve,percolator,mochaPot,grinder}/komodo-periphery` | `stacks/fleet-management/komodo-periphery` | every node but cellar | Merged | The four Linux copies were identical |
 | Scrutiny hub | `stacks/cellar/scrutiny` | `stacks/fleet-management/scrutiny` | cellar | Changed | A second disk is optional now (cellar has one) |

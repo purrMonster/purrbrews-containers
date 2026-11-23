@@ -97,11 +97,12 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 **Phases 6 to 8: the apps**
 
 - [ ] percolator's household apps, one at a time, empty, each with a night's backup behind it
-- [ ] cellar: Home Assistant with `trusted_proxies` for cellar's subnet (`172.30.12.0/24`), signing in through Authelia and locally; Bluetooth checked (`bluetoothctl list`)
+- [ ] cellar: Home Assistant with `trusted_proxies` for cellar's subnet (`172.30.12.0/24`), signing in through Authelia and locally; Bluetooth checked (`bluetoothctl list`); ESPHome beside it, its first sensor found by Home Assistant
 - [ ] mochaPot: secondary Pi-hole, Music Assistant, the merged Traefik checked with host-networked apps, the kiosk showing Home Assistant on cellar
-- [ ] grinder: LiteLLM healthy and `llm.${DOMAIN}` refusing a request without credentials; Open WebUI answering; Immich up with its ML, port 3003 unreachable from other nodes; OpenCloud signing in through Authelia
+- [ ] grinder: LiteLLM healthy and `llm.${DOMAIN}` refusing a request without credentials; Open WebUI answering; Immich up with its ML, port 3003 unreachable from other nodes; OpenCloud and Paperless signing in through Authelia; Paperless's test mail arrives (the bundle built from the copied `ca.crt`)
 - [ ] pourOver's planning tried against the cloud model before it is switched on
-- [ ] CrowdSec or not in front of Immich and OpenCloud on grinder, before their tunnel routes go live (owner)
+- [ ] CrowdSec or not in front of Immich, OpenCloud and Paperless on grinder, before their tunnel routes go live (owner)
+- [ ] Traccar: the phone's server changed to percolator, `http://192.168.1.11:5055` (owner, when Traccar comes up)
 
 **Phases 9 to 11**
 
@@ -114,7 +115,7 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - [ ] W6: node READMEs rewritten; roastery wording swept from app READMEs and comments
 - [ ] Carried from the old Backlog, still open: `barista` in the `docker` group; Samba, shares or gone; a bot identity for agents' commits; the merged branches on GitHub (owner)
 
-## 2026-11-23 — percolator and grinder surveyed; disks as installed; Immich and OpenCloud to grinder
+## 2026-11-23 — percolator and grinder surveyed; disks as installed; grinder takes the growing data
 
 **What.** The owner ran a hardware survey on two machines (pasted in chat,
 2026-11-23 IST) and decided, in chat at 22:11 and 22:13 IST:
@@ -129,6 +130,11 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
   its machine learning.
 - **OpenCloud follows it** (owner, 22:31 IST), for the same disk: with both on
   grinder, percolator's 256 GB holds only small, slow-growing data.
+- **Paperless too, and grinder's self-tracking and house apps leave**
+  (owner, 22:49 IST; Claude proposed the split by role and the owner chose
+  it): Karakeep, FitTrackee and Traccar to percolator (behind sign-in, like
+  the rest there), ESPHome to cellar beside Home Assistant, Speedtest Tracker
+  to sieve (it measures the line; small, nothing depends on it).
 
 The owner had also weighed percolator on the x360; Claude advised against it
 (same CPU class, all ingress through a USB adapter, the voice rooms) and the
@@ -162,17 +168,40 @@ Bluetooth. The x360 has a mixed pair (SK Hynix + G.Skill 3200, both at 2133).
   (OpenCloud's gate and secrets are on grinder).
 - grinder's `local.env.example` gains `LLDAP_ADMIN_GROUP` and
   `LLDAP_HOUSEHOLD_GROUP` (same names as percolator's) for OpenCloud's roles.
+- Paperless: out of percolator, into grinder after OpenCloud; mail to
+  `${PERCOLATOR_LAN_IP}` instead of `mail-relay`; its router names the
+  resolver; `PAPERLESS_OCR_LANGUAGE` moves to grinder's env example.
+  `mail-relay/require-bundle.sh` now builds `bundle.crt` itself on a node with
+  a copied `ca.crt` and no relay (before, only the relay's own `prepare.sh`
+  made it, on percolator), so Paperless's `SSL_CERT_FILE` (mail and its OIDC
+  login) works on grinder. The relay README says how to copy the CA.
+- Karakeep, FitTrackee, Traccar: into percolator's `node.conf` after FreshRSS;
+  their ForwardAuth label is `authelia@file` (percolator's middleware name,
+  not the shared Traefik's `authelia-forwardauth@file`). Tunnel routes and
+  Gatus checks to percolator; Karakeep's Meilisearch gate in `fleet.json` too.
+  Ports 3030, 5001, 8082 and Traccar's 5055 are now percolator's.
+- ESPHome: into cellar's `node.conf` after Home Assistant; host-networked
+  there too, its firewall unchanged; Gatus under cellar.
+- Speedtest Tracker: into sieve's `node.conf`. traefik-edge has no Docker
+  provider, so its route moved from labels to `traefik-edge/dynamic/sieve.yml`;
+  persianPerch reads it at `${SIEVE_LAN_IP}:8765`; Gatus under sieve.
+- Node READMEs (grinder, percolator, cellar, sieve), hardware, MAP, README,
+  migration plan, carry-over map, recovery kit, image upgrades.
 - Tests: the backup test finds Immich in grinder's plan; the DNS test sends
-  `opencloud` and `immich` to `.14`.
+  `opencloud`, `immich` and `paperless` to `.14`, `karakeep` to `.11`,
+  `esphome` to `.12`, `speedtest` to `.10`; the host-networked firewall test
+  checks ESPHome on cellar and FitTrackee's route rule on percolator; a new
+  test builds the bundle from a copied CA and picks up a replaced one.
 
 **Open**
 
 - percolator's second stick (16 GB planned; one in).
-- No CrowdSec in front of Immich or OpenCloud on grinder (Backlog).
+- No CrowdSec in front of Immich, OpenCloud or Paperless on grinder (Backlog).
+- Traccar's phone setting points at the old address (Backlog).
 - The Seagate: still meant for the offline copies; long SMART test and wipe.
 
-**Undo.** Revert the branch's commits: Immich and OpenCloud return to
-percolator, Immich with `IMMICH_ML_URL=http://192.168.1.14:3003` and
+**Undo.** Revert the branch's commits: every app returns to where the
+2026-11-22 plan had it, Immich with `IMMICH_ML_URL=http://192.168.1.14:3003` and
 immich-ml's firewall file.
 
 ## 2026-11-22 — Layout by failure: Home Assistant to cellar; disks recounted; backups before percolator

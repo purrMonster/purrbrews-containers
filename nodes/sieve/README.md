@@ -11,7 +11,9 @@ answers every DNS query and hands out every DHCP lease, carries the only way in 
 the internet, and watches the rest of the fleet.
 
 It deliberately runs nothing else. A network node that also hosts apps gets rebooted
-for app reasons, and when it's down the whole house notices.
+for app reasons, and when it's down the whole house notices. The one addition
+(owner, 2026-11-23) is Speedtest Tracker: it measures this line, is small, and
+nothing depends on it.
 
 | App | Does | Reached at |
 |---|---|---|
@@ -22,6 +24,7 @@ for app reasons, and when it's down the whole house notices.
 | [ntfy](../../stacks/monitoring/ntfy/README.md) | Push notifications to phones | `ntfy.${DOMAIN}` (own accounts; LAN + tunnel) |
 | [Gatus](../../stacks/monitoring/gatus/README.md) | Health checks and alerting | `gatus.${DOMAIN}` (SSO) |
 | [NetAlertX](../../stacks/network/netalertx/README.md) | Device discovery, new-device alerts | `netalertx.${DOMAIN}` (SSO) |
+| [Speedtest Tracker](../../stacks/monitoring/speedtest-tracker/) | Hourly tests of the internet line (from grinder, 2026-11-23) | `speedtest.${DOMAIN}` (SSO), or `:8765`; user `barista` / `SPEEDTEST_TRACKER_ADMIN_PASSWORD` |
 | Komodo Periphery | Lets Komodo on cellar manage sieve's containers | — |
 | Scrutiny collector | SMART data for the hub on cellar | — |
 
@@ -133,6 +136,7 @@ hasn't proven anything yet.
 | 5 | `./compose.sh traefik up -d` | Logs show certificates obtained for each host (no `unable to obtain`); `https://ntfy.${DOMAIN}` on home Wi-Fi shows a valid padlock |
 | 6 | `./compose.sh gatus up -d` | Phones get a test alert (see [gatus/README.md](../../stacks/monitoring/gatus/README.md)); healthchecks.io shows pings |
 | 7 | `./compose.sh netalertx up -d` | After ~5 min, the device list shows real devices, not just the gateway |
+| 7b | `./compose.sh speedtest-tracker up -d` | its logs show a test ran on the hour (when the schedule isn't picked up it fails silently); `https://speedtest.${DOMAIN}` once Authelia runs |
 | 8 | Point clients at sieve | Router DNS → 192.168.1.10, then [hand over DHCP](../../stacks/network/pihole/README.md#handing-over-dhcp) |
 | 9 | Once Authelia runs on percolator | `https://gatus.${DOMAIN}` sends you to the login page, and lands on Gatus after it |
 | 10 | `./compose.sh komodo-periphery up -d`, `./compose.sh scrutiny-collector up -d` | sieve shows up as a Server in Komodo and as a device in Scrutiny, both on cellar. Needs `komodo-periphery/keys/core.pub` copied from cellar first |
@@ -186,6 +190,7 @@ published ports share one port space.
 | 8080 | tcp | Pi-hole web (host) | proxy only (Traefik, Gatus) |
 | 20211 | tcp | NetAlertX web (host) | proxy only (Traefik, Gatus) |
 | 20212 | tcp | NetAlertX API (host) | nobody |
+| 8765 | tcp | Speedtest Tracker (published; UFW route on container port 80) | LAN (persianPerch on cellar reads its API) |
 
 Internal only, never on the host: Unbound `172.31.53.2:53`, ntfy `ntfy:8080`, Gatus
 `gatus:8080`, Traefik ping `traefik:8080`, cloudflared metrics `cloudflared:2000`.

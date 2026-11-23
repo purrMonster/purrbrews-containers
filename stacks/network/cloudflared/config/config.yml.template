@@ -43,9 +43,6 @@ ingress:
   - hostname: radicale.${DOMAIN}
     service: https://${PERCOLATOR_LAN_IP}:443
     originRequest: {originServerName: radicale.${DOMAIN}}
-  - hostname: paperless.${DOMAIN}
-    service: https://${PERCOLATOR_LAN_IP}:443
-    originRequest: {originServerName: paperless.${DOMAIN}}
   - hostname: vault.${DOMAIN}
     service: https://${PERCOLATOR_LAN_IP}:443
     originRequest: {originServerName: vault.${DOMAIN}}
@@ -64,6 +61,15 @@ ingress:
   - hostname: freshrss.${DOMAIN}
     service: https://${PERCOLATOR_LAN_IP}:443
     originRequest: {originServerName: freshrss.${DOMAIN}}
+  - hostname: karakeep.${DOMAIN}
+    service: https://${PERCOLATOR_LAN_IP}:443
+    originRequest: {originServerName: karakeep.${DOMAIN}}
+  - hostname: fittrackee.${DOMAIN}
+    service: https://${PERCOLATOR_LAN_IP}:443
+    originRequest: {originServerName: fittrackee.${DOMAIN}}
+  - hostname: traccar.${DOMAIN}
+    service: https://${PERCOLATOR_LAN_IP}:443
+    originRequest: {originServerName: traccar.${DOMAIN}}
   # Left out on purpose, though not on Authelia's admin list: LLDAP's UI is the
   # user directory itself, has no Authelia in front (its own login only), and
   # an admin there can create accounts for everything else. Uncomment only if
@@ -83,28 +89,22 @@ ingress:
     service: https://${MOCHAPOT_LAN_IP}:443
     originRequest: {originServerName: music.${DOMAIN}}
 
-  # ── grinder: automation, photos and the rest ──────────────────────────────
+  # ── grinder: photos, files, documents, automation and AI ─────────────────
   - hostname: immich.${DOMAIN}
     service: https://${GRINDER_LAN_IP}:443
     originRequest: {originServerName: immich.${DOMAIN}}
   - hostname: opencloud.${DOMAIN}
     service: https://${GRINDER_LAN_IP}:443
     originRequest: {originServerName: opencloud.${DOMAIN}}
+  - hostname: paperless.${DOMAIN}
+    service: https://${GRINDER_LAN_IP}:443
+    originRequest: {originServerName: paperless.${DOMAIN}}
   - hostname: chat.${DOMAIN}
     service: https://${GRINDER_LAN_IP}:443
     originRequest: {originServerName: chat.${DOMAIN}}
-  - hostname: karakeep.${DOMAIN}
-    service: https://${GRINDER_LAN_IP}:443
-    originRequest: {originServerName: karakeep.${DOMAIN}}
-  - hostname: fittrackee.${DOMAIN}
-    service: https://${GRINDER_LAN_IP}:443
-    originRequest: {originServerName: fittrackee.${DOMAIN}}
-  - hostname: traccar.${DOMAIN}
-    service: https://${GRINDER_LAN_IP}:443
-    originRequest: {originServerName: traccar.${DOMAIN}}
-  # Tailnet only, by the owner's choice (2026-09-28): n8n holds credentials for
-  # everything it automates, ESPHome can reflash devices in the house, and
-  # Speedtest doesn't need the internet. Reach them over Tailscale.
+  # Tailnet only, by the owner's choice (2026-09-28): n8n (grinder) holds
+  # credentials for everything it automates, ESPHome (cellar) can reflash
+  # devices in the house, and Speedtest (sieve) doesn't need the internet. Reach them over Tailscale.
 
   # Anything else that reaches the tunnel gets a 404, never a default backend.
   - service: http_status:404

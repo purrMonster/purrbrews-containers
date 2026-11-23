@@ -80,7 +80,8 @@ Needs: phase 1. The router still does DHCP and DNS until step 5.
    step 3, a local one.
 3. `ntfy`, `traefik-edge`, `gatus`. Send a test alert and see it on the phone:
    monitoring is the last thing allowed to break.
-4. `netalertx`, `komodo-periphery` and `scrutiny-collector` can wait for phase 3.
+4. `netalertx`, `speedtest-tracker` (from grinder, 2026-11-23), `komodo-periphery` and
+   `scrutiny-collector` can wait for phase 3.
 5. **DHCP handover.** With the router's DHCP off,
    `bash stacks/network/pihole/enable-dhcp.sh --routers-dhcp-disabled` on sieve
    checks the range and gateway, restarts Pi-hole, and confirms it's listening
@@ -149,7 +150,8 @@ Backups run from phase 4, so percolator joins them before its apps hold anything
    the system disk; check first that the owner's backup of it is done.
 2. `traefik-ingress`, `crowdsec`.
 3. `mail-relay`, if the Purelymail app password exists (owner). Without it
-   Paperless, Vikunja and Vaultwarden will not start in phase 6.
+   Vikunja and Vaultwarden will not start in phase 6, nor Paperless (on
+   grinder) in phase 8.
 4. `lldap`, then `stacks/identity/lldap/lldap-bootstrap.sh`; create the service
    accounts (`scottishfold`, `pixiebob`, `sphynx`, one LLM account per caller in
    `llm_api_group`). `authelia`.
@@ -167,9 +169,10 @@ reachable on their own ports while Authelia is down, as designed.
 
 ## Phase 6: percolator, the household apps
 
-One app at a time, in `node.conf` order: radicale, vaultwarden, paperless,
-mealie, vikunja, meowgram, actualbudget, freshrss, purrcafe. (Immich and
-OpenCloud moved to grinder on 2026-11-23: phase 8.)
+One app at a time, in `node.conf` order: radicale, vaultwarden, mealie,
+vikunja, meowgram, actualbudget, freshrss, karakeep, fittrackee, traccar,
+purrcafe. (On 2026-11-23 Immich, OpenCloud and Paperless moved to grinder,
+phase 8, and Karakeep, FitTrackee and Traccar came here from grinder.)
 
 Every app starts empty (owner, 2026-11-17). For each: bring it up, run its
 README's checklist, add or confirm its Gatus check, and let one night's backup
@@ -194,9 +197,10 @@ Home Assistant moved from mochaPot to cellar on 2026-11-22
    recorder; sign-in through Authelia). `sudo ./firewall.sh` for port 8123.
    **Check** Bluetooth: `bluetoothctl list` on cellar. The ThinkCentres may have
    no Bluetooth; if so, a USB adapter or an ESPHome Bluetooth proxy, or none if
-   nothing needs it.
-2. On sieve: `./render-configs.sh`, recreate Pi-hole and cloudflared, so
-   `homeassistant.${DOMAIN}` points at cellar.
+   nothing needs it. Then `esphome` (from grinder, 2026-11-23): its dashboard
+   on `:6052` and Home Assistant's ESPHome integration find the first sensor.
+2. On sieve: `./render-configs.sh`, recreate Pi-hole and cloudflared, so `homeassistant.${DOMAIN}` and
+   `esphome.${DOMAIN}` point at cellar.
 3. Set mochaPot up through its USB Ethernet adapter. `pihole-secondary` first;
    check it answers and that sieve's DHCP hands out both resolvers.
 4. `musicassistant`, `traefik`. **Check** the merged Traefik with
@@ -209,7 +213,7 @@ Home Assistant moved from mochaPot to cellar on 2026-11-22
 local account, the kiosk shows the dashboard after a reboot of mochaPot, and
 stopping sieve's Pi-hole for a minute leaves name resolution working.
 
-## Phase 8: grinder, automation and AI
+## Phase 8: grinder, photos, files, documents, automation and AI
 
 1. (owner) Choose the provider and model; make an API key for the fleet with
    a spending limit. Still open (2026-11-17): LiteLLM takes any endpoint that
@@ -223,10 +227,10 @@ stopping sieve's Pi-hole for a minute leaves name resolution working.
    first: [its README](../stacks/apps/immich/README.md)): its checklist;
    confirm 3003 is not reachable from another node; start Immich's jobs and
    watch grinder's load for a day. Then `opencloud`: its README's checklist,
-   the CSP check from the Backlog. One night's backup behind each before the
-   household uses it.
-5. The self-tracking apps, `esphome`, `speedtest-tracker`, `traefik` and the
-   agents. Backups, as on every node.
+   the CSP check from the Backlog. Then `paperless` (its `prepare.sh` builds the
+   relay bundle from the copied `ca.crt`). One night's backup behind each
+   before the household uses it.
+5. The agents. Backups, as on every node.
 6. `pourover`, last and only if wanted (`--include-optional pourover`): try
    its planning against the cloud model with one harmless message first.
 

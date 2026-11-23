@@ -16,7 +16,8 @@
       "optional": [],
       "prerequisites": [
         "Initial LLDAP users and groups bootstrapped before routine deployment.",
-        "Verified data backup available before application upgrades."
+        "Verified data backup available before application upgrades.",
+        "Karakeep browser and Meilisearch migration rehearsed on a restored copy; see docs/image-upgrades.md."
       ]
     },
     "cellar": {
@@ -49,7 +50,6 @@
       ],
       "prerequisites": [
         "Application owner accounts created and initial passwords changed.",
-        "Karakeep browser and Meilisearch migration rehearsed on a restored copy; see docs/image-upgrades.md.",
         "Komodo Core public key installed.",
         "Immich server (stacks/apps/immich) and immich-ml on the same version.",
         "OpenCloud pinned major acknowledged with OPENCLOUD_UPGRADE_READY after verified config/data backup and migration rehearsal.",

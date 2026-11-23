@@ -45,11 +45,11 @@ Nodes are named after coffee gear. Hardware and rooms: [`docs/hardware.md`](docs
 
 | Node | Address | Machine | Role |
 |---|---|---|---|
-| [`sieve`](nodes/sieve/README.md) | 192.168.1.10 | ThinkCentre, by the router | Pi-hole DNS and DHCP, Unbound, the Cloudflare tunnel, ntfy, Gatus |
-| [`percolator`](nodes/percolator/README.md) | 192.168.1.11 | ThinkCentre | Traefik, CrowdSec, LLDAP, Authelia, and the household apps (Vaultwarden, Radicale, Paperless-ngx, Mealie, Vikunja, Actual Budget, FreshRSS, meowGram) |
-| [`cellar`](nodes/cellar/README.md) | 192.168.1.12 | ThinkCentre | Backups and their repository, Komodo, the Scrutiny hub, Home Assistant |
+| [`sieve`](nodes/sieve/README.md) | 192.168.1.10 | ThinkCentre, by the router | Pi-hole DNS and DHCP, Unbound, the Cloudflare tunnel, ntfy, Gatus, Speedtest Tracker |
+| [`percolator`](nodes/percolator/README.md) | 192.168.1.11 | ThinkCentre | Traefik, CrowdSec, LLDAP, Authelia, and the household apps (Vaultwarden, Radicale, Mealie, Vikunja, Actual Budget, FreshRSS, meowGram, Karakeep, FitTrackee, Traccar) |
+| [`cellar`](nodes/cellar/README.md) | 192.168.1.12 | ThinkCentre | Backups and their repository, Komodo, the Scrutiny hub, Home Assistant, ESPHome |
 | [`mochaPot`](nodes/mochaPot/README.md) | 192.168.1.13 | Laptop with a touchscreen | Music Assistant, the second Pi-hole, the wall screen |
-| [`grinder`](nodes/grinder/README.md) | 192.168.1.14 | HP x360 | n8n, pgvector, LiteLLM (a cloud model behind one address), Open WebUI, Immich and its machine learning, OpenCloud, Karakeep, FitTrackee, Traccar, ESPHome |
+| [`grinder`](nodes/grinder/README.md) | 192.168.1.14 | HP x360 | Immich and its machine learning, OpenCloud, Paperless-ngx; n8n, pgvector, LiteLLM (a cloud model behind one address), Open WebUI |
 
 Every node also runs its own Traefik, a Komodo agent and a Scrutiny collector.
 

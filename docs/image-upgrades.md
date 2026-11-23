@@ -42,8 +42,8 @@ start a version that hasn't been acknowledged in the node's `.env.local`.
 | App (node) | Key in `.env.local` | Acknowledge |
 |---|---|---|
 | OpenCloud (grinder) | `OPENCLOUD_UPGRADE_READY` | the pinned major, e.g. `9` |
-| Meilisearch for Karakeep (grinder) | `KARAKEEP_SEARCH_UPGRADE_READY` | the version, e.g. `1.55.0` |
-| Traccar (grinder) | `TRACCAR_UPGRADE_READY` | the version, e.g. `6.16` |
+| Meilisearch for Karakeep (percolator) | `KARAKEEP_SEARCH_UPGRADE_READY` | the version, e.g. `1.55.0` |
+| Traccar (percolator) | `TRACCAR_UPGRADE_READY` | the version, e.g. `6.16` |
 | Open WebUI (grinder) | `OPENWEBUI_UPGRADE_READY` | the version, e.g. `0.11.4` |
 
 The gate records the version the data is on in `.upgrade-gate-<KEY>`, beside
