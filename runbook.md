@@ -69,7 +69,7 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - [x] cellar set up (owner's output, 2026-11-23 19:48–20:27 IST): ThinkCentre M710q, i3-7100T with AVX, 16 GB (2 × 8 GB Hynix, 2400 MT/s), UEFI. Debian 13 went onto a 256 GB SATA SSD in the 2.5" bay (the planned spare) rather than the NVMe; kept, with the whole 1 TB NVMe as `/srv` (ext4, label `srv`, in fstab; 938 GB). NVMe SMART passed, 0% used. Intel Bluetooth present (for Home Assistant). The onboard NIC reports the placeholder MAC `88:88:88:88:87:88`; the payload's own MAC covers it. After the one-liner: hostname `cellar`, `192.168.1.12`, checkout in place (20:27 IST)
 - [x] cellar: `sudo` said "unable to resolve host cellar": 127.0.1.1 still named the install-time `debian`. Fixed by hand; the payload now rewrites that line (commit, 2026-11-23)
 - [x] cellar: Komodo up (Core v2.3.4, admin `barista` created, serving on 9120; 20:39 IST); Scrutiny watching both disks (`DISK_DEVICE=/dev/nvme0`, `DISK_DEVICE_2=/dev/sda`; owner, 20:46 IST); Traefik up, no errors in its log, `acme.json` written (28 KB; 20:50 IST)
-- [ ] sieve's agents registered with cellar: `komodo-periphery` (with cellar's `core.pub`) connected in Komodo, `scrutiny-collector` showing sieve's SSD
+- [x] sieve's agents registered with cellar: `komodo-periphery` (with cellar's `core.pub`) connected in Komodo; `scrutiny-collector` showing sieve's SSD after a run by hand (owner, 2026-11-23 21:00 IST). Phase 3 done
 - [ ] sieve: `sudo ./firewall.sh` again for the voice rules from cellar (`192.168.1.12`), then delete the three from `192.168.1.13` (`sudo ufw status numbered`, `sudo ufw delete <n>`): Home Assistant moved (2026-11-22 entry)
 
 **Phase 4: backups**
