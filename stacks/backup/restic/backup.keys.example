@@ -1,7 +1,7 @@
 # Copy to backup.keys (gitignored), then on cellar:
 #
-#   sudo ./restic/repo-setup.sh          the repository (account `burmilla`)
-#   sudo ./restic/dump-store-setup.sh    the dump store (account `dumps`)
+#   sudo ../../stacks/backup/restic/repo-setup.sh          the repository (account `burmilla`)
+#   sudo ../../stacks/backup/restic/dump-store-setup.sh    the dump store (account `dumps`)
 #
 # One line per node other than cellar: paste what `sudo ./backup.sh keys`
 # printed on that node, unchanged. The same key opens both accounts; each

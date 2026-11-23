@@ -19,8 +19,8 @@
 #   RCLONE_DRIVE_CLIENT_ID, RCLONE_DRIVE_CLIENT_SECRET   your Google API client
 #   RCLONE_CRYPT_PASSWORD, RCLONE_CRYPT_SALT            generated; to the recovery kit
 #
-#   sudo ./restic/drive-setup.sh            make whatever remote is missing
-#   sudo ./restic/drive-setup.sh --token    redo the Drive authorization
+#   sudo ../../stacks/backup/restic/drive-setup.sh            make whatever remote is missing
+#   sudo ../../stacks/backup/restic/drive-setup.sh --token    redo the Drive authorization
 #
 set -Eeuo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

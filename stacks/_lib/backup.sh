@@ -539,7 +539,7 @@ cmd_keys() {
     echo "whenever that file changes."
   else
     echo "On cellar, this line in stacks/backup/restic/backup.keys, then"
-    echo "sudo ./restic/repo-setup.sh and sudo ./restic/dump-store-setup.sh there"
+    echo "sudo ../../stacks/backup/restic/repo-setup.sh and sudo ../../stacks/backup/restic/dump-store-setup.sh there"
     echo "(the one key opens both the repository and the dump store):"
     echo
     echo "$NODE_NAME from=\"$NODE_IP\" $pub"

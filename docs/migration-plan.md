@@ -120,7 +120,7 @@ key line on cellar, one `nightly` by hand) before any data goes on it.
    `install` and its line in `restic/backup.keys`, then `repo-setup.sh` and
    `dump-store-setup.sh` on cellar.
 2. Before that, on cellar: `findmnt /srv` and `df -h /srv` show the NVMe, and
-   `sudo ./restic/repo-setup.sh --check` prints the keys it would install.
+   `sudo ../../stacks/backup/restic/repo-setup.sh --check` prints the keys it would install.
 3. A new repository: `restic init` with a new password (every app starts
    empty, so nothing is restored). If the old Drive copy is still there, move
    it aside first: the drive-sync guard refuses to overwrite a different

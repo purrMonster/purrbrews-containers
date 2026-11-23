@@ -14,8 +14,8 @@
 # node is checked the day its first backup file lands, and nobody has to
 # remember to add it here.
 #
-#   sudo ./restic/check-freshness.sh           alerts on anything stale
-#   sudo ./restic/check-freshness.sh --quiet   only the exit code and the alert
+#   sudo ../../stacks/backup/restic/check-freshness.sh           alerts on anything stale
+#   sudo ../../stacks/backup/restic/check-freshness.sh --quiet   only the exit code and the alert
 #
 set -Eeuo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

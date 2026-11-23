@@ -25,7 +25,7 @@ load_node "$(this_node_dir)"
 [[ $EUID -eq 0 ]] || die "run with sudo: the rclone config and the backup key are root's."
 command -v rclone >/dev/null || die "rclone isn't installed (apt install rclone)."
 RCLONE_CONF="$BACKUP_ETC/rclone.conf"
-[[ -f "$RCLONE_CONF" ]] || die "no $RCLONE_CONF; run ./restic/drive-setup.sh first."
+[[ -f "$RCLONE_CONF" ]] || die "no $RCLONE_CONF; run ../../stacks/backup/restic/drive-setup.sh first."
 KEEP_DELETED=30d
 STATE=/var/lib/purrbrews
 rc() { rclone --config "$RCLONE_CONF" "$@"; }

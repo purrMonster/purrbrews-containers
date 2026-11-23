@@ -20,8 +20,8 @@
 # restic/backup.keys (gitignored; copy backup.keys.example) is the same file
 # dump-store-setup.sh reads: one line per node, as `backup.sh keys` printed it.
 #
-#   sudo ./restic/repo-setup.sh           set up, or bring up to date
-#   sudo ./restic/repo-setup.sh --check   check backup.keys and print the
+#   sudo ../../stacks/backup/restic/repo-setup.sh           set up, or bring up to date
+#   sudo ../../stacks/backup/restic/repo-setup.sh --check   check backup.keys and print the
 #                                         authorized_keys it would write;
 #                                         changes nothing
 #
@@ -145,4 +145,4 @@ fi
 
 echo
 echo "Done: $count key(s) can reach the repository."
-echo "Next, once: sudo ./restic/restic-init.sh. Then on each node: sudo ./backup.sh doctor"
+echo "Next, once: sudo ../../stacks/backup/restic/restic-init.sh. Then on each node: sudo ./backup.sh doctor"

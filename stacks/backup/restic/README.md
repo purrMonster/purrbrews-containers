@@ -62,6 +62,10 @@ to that.
 
 ## Tying it together
 
+Commands below run from the node's folder, `/opt/purrbrews/nodes/<node>`; the
+hub's scripts live in `stacks/backup/restic`, hence `../../stacks/backup/restic/`.
+The node folders have no `restic/` of their own (they did in the old layout).
+
 `sudo ./backup.sh install` and `sudo ./backup.sh enable` do most of it on each
 node; the rest is what only a person can do (sudo, a Google sign-in, the recovery
 kit). In this order:
@@ -73,21 +77,21 @@ kit). In this order:
 2. **Every other node**: `sudo ./backup.sh install`, and `./setup-secrets.sh`,
    which asks for cellar's `RESTIC_PASSWORD`. Each prints one line,
    `<node> from="<ip>" ssh-ed25519 …` (also in `/etc/purrbrews/backup-authorize.txt`).
-3. **Authorize them on cellar**: those lines into `restic/backup.keys` (copy
-   `backup.keys.example`), then `sudo ./restic/repo-setup.sh` and
-   `sudo ./restic/dump-store-setup.sh`. cellar's own key needs no line.
-4. **Repository**: `sudo ./restic/restic-init.sh` on cellar.
+3. **Authorize them on cellar**: those lines into `../../stacks/backup/restic/backup.keys` (copy
+   `backup.keys.example` beside it), then `sudo ../../stacks/backup/restic/repo-setup.sh` and
+   `sudo ../../stacks/backup/restic/dump-store-setup.sh`. cellar's own key needs no line.
+4. **Repository**: `sudo ../../stacks/backup/restic/restic-init.sh` on cellar.
 5. **Every node, cellar first**: `sudo ./backup.sh enable`: doctor, one backup
    now, then its timers (on cellar, every timer in this folder too). Every app
    starts empty in this fleet, so the first runs are small.
-6. **Drive**: the Google API client (below), `sudo ./restic/drive-setup.sh`, then
-   `sudo ./restic/drive-sync.sh` by hand once. Until then the nightly Drive sync
+6. **Drive**: the Google API client (below), `sudo ../../stacks/backup/restic/drive-setup.sh`, then
+   `sudo ../../stacks/backup/restic/drive-sync.sh` by hand once. Until then the nightly Drive sync
    and the morning check will complain, rightly. If an old fleet's copy is still
    in `drive-crypt:repo`, move it aside first: the sync refuses to replace a
    different repository, by design.
-7. **Restore test**: `sudo ./restic/restore-test.sh`, then `--from drive`. Not done
+7. **Restore test**: `sudo ../../stacks/backup/restic/restore-test.sh`, then `--from drive`. Not done
    until both pass.
-8. **The morning after**: `sudo ./restic/check-freshness.sh` says everything is
+8. **The morning after**: `sudo ../../stacks/backup/restic/check-freshness.sh` says everything is
    under 26 h.
 
 `sudo ./backup.sh disable` turns a node's timers off again.
@@ -107,7 +111,7 @@ rclone gets its own Google API client: the shared default is the biggest cause o
      ID and secret (the secret is shown once).
 2. **Paste them in:** `./setup-secrets.sh` asks for `RCLONE_DRIVE_CLIENT_ID` and
    `RCLONE_DRIVE_CLIENT_SECRET`.
-3. **Authorize:** `sudo ./restic/drive-setup.sh`. cellar has no browser, so it
+3. **Authorize:** `sudo ../../stacks/backup/restic/drive-setup.sh`. cellar has no browser, so it
    asks you to run `rclone authorize` on americano and paste the JSON back.
 4. It checks Drive, makes `drive-crypt:repo`, and checks the repository is in
    its folder.
