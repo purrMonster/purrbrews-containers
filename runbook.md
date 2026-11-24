@@ -96,8 +96,16 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 
 **Phase 5: percolator, ingress and identity**
 
-- [ ] percolator: Traefik, CrowdSec, LLDAP with its service accounts (`scottishfold`, `pixiebob`, `sphynx`, the `llm_api_group` accounts), Authelia; its backups on
-- [ ] Purelymail app password for the mail relay (owner); the relay has never run
+- [x] percolator set up by the payload: hostname `percolator`, `192.168.1.11`, 7.7 GiB (one stick), `127.0.1.1 percolator` written by the payload's new hosts step (owner's output, 2026-11-24 22:29 IST). `setup-secrets.sh` done; only `RADICALE_LDAP_READER_PASSWORD` left (needs `scottishfold`)
+- [ ] percolator's second RAM stick (ChannelB empty)
+- [ ] The Seagate HDD out of percolator's bay (owner, later: "leave it for now"); it's one of the two offline copies. Long SMART test when it's out
+- [x] CrowdSec with the Traefik bouncer registered (`cscli bouncers list`: `traefik`, valid, pulling; owner's output, 2026-11-24 23:04 IST); traefik-ingress with no errors in its log and `/srv/data/traefik/letsencrypt/acme.json` written (16 KB, 23:02 IST)
+- [x] Purelymail app password in place (owner); mail relay up (Postfix 3.11.7, opendkim, rspamd running, 23:05 IST) and a test message from `purrBrews@` received (owner, 23:14 IST)
+- [x] LLDAP up (v0.6.3; admin and `lldap_strict_readonly` created on first start); `lldap-bootstrap.sh` created `purrbrews_admins`, `purrbrews_household` and `barista` in both (owner's output, 23:14 IST). It had to be run with `bash`: committed without the executable bit (fixed on branch `runbook-dumps-landed`, with a test). `https://lldap.${DOMAIN}` signs in (owner, 23:31 IST)
+- [ ] `barista`'s email in LLDAP: set to `barista@${DOMAIN}` by the bootstrap; change it if that mailbox doesn't exist (Authelia's resets go there) (owner)
+- [ ] **Open bug:** signing in to `https://komodo.${DOMAIN}` (cellar) through Authelia doesn't work (owner, 2026-11-24 23:31 IST; no details yet). Not looked into: Authelia's log, whether the redirect to `authelia.${DOMAIN}` happens, cellar's `FORWARD_AUTH_CLIENTS` and Traefik middleware, and whether sieve's Pi-hole was re-rendered for the new names are the first things to check
+- [ ] Service accounts: `scottishfold` (Radicale's reader, `lldap_strict_readonly` only) before Radicale; `pixiebob`, `sphynx` and the `llm_api_group` accounts with their apps
+- [ ] percolator: `homepage`, `komodo-periphery`, `scrutiny-collector`; its backups on (`backup.sh install`, key line on cellar, `enable`)
 
 **Phases 6 to 8: the apps**
 
