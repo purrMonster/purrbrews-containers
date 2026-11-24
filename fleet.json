@@ -37,9 +37,14 @@
     "mochaPot": {
       "platform": "linux",
       "tier": "household",
-      "optional": [],
+      "optional": [
+        "karakeep",
+        "fittrackee",
+        "traccar"
+      ],
       "prerequisites": [
-        "Kiosk installation remains a separate host operation."
+        "Kiosk installation remains a separate host operation.",
+        "Karakeep browser and Meilisearch migration rehearsed on a restored copy; see docs/image-upgrades.md."
       ]
     },
     "grinder": {

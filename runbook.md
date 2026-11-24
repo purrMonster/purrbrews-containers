@@ -77,13 +77,18 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 
 - [x] W2: the repository's SFTP account on cellar (`restic/repo-setup.sh`); hub scripts and README without roastery; tests extended. Written and run against a real sshd in the sandbox (2026-11-18 entry); not yet on cellar
 - [x] The repository account's name: `burmilla` (owner, 2026-11-18); in `BACKUP_REPOSITORY`, `stacks/fleet.env`
-- [ ] On cellar before phase 4: `/srv` is on the NVMe (`findmnt /srv`), then `sudo ./restic/repo-setup.sh --check`
-- [ ] A new repository (`restic init`); password and crypt keys into the recovery kit the same day
+- [x] On cellar before phase 4: `/srv` on the NVMe (`findmnt /srv`: `/dev/nvme0n1p1`, 938 GB; owner's output, 2026-11-23 21:18 IST), then `repo-setup.sh --check` (the 21:28 line below)
+- [x] A new repository: repository `076d6cf0` opens (restic version 2), snapshots in it from 2026-11-23 21:41 IST
+- [x] Restic password and the two crypt values copied off the fleet (owner, 2026-11-24 22:10 IST: "done"; where not recorded here). Not in Vaultwarden, by design (its data is inside the repository)
+- [ ] The same three into the recovery kit's vault (`fill-vault.sh` on americano), when the sticks are ready
 - [x] cellar: `backup.sh install`, secrets generated, `repo-setup.sh --check` showed `burmilla` chrooted to `/srv/backup` with cellar's key (2026-11-23 21:28 IST); repository opened, and cellar's first files snapshot saved (`89716cdf`, 21:41 IST)
 - [x] cellar's first `enable` stopped on "dump failed" (persianPerch's optional SQLite not there), and sieve's doctor failed on NetAlertX (never started). Fixed in #112 (apps never started are left out with a note). After the pull both `enable`s passed (owner's output, 2026-11-23 22:00 IST): cellar doctor "All good", Komodo dump, snapshot `7a6a674b`, all six hub timers on; sieve doctor "All good", Pi-hole and ntfy dumps, snapshot `60363a10`, timer on. Left out as not started: homeassistant, smb, persian-perch (cellar); cloudflared, netalertx (sieve)
-- [ ] sieve's dumps did **not** reach cellar: rsync said "Unable to create partial-dir … discarding completed file" for both, exited 0, and the night said OK. Confirmed on cellar (owner's output, 22:18 IST): rsync 3.5.0; `/srv/dumps/sieve` holds empty `ntfy/` and `pihole/` and a stray `.rsync-partial/`, no files. The cause in rsync itself isn't pinned down; the two options are what the push no longer uses, and `--delete` clears the stray folder on the next push. The push now drops both options and fails on anything rsync says on stderr (branch `backup-push-fix`, test with rrsync); then `sudo ./backup.sh push` on sieve and check the files on cellar
-- [ ] sieve and cellar: install, keys, doctor, one nightly by hand, enable; every later node the same in its own phase
-- [ ] A restore test, and the Drive copy read back
+- [x] sieve's dumps did **not** reach cellar at first: rsync said "Unable to create partial-dir … discarding completed file" for both, exited 0, and the night said OK. Confirmed on cellar (owner's output, 22:18 IST): rsync 3.5.0; `/srv/dumps/sieve` holds empty `ntfy/` and `pihole/` and a stray `.rsync-partial/`, no files. The cause in rsync itself isn't pinned down; the two options are what the push no longer uses, and `--delete` clears the stray folder on the next push. The push now drops both options and fails on anything rsync says on stderr (branch `backup-push-fix`, test with rrsync); then `sudo ./backup.sh push` on sieve and check the files on cellar Fixed in #113 (merged 2026-11-23 22:19 IST); after it, cellar's `/srv/dumps/sieve` holds `pihole/gravity.sql.gz` (575 KB) and `ntfy/users.sql.gz`, and the stray `.rsync-partial/` is gone (owner's listing, 22:20 IST)
+- [x] First night clean (`check-freshness.sh` on cellar, owner's output, 2026-11-24 19:09 IST): cellar and sieve files and dumps ok (16–17 h), every timer fired; STALE only for the three nodes not built and for Drive (not set up then). The STALE alerts for nodes not yet built stay (owner: not worth changing)
+- [ ] A second clean night (2026-11-25 morning)
+- [x] sieve and cellar: install, keys, doctor, one nightly by hand, enable (the 2026-11-23 22:00 line above); every later node the same in its own phase
+- [x] Google Drive copy: own OAuth client, `drive-setup.sh`, first `drive-sync` by hand (owner, 2026-11-24 21:57 IST: "done"; no output seen by Claude)
+- [x] Restore test passed from the repository and from Drive, `--host sieve` (owner, 2026-11-24 22:06 IST: "Restore test passed (repo)", "Restore test passed (drive)")
 - [ ] Long SMART self-test on both old HDDs before they hold the offline copies
 - [x] W3: the recovery kit rebuilt from americano (`recovery/`, docs/recovery-kit.md). Written; a full download-and-verify and a build onto two stand-in sticks passed in the sandbox (2026-11-18 entry). Not yet on a real stick or a Mac
 - [ ] flask, the owner's part, once the new repository's keys exist: Ventoy on stick B (from Linux), `./make-flask.sh` on americano with both sticks, the vault (`fill-vault.sh`), the paper, then one boot of each stick on a ThinkCentre with the cable out (owner)
@@ -91,8 +96,18 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 
 **Phase 5: percolator, ingress and identity**
 
-- [ ] percolator: Traefik, CrowdSec, LLDAP with its service accounts (`scottishfold`, `pixiebob`, `sphynx`, the `llm_api_group` accounts), Authelia; its backups on
-- [ ] Purelymail app password for the mail relay (owner); the relay has never run
+- [x] percolator set up by the payload: hostname `percolator`, `192.168.1.11`, 7.7 GiB (one stick), `127.0.1.1 percolator` written by the payload's new hosts step (owner's output, 2026-11-24 22:29 IST). `setup-secrets.sh` done; only `RADICALE_LDAP_READER_PASSWORD` left (needs `scottishfold`)
+- [ ] percolator's second RAM stick (ChannelB empty)
+- [ ] The Seagate HDD out of percolator's bay (owner, later: "leave it for now"); it's one of the two offline copies. Long SMART test when it's out
+- [x] CrowdSec with the Traefik bouncer registered (`cscli bouncers list`: `traefik`, valid, pulling; owner's output, 2026-11-24 23:04 IST); traefik-ingress with no errors in its log and `/srv/data/traefik/letsencrypt/acme.json` written (16 KB, 23:02 IST)
+- [x] Purelymail app password in place (owner); mail relay up (Postfix 3.11.7, opendkim, rspamd running, 23:05 IST) and a test message from `purrBrews@` received (owner, 23:14 IST)
+- [x] LLDAP up (v0.6.3; admin and `lldap_strict_readonly` created on first start); `lldap-bootstrap.sh` created `purrbrews_admins`, `purrbrews_household` and `barista` in both (owner's output, 23:14 IST). It had to be run with `bash`: committed without the executable bit (fixed on branch `runbook-dumps-landed`, with a test). `https://lldap.${DOMAIN}` signs in (owner, 23:31 IST)
+- [ ] `barista`'s email in LLDAP: set to `barista@${DOMAIN}` by the bootstrap; change it if that mailbox doesn't exist (Authelia's resets go there) (owner)
+- [ ] **Open bug:** signing in to `https://komodo.${DOMAIN}` (cellar) through Authelia doesn't work (owner, 2026-11-24 23:31 IST): the browser gets Komodo's own login page, so cellar's Traefik isn't applying the Authelia middleware to that route at all (no redirect). Parked until every container is up (owner, 23:40 IST: failures go here and are tackled then). Not looked into: Authelia's log, whether the redirect to `authelia.${DOMAIN}` happens, cellar's `FORWARD_AUTH_CLIENTS` and Traefik middleware, and whether sieve's Pi-hole was re-rendered for the new names are the first things to check
+- [ ] Service accounts: `scottishfold` (Radicale's reader, `lldap_strict_readonly` only) before Radicale; `pixiebob`, `sphynx` and the `llm_api_group` accounts with their apps
+- [x] percolator's backups on: `install`, its key line in cellar's `backup.keys`, `repo-setup.sh` and `dump-store-setup.sh` on cellar, `enable` (owner, 2026-11-24 23:39 IST: "done"; output not seen by Claude, so tomorrow's `check-freshness.sh` is the evidence)
+- [x] percolator's `komodo-periphery` and `scrutiny-collector` up, added in Komodo (owner, 23:39 IST: "done")
+- [ ] percolator: `homepage`
 
 **Phases 6 to 8: the apps**
 
@@ -102,7 +117,8 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - [ ] grinder: LiteLLM healthy and `llm.${DOMAIN}` refusing a request without credentials; Open WebUI answering; Immich up with its ML, port 3003 unreachable from other nodes; OpenCloud and Paperless signing in through Authelia; Paperless's test mail arrives (the bundle built from the copied `ca.crt`)
 - [ ] pourOver's planning tried against the cloud model before it is switched on
 - [ ] CrowdSec or not in front of Immich, OpenCloud and Paperless on grinder, before their tunnel routes go live (owner)
-- [ ] Traccar: the phone's server changed to percolator, `http://192.168.1.11:5055` (owner, when Traccar comes up)
+- [ ] A second disk in mochaPot for the growing data (Karakeep, Traccar, FitTrackee) (owner, 2026-11-24): one of the two Seagate 1 TB HDDs, if it passes the long SMART test. Check first that the x360 laptop has a 2.5" bay (the board does). That leaves one HDD for the offline copies, so no turn-taking: decide how the offline copy works with one disk. Then mount it (for example `/srv/bulk`) and point the three apps' data folders at it
+- [ ] Traccar: the phone's server changed to mochaPot, `http://192.168.1.13:5055` (owner, when Traccar comes up; it moved there 2026-11-24)
 
 **Phases 9 to 11**
 
@@ -114,6 +130,36 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - [ ] Two-factor in Authelia once every account has enrolled
 - [ ] W6: node READMEs rewritten; roastery wording swept from app READMEs and comments
 - [ ] Carried from the old Backlog, still open: `barista` in the `docker` group; Samba, shares or gone; a bot identity for agents' commits; the merged branches on GitHub (owner)
+
+## 2026-11-24 — Karakeep, FitTrackee and Traccar to mochaPot, set aside for now
+
+**What.** The owner was worried about percolator's memory (one 8 GB stick so
+far) and its 256 GB disk, and asked for apps to move. Claude advised against
+moving most of the household apps to grinder (already the fuller box in
+memory, and on USB Ethernet), against Home Assistant on percolator (one
+failure would take sign-in and the house together), and for moving only what
+is heavy and grows. The owner decided: **Karakeep, FitTrackee and Traccar go
+to mochaPot, optional, and are set aside for now** (2026-11-24 23:52 IST).
+Everything else stays: the household apps on percolator, Home Assistant and
+ESPHome on cellar.
+
+**Changed** (branch `self-tracking-to-mochapot`):
+
+- The three out of percolator's `node.conf`, into mochaPot's after Music
+  Assistant, and optional in `fleet.json` (so `--all` skips them); Karakeep's
+  Meilisearch prerequisite moves with it.
+- Their routers use `authelia-forwardauth@file` (the shared Traefik's
+  ForwardAuth to percolator), as they did on grinder. **Caveat:** that is the
+  same cross-node ForwardAuth that doesn't redirect for Komodo on cellar
+  (Backlog), so check it there first.
+- Tunnel routes and Gatus checks to mochaPot; DNS and firewall tests follow.
+- READMEs (percolator's and mochaPot's: apps, ports, data, first visits), the
+  hardware doc (rows, why, failure and memory tables), MAP, carry-over map,
+  migration plan (phase 7, step 6), image upgrades.
+
+**Way back:** the commit reverts cleanly; nothing ran on a machine. If the
+loop on percolator already started any of the three, `./compose.sh <app> down`
+there; their data folders are empty.
 
 ## 2026-11-23 — percolator and grinder surveyed; disks as installed; grinder takes the growing data
 

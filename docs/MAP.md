@@ -32,7 +32,7 @@ _Last updated: 2026-11-16 (the rebuild after the move)_
 | Node | Address | Role | Folder |
 |---|---|---|---|
 | sieve | .10 | Network: Pi-hole, Unbound, cloudflared, ntfy, Gatus, NetAlertX, Speedtest Tracker | [nodes/sieve](../nodes/sieve/README.md) |
-| percolator | .11 | Ingress and identity (Traefik, Authelia, LLDAP), the household apps, self-tracking | [nodes/percolator](../nodes/percolator/README.md) |
+| percolator | .11 | Ingress and identity (Traefik, Authelia, LLDAP), the household apps | [nodes/percolator](../nodes/percolator/README.md) |
 | cellar | .12 | Backup hub and repository, Scrutiny hub, Komodo, Home Assistant, ESPHome | [nodes/cellar](../nodes/cellar/README.md) |
 | mochaPot | .13 | Music Assistant, secondary Pi-hole, kiosk | [nodes/mochaPot](../nodes/mochaPot/README.md) |
 | grinder | .14 | Photos, files, documents (Immich and its ML, OpenCloud, Paperless); automation and AI: n8n, pgvector, LiteLLM, Open WebUI | [nodes/grinder](../nodes/grinder/README.md) |
@@ -66,7 +66,7 @@ _Last updated: 2026-11-16 (the rebuild after the move)_
 | Budget | Actual Budget | percolator |
 | Chat | meowGram (own repo) | percolator |
 | Household dashboard | purrCafe (own repo) | percolator |
-| Links, read-later | Karakeep | percolator |
+| Links, read-later | Karakeep | mochaPot (optional) |
 | Automations and their vectors | n8n, pgvector | grinder |
 | Home automation | Home Assistant | cellar |
 | Backups | restic repository, database dumps | cellar, with copies on Google Drive and two offline disks (planned) |

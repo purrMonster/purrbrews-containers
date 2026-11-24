@@ -90,6 +90,28 @@ def copy_repo(tmp):
     return root
 
 
+
+class ScriptModes(unittest.TestCase):
+    # The docs tell the owner to run these as ./<path>; checked out without the
+    # executable bit they fail with "Permission denied" (lldap-bootstrap.sh on
+    # percolator, 2026-11-24). Libraries are sourced and prepare.sh, start.sh and
+    # require-bundle.sh are run with bash or mounted, so they don't need it.
+    NOT_RUN_DIRECTLY = {'prepare.sh', 'start.sh', 'require-bundle.sh'}
+
+    def test_scripts_run_by_hand_are_executable(self):
+        out = subprocess.run(['git', 'ls-files', '-s', '--', '*.sh'], cwd=ROOT,
+                             capture_output=True, text=True, check=True).stdout
+        bad = []
+        for line in out.splitlines():
+            mode, _, _, path = line.split(maxsplit=3)
+            if '/_lib/' in path or path.startswith('payload/lib/') or path.startswith('deprecated/'):
+                continue
+            if Path(path).name in self.NOT_RUN_DIRECTLY:
+                continue
+            if mode != '100755':
+                bad.append(path)
+        self.assertEqual(bad, [])
+
 class DNS(unittest.TestCase):
     def test_fixed_dhcp_roles_ignore_legacy_env_switch(self):
         primary = (app('pihole') / 'docker-compose.yml').read_text()
@@ -102,7 +124,7 @@ class DNS(unittest.TestCase):
     def test_actual_routes(self):
         # Which node answers for a name comes from node.conf: the node whose APPS runs the app.
         lines, hosts = dns.records(ROOT, 'example.test', io.StringIO(FLEET), '192.168.1.20 americano')
-        for host, ip in [('authelia', 11), ('opencloud', 14), ('immich', 14), ('paperless', 14), ('karakeep', 11), ('esphome', 12), ('speedtest', 10), ('radicale', 11), ('komodo', 12), ('homeassistant', 12),
+        for host, ip in [('authelia', 11), ('opencloud', 14), ('immich', 14), ('paperless', 14), ('karakeep', 13), ('traccar', 13), ('esphome', 12), ('speedtest', 10), ('radicale', 11), ('komodo', 12), ('homeassistant', 12),
                          ('n8n', 14), ('llm', 14), ('pihole', 10), ('pihole-mochapot', 13)]:
             self.assertIn(f'address=/{host}.example.test/192.168.1.{ip}', lines)
             self.assertIn(f'local=/{host}.example.test/', lines)
@@ -625,10 +647,13 @@ class Firewall(unittest.TestCase):
         self.assertNotIn('port 67', out)
         out = self.dry_run('cellar', '', network_subnet='172.18.0.0/16')
         self.assertIn('allow proto tcp from 172.18.0.0/16 to any port 6052', out)  # ESPHome
-        out = self.dry_run('percolator', "FORWARD_AUTH_CLIENTS=192.168.1.10\nMAIL_RELAY_CLIENTS='192.168.1.13'\n")
-        # published ports are matched after DNAT, on the container's port (FitTrackee)
+        # published ports are matched after DNAT, on the container's port
+        # (FitTrackee, on mochaPot since 2026-11-24)
+        out = self.dry_run('mochaPot', 'PROXY_SUBNET=172.30.13.0/24\n')
         self.assertIn('route allow proto tcp from 192.168.1.0/24 to any port 5000', out)
         self.assertNotIn('port 5001', out)
+        out = self.dry_run('percolator', "FORWARD_AUTH_CLIENTS=192.168.1.10\nMAIL_RELAY_CLIENTS='192.168.1.13'\n")
+        self.assertNotIn('port 5000', out)
 
     def test_voice_answers_home_assistant_only(self):
         # Wyoming and the ESPHome API have no authentication: cellar (Home

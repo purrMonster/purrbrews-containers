@@ -35,7 +35,7 @@ services:
       - "traefik.http.routers.traccar.rule=Host(`traccar.${DOMAIN}`)"
       - "traefik.http.routers.traccar.entrypoints=websecure"
       - "traefik.http.routers.traccar.tls.certresolver=cloudflare"
-      - "traefik.http.routers.traccar.middlewares=authelia@file"
+      - "traefik.http.routers.traccar.middlewares=authelia-forwardauth@file"
       - "traefik.http.services.traccar.loadbalancer.server.port=8082"
 
 networks:

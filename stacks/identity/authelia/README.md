@@ -58,7 +58,7 @@ all four registrations validate and web/iOS/desktop login works before rollout.
 
 ## Bring up
 
-After LLDAP and `./lldap-bootstrap.sh`:
+After LLDAP and `../../stacks/identity/lldap/lldap-bootstrap.sh`:
 
 ```bash
 ./compose.sh authelia up -d

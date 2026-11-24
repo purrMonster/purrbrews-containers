@@ -58,9 +58,9 @@ Nothing in this table has run on a node since the move. "Not run" in the
 | FreshRSS | `stacks/percolator/freshrss` | `stacks/apps/freshrss` | percolator | Carried | |
 | Homepage | `stacks/percolator/homepage` | `stacks/apps/homepage` | percolator | Carried | Tiles not reviewed for the new hosts (`llm`) |
 | purrCafe | `stacks/percolator/purrcafe` | `stacks/apps/purrcafe` | percolator | Carried | Never ran on the old fleet |
-| Karakeep | `stacks/grinder/karakeep` | `stacks/apps/karakeep` | percolator (from grinder, 2026-11-23) | Carried | Old Backlog: check the phone share sheet signs in through the host name |
-| FitTrackee | `stacks/grinder/fittrackee` | `stacks/apps/fittrackee` | percolator (from grinder, 2026-11-23) | Carried | |
-| Traccar | `stacks/grinder/traccar` | `stacks/apps/traccar` | percolator (from grinder, 2026-11-23) | Carried | |
+| Karakeep | `stacks/grinder/karakeep` | `stacks/apps/karakeep` | mochaPot, optional (grinder → percolator 2026-11-23 → mochaPot 2026-11-24) | Carried | Old Backlog: check the phone share sheet signs in through the host name |
+| FitTrackee | `stacks/grinder/fittrackee` | `stacks/apps/fittrackee` | mochaPot, optional (grinder → percolator 2026-11-23 → mochaPot 2026-11-24) | Carried | |
+| Traccar | `stacks/grinder/traccar` | `stacks/apps/traccar` | mochaPot, optional (grinder → percolator 2026-11-23 → mochaPot 2026-11-24) | Carried | |
 
 ### home
 
