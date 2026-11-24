@@ -170,9 +170,10 @@ reachable on their own ports while Authelia is down, as designed.
 ## Phase 6: percolator, the household apps
 
 One app at a time, in `node.conf` order: radicale, vaultwarden, mealie,
-vikunja, meowgram, actualbudget, freshrss, karakeep, fittrackee, traccar,
+vikunja, meowgram, actualbudget, freshrss,
 purrcafe. (On 2026-11-23 Immich, OpenCloud and Paperless moved to grinder,
-phase 8, and Karakeep, FitTrackee and Traccar came here from grinder.)
+phase 8. Karakeep, FitTrackee and Traccar came here from grinder that day and
+left for mochaPot on 2026-11-24: optional there, set aside for now.)
 
 Every app starts empty (owner, 2026-11-17). For each: bring it up, run its
 README's checklist, add or confirm its Gatus check, and let one night's backup
@@ -208,6 +209,11 @@ Home Assistant moved from mochaPot to cellar on 2026-11-22
 5. `komodo-periphery`, `scrutiny-collector` (it uses
    `nodes/mochaPot/scrutiny-collector.yaml` for the SanDisk), the kiosk
    (`stacks/home/kiosk`, showing Home Assistant on cellar), backups.
+6. Later, when the owner asks: the self-tracking apps, `karakeep`,
+   `fittrackee`, `traccar` (optional on mochaPot since 2026-11-24). Their first
+   visits are in mochaPot's README; the phone's Traccar server becomes
+   `http://192.168.1.13:5055`. Watch the SanDisk: it's the smallest and least
+   trusted disk in the fleet, and these are the apps that grow.
 
 **Done when** `homeassistant.${DOMAIN}` signs in through Authelia and with the
 local account, the kiosk shows the dashboard after a reboot of mochaPot, and

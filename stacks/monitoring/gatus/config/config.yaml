@@ -451,20 +451,20 @@ endpoints:
     url: "https://freshrss.${DOMAIN}/"
     enabled: ${GATUS_WATCH_PERCOLATOR}
   - <<: *behind-sso
-    group: "apps: percolator"
+    group: "apps: mochaPot"
     name: karakeep
     url: "https://karakeep.${DOMAIN}/"
-    enabled: ${GATUS_WATCH_PERCOLATOR}
+    enabled: ${GATUS_WATCH_MOCHAPOT}
   - <<: *behind-sso
-    group: "apps: percolator"
+    group: "apps: mochaPot"
     name: fittrackee
     url: "https://fittrackee.${DOMAIN}/"
-    enabled: ${GATUS_WATCH_PERCOLATOR}
+    enabled: ${GATUS_WATCH_MOCHAPOT}
   - <<: *behind-sso
-    group: "apps: percolator"
+    group: "apps: mochaPot"
     name: traccar
     url: "https://traccar.${DOMAIN}/"
-    enabled: ${GATUS_WATCH_PERCOLATOR}
+    enabled: ${GATUS_WATCH_MOCHAPOT}
   - <<: *behind-sso
     group: "apps: percolator"
     name: homepage

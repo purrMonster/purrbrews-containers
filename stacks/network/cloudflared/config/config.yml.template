@@ -61,15 +61,6 @@ ingress:
   - hostname: freshrss.${DOMAIN}
     service: https://${PERCOLATOR_LAN_IP}:443
     originRequest: {originServerName: freshrss.${DOMAIN}}
-  - hostname: karakeep.${DOMAIN}
-    service: https://${PERCOLATOR_LAN_IP}:443
-    originRequest: {originServerName: karakeep.${DOMAIN}}
-  - hostname: fittrackee.${DOMAIN}
-    service: https://${PERCOLATOR_LAN_IP}:443
-    originRequest: {originServerName: fittrackee.${DOMAIN}}
-  - hostname: traccar.${DOMAIN}
-    service: https://${PERCOLATOR_LAN_IP}:443
-    originRequest: {originServerName: traccar.${DOMAIN}}
   # Left out on purpose, though not on Authelia's admin list: LLDAP's UI is the
   # user directory itself, has no Authelia in front (its own login only), and
   # an admin there can create accounts for everything else. Uncomment only if
@@ -84,7 +75,16 @@ ingress:
     service: https://${CELLAR_LAN_IP}:443
     originRequest: {originServerName: homeassistant.${DOMAIN}}
 
-  # ── mochaPot: music ────────────────────────────────────────────────────────
+  # ── mochaPot: music and the self-tracking apps (2026-11-24) ────────────────
+  - hostname: karakeep.${DOMAIN}
+    service: https://${MOCHAPOT_LAN_IP}:443
+    originRequest: {originServerName: karakeep.${DOMAIN}}
+  - hostname: fittrackee.${DOMAIN}
+    service: https://${MOCHAPOT_LAN_IP}:443
+    originRequest: {originServerName: fittrackee.${DOMAIN}}
+  - hostname: traccar.${DOMAIN}
+    service: https://${MOCHAPOT_LAN_IP}:443
+    originRequest: {originServerName: traccar.${DOMAIN}}
   - hostname: music.${DOMAIN}
     service: https://${MOCHAPOT_LAN_IP}:443
     originRequest: {originServerName: music.${DOMAIN}}

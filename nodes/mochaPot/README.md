@@ -19,7 +19,10 @@ still earns its place: it keeps the second resolver up through a power cut.
 |---|---|---|
 | Music Assistant | `music.${DOMAIN}` (Authelia), or `:8095` | Whole-house audio |
 | [Pi-hole](../../stacks/network/pihole-secondary/README.md) | `pihole-mochapot.${DOMAIN}` (admins), or `:8081` | Secondary DNS. **Never DHCP** |
-| Traefik | — | HTTPS for the two above |
+| [Karakeep](../../stacks/apps/karakeep/) | `karakeep.${DOMAIN}` (SSO), or `:3030` | Bookmarks and read-it-later. **Optional, not up yet** (2026-11-24) |
+| [FitTrackee](../../stacks/apps/fittrackee/) | `fittrackee.${DOMAIN}` (SSO), or `:5001` | Rides, from the bike computer's GPX. **Optional, not up yet** |
+| [Traccar](../../stacks/apps/traccar/) | `traccar.${DOMAIN}` (SSO), or `:8082`; the phone posts to `:5055` | Live position of the bike. **Optional, not up yet** |
+| Traefik | — | HTTPS for all of the above |
 | [kiosk](../../stacks/home/kiosk/README.md) | the wall screen | cage + Chromium on tty1, host-native; shows Home Assistant on cellar |
 | Komodo Periphery | — | Lets Komodo on cellar manage this node's containers |
 | Scrutiny collector | — | SMART data for the hub on cellar |
@@ -47,11 +50,40 @@ Then, in order (`node.conf`):
 | 1 | `./compose.sh pihole up -d` | `dig @192.168.1.13 gatus.${DOMAIN} +short` gives `192.168.1.10` |
 | 2 | `./compose.sh musicassistant up -d` | players on the LAN show up |
 | 3 | `./compose.sh traefik up -d` | certificates issued; both hostnames load |
+| later | `./compose.sh karakeep up -d`, then `fittrackee`, `traccar`, when the owner asks | first visits below |
 | 4 | `./compose.sh komodo-periphery up -d`, `./compose.sh scrutiny-collector up -d` | mochaPot in Komodo and Scrutiny on cellar (copy `komodo-periphery/keys/core.pub` from cellar first) |
 | — | `sudo ../../stacks/home/kiosk/setup-kiosk.sh` | Home Assistant's dashboard (on cellar) on the screen after a reboot |
 
 Pi-hole goes before Traefik because both want host ports; Pi-hole's UI moved to 8081
 so Traefik can have 80.
+
+## The self-tracking apps
+
+Karakeep, FitTrackee and Traccar moved here from percolator on 2026-11-24
+(owner), for percolator's memory and its 256 GB disk; they had come to
+percolator from grinder the day before. They are optional (`fleet.json`) and
+set aside for now: `--all` skips them until they're asked for. They sit behind
+Authelia through this node's Traefik (`authelia-forwardauth@file`), each with
+its own login behind that, and keep their own ports open to the LAN.
+
+| App | First visit |
+|---|---|
+| Karakeep | Set `DISABLE_SIGNUPS: "false"` for the first account, then straight back to `"true"` and `up -d` again. Its `NEXTAUTH_URL` is the direct-port URL while the route is `karakeep.${DOMAIN}`: check the phone's share sheet signs in through the hostname. Image `release` is unpinned |
+| FitTrackee | Create the first account (check whether it becomes admin on this version). |
+| Traccar | **Log in as admin/admin and change it at once**; the image won't take it from the environment. The phone's server is `http://192.168.1.13:5055`. Traccar is on H2, not Postgres; fine for GPS pings |
+
+| Port | Bound to | Owner |
+|---|---|---|
+| 3030, 5001, 8082 | published (UFW route: LAN, on the container ports 3000, 5000, 8082) | Karakeep, FitTrackee, Traccar |
+| 5055 | published (UFW route: LAN) | Traccar's OsmAnd ingest, what the phone posts to; not HTTP |
+
+| Path | Contents | Back up |
+|---|---|---|
+| `karakeep*`, `fittrackee`, `postgres-fittrackee`, `traccar` | bookmarks, rides, positions (Traccar on H2) | **yes** (Postgres as a dump) |
+
+They are the apps that grow (Karakeep's archived pages, Traccar's positions),
+on the fleet's smallest disk, the SanDisk with a history of timeouts. Watch
+`df -h /` and Scrutiny; the spare 128 GB M.2 SATA is the way out.
 
 ## Things worth knowing
 

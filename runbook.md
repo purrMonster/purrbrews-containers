@@ -117,7 +117,7 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - [ ] grinder: LiteLLM healthy and `llm.${DOMAIN}` refusing a request without credentials; Open WebUI answering; Immich up with its ML, port 3003 unreachable from other nodes; OpenCloud and Paperless signing in through Authelia; Paperless's test mail arrives (the bundle built from the copied `ca.crt`)
 - [ ] pourOver's planning tried against the cloud model before it is switched on
 - [ ] CrowdSec or not in front of Immich, OpenCloud and Paperless on grinder, before their tunnel routes go live (owner)
-- [ ] Traccar: the phone's server changed to percolator, `http://192.168.1.11:5055` (owner, when Traccar comes up)
+- [ ] Traccar: the phone's server changed to mochaPot, `http://192.168.1.13:5055` (owner, when Traccar comes up; it moved there 2026-11-24)
 
 **Phases 9 to 11**
 
@@ -129,6 +129,36 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - [ ] Two-factor in Authelia once every account has enrolled
 - [ ] W6: node READMEs rewritten; roastery wording swept from app READMEs and comments
 - [ ] Carried from the old Backlog, still open: `barista` in the `docker` group; Samba, shares or gone; a bot identity for agents' commits; the merged branches on GitHub (owner)
+
+## 2026-11-24 — Karakeep, FitTrackee and Traccar to mochaPot, set aside for now
+
+**What.** The owner was worried about percolator's memory (one 8 GB stick so
+far) and its 256 GB disk, and asked for apps to move. Claude advised against
+moving most of the household apps to grinder (already the fuller box in
+memory, and on USB Ethernet), against Home Assistant on percolator (one
+failure would take sign-in and the house together), and for moving only what
+is heavy and grows. The owner decided: **Karakeep, FitTrackee and Traccar go
+to mochaPot, optional, and are set aside for now** (2026-11-24 23:52 IST).
+Everything else stays: the household apps on percolator, Home Assistant and
+ESPHome on cellar.
+
+**Changed** (branch `self-tracking-to-mochapot`):
+
+- The three out of percolator's `node.conf`, into mochaPot's after Music
+  Assistant, and optional in `fleet.json` (so `--all` skips them); Karakeep's
+  Meilisearch prerequisite moves with it.
+- Their routers use `authelia-forwardauth@file` (the shared Traefik's
+  ForwardAuth to percolator), as they did on grinder. **Caveat:** that is the
+  same cross-node ForwardAuth that doesn't redirect for Komodo on cellar
+  (Backlog), so check it there first.
+- Tunnel routes and Gatus checks to mochaPot; DNS and firewall tests follow.
+- READMEs (percolator's and mochaPot's: apps, ports, data, first visits), the
+  hardware doc (rows, why, failure and memory tables), MAP, carry-over map,
+  migration plan (phase 7, step 6), image upgrades.
+
+**Way back:** the commit reverts cleanly; nothing ran on a machine. If the
+loop on percolator already started any of the three, `./compose.sh <app> down`
+there; their data folders are empty.
 
 ## 2026-11-23 — percolator and grinder surveyed; disks as installed; grinder takes the growing data
 
