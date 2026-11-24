@@ -105,7 +105,9 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - [ ] `barista`'s email in LLDAP: set to `barista@${DOMAIN}` by the bootstrap; change it if that mailbox doesn't exist (Authelia's resets go there) (owner)
 - [ ] **Open bug:** signing in to `https://komodo.${DOMAIN}` (cellar) through Authelia doesn't work (owner, 2026-11-24 23:31 IST; no details yet). Not looked into: Authelia's log, whether the redirect to `authelia.${DOMAIN}` happens, cellar's `FORWARD_AUTH_CLIENTS` and Traefik middleware, and whether sieve's Pi-hole was re-rendered for the new names are the first things to check
 - [ ] Service accounts: `scottishfold` (Radicale's reader, `lldap_strict_readonly` only) before Radicale; `pixiebob`, `sphynx` and the `llm_api_group` accounts with their apps
-- [ ] percolator: `homepage`, `komodo-periphery`, `scrutiny-collector`; its backups on (`backup.sh install`, key line on cellar, `enable`)
+- [x] percolator's backups on: `install`, its key line in cellar's `backup.keys`, `repo-setup.sh` and `dump-store-setup.sh` on cellar, `enable` (owner, 2026-11-24 23:39 IST: "done"; output not seen by Claude, so tomorrow's `check-freshness.sh` is the evidence)
+- [x] percolator's `komodo-periphery` and `scrutiny-collector` up, added in Komodo (owner, 23:39 IST: "done")
+- [ ] percolator: `homepage`
 
 **Phases 6 to 8: the apps**
 
