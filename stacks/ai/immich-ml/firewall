@@ -1,2 +1,0 @@
-# ufw-docker route rules match the container port (after DNAT).
-route tcp 3003 $PERCOLATOR_LAN_IP  # immich-ml from percolator only

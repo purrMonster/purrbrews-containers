@@ -49,12 +49,25 @@ why the list is short and the port is not published beyond it.
 | Client | Verifies the relay? | How |
 |---|---|---|
 | Authelia | yes | `certificates_directory` = `tls-public/` (holds `ca.crt`) |
-| Vaultwarden, Paperless, Vikunja | yes | `SSL_CERT_FILE` = `tls-public/bundle.crt` (the host's public roots + `ca.crt`, rebuilt on every `up`) |
-| Immich | yes | `NODE_EXTRA_CA_CERTS` = `tls-public/ca.crt` (added to Node's own roots); SMTP itself is set in its admin UI |
+| Vaultwarden, Paperless, Vikunja | yes | `SSL_CERT_FILE` = `tls-public/bundle.crt` (the host's public roots + `ca.crt`, rebuilt on every `up`; on grinder, by `require-bundle.sh` from the copied `ca.crt`) |
+| Immich (grinder) | yes | `NODE_EXTRA_CA_CERTS` = `tls-public/ca.crt` (added to Node's own roots); SMTP itself is set in its admin UI |
 | Mealie | no | it calls Python's `starttls()` without a context: encrypted, unverified, no setting for it |
 | LLDAP | not wired | see below |
 | Gatus on sieve | no (`insecure`) | it only checks the relay answers and offers STARTTLS |
-| Another node's app | when given `ca.crt` | copy `tls-public/ca.crt` to that node; it's public |
+| Another node's app | when given `ca.crt` | copy `tls-public/ca.crt` to the same path on that node; it's public. Immich and Paperless on grinder (2026-11-23) use this, and send to `192.168.1.11:587` |
+
+**Another node's app.** Once per node (grinder today), after the relay has run
+on percolator:
+
+```bash
+sudo install -d /srv/data/mail-relay/tls-public
+scp barista@192.168.1.11:/srv/data/mail-relay/tls-public/ca.crt /tmp/ca.crt
+sudo install -m 0644 /tmp/ca.crt /srv/data/mail-relay/tls-public/ca.crt
+```
+
+On that node, `require-bundle.sh` builds `bundle.crt` from the host's roots and
+this copy before each `up` of an app that needs it. If the relay's certificate
+is ever replaced, copy the new `ca.crt` again.
 
 **LLDAP has no mail, on purpose.** Its own "forgot password" link is the only
 thing it would send, and Authelia already does password resets for every user

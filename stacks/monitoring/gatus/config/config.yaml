@@ -391,6 +391,11 @@ endpoints:
     name: gatus-api
     url: "https://gatus-api.${DOMAIN}/api/v1/endpoints/statuses"
     enabled: ${GATUS_WATCH_PERCOLATOR}
+  - <<: *behind-sso
+    group: "apps: sieve"
+    name: speedtest
+    url: "https://speedtest.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_PERCOLATOR}
 
   # percolator: the sign-in first, since every other app needs it
   - <<: *own-login
@@ -420,21 +425,6 @@ endpoints:
     enabled: ${GATUS_WATCH_PERCOLATOR}
   - <<: *own-login
     group: "apps: percolator"
-    name: opencloud
-    url: "https://opencloud.${DOMAIN}/"
-    enabled: ${GATUS_WATCH_PERCOLATOR}
-  - <<: *own-login
-    group: "apps: percolator"
-    name: immich
-    url: "https://immich.${DOMAIN}/"
-    enabled: ${GATUS_WATCH_PERCOLATOR}
-  - <<: *own-login
-    group: "apps: percolator"
-    name: paperless
-    url: "https://paperless.${DOMAIN}/"
-    enabled: ${GATUS_WATCH_PERCOLATOR}
-  - <<: *own-login
-    group: "apps: percolator"
     name: mealie
     url: "https://mealie.${DOMAIN}/"
     enabled: ${GATUS_WATCH_PERCOLATOR}
@@ -459,6 +449,21 @@ endpoints:
     group: "apps: percolator"
     name: freshrss
     url: "https://freshrss.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_PERCOLATOR}
+  - <<: *behind-sso
+    group: "apps: percolator"
+    name: karakeep
+    url: "https://karakeep.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_PERCOLATOR}
+  - <<: *behind-sso
+    group: "apps: percolator"
+    name: fittrackee
+    url: "https://fittrackee.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_PERCOLATOR}
+  - <<: *behind-sso
+    group: "apps: percolator"
+    name: traccar
+    url: "https://traccar.${DOMAIN}/"
     enabled: ${GATUS_WATCH_PERCOLATOR}
   - <<: *behind-sso
     group: "apps: percolator"
@@ -508,6 +513,11 @@ endpoints:
     name: homeassistant
     url: "https://homeassistant.${DOMAIN}/"
     enabled: ${GATUS_WATCH_CELLAR}
+  - <<: *behind-sso
+    group: "apps: cellar"
+    name: esphome
+    url: "https://esphome.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_CELLAR}
 
   # mochaPot
   - <<: *behind-sso
@@ -522,6 +532,21 @@ endpoints:
     enabled: ${GATUS_WATCH_MOCHAPOT}
 
   # grinder
+  - <<: *own-login
+    group: "apps: grinder"
+    name: immich
+    url: "https://immich.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_GRINDER}
+  - <<: *own-login
+    group: "apps: grinder"
+    name: opencloud
+    url: "https://opencloud.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_GRINDER}
+  - <<: *own-login
+    group: "apps: grinder"
+    name: paperless
+    url: "https://paperless.${DOMAIN}/"
+    enabled: ${GATUS_WATCH_GRINDER}
   - <<: *behind-sso
     group: "apps: grinder"
     name: open webui
@@ -537,31 +562,6 @@ endpoints:
     group: "apps: grinder"
     name: n8n
     url: "https://n8n.${DOMAIN}/"
-    enabled: ${GATUS_WATCH_GRINDER}
-  - <<: *behind-sso
-    group: "apps: grinder"
-    name: karakeep
-    url: "https://karakeep.${DOMAIN}/"
-    enabled: ${GATUS_WATCH_GRINDER}
-  - <<: *behind-sso
-    group: "apps: grinder"
-    name: fittrackee
-    url: "https://fittrackee.${DOMAIN}/"
-    enabled: ${GATUS_WATCH_GRINDER}
-  - <<: *behind-sso
-    group: "apps: grinder"
-    name: traccar
-    url: "https://traccar.${DOMAIN}/"
-    enabled: ${GATUS_WATCH_GRINDER}
-  - <<: *behind-sso
-    group: "apps: grinder"
-    name: esphome
-    url: "https://esphome.${DOMAIN}/"
-    enabled: ${GATUS_WATCH_GRINDER}
-  - <<: *behind-sso
-    group: "apps: grinder"
-    name: speedtest
-    url: "https://speedtest.${DOMAIN}/"
     enabled: ${GATUS_WATCH_GRINDER}
   # pourOver has no route (nobody opens it; it reaches out to meowGram), so it's checked on its
   # port, which grinder's firewall opens to sieve only. /healthz also proves its SQLite opens.

@@ -1,11 +1,18 @@
 # OpenCloud
 
-Files on percolator at `https://opencloud.${DOMAIN}`, using Authelia OIDC.
+Files on grinder (moved from percolator with Immich, owner 2026-11-23) at
+`https://opencloud.${DOMAIN}`, using Authelia OIDC.
 The built-in IdP is disabled. Internal IDM remains for provisioned account
 metadata. Calendars and contacts use the independent Radicale stack; Immich
 remains the photo backup. Office, Tika and email are not configured here.
 
 ## Bring up
+
+On grinder. Authelia stays on percolator, so sign-in needs two things that were
+automatic there: `dig authelia.${DOMAIN}` on grinder answers percolator's
+address (Pi-hole), and grinder's Traefik has its certificate (the first
+`https://opencloud.${DOMAIN}` shows a valid padlock). No CrowdSec sits in
+front of it on grinder (the node's README, Known gaps).
 
 1. Follow the runbook's retirement, LLDAP and route owner steps. Human accounts
    need `${LLDAP_ADMIN_GROUP}` or `${LLDAP_HOUSEHOLD_GROUP}`. Check their LLDAP
