@@ -90,6 +90,28 @@ def copy_repo(tmp):
     return root
 
 
+
+class ScriptModes(unittest.TestCase):
+    # The docs tell the owner to run these as ./<path>; checked out without the
+    # executable bit they fail with "Permission denied" (lldap-bootstrap.sh on
+    # percolator, 2026-11-24). Libraries are sourced and prepare.sh, start.sh and
+    # require-bundle.sh are run with bash or mounted, so they don't need it.
+    NOT_RUN_DIRECTLY = {'prepare.sh', 'start.sh', 'require-bundle.sh'}
+
+    def test_scripts_run_by_hand_are_executable(self):
+        out = subprocess.run(['git', 'ls-files', '-s', '--', '*.sh'], cwd=ROOT,
+                             capture_output=True, text=True, check=True).stdout
+        bad = []
+        for line in out.splitlines():
+            mode, _, _, path = line.split(maxsplit=3)
+            if '/_lib/' in path or path.startswith('payload/lib/') or path.startswith('deprecated/'):
+                continue
+            if Path(path).name in self.NOT_RUN_DIRECTLY:
+                continue
+            if mode != '100755':
+                bad.append(path)
+        self.assertEqual(bad, [])
+
 class DNS(unittest.TestCase):
     def test_fixed_dhcp_roles_ignore_legacy_env_switch(self):
         primary = (app('pihole') / 'docker-compose.yml').read_text()

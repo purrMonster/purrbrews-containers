@@ -6,7 +6,7 @@ the NFS server images are abandoned and want `--privileged`
 (see `setup-nfs.sh`).
 
 ```sh
-sudo ./nfs/setup-nfs.sh        # installs nfs-kernel-server if missing; safe to re-run
+sudo ../../stacks/backup/nfs/setup-nfs.sh        # installs nfs-kernel-server if missing; safe to re-run
 showmount -e localhost
 ```
 

@@ -25,10 +25,12 @@ Someone who is in neither group can't sign in to any app.
 
 ## Bring up
 
+From `nodes/percolator`:
+
 ```bash
 ./compose.sh lldap up -d
-./lldap-bootstrap.sh --dry-run
-./lldap-bootstrap.sh              # prints barista's one-time password — keep it
+../../stacks/identity/lldap/lldap-bootstrap.sh --dry-run
+../../stacks/identity/lldap/lldap-bootstrap.sh              # prints barista's one-time password — keep it
 ```
 
 ## Is it working?
@@ -38,12 +40,12 @@ Someone who is in neither group can't sign in to any app.
 - [ ] Groups `purrbrews_admins` and `purrbrews_household` exist, with `barista` in both.
 - [ ] Sign in as `barista` with the one-time password and change it
       (top-right menu → *Change password*).
-- [ ] Re-running `./lldap-bootstrap.sh` changes nothing.
+- [ ] Re-running `../../stacks/identity/lldap/lldap-bootstrap.sh` changes nothing.
 
 ## Adding people
 
 ```bash
-./lldap-bootstrap.sh <username>
+../../stacks/identity/lldap/lldap-bootstrap.sh <username>
 ```
 
 Creates the account in both groups with a random password printed once. Set their

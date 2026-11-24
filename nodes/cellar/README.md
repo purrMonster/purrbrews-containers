@@ -49,7 +49,7 @@ Then, in order (`node.conf`), checking each before the next:
 | 5 | `./compose.sh smb up -d` | only when the shares are wanted; add the rule in `smb/firewall` first |
 | 6 | whisper, piper, voice-satellite | migration plan phase 9 ([docs/voice.md](../../docs/voice.md)) |
 | 7 | `./compose.sh persian-perch up -d` | its [README](../../stacks/fleet-management/persian-perch/README.md) checklist; read persianPerch's `integration/ROLLOUT.md` before the first run |
-| — | `sudo ./nfs/setup-nfs.sh`, then [restic/README.md](../../stacks/backup/restic/README.md) | host-native, whenever needed |
+| — | `sudo ../../stacks/backup/nfs/setup-nfs.sh`, then [restic/README.md](../../stacks/backup/restic/README.md) | host-native, whenever needed |
 
 `./compose.sh --all up -d` does 1–7 in that order once everything has been up once.
 

@@ -107,7 +107,7 @@ signal (in its README) before the next. "Container started" is not a success sig
 | 1 | `./compose.sh traefik up -d` | no ACME errors in `sudo docker logs traefik`; any `https://<anything>.${DOMAIN}` shows a valid wildcard padlock (a 404 page is fine at this point) |
 | 2 | `./compose.sh crowdsec up -d` | `sudo docker exec crowdsec cscli bouncers list` shows `traefik` with a recent last pull |
 | 2b | `./compose.sh mail-relay up -d` (after the Purelymail app password: [its README](../../stacks/mail/mail-relay/README.md)) | `mail-relay` is `healthy`; `/srv/data/mail-relay/tls-public/ca.crt` exists |
-| 3 | `./compose.sh lldap up -d` then `./lldap-bootstrap.sh` in an interactive terminal | groups exist, `barista` created — **save the one-time password shown on the terminal** |
+| 3 | `./compose.sh lldap up -d` then `../../stacks/identity/lldap/lldap-bootstrap.sh` in an interactive terminal | groups exist, `barista` created — **save the one-time password shown on the terminal** |
 | 4 | `./compose.sh authelia up -d` | log in at `https://authelia.${DOMAIN}` as `barista`; the Traefik dashboard opens; from sieve, `curl -s -o /dev/null -w '%{http_code}' http://192.168.1.11:9091/api/health` gives `200` |
 | 5+ | `./compose.sh <app> up -d` for radicale, vaultwarden, mealie, vikunja, meowgram, actualbudget, freshrss, karakeep, fittrackee, traccar, homepage, purrcafe | the app's README checklist; for the three from grinder, the first visits below |
 | last | `./compose.sh komodo-periphery up -d`, `./compose.sh scrutiny-collector up -d` | percolator shows up in Komodo and Scrutiny on cellar (copy `komodo-periphery/keys/core.pub` from cellar first) |

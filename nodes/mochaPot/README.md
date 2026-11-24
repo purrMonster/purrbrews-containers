@@ -48,7 +48,7 @@ Then, in order (`node.conf`):
 | 2 | `./compose.sh musicassistant up -d` | players on the LAN show up |
 | 3 | `./compose.sh traefik up -d` | certificates issued; both hostnames load |
 | 4 | `./compose.sh komodo-periphery up -d`, `./compose.sh scrutiny-collector up -d` | mochaPot in Komodo and Scrutiny on cellar (copy `komodo-periphery/keys/core.pub` from cellar first) |
-| — | `sudo ./kiosk/setup-kiosk.sh` | Home Assistant's dashboard (on cellar) on the screen after a reboot |
+| — | `sudo ../../stacks/home/kiosk/setup-kiosk.sh` | Home Assistant's dashboard (on cellar) on the screen after a reboot |
 
 Pi-hole goes before Traefik because both want host ports; Pi-hole's UI moved to 8081
 so Traefik can have 80.

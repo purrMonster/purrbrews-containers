@@ -9,7 +9,7 @@ Host-native, no `docker-compose.yml`; `setup-kiosk.sh` says why.
 cd ..
 # make sure KIOSK_URL is set in .env.local first — see local.env.example
 ./render-configs.sh          # renders kiosk/bash_profile from the template
-sudo ./kiosk/setup-kiosk.sh
+sudo ../../stacks/home/kiosk/setup-kiosk.sh
 ```
 
 Defaults `KIOSK_URL` to Home Assistant's own dashboard on cellar, straight to
