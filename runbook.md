@@ -117,6 +117,7 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - [ ] grinder: LiteLLM healthy and `llm.${DOMAIN}` refusing a request without credentials; Open WebUI answering; Immich up with its ML, port 3003 unreachable from other nodes; OpenCloud and Paperless signing in through Authelia; Paperless's test mail arrives (the bundle built from the copied `ca.crt`)
 - [ ] pourOver's planning tried against the cloud model before it is switched on
 - [ ] CrowdSec or not in front of Immich, OpenCloud and Paperless on grinder, before their tunnel routes go live (owner)
+- [ ] A second disk in mochaPot for the growing data (Karakeep, Traccar, FitTrackee) (owner, 2026-11-24): one of the two Seagate 1 TB HDDs, if it passes the long SMART test. Check first that the x360 laptop has a 2.5" bay (the board does). That leaves one HDD for the offline copies, so no turn-taking: decide how the offline copy works with one disk. Then mount it (for example `/srv/bulk`) and point the three apps' data folders at it
 - [ ] Traccar: the phone's server changed to mochaPot, `http://192.168.1.13:5055` (owner, when Traccar comes up; it moved there 2026-11-24)
 
 **Phases 9 to 11**
