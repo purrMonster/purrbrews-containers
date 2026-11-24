@@ -76,13 +76,17 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 
 - [x] W2: the repository's SFTP account on cellar (`restic/repo-setup.sh`); hub scripts and README without roastery; tests extended. Written and run against a real sshd in the sandbox (2026-11-18 entry); not yet on cellar
 - [x] The repository account's name: `burmilla` (owner, 2026-11-18); in `BACKUP_REPOSITORY`, `stacks/fleet.env`
-- [ ] On cellar before phase 4: `/srv` is on the NVMe (`findmnt /srv`), then `sudo ./restic/repo-setup.sh --check`
-- [ ] A new repository (`restic init`); password and crypt keys into the recovery kit the same day
+- [x] On cellar before phase 4: `/srv` on the NVMe (`findmnt /srv`: `/dev/nvme0n1p1`, 938 GB; owner's output, 2026-11-23 21:18 IST), then `repo-setup.sh --check` (the 21:28 line below)
+- [x] A new repository: repository `076d6cf0` opens (restic version 2), snapshots in it from 2026-11-23 21:41 IST
+- [ ] Restic password and the two crypt values into the recovery kit (`fill-vault.sh`) (owner); in the password manager meanwhile
 - [x] cellar: `backup.sh install`, secrets generated, `repo-setup.sh --check` showed `burmilla` chrooted to `/srv/backup` with cellar's key (2026-11-23 21:28 IST); repository opened, and cellar's first files snapshot saved (`89716cdf`, 21:41 IST)
 - [x] cellar's first `enable` stopped on "dump failed" (persianPerch's optional SQLite not there), and sieve's doctor failed on NetAlertX (never started). Fixed in #112 (apps never started are left out with a note). After the pull both `enable`s passed (owner's output, 2026-11-23 22:00 IST): cellar doctor "All good", Komodo dump, snapshot `7a6a674b`, all six hub timers on; sieve doctor "All good", Pi-hole and ntfy dumps, snapshot `60363a10`, timer on. Left out as not started: homeassistant, smb, persian-perch (cellar); cloudflared, netalertx (sieve)
 - [x] sieve's dumps did **not** reach cellar at first: rsync said "Unable to create partial-dir … discarding completed file" for both, exited 0, and the night said OK. Confirmed on cellar (owner's output, 22:18 IST): rsync 3.5.0; `/srv/dumps/sieve` holds empty `ntfy/` and `pihole/` and a stray `.rsync-partial/`, no files. The cause in rsync itself isn't pinned down; the two options are what the push no longer uses, and `--delete` clears the stray folder on the next push. The push now drops both options and fails on anything rsync says on stderr (branch `backup-push-fix`, test with rrsync); then `sudo ./backup.sh push` on sieve and check the files on cellar Fixed in #113 (merged 2026-11-23 22:19 IST); after it, cellar's `/srv/dumps/sieve` holds `pihole/gravity.sql.gz` (575 KB) and `ntfy/users.sql.gz`, and the stray `.rsync-partial/` is gone (owner's listing, 22:20 IST)
-- [ ] sieve and cellar: install, keys, doctor, one nightly by hand, enable; every later node the same in its own phase
-- [ ] A restore test, and the Drive copy read back
+- [x] First night clean (`check-freshness.sh` on cellar, owner's output, 2026-11-24 19:09 IST): cellar and sieve files and dumps ok (16–17 h), every timer fired; STALE only for the three nodes not built and for Drive (not set up then). The STALE alerts for nodes not yet built stay (owner: not worth changing)
+- [ ] A second clean night (2026-11-25 morning)
+- [x] sieve and cellar: install, keys, doctor, one nightly by hand, enable (the 2026-11-23 22:00 line above); every later node the same in its own phase
+- [x] Google Drive copy: own OAuth client, `drive-setup.sh`, first `drive-sync` by hand (owner, 2026-11-24 21:57 IST: "done"; no output seen by Claude)
+- [x] Restore test passed from the repository and from Drive, `--host sieve` (owner, 2026-11-24 22:06 IST: "Restore test passed (repo)", "Restore test passed (drive)")
 - [ ] Long SMART self-test on both old HDDs before they hold the offline copies
 - [x] W3: the recovery kit rebuilt from americano (`recovery/`, docs/recovery-kit.md). Written; a full download-and-verify and a build onto two stand-in sticks passed in the sandbox (2026-11-18 entry). Not yet on a real stick or a Mac
 - [ ] flask, the owner's part, once the new repository's keys exist: Ventoy on stick B (from Linux), `./make-flask.sh` on americano with both sticks, the vault (`fill-vault.sh`), the paper, then one boot of each stick on a ThinkCentre with the cable out (owner)
