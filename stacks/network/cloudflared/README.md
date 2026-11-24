@@ -63,7 +63,7 @@ and the tunnel's credentials) stays on sieve, is in sieve's backups
    internet.
 2. **Phone apps.** Immich, OpenCloud, Vaultwarden and the others that sign in with
    OIDC or their own login work through the tunnel as they are. Apps behind the
-   `authelia-forwardauth` middleware (Karakeep, FitTrackee, Traccar, Open WebUI,
+   Authelia ForwardAuth middleware (Karakeep, FitTrackee, Traccar, Open WebUI,
    Music Assistant) only work in a browser through the tunnel (over Tailscale they
    still need Authelia too, since it's the same Traefik route); their phone apps would need Authelia
    bypass rules for their API paths, decided app by app.

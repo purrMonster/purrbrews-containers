@@ -102,7 +102,7 @@ class DNS(unittest.TestCase):
     def test_actual_routes(self):
         # Which node answers for a name comes from node.conf: the node whose APPS runs the app.
         lines, hosts = dns.records(ROOT, 'example.test', io.StringIO(FLEET), '192.168.1.20 americano')
-        for host, ip in [('authelia', 11), ('opencloud', 11), ('radicale', 11), ('komodo', 12), ('homeassistant', 12),
+        for host, ip in [('authelia', 11), ('opencloud', 14), ('immich', 14), ('paperless', 14), ('karakeep', 11), ('esphome', 12), ('speedtest', 10), ('radicale', 11), ('komodo', 12), ('homeassistant', 12),
                          ('n8n', 14), ('llm', 14), ('pihole', 10), ('pihole-mochapot', 13)]:
             self.assertIn(f'address=/{host}.example.test/192.168.1.{ip}', lines)
             self.assertIn(f'local=/{host}.example.test/', lines)
@@ -623,9 +623,10 @@ class Firewall(unittest.TestCase):
             self.assertIn(f'allow proto tcp from 172.30.13.0/24 to any port {port}', out)
         self.assertNotIn('port 8123', out)  # Home Assistant is on cellar now
         self.assertNotIn('port 67', out)
-        out = self.dry_run('grinder', '', network_subnet='172.18.0.0/16')
-        self.assertIn('allow proto tcp from 172.18.0.0/16 to any port 6052', out)
-        # published ports are matched after DNAT, on the container's port
+        out = self.dry_run('cellar', '', network_subnet='172.18.0.0/16')
+        self.assertIn('allow proto tcp from 172.18.0.0/16 to any port 6052', out)  # ESPHome
+        out = self.dry_run('percolator', "FORWARD_AUTH_CLIENTS=192.168.1.10\nMAIL_RELAY_CLIENTS='192.168.1.13'\n")
+        # published ports are matched after DNAT, on the container's port (FitTrackee)
         self.assertIn('route allow proto tcp from 192.168.1.0/24 to any port 5000', out)
         self.assertNotIn('port 5001', out)
 
@@ -932,7 +933,10 @@ class Backup(unittest.TestCase):
     def test_excludes_are_scoped_to_their_app(self):
         out = self.plan('percolator').stdout
         self.assertIn('/srv/data/vaultwarden/**/db.sqlite3*', out)
+        self.assertNotIn('/srv/data/immich', out)
+        out = self.plan('grinder').stdout
         self.assertIn('/srv/data/immich/library/thumbs', out)
+        self.assertIn('immich/immich.pgdump', out)
         self.assertNotIn('/srv/data/immich/**/db.sqlite3', out)
 
     @unittest.skipUnless(AS_ROOT and shutil.which('restic') and shutil.which('sqlite3') and shutil.which('setpriv'),
@@ -1395,6 +1399,29 @@ class AppsNeedTheRelayBundle(unittest.TestCase):
                 bundle.parent.mkdir(parents=True)
                 bundle.write_text('certificates\n')
                 self.assertEqual(prepare().returncode, 0)
+
+    @unittest.skipUnless(Path('/etc/ssl/certs/ca-certificates.crt').is_file(), 'needs the host CA bundle')
+    def test_another_node_builds_the_bundle_from_a_copied_ca(self):
+        # Paperless on grinder: no relay there, only percolator's ca.crt copied over.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            fake = root / 'bin'
+            fake.mkdir()
+            (fake / 'sudo').write_text('#!/bin/sh\nexec "$@"\n')
+            (fake / 'sudo').chmod(0o755)
+            env = dict(os.environ, PATH=f'{fake}{os.pathsep}{os.environ["PATH"]}')
+            pub = root / 'data/mail-relay/tls-public'
+            pub.mkdir(parents=True)
+            (pub / 'ca.crt').write_text('-----RELAY CA-----\n')
+            run = lambda: subprocess.run(['bash', str(app('paperless') / 'prepare.sh'), str(root / 'data')],
+                                         env=env, capture_output=True, text=True)
+            self.assertEqual(run().returncode, 0)
+            bundle = (pub / 'bundle.crt').read_text()
+            self.assertTrue(bundle.startswith(Path('/etc/ssl/certs/ca-certificates.crt').read_text()))
+            self.assertTrue(bundle.endswith('-----RELAY CA-----\n'))
+            (pub / 'ca.crt').write_text('-----NEW CA-----\n')   # a replaced relay CA is picked up
+            self.assertEqual(run().returncode, 0)
+            self.assertTrue((pub / 'bundle.crt').read_text().endswith('-----NEW CA-----\n'))
 
 
 class UpgradeGates(unittest.TestCase):

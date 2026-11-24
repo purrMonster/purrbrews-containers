@@ -130,11 +130,11 @@ with a new one instead, the data stays unreadable.
 | `N8N_ENCRYPTION_KEY` | grinder/n8n | every stored credential in n8n is unreadable |
 | `AUTHELIA_STORAGE_ENCRYPTION_KEY` | percolator/authelia | every 2FA device has to be enrolled again |
 | `LLDAP_KEY_SEED`, `LLDAP_JWT_SECRET` | percolator/lldap | the seed makes LLDAP's server key: every user's password stops working |
-| `PAPERLESS_SECRET_KEY` | percolator/paperless | sessions and signed links |
+| `PAPERLESS_SECRET_KEY` | grinder/paperless | sessions and signed links |
 | `FRESHRSS_OIDC_CRYPTO_KEY` | percolator/freshrss | FreshRSS's OIDC sign-in |
-| `SPEEDTEST_TRACKER_APP_KEY` | grinder/speedtest-tracker | its encrypted settings |
+| `SPEEDTEST_TRACKER_APP_KEY` | sieve/speedtest-tracker | its encrypted settings |
 | `KOMODO_DATABASE_PASSWORD`, `KOMODO_JWT_SECRET` | cellar/komodo | Komodo's database and sessions |
-| `OPENCLOUD_JWT_SECRET`, `OPENCLOUD_TRANSFER_SECRET`, `OPENCLOUD_MACHINE_AUTH_API_KEY`, `OPENCLOUD_SYSTEM_USER_API_KEY`, `OPENCLOUD_URL_SIGNING_SECRET` | percolator/opencloud | restore with its generated config and data |
+| `OPENCLOUD_JWT_SECRET`, `OPENCLOUD_TRANSFER_SECRET`, `OPENCLOUD_MACHINE_AUTH_API_KEY`, `OPENCLOUD_SYSTEM_USER_API_KEY`, `OPENCLOUD_URL_SIGNING_SECRET` | grinder/opencloud | restore with its generated config and data |
 | `CAFE_APP_ENCRYPTION_KEY` | percolator/purrcafe | saved mailboxes can't be read |
 | `CAFE_ACTUAL_ENCRYPTION_PASSWORD` | percolator/purrcafe | the budget file's end-to-end encryption password, if it has one: lose it and the budget can't be opened |
 
@@ -150,14 +150,14 @@ was in the old list; OpenCloud 9.1 dropped it.)
 | Secret | Where |
 |---|---|
 | `LLDAP_ADMIN_PASSWORD` | percolator/lldap |
-| `PAPERLESS_ADMIN_PASSWORD` | percolator/paperless |
+| `PAPERLESS_ADMIN_PASSWORD` | grinder/paperless |
 | `RADICALE_LDAP_READER_PASSWORD` | percolator/radicale; reader bind only, not a human login |
 | `VAULTWARDEN_ADMIN_PASSWORD` | percolator/vaultwarden |
 | `KOMODO_INIT_ADMIN_PASSWORD` | cellar/komodo |
 | `PIHOLE_WEBPASSWORD` | mochaPot/pihole-secondary (the primary on sieve signs in through Authelia) |
 | `NTFY_ADMIN_PASSWORD` | sieve/ntfy |
-| `ESPHOME_DASHBOARD_PASSWORD` | grinder/esphome |
-| `SPEEDTEST_TRACKER_ADMIN_PASSWORD` | grinder/speedtest-tracker |
+| `ESPHOME_DASHBOARD_PASSWORD` | cellar/esphome |
+| `SPEEDTEST_TRACKER_ADMIN_PASSWORD` | sieve/speedtest-tracker |
 | `SMB_BARISTA_PASSWORD` | cellar/smb |
 
 **Tier 4: outside accounts.** Re-creatable, but slowly.

@@ -21,6 +21,11 @@ entryPoints:
     forwardedHeaders:
       trustedIPs:
         - "${SIEVE_LAN_IP}/32"
+    transport:
+      respondingTimeouts:
+        # v3 defaults readTimeout to 60s, which cuts off large uploads
+        # mid-transfer (Immich on grinder; same as traefik-ingress).
+        readTimeout: 0s
 
 certificatesResolvers:
   cloudflare:

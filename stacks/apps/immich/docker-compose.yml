@@ -1,7 +1,8 @@
-# Immich — photos and videos. Postgres (with VectorChord) and Valkey are
-# private to this project. Machine learning runs on roastery (IMMICH_ML_URL).
-# Image tags checked 2026-09-15. immich-machine-learning on roastery must run
-# the same version as immich-server.
+# Immich — photos and videos. Runs on grinder (moved from percolator, owner
+# 2026-11-23). Postgres (with VectorChord) and Valkey are private to this
+# project. Machine learning is ../../ai/immich-ml on the same node, reached by
+# container name on the proxy network; it must run the same version as
+# immich-server.
 services:
   immich-server:
     image: ghcr.io/immich-app/immich-server:v3.4.1@sha256:7c489add298fc2f92cda4c777de6462aa206877e04087b815f62c7664af0b53b
@@ -21,10 +22,11 @@ services:
       REDIS_HOSTNAME: immich-valkey
       IMMICH_TRUSTED_PROXIES: ${PROXY_SUBNET}
       # Default for new installs; can be overridden in Administration → Machine Learning.
-      IMMICH_MACHINE_LEARNING_URL: ${IMMICH_ML_URL}
+      IMMICH_MACHINE_LEARNING_URL: http://immich-machine-learning:3003
       # The relay's CA, added to Node's public roots (not replacing them), so
-      # mail to mail-relay verifies. The SMTP settings themselves are in the
-      # admin UI (README.md). A missing file only logs a warning.
+      # mail to percolator's mail-relay verifies. On grinder the file is a copy
+      # of percolator's tls-public/ca.crt (README.md). The SMTP settings
+      # themselves are in the admin UI. A missing file only logs a warning.
       NODE_EXTRA_CA_CERTS: /etc/purrbrews/ca.crt
     volumes:
       - ${DATA_DIR}/immich/library:/data
@@ -37,6 +39,9 @@ services:
       - traefik.enable=true
       - traefik.http.routers.immich.rule=Host(`immich.${DOMAIN}`)
       - traefik.http.routers.immich.entrypoints=websecure
+      # grinder's Traefik has no default resolver on websecure (percolator's
+      # traefik-ingress did); its own login, so no ForwardAuth in front.
+      - traefik.http.routers.immich.tls.certresolver=cloudflare
       - traefik.http.services.immich.loadbalancer.server.port=2283
 
   postgres:

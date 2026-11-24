@@ -20,6 +20,8 @@ services:
       OC_CONFIG_DIR: /etc/opencloud
       OC_BASE_DATA_PATH: /var/lib/opencloud
       OC_URL: https://opencloud.${DOMAIN}
+      # Reached through LAN DNS (Pi-hole → percolator's Traefik): grinder's proxy
+      # network has no authelia alias, as percolator's had.
       OC_OIDC_ISSUER: https://authelia.${DOMAIN}
       OC_EXCLUDE_RUN_SERVICES: idp
       OC_INSECURE: "false"
@@ -73,6 +75,9 @@ services:
       - traefik.enable=true
       - traefik.http.routers.opencloud.rule=Host(`opencloud.${DOMAIN}`)
       - traefik.http.routers.opencloud.entrypoints=websecure
+      # On grinder since 2026-11-23: its Traefik has no default resolver on
+      # websecure (percolator's traefik-ingress did).
+      - traefik.http.routers.opencloud.tls.certresolver=cloudflare
       - traefik.http.services.opencloud.loadbalancer.server.port=9200
 
 networks:

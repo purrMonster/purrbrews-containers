@@ -20,7 +20,8 @@ keeps working when sign-in is down.
 | [Komodo](../../stacks/fleet-management/komodo/) | `komodo.${DOMAIN}` (admins), or `:9120` | Container management for the whole fleet (Core, Mongo, cellar's own agent) |
 | [Scrutiny](../../stacks/fleet-management/scrutiny/) | `scrutiny.${DOMAIN}` (admins), or `:8080` | SMART disk health; the hub every node's collector reports to |
 | [Home Assistant](../../stacks/home/homeassistant/README.md) | `homeassistant.${DOMAIN}`, or `:8123` | Home automation and the voice assistants' brain; signs in with Authelia itself (OIDC), local account as the break-glass |
-| [Traefik](../../stacks/network/traefik/) | — | HTTPS for the three above, and persianPerch |
+| [ESPHome](../../stacks/home/esphome/) | `esphome.${DOMAIN}` (SSO), or `:6052` | The ESP32 sensors, beside Home Assistant (from grinder, 2026-11-23). Host-networked; user `barista`, `ESPHOME_DASHBOARD_PASSWORD`. The 2.4 GHz WPA2-only SSID must exist before the first sensor is flashed |
+| [Traefik](../../stacks/network/traefik/) | — | HTTPS for the four above, and persianPerch |
 | [persianPerch](../../stacks/fleet-management/persian-perch/) | `perch.${DOMAIN}` (admins) | The fleet's watcher: containers, backups, disks, endpoints, files dropped, the house. Read-only; alerts to ntfy |
 | [Samba](../../stacks/backup/smb/) | `\\cellar\household`, `\\cellar\archive` | File shares. Built, not in use yet (no firewall rule) |
 | [NFS](../../stacks/backup/nfs/README.md) | `cellar:/srv/media/archive` | Archive export, host-native. Nothing mounts it yet |
@@ -44,6 +45,7 @@ Then, in order (`node.conf`), checking each before the next:
 | 2 | `./compose.sh scrutiny up -d` | both disks listed at `http://192.168.1.12:8080` |
 | 3 | `./compose.sh traefik up -d` | certificates issued in `sudo docker logs traefik`; `https://komodo.${DOMAIN}` asks for an Authelia login |
 | 4 | `./compose.sh homeassistant up -d` | migration plan phase 7, once Authelia exists: onboarding at `http://192.168.1.12:8123`, then the [configuration.yaml steps](../../stacks/home/homeassistant/README.md#configurationyaml) (`trusted_proxies` is `172.30.12.0/24`) |
+| 4b | `./compose.sh esphome up -d` | the dashboard at `http://192.168.1.12:6052` asks for `barista`; Home Assistant's ESPHome integration finds the first sensor |
 | 5 | `./compose.sh smb up -d` | only when the shares are wanted; add the rule in `smb/firewall` first |
 | 6 | whisper, piper, voice-satellite | migration plan phase 9 ([docs/voice.md](../../docs/voice.md)) |
 | 7 | `./compose.sh persian-perch up -d` | its [README](../../stacks/fleet-management/persian-perch/README.md) checklist; read persianPerch's `integration/ROLLOUT.md` before the first run |
@@ -79,6 +81,7 @@ Then, in order (`node.conf`), checking each before the next:
 | `/srv/data/scrutiny` | SMART history | no |
 | `/srv/data/homeassistant` | config, automations, `secrets.yaml` | **yes** |
 | `/srv/data/postgres-homeassistant` | recorder history | as a dump, if at all |
+| `/srv/data/esphome` | device configs and secrets | **yes** |
 | `/srv/data/traefik/acme` | certificates | no, re-issued |
 | `/srv/dumps/<node>` | every node's database dumps (the dump store) | yes, as the `dumps` snapshot (`backup.sh store`) |
 | `/srv/media/{household,archive}` | the shares | yes, once they hold anything |
