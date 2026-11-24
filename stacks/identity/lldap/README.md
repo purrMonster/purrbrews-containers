@@ -52,6 +52,28 @@ Creates the account in both groups with a random password printed once. Set thei
 real email in the UI (Authelia sends password-reset and 2FA links there, through
 `../mail-relay`; LLDAP itself sends no mail, see that README), and take them out of `purrbrews_admins` unless they should be an admin.
 
+## Avatars
+
+Every new LLDAP user gets an avatar when it's created (owner, 2026-11-24).
+They live in [`avatars/`](avatars/): `<username>.svg`, the source, and
+`<username>.jpg`, the upload (LLDAP takes JPEG only).
+
+- **Bots and service accounts:** an original drawing of the account's cat
+  breed with one prop for its job (`scottishfold`, Radicale's read-only reader:
+  reading glasses and an open book).
+- **People:** ask whether they want one and what of; a photo of their own is
+  fine and isn't kept here.
+
+Same style for all of them: flat shapes, no outlines but the prop's, a 512 × 512
+SVG with a slate background (`#2f4858`, a `#3e6274` disc), head and shoulders
+facing forward. Render it with
+`rsvg-convert -w 512 -h 512 <name>.svg -o /tmp/<name>.png && convert /tmp/<name>.png -resize 256x256 -quality 90 -flatten <name>.jpg`
+and upload the JPEG on the user's page in the LLDAP UI.
+
+| User | Breed | Prop | Job |
+|---|---|---|---|
+| `scottishfold` | Scottish Fold | reading glasses, open book | Radicale's LDAP reader (`lldap_strict_readonly`) |
+
 ## Gotchas
 
 - **`LLDAP_LDAP_USER_PASS` only applies to a new database.** To change the admin

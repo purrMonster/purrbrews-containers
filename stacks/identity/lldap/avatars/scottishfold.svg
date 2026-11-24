@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- background -->
+  <rect width="512" height="512" fill="#2f4858"/>
+  <circle cx="256" cy="256" r="236" fill="#3e6274"/>
+
+  <!-- body / shoulders -->
+  <ellipse cx="256" cy="500" rx="190" ry="130" fill="#9aa6b2"/>
+  <ellipse cx="256" cy="470" rx="80" ry="60" fill="#e9ecef"/>
+
+  <!-- head: very round, owl-like -->
+  <circle cx="256" cy="262" r="150" fill="#a9b4bf"/>
+
+  <!-- folded ears: small caps folded forward and down -->
+  <path d="M150 168 Q160 118 212 124 Q196 150 196 172 Z" fill="#94a0ac"/>
+  <path d="M362 168 Q352 118 300 124 Q316 150 316 172 Z" fill="#94a0ac"/>
+  <path d="M164 160 Q174 134 202 136 Q192 152 192 166 Z" fill="#c9a3a8"/>
+  <path d="M348 160 Q338 134 310 136 Q320 152 320 166 Z" fill="#c9a3a8"/>
+
+  <!-- forehead tabby marks -->
+  <path d="M256 128 L256 168" stroke="#7f8b97" stroke-width="10" stroke-linecap="round"/>
+  <path d="M232 134 L238 166" stroke="#7f8b97" stroke-width="8" stroke-linecap="round"/>
+  <path d="M280 134 L274 166" stroke="#7f8b97" stroke-width="8" stroke-linecap="round"/>
+
+  <!-- cheeks / muzzle -->
+  <ellipse cx="220" cy="318" rx="50" ry="38" fill="#e9ecef"/>
+  <ellipse cx="292" cy="318" rx="50" ry="38" fill="#e9ecef"/>
+
+  <!-- eyes: big, round, copper -->
+  <circle cx="200" cy="246" r="38" fill="#f4f1e8"/>
+  <circle cx="312" cy="246" r="38" fill="#f4f1e8"/>
+  <circle cx="200" cy="248" r="30" fill="#d9822b"/>
+  <circle cx="312" cy="248" r="30" fill="#d9822b"/>
+  <ellipse cx="200" cy="250" rx="11" ry="20" fill="#1d1d1f"/>
+  <ellipse cx="312" cy="250" rx="11" ry="20" fill="#1d1d1f"/>
+  <circle cx="210" cy="236" r="7" fill="#ffffff"/>
+  <circle cx="322" cy="236" r="7" fill="#ffffff"/>
+
+  <!-- reading spectacles: a read-only reader -->
+  <circle cx="200" cy="248" r="48" fill="none" stroke="#c8a24a" stroke-width="7"/>
+  <circle cx="312" cy="248" r="48" fill="none" stroke="#c8a24a" stroke-width="7"/>
+  <path d="M244 244 Q256 232 268 244" fill="none" stroke="#c8a24a" stroke-width="7" stroke-linecap="round"/>
+  <path d="M152 244 L118 232" stroke="#c8a24a" stroke-width="6" stroke-linecap="round"/>
+  <path d="M360 244 L394 232" stroke="#c8a24a" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- nose and mouth -->
+  <path d="M244 300 L268 300 L256 314 Z" fill="#c98a93"/>
+  <path d="M256 314 Q256 330 240 334" fill="none" stroke="#6b5b5e" stroke-width="5" stroke-linecap="round"/>
+  <path d="M256 314 Q256 330 272 334" fill="none" stroke="#6b5b5e" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- whiskers -->
+  <g stroke="#f8f9fa" stroke-width="3" stroke-linecap="round" opacity="0.9">
+    <path d="M176 318 L104 306"/>
+    <path d="M176 328 L100 330"/>
+    <path d="M178 338 L108 352"/>
+    <path d="M336 318 L408 306"/>
+    <path d="M336 328 L412 330"/>
+    <path d="M334 338 L404 352"/>
+  </g>
+
+  <!-- a small open book held up: reads, never writes -->
+  <g transform="translate(256 440)">
+    <path d="M-70 -30 Q-35 -44 0 -30 L0 30 Q-35 16 -70 30 Z" fill="#f4f1e8" stroke="#2f4858" stroke-width="4"/>
+    <path d="M70 -30 Q35 -44 0 -30 L0 30 Q35 16 70 30 Z" fill="#f4f1e8" stroke="#2f4858" stroke-width="4"/>
+    <g stroke="#9aa6b2" stroke-width="3" stroke-linecap="round">
+      <path d="M-58 -16 L-12 -22"/><path d="M-58 -4 L-12 -10"/><path d="M-58 8 L-12 2"/>
+      <path d="M12 -22 L58 -16"/><path d="M12 -10 L58 -4"/><path d="M12 2 L58 8"/>
+    </g>
+  </g>
+</svg>

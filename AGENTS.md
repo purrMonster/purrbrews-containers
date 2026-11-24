@@ -74,6 +74,11 @@ The runbook before 2026-11-16 is `deprecated/runbook.md`.
 - Bots and service accounts get cat-breed names that suit their job (`sphynx`,
   `scottishfold`, `pixiebob`), never functional ones like `radicale-reader`. The
   owner picks: offer a few names, and put the job in comments and docs.
+- **Every new LLDAP user gets an avatar** when it's created: for a bot, an
+  original drawing of its breed with a prop for its job, in the shared style;
+  for a person, ask first. Make it, commit it to
+  `stacks/identity/lldap/avatars/`, and add it to the table there
+  (`stacks/identity/lldap/README.md`, "Avatars").
 
 ## Scope
 
