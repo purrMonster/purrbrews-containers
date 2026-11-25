@@ -112,7 +112,9 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 **Phases 6 to 8: the apps**
 
 - [x] percolator's household apps up together, empty (owner chose all at once over one a night: they hold nothing yet): radicale, vaultwarden, mealie, vikunja, meowgram, actualbudget, freshrss, purrcafe all `up`, no container restarting or unhealthy; 2.0 GiB used of 7.7, no swap in use, 9.3 GB of 225 GB on `/` (owner's output, 2026-11-25 08:09 IST)
-- [ ] Each household app's first visit: sign in through Authelia (or its own login where it has one), the checks in its README; failures noted here and left for the end (owner, 2026-11-24)
+- [x] Each household app's first visit (owner, 2026-11-25 10:11 IST): all eight up and loading
+- [ ] **Open:** Radicale doesn't go through Authelia and asks for a username and password (owner, 2026-11-25). Likely by design: its README says ForwardAuth would break DAV clients (phones), so it checks LLDAP itself with basic auth, through `scottishfold`. To confirm at the end: `barista` and its LLDAP password sign in, and `./compose.sh radicale logs` has no LDAP bind errors
+- [ ] **Open:** purrCafe shows nothing connected (owner, 2026-11-25). Its panels need their sources: a Home Assistant token (cellar, phase 7), Actual's Sync ID and token, a Gatus token, and each person's mailbox in its Settings (stacks/apps/purrcafe/README.md); then `./setup-secrets.sh` on percolator for the tokens
 - [ ] cellar: Home Assistant with `trusted_proxies` for cellar's subnet (`172.30.12.0/24`), signing in through Authelia and locally; Bluetooth checked (`bluetoothctl list`); ESPHome beside it, its first sensor found by Home Assistant
 - [ ] mochaPot: secondary Pi-hole, Music Assistant, the merged Traefik checked with host-networked apps, the kiosk showing Home Assistant on cellar
 - [ ] grinder: LiteLLM healthy and `llm.${DOMAIN}` refusing a request without credentials; Open WebUI answering; Immich up with its ML, port 3003 unreachable from other nodes; OpenCloud and Paperless signing in through Authelia; Paperless's test mail arrives (the bundle built from the copied `ca.crt`)
