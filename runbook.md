@@ -111,7 +111,8 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 
 **Phases 6 to 8: the apps**
 
-- [ ] percolator's household apps, one at a time, empty, each with a night's backup behind it
+- [x] percolator's household apps up together, empty (owner chose all at once over one a night: they hold nothing yet): radicale, vaultwarden, mealie, vikunja, meowgram, actualbudget, freshrss, purrcafe all `up`, no container restarting or unhealthy; 2.0 GiB used of 7.7, no swap in use, 9.3 GB of 225 GB on `/` (owner's output, 2026-11-25 08:09 IST)
+- [ ] Each household app's first visit: sign in through Authelia (or its own login where it has one), the checks in its README; failures noted here and left for the end (owner, 2026-11-24)
 - [ ] cellar: Home Assistant with `trusted_proxies` for cellar's subnet (`172.30.12.0/24`), signing in through Authelia and locally; Bluetooth checked (`bluetoothctl list`); ESPHome beside it, its first sensor found by Home Assistant
 - [ ] mochaPot: secondary Pi-hole, Music Assistant, the merged Traefik checked with host-networked apps, the kiosk showing Home Assistant on cellar
 - [ ] grinder: LiteLLM healthy and `llm.${DOMAIN}` refusing a request without credentials; Open WebUI answering; Immich up with its ML, port 3003 unreachable from other nodes; OpenCloud and Paperless signing in through Authelia; Paperless's test mail arrives (the bundle built from the copied `ca.crt`)
