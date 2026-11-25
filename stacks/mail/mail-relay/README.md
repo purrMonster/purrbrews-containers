@@ -59,9 +59,18 @@ why the list is short and the port is not published beyond it.
 **Another node's app.** Once per node (grinder today), after the relay has run
 on percolator:
 
+The nodes can't SSH to each other (only americano's key is on them), so the
+copy goes through americano. On americano:
+
+```bash
+scp barista@192.168.1.11:/srv/data/mail-relay/tls-public/ca.crt /tmp/relay-ca.crt
+scp /tmp/relay-ca.crt barista@192.168.1.14:/tmp/ca.crt
+```
+
+Then on that node:
+
 ```bash
 sudo install -d /srv/data/mail-relay/tls-public
-scp barista@192.168.1.11:/srv/data/mail-relay/tls-public/ca.crt /tmp/ca.crt
 sudo install -m 0644 /tmp/ca.crt /srv/data/mail-relay/tls-public/ca.crt
 ```
 

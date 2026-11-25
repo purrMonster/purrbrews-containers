@@ -17,8 +17,9 @@ On grinder, after `immich-ml`. Copy the mail relay's public CA from percolator
 first (it's public; the relay must have been `up` once there):
 
 ```bash
+# the relay's ca.crt, copied through americano (mail-relay/README.md,
+# "Another node's app": the nodes can't SSH to each other), then:
 sudo install -d /srv/data/mail-relay/tls-public
-scp barista@192.168.1.11:/srv/data/mail-relay/tls-public/ca.crt /tmp/ca.crt
 sudo install -m 0644 /tmp/ca.crt /srv/data/mail-relay/tls-public/ca.crt
 ./compose.sh immich up -d
 ./compose.sh immich logs -f immich-server
