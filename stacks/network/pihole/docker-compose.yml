@@ -60,6 +60,10 @@ services:
       # IPv4-only web listener. This does not disable DNS listeners, router
       # advertisements, or the DNS servers learned by clients over IPv6.
       FTLCONF_webserver_port: 8080o
+      # The name Traefik forwards. Pi-hole v6 answers a request for any other
+      # host with its 403 "Access denied" page, as it would a blocked domain
+      # (sieve, 2026-11-26: pihole.${DOMAIN}/admin/ gave exactly that).
+      FTLCONF_webserver_domain: pihole.${DOMAIN:?}
       FTLCONF_webserver_api_password: ""
     volumes:
       - ${DATA_DIR:?}/pihole/etc-pihole:/etc/pihole
