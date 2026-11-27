@@ -1,0 +1,78 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "Device is already configured",
+      "cannot_connect": "Failed to connect",
+      "no_devices_found": "No devices found on the network",
+      "unique_id_mismatch": "Please ensure you reconfigure against the same device."
+    },
+    "error": {
+      "bulb_time_out": "Cannot connect to the bulb. Maybe the bulb is offline or a wrong IP was entered. Please turn on the light and try again!",
+      "cannot_connect": "Failed to connect",
+      "invalid_signing_key": "The signing key must be 32 hexadecimal characters.",
+      "no_ip": "Not a valid IP address.",
+      "no_wiz_light": "The bulb cannot be connected via WiZ integration.",
+      "unknown": "Unexpected error"
+    },
+    "flow_title": "{name} ({host})",
+    "step": {
+      "discovery_confirm": {
+        "description": "Do you want to set up {name} ({host})?"
+      },
+      "pick_device": {
+        "data": {
+          "device": "Device"
+        }
+      },
+      "reconfigure": {
+        "data": {
+          "host": "IP address",
+          "signing_key": "Signing key"
+        },
+        "data_description": {
+          "signing_key": "Leave blank to keep the current key."
+        }
+      },
+      "user": {
+        "data": {
+          "host": "IP address",
+          "signing_key": "Signing key"
+        },
+        "data_description": {
+          "signing_key": "The udp_signing_key from the WiZ app's local integration export. Required to control lights whose firmware only accepts signed commands."
+        },
+        "description": "If you leave the IP address empty, discovery will be used to find devices."
+      }
+    }
+  },
+  "entity": {
+    "number": {
+      "dual_head_ratio": {
+        "name": "Dual head ratio"
+      },
+      "effect_speed": {
+        "name": "Effect speed"
+      }
+    }
+  },
+  "exceptions": {
+    "cannot_connect": {
+      "message": "Failed to connect to the WiZ device at {ip_address}"
+    },
+    "communication_error": {
+      "message": "Error while communicating with the WiZ device"
+    },
+    "not_supported": {
+      "message": "The WiZ device does not support this command"
+    },
+    "timeout": {
+      "message": "Timed out waiting for the WiZ device to respond"
+    },
+    "unexpected_device": {
+      "message": "Found WiZ device {mac} at {ip_address}, expected {expected_mac}"
+    },
+    "update_failed": {
+      "message": "Failed to update the WiZ device at {ip_address}"
+    }
+  }
+}
