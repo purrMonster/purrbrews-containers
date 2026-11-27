@@ -61,8 +61,8 @@ restart_and_check() {
 
   # The compose healthcheck has a 5-minute start period; a big setup is slow.
   log "Waiting for it to come back (up to 6 minutes)"
-  local status='' i
-  for i in $(seq 1 72); do
+  local status=''
+  for _ in {1..72}; do
     status="$("${DOCKER[@]}" inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$CONTAINER" 2>/dev/null || true)"
     [[ "$status" == healthy ]] && break
     sleep 5
