@@ -143,6 +143,40 @@ Order follows [docs/migration-plan.md](docs/migration-plan.md).
 - [ ] W6: node READMEs rewritten; roastery wording swept from app READMEs and comments
 - [ ] Carried from the old Backlog, still open: `barista` in the `docker` group; Samba, shares or gone; a bot identity for agents' commits; the merged branches on GitHub (owner)
 
+## 2026-11-27 — WiZ bulbs need signed commands; a stopgap integration in the repo. Ecovacs login blocked upstream
+
+**WiZ.** Every on/off from Home Assistant failed with `Error while communicating
+with the WiZ device`. Checked from cellar (the homeassistant node) on 2026-11-27: the bulb at
+`192.168.1.101` (WiZ RGBW Tunable E8F48C) answers ping and an
+unsigned `getPilot` on UDP 38899 at RSSI -41, and its reply carries `"env":"pro"`
+and an `hmac`: newer firmware that rejects unsigned `setPilot` with `-32602`.
+Not the network, not DHCP. Home Assistant 2026.11.x can't sign (pywizlight 0.6.3);
+home-assistant/core#194638 adds a signing-key field (open, unreviewed).
+
+Added `stacks/home/homeassistant/wiz-signing/`: that PR's WiZ integration
+(commit `34c32b7`, pywizlight 0.6.7) as a custom integration, and `install.sh`
+to install it on the node that runs homeassistant (copies to
+`$DATA_DIR/homeassistant/custom_components/wiz`, restarts HA) or `--remove` it.
+Its README has the why, the key and the way back. Checked here: the PR's imports
+exist in 2026.11.2, pywizlight 0.6.7 is on PyPI and takes `signing_key`,
+`bash -n` clean, `pytest tests` 84 passed (test_groom_record.py skipped: needs
+Python 3.11, the Mac VM has 3.10). Not run on a node.
+
+- [ ] Run `install.sh` on the homeassistant node, reconfigure each WiZ entry with the `udp_signing_key` (owner: the key is in the WiZ app), toggle a light
+- [ ] `install.sh --remove` before or with the HA upgrade that includes #194638
+
+**Ecovacs** (DEEBOT N50 Pro Omni): setup fails. Login returns 1013 (device
+verification) and the follow-up `user/sendEmailVerifyCode` returns `0003
+Parameter error`; reproduced from Claude's sandbox with a throwaway address, so
+Ecovacs changed the request, not the account. Upstream:
+home-assistant/core#194725. Owner's call: wait. A daily scheduled check (Claude,
+18:43 IST) reports when it's fixed.
+
+- [ ] Re-add Ecovacs once a release fixes #194725 (owner)
+
+**Branch**: `claude/wiz-signing`, off `main` (not pushed). Independent of
+`claude/immich-to-grinder`.
+
 ## 2026-11-24 — Karakeep, FitTrackee and Traccar to mochaPot, set aside for now
 
 **What.** The owner was worried about percolator's memory (one 8 GB stick so

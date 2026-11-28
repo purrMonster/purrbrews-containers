@@ -77,6 +77,13 @@ without a session.
 - *Log in with Authelia* appears on the login page and works
 - Settings → System → Logs has no `untrusted proxy` errors
 
+## WiZ bulbs that ignore commands
+
+Newer WiZ firmware only accepts signed commands, which 2026.11.x can't send.
+[`wiz-signing/`](wiz-signing/README.md) is a stopgap: the fix from
+home-assistant/core#194638 as a custom integration, with an install script.
+Remove it once a release includes the fix.
+
 ## Gotcha
 
 Docker copies the host's `/etc/resolv.conf` into a container once, when it's
